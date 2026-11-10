@@ -90,24 +90,24 @@ Los nombres de fichero de las áreas, `src/ui/theme.css`, `src/story/tips.js` y 
 - `index.js` (Nv) — `createUI(game)`: inyecta las hojas `theme/menu/hud/creator.css`, registra pantallas y escenas, envoltorio de reglas, diálogo, HUD, retratos, carga.
 - `dom.js` (ha) — `elem` (crea nodos con `"div.clase#id"`), `makeButton`, `iconHtml`/`loadIcons` (`icons.json`), `escapeHtml`, `richText`, `sleep`, `reducedMotion`.
 - `modal.js` (Pn) — `screenFrame` (cabecera y marco de pantalla), foco atrapado. `tooltip.js` (ci), `dice.js` (eu, dados SVG), `labels.js` (os, textos de características/habilidades/rarezas).
-- `rules-mock.js` (Ww) — envoltorio de reglas de la interfaz: llama al núcleo y, si contesta «op desconocida/sin combate», usa el **simulador** `Gw` de `catalog.js` (Vw), que trabaja con `datos/reglas/*.json`.
-- `dialog.js` (Yw, conversaciones con tonos), `hud.js` (o2, HUD de exploración), `portraits.js` (RT), `items.js` (tm).
-- `creator.js` (sm, `fc`: el creador y la subida de nivel por pasos), `creator-look.js` (ZT, colores y aspecto), `travel-map.js` (Lv, pergamino SVG del mapa de viaje).
+- `rules-mock.js` (Ww, `createRulesBridge`) — envoltorio de reglas de la interfaz: llama al núcleo y, si contesta «op desconocida/sin combate», usa el **simulador** `createSimulator` de `catalog.js` (Vw), que trabaja con `datos/reglas/*.json`.
+- `dialog.js` (Yw, `createDialog`: conversaciones con tonos), `hud.js` (o2, `createHud`: HUD de exploración), `portraits.js` (RT), `items.js` (tm).
+- `creator.js` (sm, `buildCreator`: el creador y la subida de nivel por pasos), `creator-look.js` (ZT, colores y aspecto), `travel-map.js` (Lv, pergamino SVG del mapa de viaje).
 - `screens/*.js` — una por pantalla (lista arriba).
 
 **`scenes/`** — ver tabla de escenas.
 
 **`story/`** (historia)
 - `index.js` (Jv) — `createStory(game)`.
-- `runner.js` (mE, clase `mm`) — motor de flujos de historia: diálogos, nodos, acciones, pruebas, combates, avisos.
-- `story.js` (bE, `gm extends mm`) — la historia del capítulo: disparadores, después de combate, misiones, compañeros, charlas.
-- `conditions.js` (aE, expresiones `a & !b | c>=2`), `actions.js` (pE), `text.js` (cE, plantillas con pronombres y etiquetas), `narrator.js` (vE, narrador con IA mediante la capacidad `sample`, con textos de respaldo), `tips.js` (hS, consejos), `codex.js` (gS, libro de saber), `data.js` (cS, reúne los JSON de historia).
+- `runner.js` (mE, clase `StoryRunner`) — motor de flujos de historia: diálogos, nodos, acciones, pruebas, combates, avisos.
+- `story.js` (bE, `Story extends StoryRunner`) — la historia del capítulo: disparadores, después de combate, misiones, compañeros, charlas.
+- `conditions.js` (aE, expresiones `a & !b | c>=2`), `actions.js` (pE), `text.js` (cE, plantillas con pronombres y etiquetas), `narrator.js` (vE, `Narrator`: narrador con IA mediante la capacidad `sample`, con textos de respaldo), `tips.js` (hS, `Tips`: consejos), `codex.js` (gS, `Codex`: libro de saber), `data.js` (cS, reúne los JSON de historia).
 
 **`explore/`** (exploración)
 - `index.js` (F1) — clase `Explore` y `createExplore`: carga de nivel, grupo, PNJ, enemigos, objetos, cámara, toques, salidas, HUD, guardado de posición. API útil: `scene.explore.moveTo([x,y])`.
-- `hex.js` (Kn) — rejilla hexagonal odd-r (K = 1,5 m): conversiones celda↔mundo, vecinos, distancias. Lo usan también combate y efectos.
-- `terrain.js` (_S, tabla de caracteres de `rows`), `levels.js` (LS, `import()` de `datos/niveles/*.json`), `areas.js` (hk, carga perezosa de las áreas), `campaign.js` (SS, campaña por defecto y `?grupo`/`?banderas`), `checks.js` (Mu, dados y pruebas).
-- `detection.js` (h0, sigilo, percepción, emboscadas), `battle.js` (p0, paso a combate y vuelta), `interact.js` (ty, objetos, PNJ, cerraduras), `actors.js` (xk), `input.js` (_k), `marks.js` (Mk), `floaters.js` (wk), `hud.js` (X1), `animals.js` (Qk), `fallback-world.js` (gk, mundo de depuración si falla el de `world/`).
+- `hex.js` (Kn) — rejilla hexagonal odd-r (K = 1,5 m): `cellToWorld`, `cellToPlane`, `planeToCell`, `worldToPlane`, `neighbors`, `hexDistance`, `cellKey`, `hexShape`, `HEX_SIZE`. Lo usan también combate y efectos.
+- `terrain.js` (_S, tabla de caracteres de `rows`), `levels.js` (LS, `loadLevel`: `import()` de `datos/niveles/*.json`), `areas.js` (hk, `loadArea`: carga perezosa de las áreas), `campaign.js` (SS, `ensureCampaign`, `DEFAULT_HERO`, `?grupo`/`?banderas`), `checks.js` (Mu, `rollDice` y pruebas).
+- `detection.js` (h0, sigilo, percepción, emboscadas), `battle.js` (p0, paso a combate y vuelta), `interact.js` (ty, objetos, PNJ, cerraduras), `actors.js` (xk), `input.js` (_k, `ExploreInput`), `marks.js` (Mk), `floaters.js` (wk), `hud.js` (X1), `animals.js` (Qk), `fallback-world.js` (gk, mundo de depuración si falla el de `world/`).
 
 **`combat/`** (área Combate y efectos)
 - `index.js` (b3) — `runBattle`, `Controller`, `Hud`, `boardBounds`.
@@ -137,7 +137,7 @@ const call = (op, args = {}) => {
 };
 ```
 - `game.rules(op, args)` es esa función; `game.api = createApi(game.rules)` añade métodos (`api.sheetNew(...)`) y avisa por consola si la respuesta trae `error`.
-- La interfaz usa su propio envoltorio (`ui/rules-mock.js`): si el núcleo responde `op desconocida`, `unknown op` o `sin combate`, cae al simulador JS de `ui/catalog.js` y lo anota en consola. El combate tiene su sustituto si falta `battle_start` (`explore/battle.js`).
+- La interfaz usa su propio envoltorio (`ui/rules-mock.js`): si el núcleo responde `op desconocida`, `unknown op` o `sin combate`, cae al simulador JS de `ui/catalog.js` (`createSimulator`) y lo anota en consola. El combate tiene su sustituto si falta `battle_start` (`explore/battle.js`).
 - Funciona igual en Node: `node web/tools/ejemplos-reglas.mjs [ruta/a/rules/]` llama al núcleo con una secuencia realista y guarda petición y respuesta en `tools/salida/ejemplos-reglas.json` (útil para comprobar el núcleo reconstruido del área motor).
 
 **Operaciones** (ejemplos reales contra `publicado/rules/`; `<hoja>`/`<campaña>` abrevian objetos completos; respuestas recortadas):
@@ -246,7 +246,8 @@ Otras: `verificar.cjs` (recorrido con Playwright), `ejemplos-reglas.mjs` (contra
 ### Decisiones
 
 - **Fidelidad antes que belleza.** Se conserva el código tal cual salió del minificador (`!0`, comas, ternarios) y solo se formatea con prettier. Recompilado, el bundle tiene la misma estructura que el publicado: **170 `__esm`, 5 `__commonJS`, 2 `__glob` y 32 espacios de nombres**, igual número y los 167 módulos con nombre en el mismo orden que el publicado.
-- **Imports en el orden de las llamadas init** de cada cierre (determinan el orden de inicialización). Si un módulo reexporta (tenía espacio de nombres), sus exports son exactamente los del original, con reexportaciones desde el módulo que declara; los demás exportan lo que otros usan.
+- **Comparación estática** (`node tools/comparar-bundles.mjs ../publicado/juego.js dist/juego.js --detalle`): de 176 módulos, 165 son idénticos en forma (firmas que ignoran nombres de variables). Los 11 restantes difieren solo en (a) simplificaciones equivalentes del esbuild actual (0.28; p. ej. `if(!c)return;x()` ↔ `c&&x()`, `!!x` en contexto booleano, una comparación sin efecto en una coma), (b) el orden de claves de `clases.json` (las claves enteras van primero: en JS el orden de enumeración es el mismo), (c) las rutas de los niveles (`../../data/levels/` → `../datos/niveles/`) y (d) el orden interno de los addons de three y de los ayudantes.
+- **Imports en el orden de las llamadas init** de cada cierre (determinan el orden de inicialización). Three y sus addons se importan en el orden en que los inicializaba el publicado. Si un módulo reexporta (tenía espacio de nombres), sus exports son exactamente los del original, con reexportaciones desde el módulo que declara; los demás exportan lo que otros usan.
 - **`const`/`let`**: las asignaciones del cierre a variables propias se vuelven `const` (si no se reasignan nunca) o `let`; las que se asignaban dentro de bloques se declaran con `let` arriba. En los módulos sin envolver de la raíz (`main.js`, `store.js`…) se deja `var`, como estaba, para no introducir zonas muertas temporales.
 - **Nombres de fichero en inglés**, como los originales conocidos (`index.js`, `tips.js`, `theme.css`); pantallas con su clave de registro en español; datos en `src/datos/` con nombres en español (en el original estaban en `data/`, fuera de `src/`).
 - **`index.html`** es copia exacta del publicado (incluye el esqueleto de documento que añadía la publicación), para que el `dist/` se comporte igual en local.
