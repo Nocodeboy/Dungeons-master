@@ -1,4 +1,4 @@
-// Compara el núcleo reconstruido con las salidas de referencia de paridad/oro/*.jsonl.
+// Compara el núcleo reconstruido con las salidas de referencia de paridad/oro/*.jsonl.gz.
 //
 // Uso: node motor/paridad/comparar.mjs [opciones] [filtro]
 //   --motor <dir>   carpeta con rules.mjs + rules.wasm (por defecto motor/dist)
@@ -12,6 +12,7 @@
 //   equivalente  el mismo JSON salvo el orden de las claves de los objetos
 //   distinta     cualquier otra diferencia
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +35,7 @@ const salidaJson = opt('--json', null);
 const filtro = args[0] ?? '';
 
 const ORO = path.join(aqui, 'oro');
-const archivos = fs.readdirSync(ORO).filter((f) => f.endsWith('.jsonl') && f.includes(filtro)).sort();
+const archivos = fs.readdirSync(ORO).filter((f) => /\.jsonl(\.gz)?$/.test(f) && f.includes(filtro)).sort();
 
 /** JSON con las claves ordenadas (para comparar sin orden de claves). */
 function canon(v) {
@@ -104,7 +105,9 @@ const porOp = {};
 const detalles = {};
 let totales = { n: 0, identica: 0, equivalente: 0, distinta: 0 };
 for (const archivo of archivos) {
-  const casos = fs.readFileSync(path.join(ORO, archivo), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+  const crudoOro = fs.readFileSync(path.join(ORO, archivo));
+  const texto = archivo.endsWith('.gz') ? zlib.gunzipSync(crudoOro).toString('utf8') : crudoOro.toString('utf8');
+  const casos = texto.split('\n').filter(Boolean).map((l) => JSON.parse(l));
   const respuestas = await reproducir(casos.map((c) => c.req));
   casos.forEach((caso, i) => {
     let op;

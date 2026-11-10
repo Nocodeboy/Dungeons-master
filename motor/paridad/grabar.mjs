@@ -1,11 +1,13 @@
 // Graba las salidas de referencia: ejecuta cada escenario de paridad/escenarios contra el wasm
-// publicado (el oráculo) y guarda cada petición con su respuesta en paridad/oro/<escenario>.jsonl.
+// publicado (el oráculo) y guarda cada petición con su respuesta en paridad/oro/<escenario>.jsonl.gz
+// (una línea JSON {req, res} por llamada, comprimido con gzip).
 //
 // Uso: node motor/paridad/grabar.mjs [filtro]      (filtro = parte del nombre del escenario)
 //
 // Los escenarios deciden la siguiente llamada con las respuestas del oráculo; al comparar se
 // reproducen exactamente las mismas peticiones (texto JSON idéntico) contra el núcleo nuevo.
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cargarModulo } from './modulo.mjs';
@@ -37,7 +39,8 @@ for (const archivo of archivos) {
     } catch (e) {
       console.error(`${id}: el escenario ha fallado: ${e?.stack ?? e}`);
     }
-    fs.writeFileSync(path.join(ORO, `${id}.jsonl`), lineas.join('\n') + '\n');
+    fs.rmSync(path.join(ORO, `${id}.jsonl`), { force: true });
+    fs.writeFileSync(path.join(ORO, `${id}.jsonl.gz`), zlib.gzipSync(lineas.join('\n') + '\n', { level: 9 }));
     total += lineas.length;
     console.log(`${id}: ${lineas.length} llamadas`);
   }
