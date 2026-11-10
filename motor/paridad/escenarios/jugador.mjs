@@ -173,10 +173,15 @@ function turnoJugador(call, rnd, opciones = {}) {
 }
 
 /** Combate completo: PJ con el jugador automático (o la IA a ratos) y enemigos con la IA. */
-export function combate(call, init, semilla, { maxTurnos = 160, auto = 0.15 } = {}) {
+export function combate(call, init, semilla, opts = {}) {
+  return combateCon(call, () => call('init', init), semilla, opts);
+}
+
+/** Igual que combate() pero arrancando con la función `iniciar` (init o battle_start). */
+export function combateCon(call, iniciar, semilla, { maxTurnos = 160, auto = 0.15 } = {}) {
   const rnd = generador(semilla);
-  const r = call('init', init);
-  if (!r.state) return;
+  const r = iniciar();
+  if (!r || !r.state) return r;
   for (let t = 0; t < maxTurnos; t++) {
     const st = call('state');
     if (st.over) break;
@@ -187,6 +192,7 @@ export function combate(call, init, semilla, { maxTurnos = 160, auto = 0.15 } = 
     if (fin.events?.some((e) => e.t === 'end')) break;
   }
   call('state');
+  return r;
 }
 
 export const escenarios = {};
