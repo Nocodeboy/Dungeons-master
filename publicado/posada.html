@@ -1,0 +1,424 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body>
+<title>Posada del Toro Dormido</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,600;1,400&family=Alegreya+SC:wght@500;700&family=Cinzel:wght@600;700&display=swap">
+<style>
+  /* Diorama a pantalla completa con la interfaz encima, como un tablero de nogal con herrajes de latón. */
+  :root {
+    --tinta: #0e0a08;
+    --nogal: rgba(30, 21, 15, 0.86);
+    --nogal-claro: rgba(52, 37, 26, 0.92);
+    --laton: #c9a55c;
+    --laton-tenue: #7d6334;
+    --pergamino: #ecdfc4;
+    --apagado: #b09d7f;
+    --ascua: #e2803e;
+    --grupo: #79c27f;
+    --sangre: #9e2f25;
+    --display: 'Cinzel', 'Trajan Pro', Georgia, serif;
+    --texto: 'Alegreya', Georgia, 'Times New Roman', serif;
+    --versalitas: 'Alegreya SC', 'Alegreya', Georgia, serif;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body {
+    background: var(--tinta);
+    color: var(--pergamino);
+    font-family: var(--texto);
+    font-size: 16px;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  #escena { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #rotulos { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .hud { position: fixed; z-index: 3; }
+  .placa {
+    background: linear-gradient(180deg, var(--nogal-claro), var(--nogal));
+    border: 1px solid var(--laton-tenue);
+    box-shadow: inset 0 0 0 3px rgba(0,0,0,0.35), inset 0 0 0 4px rgba(201,165,92,0.28), 0 8px 24px rgba(0,0,0,0.55);
+    border-radius: 3px;
+  }
+
+  /* cabecera */
+  #marca {
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    left: max(16px, env(safe-area-inset-left, 0px));
+    padding: 8px 16px 9px;
+    display: grid;
+    gap: 2px;
+  }
+  #marca h1 { margin: 0; font: 700 15px/1 var(--display); letter-spacing: 0.22em; color: var(--laton); }
+  #marca p { margin: 0; font: 500 14px/1.2 var(--versalitas); letter-spacing: 0.06em; color: var(--pergamino); }
+  #hora {
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font: 500 14px/1 var(--versalitas);
+    letter-spacing: 0.05em;
+  }
+  #hora svg { width: 18px; height: 18px; color: #b9c8ff; }
+  #hora small { color: var(--apagado); font-family: var(--texto); font-style: italic; letter-spacing: 0; }
+  #arriba-dcha {
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    right: max(16px, env(safe-area-inset-right, 0px));
+    display: grid;
+    gap: 10px;
+    justify-items: end;
+  }
+  #mision { padding: 10px 14px 11px; max-width: 250px; }
+  #ir-combate { display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: center; max-width: 250px; padding: 9px 12px; color: var(--pergamino); text-decoration: none; border-color: var(--ascua); }
+  #ir-combate svg { width: 28px; height: 28px; color: var(--ascua); }
+  #ir-combate b { display: block; font: 700 13px/1.2 var(--display); letter-spacing: 0.08em; color: var(--laton); }
+  #ir-combate i { display: block; font-size: 13px; line-height: 1.3; color: var(--apagado); }
+  #ir-combate:hover { background: linear-gradient(180deg, rgba(72,48,30,0.95), var(--nogal)); }
+  #mision h2 { margin: 0 0 4px; font: 700 11px/1 var(--display); letter-spacing: 0.2em; color: var(--laton); }
+  #mision b { display: block; font: 600 16px/1.2 var(--texto); }
+  #mision p { margin: 4px 0 0; font-size: 14px; line-height: 1.35; color: var(--apagado); }
+  .boton-icono {
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    color: var(--laton);
+    cursor: pointer;
+  }
+  .boton-icono svg { width: 20px; height: 20px; }
+
+  /* grupo */
+  #grupo {
+    top: calc(84px + env(safe-area-inset-top, 0px));
+    left: max(16px, env(safe-area-inset-left, 0px));
+    display: grid;
+    gap: 10px;
+  }
+  .pj {
+    all: unset;
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 10px;
+    align-items: center;
+    width: 220px;
+    padding: 6px 10px 6px 6px;
+    cursor: pointer;
+    background: linear-gradient(90deg, rgba(20,14,10,0.88), rgba(20,14,10,0.55));
+    border: 1px solid rgba(201,165,92,0.25);
+    border-radius: 3px;
+    transition: border-color .2s, background .2s;
+  }
+  .pj:focus-visible { outline: 2px solid var(--laton); outline-offset: 2px; }
+  .pj.activo { border-color: var(--laton); background: linear-gradient(90deg, rgba(48,34,22,0.95), rgba(30,21,15,0.7)); }
+  .marco {
+    position: relative;
+    width: 64px; height: 76px;
+    border: 2px solid var(--laton-tenue);
+    border-radius: 3px;
+    background: radial-gradient(circle at 50% 30%, #3a2a1e, #120c09);
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.6);
+  }
+  .pj.activo .marco { border-color: var(--laton); box-shadow: 0 0 0 1px rgba(121,194,127,0.6), inset 0 0 0 1px rgba(0,0,0,0.6); }
+  .marco img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ca {
+    position: absolute; right: 2px; bottom: 2px;
+    min-width: 20px; padding: 1px 3px;
+    font: 700 11px/1.2 var(--display);
+    text-align: center;
+    color: var(--tinta);
+    background: var(--laton);
+    border-radius: 2px;
+  }
+  .datos { display: grid; gap: 3px; min-width: 0; }
+  .nombre { font: 700 15px/1 var(--display); letter-spacing: 0.05em; }
+  .rol { font: 500 13px/1.1 var(--versalitas); color: var(--apagado); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vida { position: relative; height: 14px; margin-top: 3px; background: #1b0f0b; border: 1px solid #4a2a20; border-radius: 2px; overflow: hidden; }
+  .relleno { position: absolute; inset: 0 auto 0 0; background: linear-gradient(180deg, #c5463a, var(--sangre)); }
+  .cifra { position: relative; display: block; text-align: center; font: 600 11px/14px var(--texto); font-variant-numeric: tabular-nums; text-shadow: 0 1px 1px #000; }
+
+  /* narrador */
+  #narrador {
+    left: max(16px, env(safe-area-inset-left, 0px));
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    width: min(390px, calc(100vw - 32px));
+    padding: 12px 14px 12px;
+    display: grid;
+    gap: 8px;
+  }
+  #narrador header { display: flex; align-items: center; gap: 8px; }
+  #narrador h2 { margin: 0; font: 700 12px/1 var(--display); letter-spacing: 0.2em; color: var(--laton); flex: 1; }
+  #paso { font: 500 12px/1 var(--versalitas); color: var(--apagado); font-variant-numeric: tabular-nums; }
+  #n-plegar { all: unset; cursor: pointer; color: var(--laton); font: 700 16px/1 var(--display); padding: 0 4px; }
+  #n-plegar:focus-visible, .accion:focus-visible, .boton:focus-visible, .boton-icono:focus-visible { outline: 2px solid var(--laton); outline-offset: 2px; }
+  #narracion { margin: 0; font-size: 17px; line-height: 1.45; text-wrap: pretty; max-width: 62ch; }
+  #registro { max-height: 76px; overflow-y: auto; font-size: 14px; line-height: 1.35; color: var(--apagado); border-top: 1px solid rgba(201,165,92,0.2); padding-top: 6px; }
+  #registro:empty { display: none; }
+  #registro p { margin: 0 0 4px; }
+  #registro b { color: var(--pergamino); font-weight: 600; }
+  .fila { display: flex; gap: 8px; justify-content: flex-end; }
+  .boton {
+    all: unset;
+    cursor: pointer;
+    padding: 7px 12px 6px;
+    font: 600 12px/1 var(--display);
+    letter-spacing: 0.12em;
+    color: var(--pergamino);
+    border: 1px solid var(--laton-tenue);
+    border-radius: 2px;
+    background: rgba(0,0,0,0.25);
+  }
+  .boton.principal { color: var(--tinta); background: linear-gradient(180deg, #ddb96a, #a9843f); border-color: #e6c57a; }
+  #narrador.plegado #narracion, #narrador.plegado #registro, #narrador.plegado .fila { display: none; }
+
+  /* acciones */
+  #acciones {
+    left: 50%;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    padding: 6px;
+    max-width: calc(100vw - 32px);
+    overflow-x: auto;
+  }
+  .accion {
+    all: unset;
+    cursor: pointer;
+    width: 62px;
+    padding: 7px 0 6px;
+    display: grid;
+    justify-items: center;
+    gap: 5px;
+    color: var(--pergamino);
+    border-radius: 2px;
+    border: 1px solid transparent;
+    flex: none;
+  }
+  .accion svg { width: 26px; height: 26px; color: var(--laton); }
+  .accion span { font: 500 12px/1 var(--versalitas); letter-spacing: 0.03em; }
+  .accion:hover { background: rgba(201,165,92,0.1); }
+  .accion[aria-pressed="true"] { border-color: var(--laton); background: rgba(121,194,127,0.12); }
+  .accion[aria-pressed="true"] svg { color: var(--grupo); }
+  #ayuda {
+    left: 50%;
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    font: italic 15px/1.2 var(--texto);
+    color: var(--pergamino);
+    text-shadow: 0 1px 3px #000, 0 0 12px #000;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+
+  /* rótulos y bocadillos sobre la escena */
+  .rotulo {
+    position: absolute; left: 0; top: 0;
+    padding: 2px 8px 3px;
+    font: 600 12px/1.1 var(--texto);
+    text-align: center;
+    white-space: nowrap;
+    background: rgba(14,10,8,0.72);
+    border: 1px solid rgba(201,165,92,0.35);
+    border-radius: 2px;
+    will-change: transform;
+  }
+  .rotulo b { font-weight: 600; letter-spacing: 0.02em; }
+  .rotulo i { display: block; font: 500 11px/1.1 var(--versalitas); color: var(--apagado); font-style: normal; }
+  .rotulo.de-grupo { border-color: rgba(121,194,127,0.55); opacity: 0; transition: opacity .2s; }
+  .rotulo.de-grupo.activo { opacity: 1; }
+  .rotulo.con-mision::before {
+    content: "!";
+    position: absolute; top: -16px; left: 50%; transform: translateX(-50%);
+    width: 14px; height: 14px; display: grid; place-items: center;
+    font: 700 11px/1 var(--display); color: var(--tinta);
+    background: var(--laton); border-radius: 50%;
+  }
+  .bocadillo {
+    position: absolute; left: 0; top: 0;
+    max-width: 280px;
+    padding: 9px 12px;
+    font: italic 15px/1.35 var(--texto);
+    color: #2a1d12;
+    background: var(--pergamino);
+    border: 1px solid #a88a52;
+    border-radius: 3px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    opacity: 0;
+    transition: opacity .3s;
+    white-space: normal;
+  }
+  .bocadillo.visible { opacity: 1; }
+
+  #aviso {
+    left: 50%;
+    top: calc(70px + env(safe-area-inset-top, 0px));
+    transform: translateX(-50%) translateY(-6px);
+    max-width: min(520px, calc(100vw - 32px));
+    padding: 10px 16px;
+    font-size: 15px;
+    line-height: 1.35;
+    text-align: center;
+    opacity: 0;
+    transition: opacity .25s, transform .25s;
+    pointer-events: none;
+  }
+  #aviso.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #mochila {
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+    width: min(260px, calc(100vw - 32px));
+    padding: 12px 14px;
+  }
+  #mochila h2 { margin: 0 0 8px; font: 700 12px/1.2 var(--display); letter-spacing: 0.16em; color: var(--laton); }
+  #mochila ul { margin: 0; padding-left: 18px; font-size: 15px; line-height: 1.5; }
+  #mochila .fila { margin-top: 10px; }
+  #creditos {
+    right: max(16px, env(safe-area-inset-right, 0px));
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    font: 12px/1.3 var(--texto);
+    color: rgba(236,223,196,0.5);
+    text-align: right;
+    max-width: 300px;
+  }
+
+  /* carga */
+  #carga {
+    position: fixed; inset: 0; z-index: 10;
+    display: grid; place-content: center; justify-items: center; gap: 18px;
+    padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+    background: radial-gradient(ellipse at 50% 60%, #2a1a10 0%, var(--tinta) 70%);
+    transition: opacity .8s;
+  }
+  body.lista #carga { opacity: 0; pointer-events: none; }
+  #carga h1 { margin: 0; font: 700 clamp(22px, 5vw, 40px)/1.1 var(--display); letter-spacing: 0.18em; color: var(--laton); text-align: center; text-wrap: balance; }
+  #carga-texto { margin: 0; font: italic 17px/1.4 var(--texto); color: var(--apagado); text-align: center; }
+  .carga-detalle { margin: 0; max-width: min(560px, 90vw); font: 14px/1.4 var(--texto); color: rgba(236,223,196,0.6); text-align: center; overflow-wrap: anywhere; }
+  #carga .pista { width: min(280px, 70vw); height: 3px; background: rgba(201,165,92,0.2); overflow: hidden; }
+  #carga-barra { height: 100%; background: linear-gradient(90deg, var(--ascua), var(--laton)); transform-origin: left; transform: scaleX(0.04); transition: transform .3s; }
+  .hud { opacity: 0; transition: opacity .8s .2s; }
+  body.lista .hud { opacity: 1; }
+  #ayuda.hud { opacity: 0; }
+  body.lista #ayuda.hud { opacity: 0.92; }
+
+  @media (max-width: 1320px) {
+    #narrador {
+      left: auto;
+      right: max(16px, env(safe-area-inset-right, 0px));
+      bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+      width: min(340px, calc(100vw - 32px));
+    }
+    #narracion { font-size: 16px; }
+    #creditos { display: none; }
+    #ayuda { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); left: max(16px, env(safe-area-inset-left, 0px)); transform: none; }
+    #mochila { left: max(236px, calc(50% - 250px)); transform: none; }
+  }
+  @media (max-height: 760px) and (min-width: 721px) {
+    #grupo { gap: 6px; top: calc(76px + env(safe-area-inset-top, 0px)); }
+    .pj { grid-template-columns: 50px 1fr; width: 200px; padding: 4px 8px 4px 4px; }
+    .marco { width: 50px; height: 58px; }
+    .rol { font-size: 12px; }
+    #narracion { font-size: 15px; }
+    #registro { max-height: 52px; }
+  }
+  @media (max-width: 860px) {
+    #mision, #creditos { display: none; }
+    #hora { display: none; }
+    #ir-combate i { display: none; }
+  }
+  @media (max-width: 720px) {
+    #grupo {
+      top: calc(64px + env(safe-area-inset-top, 0px));
+      right: max(16px, env(safe-area-inset-right, 0px));
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(0, 1fr);
+      gap: 6px;
+    }
+    .pj { width: auto; grid-template-columns: 1fr; padding: 4px; justify-items: center; gap: 4px; }
+    .marco { width: 100%; max-width: 64px; height: 64px; }
+    .rol { display: none; }
+    .nombre { font-size: 12px; }
+    #narrador { left: max(16px, env(safe-area-inset-left, 0px)); right: auto; width: calc(100vw - 32px); bottom: calc(92px + env(safe-area-inset-bottom, 0px)); padding: 10px 12px; }
+    #narracion { font-size: 15px; }
+    #ayuda { display: none; }
+    .rotulo i { display: none; }
+    #acciones { width: calc(100vw - 32px); gap: 2px; padding: 4px; overflow: hidden; }
+    .accion { flex: 1 1 0; width: auto; min-width: 0; }
+    .accion span { font-size: 10px; letter-spacing: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #mochila { left: max(16px, env(safe-area-inset-left, 0px)); top: calc(178px + env(safe-area-inset-top, 0px)); bottom: auto; width: calc(100vw - 32px); }
+    #arriba-dcha { grid-auto-flow: column; align-items: start; }
+    #ir-combate { grid-template-columns: 1fr; width: 40px; height: 40px; padding: 0; place-items: center; box-sizing: border-box; }
+    #ir-combate span { display: none; }
+    #ir-combate svg { width: 22px; height: 22px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; }
+  }
+</style>
+
+<canvas id="escena" aria-label="La sala de la Posada del Toro Dormido, vista desde arriba"></canvas>
+<div id="rotulos" aria-hidden="true"></div>
+
+<div id="carga" role="status">
+  <h1>Marca de Granito</h1>
+  <div class="pista"><div id="carga-barra"></div></div>
+  <p id="carga-texto">Encendiendo la chimenea de la Posada del Toro Dormido…</p>
+</div>
+
+<header id="marca" class="hud placa">
+  <h1>MARCA DE GRANITO</h1>
+  <p>Posada del Toro Dormido · Merrowick</p>
+</header>
+<div id="hora" class="hud placa"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M253.125 18.563c-131.53 0-238.375 106.813-238.375 238.343 0 131.53 106.846 238.344 238.375 238.344 131.53 0 238.344-106.815 238.344-238.344 0-131.528-106.816-238.344-238.345-238.344zm-23.938 52.093c40.517 0 77.988 12.904 108.532 34.813a154.099 154.099 0 0 0-17.064-.97c-84.157 0-152.375 68.25-152.375 152.406 0 84.157 68.22 152.375 152.376 152.375 5.762 0 11.467-.313 17.063-.936-30.545 21.91-68.016 34.812-108.533 34.812-102.98 0-186.28-83.272-186.28-186.25 0-102.977 83.3-186.25 186.28-186.25z"/></svg> Capítulo I · Noche <small>tras la emboscada del prado</small></div>
+<div id="arriba-dcha" class="hud">
+  <section id="mision" class="placa" aria-label="Misión">
+    <h2>MISIÓN</h2>
+    <b>Lo que pide la alcaldesa</b>
+    <p>Habla con Maren Ashford junto a la chimenea.</p>
+  </section>
+  <a id="ir-combate" class="placa" href="combate.html">
+    <svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M19.75 14.438c59.538 112.29 142.51 202.35 232.28 292.718l3.626 3.75.063-.062c21.827 21.93 44.04 43.923 66.405 66.25-18.856 14.813-38.974 28.2-59.938 40.312l28.532 28.53 68.717-68.717c42.337 27.636 76.286 63.646 104.094 105.81l28.064-28.06c-42.47-27.493-79.74-60.206-106.03-103.876l68.936-68.938-28.53-28.53c-11.115 21.853-24.413 42.015-39.47 60.593-43.852-43.8-86.462-85.842-130.125-125.47-.224-.203-.432-.422-.656-.625C183.624 122.75 108.515 63.91 19.75 14.437zm471.875 0c-83.038 46.28-154.122 100.78-221.97 161.156l22.814 21.562 56.81-56.812 13.22 13.187-56.438 56.44 24.594 23.186c61.802-66.92 117.6-136.92 160.97-218.72zm-329.53 125.906 200.56 200.53a402.965 402.965 0 0 1-13.405 13.032L148.875 153.53l13.22-13.186zm-76.69 113.28-28.5 28.532 68.907 68.906c-26.29 43.673-63.53 76.414-106 103.907l28.063 28.06c27.807-42.164 61.758-78.174 104.094-105.81l68.718 68.717 28.53-28.53c-20.962-12.113-41.08-25.5-59.937-40.313 17.865-17.83 35.61-35.433 53.157-52.97l-24.843-25.655-55.47 55.467c-4.565-4.238-9.014-8.62-13.374-13.062l55.844-55.844-24.53-25.374c-18.28 17.856-36.602 36.06-55.158 54.594-15.068-18.587-28.38-38.758-39.5-60.625z"/></svg>
+    <span><b>Revivir la emboscada</b><i>Combate táctico en el prado: el grupo contra los Zarpas Grises</i></span>
+  </a>
+  <button id="a-centrar" class="boton-icono placa" type="button" title="Volver a la vista inicial" aria-label="Volver a la vista inicial"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M227.4 34.7c-10.1 0-20.2.2-30.2.5l6.1 65.6-61.1-62.5c-31.3 2.5-62.5 6.6-93.8 12.5l34.2 28.4-48-.6c35.1 100.2 6.9 182.6-.3 292.1L130 476.5c10-1.3 19.9-2.4 29.6-3.3l21.5-42.2 18.6 28.8 41.5-33.5.8 43c82.9-.2 157.7 9.1 235.7 7.9-28.2-73-31.2-143.6-31.9-209.2l-33.3-19.1 32.7-33.9c-.4-21.3-1.3-42-3.6-61.9l-57.4.7 50.2-41.7c-3.8-15.5-9-30.4-16.1-44.7l-29.5-23.9C335 38 281.2 34.6 227.4 34.7zm58.7 37c10.6 24.75 21.1 49.5 31.7 74.3 7.5-10.5 14.9-21 22.4-31.5 16 27.2 32 54.3 48 81.5l-16.2 9.5-33.3-56.7-42.5 59.4-15.2-10.9 24-33.5-21.9-51.5-24.6 40.1 12 22.6-16.5 8.8-18.3-34.5-24.8 58.2-17.2-7.4 32.5-76.2 7.7-18c4.8 9.2 9.6 18.3 14.5 27.4 12.5-20.6 25.1-41.11 37.7-61.6zM91.2 128c6.72 1.6 13.4 3.4 19.2 5.3-2.1 5.9-4.1 11.8-6.2 17.6-5.79-1.6-11.72-3.4-16.9-4.7 1.39-6 2.62-12.1 3.9-18.2zm37.9 13.4c6.3 3.8 12 7.2 17 12.8L132.6 167c-4-3.7-8.6-7-12.8-9.4zm28.7 32.3c2.1 7.4 2.1 15.7 1.6 22.5l-18.5-2.4c.1-5.1.3-10-1-14.5zm-21.2 35.7 17.2 7.1c-3.3 6.6-5.1 12.7-8.6 17.8l-16.3-9c2.6-5.4 5.6-10.8 7.7-15.9zm-16.5 34.1 17.7 6.1c-1.5 5.4-3 11.2-3.6 16.2l-18.6-2c1.3-7.5 2.1-14 4.5-20.3zm207.8 17.4c8.5 1 14.6 3 21.7 7.1l-9.8 16c-4.1-2.8-9.4-3.8-13.5-4.5zm-21.2 1.5c1.1 6.1 2.5 12.2 3.9 18.3-5.9 1.3-11.7 3.3-16.5 5.1l-6.8-17.4c6.7-2.4 13.5-4.7 19.4-6zm-37.9 15.9 11 15.1c-5.6 4-11.8 7.8-16.8 10.6l-8.9-16.4c5.1-2.9 10.6-6.3 14.7-9.3zM135.3 281c1.5 4.7 4.2 9.2 6.9 12.1l-13.8 12.6c-5.5-5.7-9.5-13.5-11.2-20.1zm230.3 3.3c3.5 6.4 6.8 12.7 8.7 19.1l-17.8 5.6c-2-5.4-4.3-10.8-6.8-14.8zm-127.4 10.9 6.9 17.3c-6.4 2.7-12.9 4.8-18.6 6.5l-5-18c5.9-1.6 11.3-3.8 16.7-5.8zm-83.8 6.2c5.3 1.7 10.8 3.4 15.7 4.2-1.2 6.1-2 12.3-2.8 18.5-7-1-14.5-3.3-20.5-5.7zm50 3.5 2.8 18.5c-7.2 1.3-13.4 1.6-19.8 1.9l-.4-18.7c5.9-.2 11.6-.8 17.4-1.7zm174.5 18c1 6.4 1.6 12.9 2.2 19.3l-18.7 1.5c-.4-6-.9-11.9-2-17.8zm-67.6 30.8c18.9 3.5 44.9 16.2 68.9 33.9 7.4-9.9 14.4-20.4 21.3-31.1l30.1 12.9c-4.7 12.3-15 25.6-28.6 37.2 17 16.2 30.9 34.5 37 53-13.8-18.1-31.1-31.8-50.3-42.8-23.4 15.8-52.7 25.9-79.6 20.4 22.9-4.4 40.6-16.6 55.8-32.6-16.5-7.5-33.8-13.9-51.3-20.1z"/></svg></button>
+</div>
+
+<nav id="grupo" class="hud" aria-label="El grupo"></nav>
+
+<section id="narrador" class="hud placa" aria-live="polite">
+  <header>
+    <h2>EL NARRADOR</h2>
+    <span id="paso"></span>
+    <button id="n-plegar" type="button" aria-expanded="true" aria-label="Plegar el narrador">–</button>
+  </header>
+  <p id="narracion"></p>
+  <div id="registro"></div>
+  <div class="fila">
+    <button id="n-atras" class="boton" type="button">ANTERIOR</button>
+    <button id="a-historia" class="boton principal" type="button">SEGUIR LA HISTORIA</button>
+  </div>
+</section>
+
+<p id="ayuda" class="hud"></p>
+<nav id="acciones" class="hud placa" aria-label="Acciones">
+  <button id="a-mover" class="accion" type="button" aria-pressed="true"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M145.454 182.99c16.485-8.948 34.84 9.218 46.38 32.816.153 12.414 4.804 23.314 10.484 32.06l-22.083 20.402c-29.716-13.468-59.267-63.634-39.823-81.6a25.137 25.137 0 0 1 5.054-3.667zm64.64 74.46-22.486 20.76c27.48 48.827 65.94-.32 22.485-20.76zm87.67 113.92a25.136 25.136 0 0 0-5.054 3.668c-19.444 17.965 10.106 68.13 39.823 81.598l22.083-20.402c-5.68-8.746-10.32-19.645-10.486-32.06-11.538-23.597-29.893-41.763-46.38-32.816zm64.64 74.462-22.487 20.757c27.48 48.804 65.942-.332 22.474-20.758zM297.23 207.9c-14.674 11.68-5.112 35.667 12.095 55.502 11.36 4.994 19.586 13.527 25.42 22.166l27.433-12.367c-.805-32.616-35.444-79.41-59.575-68.52a25.136 25.136 0 0 0-5.35 3.218zm43.315 88.58c1.846 47.988 62.107 31.763 27.88-12.593zm-206.7-263.423c-11.314 14.957 3.893 35.774 25.443 50.768 12.25 2.012 22.332 8.284 30.12 15.172l23.478-18.78c-8.816-31.398-53.977-68.19-74.65-51.623a25.136 25.136 0 0 0-4.392 4.438zm63.905 75.064c13.68 46.036 68.048 15.385 23.894-19.112l-23.882 19.112z"/></svg><span>Mover</span></button>
+  <button id="a-hablar" class="accion" type="button"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M488 348.78h-70.24l-15.1 87.44-48.78-87.44H169v-50h190v-157h129zm-145-273v207H158.13l-48.79 87.47-15.11-87.47H24v-207zM136.724 215.324c0-10.139-12.257-15.214-19.425-8.046-7.168 7.168-2.093 19.426 8.046 19.426 6.285 0 11.38-5.095 11.38-11.38zm60.945 0c-.068-10.12-12.32-15.122-19.452-7.943-7.131 7.18-2.047 19.399 8.073 19.399 6.314 0 11.422-5.141 11.38-11.456zm60.945 0c0-10.139-12.257-15.214-19.425-8.046-7.169 7.168-2.093 19.426 8.046 19.426 6.284 0 11.38-5.095 11.38-11.38z"/></svg><span>Hablar</span></button>
+  <button id="a-atacar" class="accion" type="button"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M19.75 14.438c59.538 112.29 142.51 202.35 232.28 292.718l3.626 3.75.063-.062c21.827 21.93 44.04 43.923 66.405 66.25-18.856 14.813-38.974 28.2-59.938 40.312l28.532 28.53 68.717-68.717c42.337 27.636 76.286 63.646 104.094 105.81l28.064-28.06c-42.47-27.493-79.74-60.206-106.03-103.876l68.936-68.938-28.53-28.53c-11.115 21.853-24.413 42.015-39.47 60.593-43.852-43.8-86.462-85.842-130.125-125.47-.224-.203-.432-.422-.656-.625C183.624 122.75 108.515 63.91 19.75 14.437zm471.875 0c-83.038 46.28-154.122 100.78-221.97 161.156l22.814 21.562 56.81-56.812 13.22 13.187-56.438 56.44 24.594 23.186c61.802-66.92 117.6-136.92 160.97-218.72zm-329.53 125.906 200.56 200.53a402.965 402.965 0 0 1-13.405 13.032L148.875 153.53l13.22-13.186zm-76.69 113.28-28.5 28.532 68.907 68.906c-26.29 43.673-63.53 76.414-106 103.907l28.063 28.06c27.807-42.164 61.758-78.174 104.094-105.81l68.718 68.717 28.53-28.53c-20.962-12.113-41.08-25.5-59.937-40.313 17.865-17.83 35.61-35.433 53.157-52.97l-24.843-25.655-55.47 55.467c-4.565-4.238-9.014-8.62-13.374-13.062l55.844-55.844-24.53-25.374c-18.28 17.856-36.602 36.06-55.158 54.594-15.068-18.587-28.38-38.758-39.5-60.625z"/></svg><span>Atacar</span></button>
+  <button id="a-explorar" class="accion" type="button"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M256.242 19.143a235.119 235.119 0 0 0-30.094 2.107l13.957 18.725L276.9 68.008l-48.474-11.682-22.586-31.424a235.507 235.507 0 0 0-68.522 27.258l4.67 19.35 58.403 10.51-2.335 50.812-17.522-35.623-53.728-9.347-6.063-24.886a233.303 233.303 0 0 0-41.679 38.227l13.866 45.06 54.898 8.176-68.33 13.433-14.633-48.287a238.59 238.59 0 0 0-10.844 17.068c-12.047 20.868-20.527 42.807-25.64 65.114l49.368 23.92 49.06-.58-49.06 21.607-18.105-8.81v25.747h30.37l-49.058 18.69v-53.526l-16.13-7.847c-5.85 41.047-.63 82.657 14.546 120.55l21.44-23.553 12.37 11.498 34.103-12.99-21.453 24.75 16.443 15.285-40.296-12.264-14.17 15.908a233.702 233.702 0 0 0 35.44 51.586l40.896-.158-28.047 13.262a235.939 235.939 0 0 0 43.89 32.63c112.427 64.91 255.91 26.462 320.82-85.964 64.91-112.427 26.464-255.91-85.962-320.82-21.172-12.224-43.447-20.773-66.09-25.862l9.207 25.723-29.07-29.292a233.59 233.59 0 0 0-32.648-2.115zm81.076 126.125c21.167.245 42.198 5.62 61.43 16.72 65.644 37.893 83.97 127.31 42.557 199.026-41.41 71.71-128.022 100.554-193.666 62.662-65.645-37.893-83.97-127.31-42.558-199.026 28.47-49.303 78.305-78.34 128.002-79.363a129.93 129.93 0 0 1 4.234-.02zm-.59 18.67a111.313 111.313 0 0 0-3.654.023c-18.408.41-36.93 5.29-54.09 14.185l34.21 53.44a87.67 87.67 0 0 0-15.227 10.874l-34.947-54.59c-16.317 11.548-30.75 27.068-41.754 46.126a154.29 154.29 0 0 0-2.27 4.092l62.068 24.504a91.416 91.416 0 0 0-8.17 16.867l-61.72-24.366c-10.588 27.475-12.18 56.18-5.824 81.922l62.4-21.23c.464 6.36 1.638 12.59 3.516 18.544l-60.073 20.44c9.103 21.78 24.502 40.32 45.436 52.51l30.73-45a69.422 69.422 0 0 0 14.5 11.904l-28.08 41.12c20.49 7.43 42.64 8.273 64.046 3.23l.31-33.95c6.27.064 12.55-.674 18.71-2.166l-.276 30.12c12.81-5.225 25.06-12.622 36.186-22.013l-11.71-18.29a88.026 88.026 0 0 0 14.808-11.53l10.613 16.578a149.052 149.052 0 0 0 18.654-25.615c1.91-3.307 3.67-6.652 5.294-10.023l-16.094-6.354c2.808-5.71 4.987-11.582 6.504-17.522l16.633 6.566c5.45-16.308 7.792-32.934 7.25-49.018l-22.186 7.55a79.12 79.12 0 0 0-5.09-18.01l25.246-8.588c-3.6-19.748-11.75-38.048-24.008-53.122l-22.637 33.147a69.9 69.9 0 0 0-8.602-5.852 70.564 70.564 0 0 0-7.487-3.725l25.425-37.23a105.562 105.562 0 0 0-46.547-23.094l-.502 54.96c-2.52-.213-5.05-.3-7.58-.248-3.716.073-7.43.437-11.115 1.06l.532-58.135c-1.14-.046-2.28-.078-3.423-.09zm15.786 75.83c3.027.026 6.037.308 9.006.84-7.354 7.116-12.168 18.937-12.168 32.326 0 21.752 12.7 39.384 28.367 39.384 12.172 0 22.55-10.647 26.577-25.597 2.1 14.36-.655 30.18-9.07 44.72-18.287 31.595-55.212 43.19-82.24 27.623-27.03-15.567-35.414-53.21-17.128-84.805 12.57-21.722 33.953-33.99 54.872-34.477a55.738 55.738 0 0 1 1.782-.012z"/></svg><span>Explorar</span></button>
+  <button id="a-mochila" class="accion" type="button" aria-pressed="false"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="m186.438 20.56-13.184 26.365c6.8-.26 13.626-.488 20.47-.686l3.84-7.68h116.874l3.77 7.54c6.838.187 13.658.408 20.456.66l-13.102-26.2H186.437zm69.56 42.742c-45.757.056-91.452 1.566-135.38 4.363-3.24 50.58-8.4 100.987-.786 145.824 89.297 12.395 180.102 12.985 272.764-.054 7.055-30.988 5.117-84.68-1.04-145.89-43.974-2.893-89.73-4.3-135.558-4.244zm153.783 5.54c6.42 64.12 9.113 119.825-1.135 155.22l-1.61 5.56-5.726.842c-98.8 14.528-195.613 13.81-290.605.002l-6.285-.914-1.246-6.23c-9.89-49.49-4.085-102.785-.664-154.42-4.89.354-9.765.72-14.602 1.107-8.596 58.568-9.39 116.957-.05 175.292 110.24 12.088 222.275 12.205 336.203-.01 8.502-57.83 8.29-116.25-.017-175.313-4.725-.4-9.485-.776-14.262-1.14zM255.966 92.3c32.526-.025 65.067 2.746 97.574 8.39l7.46 1.295v7.572c0 15.554 1.683 35.105-12.69 50.25-9.912 10.444-25.655 17.337-51.31 20.585v18.164h-82v-18.452c-23.992-3.37-39.352-10.175-49.363-20.185C150.807 145.093 151 125.56 151 109.56v-7.594l7.484-1.278c32.444-5.54 64.955-8.362 97.48-8.386zm.012 17.994c-28.96.022-57.913 2.444-86.858 6.996.265 12.28 1.635 22.296 9.243 29.904 5.914 5.914 16.952 11.416 36.637 14.582v-29.22h82v29.51c21.367-3.115 32.66-8.755 38.254-14.65 7.033-7.41 7.696-17.502 7.73-30.124-29-4.63-58.006-7.02-87.007-6.998zM233 150.56v30h46v-30h-46zm209.674 92.42a618.941 618.941 0 0 1-1.61 10.87c.214 2.352.42 4.706.63 7.06L471 290.213v-22.24l-28.326-24.995zm-373.485.12L41 267.973v22.24l29.318-29.318c.205-2.327.406-4.655.616-6.982a542.428 542.428 0 0 1-1.745-10.813zm354.634 20.397a1637.453 1637.453 0 0 1-30.824 2.967v74.095h16v66h-16v80.615c10.318-.633 20.63-1.313 30.928-2.082 9.445-74.01 6.478-147.698-.104-221.596zm-335.576.03C81.725 338.09 78.58 412.1 88.06 485.1c10.324.79 20.638 1.504 30.94 2.145V406.56h-16v-66h16v-74.024a1537.138 1537.138 0 0 1-30.752-3.01zm286.752 4.4c-10.014.76-20.014 1.424-30 1.992v70.64h30v-72.632zm-238 .085v72.547h30v-70.55a1557.276 1557.276 0 0 1-30-1.997zm190 2.825c-47.65 2.173-94.984 2.19-142 .078v19.314c23.95-5.165 47.8-7.652 71.516-7.59 23.638.06 47.145 2.654 70.484 7.626v-19.43zM68.05 288.62 41 315.67v56.89h23.06c.376-27.987 1.88-55.975 3.99-83.94zm375.948.047c2.12 27.872 3.61 55.83 3.957 83.892H471v-56.89l-27.002-27.003zm-187.52 11.95c-23.68-.063-47.487 2.577-71.478 8.052v31.89h16v18.443c17.033 5.346 31.73 8.493 46 9.426v-2.87h18v2.868c14.27-.932 28.967-4.08 46-9.425V340.56h16v-31.866c-23.42-5.267-46.907-8.016-70.523-8.078zM121 358.558v30h22v-23h18v23h22v-30h-62zm208 0v30h22v-23h18v23h22v-30h-62zM201 377.8v28.76h-16v15.857c48.528 10.865 95.713 10.664 142 .045V406.56h-16V377.8c-16.332 4.747-31.283 7.52-46 8.326v11.433h-18v-11.434c-14.717-.806-29.668-3.58-46-8.326zM41 390.56v14h23.14c-.09-4.667-.143-9.334-.163-14H41zm407.012 0a934.78 934.78 0 0 1-.18 14H471v-14h-22.988zM137 406.56v19.798c6.137 7.214 11.222 9.77 14.934 9.844 3.734.075 8.697-2.122 15.066-9.79V406.56h-6v7h-18v-7h-6zm208 0v19.798c6.137 7.214 11.222 9.77 14.934 9.844 3.734.075 8.697-2.122 15.066-9.79V406.56h-6v7h-18v-7h-6zm-304 16v35.154c5.596 5.51 8.677 8.25 11.846 9.306 2.454.818 7.713 1.15 15.045 1.317-1.544-15.25-2.586-30.51-3.204-45.778H41zm406.27 0c-.628 15.224-1.674 30.483-3.21 45.78 7.358-.168 12.635-.5 15.094-1.32 3.17-1.056 6.25-3.795 11.846-9.306V422.56h-23.73zM185 440.842v49.498c47.55 1.51 94.877 1.446 142-.074V440.9c-46.316 10.03-93.74 10.185-142-.057zm-48 9.123v38.318c10.01.54 20.01 1.008 30 1.408v-39.678c-4.86 2.786-10.01 4.293-15.43 4.184-5.192-.104-10.036-1.624-14.57-4.232zm208 0v39.654c10.01-.403 20.01-.878 30-1.412v-38.194c-4.86 2.786-10.01 4.293-15.43 4.184-5.192-.104-10.036-1.624-14.57-4.232z"/></svg><span>Mochila</span></button>
+  <button id="a-descansar" class="accion" type="button"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M281.53 23.438c48.44 71.504-18.447 145.556-63.655 58.968 27.295 144.502-65.22 166.347-74.75 74.75-73.554 65.057-59.358 147.17-20.438 210.75l45.844-26.344c-12.004-18.318-17.995-42.502-15.31-66.218 25.688 39.43 106.855 10.088 97.124-59.938 10.695 32.074 37.802 28.97 65.78-20.5C278.07 297.622 337.95 364.248 378.032 333.5c1.47 11.97-2.95 25.657-10.592 38.063l46.968 12.53c55.122-47.503 79.71-135.97-3.812-175.53 39.08 60.478-13.1 105.064-60.72 41.468-38.546-72.133 82.366-113.394-68.343-226.593zM173.876 48.124c-64.128 32.333-14.642 60.51-14.03 92.344 44.122-38.935-3.722-53.508 14.03-92.345zm74.47 269.094L75 416.874c2.71 18.39 8.98 34.417 18.813 48.5l92-44.063-78.688 59.875c3.39 3.38 7.033 6.62 10.938 9.75L192.78 448c-.023-.738-.06-1.475-.06-2.22 0-37.22 30.495-67.56 67.81-67.56a67.554 67.554 0 0 1 29.44 6.717c-2.323-13.414-7.28-27.104-14.72-39.28l-94.938 40.124 82.47-56.467c-4.34-4.55-9.166-8.64-14.438-12.094zm58.874 57.624c1.61 7.148 2.6 14.315 2.967 21.312l.22 3.938c11.13 12.042 17.937 28.09 17.937 45.687a66.814 66.814 0 0 1-3.813 22.25l91.345 24.376c4.642-6.327 8.588-12.768 11.844-19.375l-63.158-24.686 70.125 6.844c.866-2.948 1.61-5.923 2.22-8.938l-97.063-34.22L439 427.5c.156-5.772-.103-11.67-.813-17.72L307.22 374.845zm-46.69 22.062c-27.26 0-49.124 21.8-49.124 48.875 0 27.078 21.864 48.876 49.125 48.876 27.263 0 49.126-21.798 49.126-48.875 0-27.075-21.863-48.874-49.125-48.874zm-4.936 11.78c43.778.002 58.435 71.595 0 71.595 26.622-23.113 29.81-46.888 0-71.592zm.187 9.845c-21.616 17.916-19.304 35.177 0 51.94-42.375 0-31.745-51.94 0-51.94z"/></svg><span>Descansar</span></button>
+  <button id="a-dado" class="accion" type="button"><svg aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="currentColor" d="M248 20.3 72.33 132.6 248 128.8zm16 0v108.5l175.7 3.8zm51.4 58.9c6.1 3.5 8.2 7.2 15.1 4.2 10.7.8 22.3 5.8 27.6 15.7 4.7 4.5 1.5 12.6-5.2 12.6-9.7.1-19.7-6.1-14.6-8.3 4.7-2 14.7.9 10-5.5-3.6-4.5-11-7.8-16.3-5.9-1.6 6.8-9.4 4-12-.7-2.3-5.8-9.1-8.2-15-7.9-6.1 2.7 1.6 8.8 5.3 9.9 7.9 2.2.2 7.5-4.1 5.1-4.2-2.4-15-9.6-13.5-18.3 5.8-7.39 15.8-4.62 22.7-.9zm-108.5-3.5c5.5.5 12.3 3 10.2 9.9-4.3 7-9.8 13.1-18.1 14.8-6.5 3.4-14.9 4.4-21.6 1.9-3.7-2.3-13.5-9.3-14.9-3.4-2.1 14.8.7 13.1-11.1 17.8V92.3c9.9-3.9 21.1-4.5 30.3 1.3 8 4.2 19.4 1.5 24.2-5.7 1.4-6.5-8.1-4.6-12.2-3.4-2.7-8.2 7.9-7.5 13.2-8.8zm35 69.2L55.39 149l71.21 192.9zm28.2 0 115.3 197L456.6 149zm-14.1 7.5L138.9 352.6h234.2zm133.3 21.1c13.9 8.3 21.5 26.2 22.1 43-1.3 13.6-.7 19.8-15.2 21.4-14.5 1.6-23.9-19.2-29.7-32.6-3.4-9.9-5.8-24 1.7-31.3 6.1-4.8 15-4.1 21.1-.5zm-223.7 16.1c2.1 4-.5 11.4-4.8 12.1-4.9.7-3.8-9.3-9.4-11.6-6.9-2.3-13.6 5.6-15 11.6 10.4-4 20.3 7.1 20.3 17-.4 11.7-7.9 24.8-19.7 28.1h-5.6c-12.7-.7-18.3-15.8-14.2-26.6 4.4-15.8 10.8-33.9 27.2-40.6 8.5-3.9 19 3.2 21.2 10zm213.9-8.4c-7.1-.1-4.4 10-3.3 14.5 3.5 11.5 7.3 26.6 18.9 30 6.8-1.2 4.4-12.8 3.7-16.5-4.7-10.9-7.1-23.3-19.3-28zM52 186v173.2l61.9-5.7zm408 0-61.9 167.5 61.9 5.7zm-117.9.7 28.5 63.5-10 4.4-20-43.3c-6.1 3-13 8.9-14.6-1.4-1.3-3.9 8.5-5.1 8.1-11.9-.3-6.9 2.2-12.2 8-11.3zm-212 27.4c-2.4 5.1-4.1 10.3-2.7 15.9 1.7 8.8 13.5 6.4 15.6-.8 2.7-5 3.9-11.7-.5-15.7-4.1-3.4-8.9-2.8-12.4.6zm328.4 41.6c-.1 18.6 1.1 39.2-9.7 55.3-.9 1.2-2.2 1.9-3.7 2.5-5.8-4.1-3-11.3 1.2-15.5 1 7.3 5.5-2.9 6.6-5.6 1.3-3.2 3.6-17.7-1-10.2.7 4-6.8 13.1-9.3 8.1-5-14.4 0-30.5 7-43.5 5.7-6.2 9.9 4.4 8.9 8.9zM59.93 245.5c.59.1 1.34 1 2.48 3.6v61.1c-7.3-7-4.47-18-4.45-26.4 0-8.4 1.65-16.3-1.28-23.2-4.62-1.7-5.79-17-3.17-12.7 4.41 4.8 4.66-2.7 6.42-2.4zm178.77 7.6c8.1 4.5 13.8 14.4 10.8 23.6-2.1 15.2-27 21.1-30.4 29.7-1.2 3 25.4 1.6 30.2 1.6.5 4 1.5 10.7-3.8 11.7-14.5-1.2-29.9-.6-45.1-.6.4-11.2 7.4-21.3 17-26.8 6.9-4.9 15.4-9.3 18.1-17.9 1.8-4.5-.6-9.3-4.6-11.5-4.2-2.9-11-2.3-13.2 2.7-2 3.8-4.4 9.1-8.7 9.6-2.9.4-9 .5-7.2-4.9 1.4-5.6 3.4-11.5 8.2-15.2 8.8-6.3 19.9-6.7 28.7-2zm53.3-1.4c6.8 2.2 12 7.9 14.3 14.6 6.1 14.7 5.5 33.1-4.4 45.9-4.5 4.8-10.2 9.1-17 9.1-12.5-.1-22.4-11.1-24.8-22.8-3.1-13.4-1.8-28.7 6.9-39.8 6.8-7.6 16-10.3 25-7zm156.1 8.1c-1.6 5.9-3.3 13.4-.7 19.3 5.1-2 5.4-9.6 6.6-14.5.9-6.1-3.5-12.6-5.9-4.8zm-176.2 21.1c.6 10.5 1.7 22.8 9.7 28.2 4.9 1.8 9.7-2.2 11.1-6.7 1.9-6.3 2.3-12.9 2.4-19.4-.2-7.1-1.5-15-6.7-20.1-12.2-4.4-15.3 10.9-16.5 18zM434 266.8V328l-4.4 6.7v-42.3c-4.6 7.5-9.1 9.1-6.1-.9 6.1-7.1 4.8-17.4 10.5-24.7zM83.85 279c.8 3.6 5.12 17.8 2.04 14.8-1.97-1.3-3.62-4.9-3.41-6.1-1.55-3-2.96-6.1-4.21-9.2-2.95 4-3.96 8.3-3.14 13.4.2-1.6 1.18-2.3 3.39-.7 7.84 12.6 12.17 29.1 7.29 43.5l-2.22 1.1c-10.36-5.8-11.4-19.4-13.43-30-1.55-12.3-.79-24.7 2.3-36.7 5.2-3.8 9.16 5.4 11.39 9.9zm-7.05 20.2c-4.06 4.7-2.26 12.8-.38 18.4 1.11 5.5 6.92 10.2 6.06 1.6.69-11.1-2.33-12.7-5.68-20zm66.4 69.4L256 491.7l112.8-123.1zm-21.4.3-53.84 4.9 64.24 41.1c-2.6-2.7-4.9-5.7-7.1-8.8-5.2-6.9-10.5-13.6-18.9-16.6-8.75-6.5-4.2-5.3 2.9-2.6-1-1.8-.7-2.6.1-2.6 2.2-.2 8.4 4.2 9.8 6.3l24.7 31.6 65.1 41.7zm268.4 0-42.4 46.3c6.4-3.1 11.3-8.5 17-12.4 2.4-1.4 3.7-1.9 4.3-1.9 2.1 0-5.4 7.1-7.7 10.3-9.4 9.8-16 23-28.6 29.1l18.9-24.5c-2.3 1.3-6 3.2-8.2 4.1l-40.3 44 74.5-47.6c5.4-6.7 1.9-5.6-5.7-.9l-11.4 6c11.4-13.7 30.8-28.3 40-35.6 9.2-7.3 15.9-9.8 8.2-1.5l-12.6 16c10-7.6.9 3.9-4.5 5.5-.7 1-1.4 2-2.2 2.9l54.5-34.9zM236 385.8v43.4h-13.4v-30c-5-1.4-10.4 1.7-15.3-.3-3.8-2.9 1-6.8 4.5-5.9 3.3-.1 7.6.2 9.3-3.2 4.4-4.5 9.6-4.4 14.9-4zm29 .5c12.1 1.2 24.2.6 36.6.6 1.5 3 .8 7.8-3.3 7.9-7.7.3-21-1.6-25.9.6-8.2 10.5 5.7 3.8 11.4 5.2 7 1.1 15 2.9 19.1 9.2 2.1 3.1 2.7 7.3.7 10.7-5.8 6.8-17 11.5-25.3 10.9-7.3-.6-15.6-1.1-20.6-7.1-6.4-10.6 10.5-6.7 12.2-3.2 6 5.3 20.3 1.9 20.7-4.7.6-4.2-2.1-6.3-6.9-7.8-4.8-1.5-12.6 1-17.3 1.8-4.7.8-9.6.5-9-4.4.8-4.2 2.7-8.1 2.7-12.5.1-3 1.7-7 4.9-7.2zm133.5 5c-.2-.2-7 5.8-9.9 8.1l-15.8 13.1c10.6-6.5 19.3-12 25.7-21.2zm-247 14.2c2.4 0 7.5 4.6 9.4 7l26.1 31.1c-7.7-2.1-13.3-7.1-17.6-13.7-6.5-7.3-11.3-16.6-21.2-19.6-9-5-5.2-6.4 2.1-2.2-.3-1.9.2-2.6 1.2-2.6z"/></svg><span>d20</span></button>
+</nav>
+
+<section id="mochila" class="hud placa" hidden>
+  <h2 id="mochila-titulo">Equipo</h2>
+  <ul id="mochila-lista"></ul>
+  <div class="fila"><button id="mochila-cerrar" class="boton" type="button">CERRAR</button></div>
+</section>
+<div id="aviso" class="hud placa" role="status"></div>
+<p id="creditos" class="hud">Prueba de Marca de Granito. Modelos de Poly Haven y Quaternius (CC0); iconos de game-icons.net (CC BY 3.0).</p>
+
+<script type="module" src="app.js"></script>
+
+</body></html>
