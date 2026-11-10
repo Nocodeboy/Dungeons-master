@@ -28,7 +28,8 @@
     evitar: [],             // regex que el modo «explorar» no elige nunca
     explorar: true,         // sin regla: primera opción aún no elegida en esta conversación
     reintentar: true,       // en derrota: cargar el autoguardado con otra semilla
-    cerrar: ['tienda', 'descanso', 'inventario', 'grupo', 'diario', 'ayuda', 'ajustes', 'creditos', 'cargar', 'guardar', 'viaje', 'pausa'],
+    descanso: 'largo',      // en la pantalla «descanso»: 'largo' | 'cerrar' («Seguir» se pulsa siempre)
+    cerrar: ['tienda', 'inventario', 'grupo', 'diario', 'ayuda', 'ajustes', 'creditos', 'cargar', 'guardar', 'viaje', 'pausa'],
     semillas: [7, 11, 23, 42, 97, 131, 257, 409, 613, 997],
   };
   const RUIDO = new Set(['step', 'ui:click', 'ui:hover', 'footstep', 'portrait']);
@@ -179,6 +180,21 @@
     return true;
   }
 
+  function descanso() {
+    const c = capa('descanso');
+    if (!c) return false;
+    const bs = [...c.querySelectorAll('button')];
+    const seguir = bs.find((b) => /^Seguir$/i.test(textoBoton(b)) && !b.disabled);
+    if (seguir) { clic(seguir); return true; }
+    if (QA.politica.descanso === 'largo') {
+      const largo = c.querySelector('button.mg-rest-card.largo:not(:disabled)');
+      if (largo) { clic(largo); return true; }
+    }
+    const top = window.__mdg?.ui?.layers?.top;
+    if (top?.name === 'descanso' && ahora() - ultimo > 1500) { top.close(null); ultimo = ahora(); }
+    return true;
+  }
+
   function cerrar() {
     for (const n of QA.politica.cerrar || []) {
       const c = capa(n);
@@ -209,12 +225,31 @@
     return true;
   }
 
+  // QA.pararEn = {capa: 'relato'} | {dialogo: 'regex sobre id o quien habla'}:
+  // el piloto se detiene (activo = false, parado = true) en cuanto aparece, para hacer una captura.
+  function parar() {
+    const p = QA.pararEn;
+    if (!p) return false;
+    let si = false;
+    if (p.capa) si = !!capa(p.capa);
+    if (!si && p.dialogo) {
+      const dlg = document.querySelector('section.mg-dlg');
+      if (visible(dlg) && dlg.querySelector('button.mg-dlg-opt') && !dlg.querySelector('.mg-dlg-line.escribiendo')) {
+        const quien = dlg.querySelector('.mg-dlg-name')?.textContent || '';
+        si = new RegExp(p.dialogo, 'i').test(`${QA.dlgId || ''}|${quien}`);
+      }
+    }
+    if (si) { QA.activo = false; QA.parado = true; QA.pararEn = null; }
+    return si;
+  }
+
   function paso() {
     try {
       enganchar();
       if (!QA.activo) return;
+      if (parar()) return;
       if (ahora() - ultimo < (QA.pausa ?? 180)) return;
-      derrota() || relato() || nivel() || botin() || aviso() || confirmar() || dialogo() || cerrar();
+      derrota() || relato() || nivel() || botin() || aviso() || confirmar() || descanso() || dialogo() || cerrar();
     } catch (e) {
       QA.errores.push({ t: ahora(), tipo: 'piloto', msg: corta(e.message, 300) });
     }

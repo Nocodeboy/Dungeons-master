@@ -31,17 +31,20 @@ async function principal() {
     await s.esperar(() => window.__mdg.scenes.name === 'explore' && window.__mdg.scenes.current?.explore?.entered, null, { timeout: 120000, desc: 'llegada a Merrowick' });
     await s.calma();
     await espera(800);
-    await s.etapa('merrowick');
+    const obs = await observar(s);
+    await s.etapa('merrowick', { observaciones: obs });
+    console.log('observaciones:', JSON.stringify(obs));
 
     // El encuentro e1 salta al acercarse al toro.
     await s.libre({ timeout: 60000 });
+    const n0 = await s.pagina.evaluate(() => (window.__qa.combates || []).length);
     await s.mover([21, 18]);
     const inicio = await s.esperar(() => window.__mdg.scenes.current?.explore?.inBattle, null, { timeout: 60000, desc: 'inicio del combate e1' }).then(() => true, () => false);
     if (!inicio) fallos.push('No empieza el combate e1 al acercarse al toro');
     await espera(1500);
     await s.etapa('combate_e1', { ok: inicio });
     if (A.entero && inicio) {
-      const c = await s.combate({ timeout: 600000, empezar: 1000 });
+      const c = await s.combate({ timeout: 900000, empezar: 60000, n0 });
       await s.etapa('combate_e1_fin', { ok: !!c?.ganado, combate: c });
     }
     const st = await s.estado();
@@ -60,6 +63,27 @@ async function principal() {
     await s.cerrar();
     process.exit(1);
   }
+}
+
+// Observaciones baratas para comparar publicado/ y la reconstrucción (no hacen fallar la prueba).
+async function observar(s) {
+  return await s.pagina.evaluate(() => {
+    const g = window.__mdg;
+    const tip = document.getElementById('mg-tip');
+    const candidatas = ['reactions', 'set_manual', 'react', 'retreat_info', 'retreat', 'zone', 'knock'];
+    const ops = candidatas.filter((op) => { try { return !/op desconocida/.test(String(g.rules(op, {})?.error || '')); } catch { return false; } });
+    const pantallas = ['inventario', 'tienda', 'descanso', 'grupo', 'diario', 'guardar', 'cargar', 'ajustes', 'nivel', 'botin', 'viaje', 'pausa', 'creador', 'creditos', 'ayuda', 'relato', 'derrota', 'saber', 'tutorial', 'mercenarios'].filter((n) => g.ui.has?.(n));
+    const ex = g.scenes.current?.explore;
+    const e1 = ex?.groups?.get?.('e1');
+    return {
+      escenas: [...g.scenes.registry.keys()],
+      pantallas,
+      opsNuevasNucleo: ops,
+      tooltipPointerEvents: tip ? getComputedStyle(tip).pointerEvents : null,
+      e1: e1 ? e1.enemies.map((x) => x.monster) : null,
+      niveles: ['merrowick', 'posada', 'elderhal', 'kesh', 'tumulo'],
+    };
+  });
 }
 
 // Recorre el creador con las opciones por defecto (humano, guerrero, soldado) y un nombre fijo.
@@ -83,12 +107,13 @@ async function crearHeroe(s, { nombre, rapido = false, capturas = false } = {}) 
       await boton.click();
       return;
     }
-    if (capturas) await s.etapa('creador_' + paso.replace(/\W+/g, '_').toLowerCase());
+    const capt = capturas === true || (Array.isArray(capturas) && capturas.some((c) => paso.includes(c)));
+    if (capt) await s.etapa('creador_' + paso.replace(/[\d\s]+/g, ' ').trim().toLowerCase().replace(/\s+/g, '_'));
     await boton.click();
     await espera(250);
   }
   throw new Error('El creador no llega al último paso');
 }
 
-module.exports = { crearHeroe };
+module.exports = { crearHeroe, observar };
 if (require.main === module) principal();

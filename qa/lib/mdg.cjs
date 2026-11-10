@@ -198,6 +198,26 @@ class Sesion {
     return e;
   }
 
+  // Prepara al piloto para detenerse cuando aparezca algo; devuelve una función que espera,
+  // hace la etapa (captura + estado) y reanuda. Si no aparece a tiempo, reanuda igualmente.
+  async capturarAl(cond, nombre, { timeout = 60000, demora = 400 } = {}) {
+    await this.pagina.evaluate((c) => { window.__qa.parado = false; window.__qa.pararEn = c; }, cond);
+    return async () => {
+      let ok = true;
+      try {
+        await this.esperar(() => window.__qa.parado, null, { timeout, desc: `parada del piloto (${nombre})` });
+        await espera(demora);
+        await this.etapa(nombre);
+      } catch (e) {
+        ok = false;
+        this.log(`(sin captura ${nombre}: ${e.message.slice(0, 120)})`);
+      } finally {
+        await this.pagina.evaluate(() => { window.__qa.pararEn = null; window.__qa.parado = false; window.__qa.activo = true; });
+      }
+      return ok;
+    };
+  }
+
   async informe(extra = {}) {
     const q = await this.pagina.evaluate(() => ({
       eventos: (window.__qa?.eventos || []).slice(-600),
@@ -312,20 +332,19 @@ class Sesion {
   async hablar(npc, opts) { return this.tocar('npc', npc, opts); }
   async usar(obj, opts) { return this.tocar('object', obj, opts); }
 
-  // Espera a que haya empezado y terminado un combate (o a que no haga falta).
-  async combate({ timeout = 600000, empezar = 20000 } = {}) {
-    const n0 = await this.pagina.evaluate(() => (window.__qa.combates || []).length);
+  // Espera a que empiece un combate (el nº n0+1 registrado por el piloto; n0 = nº de combates
+  // antes de provocarlo, por defecto el actual) y a que termine (battle:end o pantalla de derrota).
+  async combate({ timeout = 900000, empezar = 60000, n0 = null } = {}) {
+    if (n0 == null) n0 = await this.pagina.evaluate(() => (window.__qa.combates || []).length);
     try {
-      await this.esperar((n0) => (window.__qa.combates || []).length > n0 || window.__mdg.scenes.current?.explore?.inBattle, n0, { timeout: empezar, desc: 'inicio de combate' });
+      await this.esperar((n0) => (window.__qa.combates || []).length > n0, n0, { timeout: empezar, desc: 'inicio de combate' });
     } catch { return null; }
     const t0 = Date.now();
-    await this.esperar(() => {
-      const g = window.__mdg;
-      const ex = g.scenes.current?.explore;
-      const d = document.querySelector('.mg-layer[data-capa="derrota"]');
-      return (!ex || !ex.inBattle) && !g.scenes.busy || !!d;
-    }, null, { timeout, desc: 'fin de combate', intervalo: 500 });
-    const c = await this.pagina.evaluate(() => (window.__qa.combates || []).slice(-1)[0]);
+    await this.esperar((n0) => {
+      const c = (window.__qa.combates || [])[n0];
+      return !!(c && c.fin) || !!document.querySelector('.mg-layer[data-capa="derrota"]');
+    }, n0, { timeout, desc: 'fin de combate', intervalo: 1000 });
+    const c = await this.pagina.evaluate((n0) => (window.__qa.combates || [])[n0], n0);
     this.log(`combate ${c?.grupo}: ${c?.ganado ? 'GANADO' : c?.huido ? 'huida' : 'perdido/sin fin'} en ${((Date.now() - t0) / 1000).toFixed(0)} s`);
     return c;
   }
