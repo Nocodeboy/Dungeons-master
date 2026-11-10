@@ -2,7 +2,8 @@
 // Recorre una partida nueva: menú -> creador -> prólogo -> llegada a Merrowick -> primer combate,
 // guarda capturas y falla si hay errores de consola o excepciones.
 //
-//   node tools/verificar.cjs <url_base> <carpeta_capturas> [--hasta merrowick|combate|turno]
+//   node tools/verificar.cjs <url_base> <carpeta_capturas> [--hasta merrowick|combate|turno|victoria]
+//   (victoria: añade ?autocombate&autonivel y espera a ganar el combate e1)
 //
 // <url_base> es la carpeta servida que contiene index.html (p. ej. http://localhost:8741/web/dist/).
 // Se usa ?depurar (expone window.__mdg y window.__combate) y ?calidad=baja (menos carga en CPU).
@@ -14,7 +15,7 @@ const path = require('path');
 
 const [, , base, carpeta, ...resto] = process.argv;
 if (!base || !carpeta) {
-  console.error('Uso: node tools/verificar.cjs <url_base> <carpeta_capturas> [--hasta merrowick|combate|turno]');
+  console.error('Uso: node tools/verificar.cjs <url_base> <carpeta_capturas> [--hasta merrowick|combate|turno|victoria]');
   process.exit(2);
 }
 const hasta = resto.includes('--hasta') ? resto[resto.indexOf('--hasta') + 1] : 'combate';
@@ -80,7 +81,9 @@ const RUIDO = [/GPU stall due to ReadPixels/, /GL Driver Message/, /WebGL-.*Perf
   };
 
   try {
-    await pagina.goto(base.replace(/\/?$/, '/') + 'index.html?depurar&calidad=baja');
+    // En modo victoria la IA lleva también al héroe (autocombate) y se salta la subida de nivel.
+    const extra = hasta === 'victoria' ? '&autocombate&autonivel' : '';
+    await pagina.goto(base.replace(/\/?$/, '/') + 'index.html?depurar&calidad=baja' + extra);
     await pagina.waitForSelector('[data-k=nueva]', { state: 'visible', timeout: 180000 });
     await espera(2500);
     hito('menú');
@@ -145,6 +148,27 @@ const RUIDO = [/GPU stall due to ReadPixels/, /GL Driver Message/, /WebGL-.*Perf
     await captura('06-combate');
     if (hasta === 'combate') return terminar(true, 'hasta el primer combate');
 
+    if (hasta === 'victoria') {
+      // La IA juega el combate; se espera a la bandera e1_done y a volver a explorar.
+      let fin = null;
+      for (let i = 0; i < 240; i++) {
+        fin = await pagina.evaluate(() => ({
+          e1: !!window.__mdg?.store?.cp?.flags?.e1_done,
+          escena: window.__mdg?.scenes?.name,
+          ronda: document.querySelector('.mdg-combate')?.textContent?.match(/Ronda\s*(\d+)/)?.[1] ?? null,
+        }));
+        if (fin.e1) break;
+        if (i % 12 === 0) hito('combate en curso', fin);
+        await avanzarTexto();
+        await espera(5000);
+      }
+      if (!fin?.e1) return terminar(false, 'el combate e1 no termina en victoria: ' + JSON.stringify(fin));
+      hito('victoria en e1', fin);
+      for (let i = 0; i < 20 && (await avanzarTexto()); i++) await espera(2000);
+      await espera(6000);
+      await captura('07-tras-e1');
+      return terminar(true, 'combate e1 ganado');
+    }
     // Opcional: dejar pasar unos turnos para ver que el combate avanza sin errores.
     await espera(30000);
     await captura('07-combate-tras-espera');
