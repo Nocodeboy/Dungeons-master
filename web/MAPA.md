@@ -258,7 +258,16 @@ Otras: `verificar.cjs` (recorrido con Playwright), `ejemplos-reglas.mjs` (contra
 
 `tools/verificar.cjs <url> <carpeta> [--hasta merrowick|combate|victoria]` abre Chromium (SwiftShader) con `?depurar&calidad=baja`, `Math.random` con semilla y recorre: menú → Nueva partida → creador (9 pasos con los valores por defecto) → «Comenzar la aventura» → prólogo (relato y diálogo) → llegada a Merrowick (escena `explore`) → camina hacia el este hasta que salta la emboscada e1 (`window.__combate`). `--hasta victoria` añade `?autocombate&autonivel` y espera a ganar e1 (`store.cp.flags.e1_done`). Falla ante cualquier `console.error`, excepción, petición fallida o HTTP ≥ 400 (filtra solo el ruido del controlador de SwiftShader) y deja `resumen.json` y capturas.
 
-Resultados: ver el informe de la sesión y `tools/salida/capturas/` (no versionado).
+Resultados del 11 nov (capturas en `tools/salida/capturas/`, no versionado; `comparacion/` las pone lado a lado):
+
+| Versión | Recorrido | Resultado |
+|---|---|---|
+| `publicado/` | hasta el combate e1 | sin errores; Merrowick a los 104 s, combate a los 478 s |
+| `web/dist/` (código de `src/`) | hasta el combate e1 | sin errores; Merrowick a los 104 s, combate a los 394 s |
+| paso 3 (three desde npm, fichero único) | hasta Merrowick | sin errores |
+| paso 4 (datos extraídos, fichero único) | hasta Merrowick | sin errores |
+
+En todas aparece el mismo único aviso de consola, del controlador de SwiftShader (`KHR_parallel_shader_compile extension not supported`). Las capturas coinciden salvo lo que depende del azar con tiempos (nombre por defecto del héroe, tiradas de iniciativa).
 
 ## Problemas abiertos y siguientes pasos
 
