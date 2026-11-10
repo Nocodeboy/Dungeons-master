@@ -1,0 +1,108 @@
+{
+  "id": "e1_prado",
+  "order": 1,
+  "level": 1,
+  "name": "El toro que sangra",
+  "place": "El prado de Merrowick, al caer la tarde",
+  "ambient": "dusk",
+  "intro": [
+    "Merrowick amanece con un rumor de miedo: el toro de piedra del prado, el que los Durn tallaron hace mil años mirando a las colinas, se ha agrietado durante la noche. De la grieta mana algo oscuro y espeso que huele a hierro.",
+    "Tú lo sientes antes que nadie. La Marca de tu piel, esa veta de granito con la que naciste, arde como una brasa desde que llegaste al pueblo.",
+    "Al caer la tarde, los perros empiezan a ladrar hacia el bosque. Una partida de trasgos de los Zarpas Grises baja por el camino viejo, atraída por lo que sea que despierta bajo la piedra. Tus compañeros desenvainan a tu lado."
+  ],
+  "rows": [
+    "HHHH,,,,,,TT,,,,,,TTT",
+    "HHHH,,,,,,,,,,,,,,,TT",
+    ",,,,,,,,,ffff,,,,,,,,",
+    ",,,,,,,,f...f,,,r,,,,",
+    ",,,,,,,,f.SS.f,,,,,,,",
+    "::::::::::SS:::::::::",
+    ",,,,,,,,,f...f,,,,c,,",
+    ",,,,,,,,,ffff,,,,,c,,",
+    ",,,,,,,,,,,,,,,,,,,,,",
+    ",,r,,,,,,,,,,,,,T,,,,",
+    ",,,,,,,,TT,,,,,,,,,,,",
+    "HHH,,,,,,,,,,,,,,,HHH",
+    "HHH,,,,bb,,,,,,,,,HHH"
+  ],
+  "party_spawn": [
+    [
+      2,
+      4
+    ],
+    [
+      1,
+      6
+    ],
+    [
+      3,
+      6
+    ],
+    [
+      2,
+      7
+    ]
+  ],
+  "enemies": [
+    {
+      "id": "goblin_minion",
+      "cell": [
+        17,
+        3
+      ]
+    },
+    {
+      "id": "goblin_minion",
+      "cell": [
+        18,
+        5
+      ]
+    },
+    {
+      "id": "goblin_minion",
+      "cell": [
+        16,
+        8
+      ]
+    },
+    {
+      "id": "goblin_minion",
+      "cell": [
+        19,
+        9
+      ]
+    },
+    {
+      "id": "goblin_warrior",
+      "cell": [
+        17,
+        4
+      ]
+    },
+    {
+      "id": "goblin_warrior",
+      "cell": [
+        18,
+        8
+      ]
+    },
+    {
+      "id": "goblin_archer",
+      "cell": [
+        20,
+        6
+      ]
+    }
+  ],
+  "tips": [
+    "Toca una casilla azul para moverte. Si te equivocas, pulsa Deshacer antes de actuar.",
+    "Toca un enemigo para ver tu probabilidad de impactar y el daño esperado. Vuelve a tocarlo para atacar.",
+    "Los pícaros hacen daño extra (ataque furtivo) si un aliado está junto a su objetivo.",
+    "Las cercas dan cobertura media (+2 a la CA) y cuesta el doble cruzarlas."
+  ],
+  "outro": [
+    "El último trasgo cae junto al abrevadero. En el silencio que sigue, todos oís lo mismo: un latido lento y grave que viene de debajo del toro.",
+    "Apoyas la mano en la piedra agrietada y la retiras enseguida. Está caliente, como si tuviera fiebre. Y la Marca de tu brazo late al mismo ritmo."
+  ],
+  "xp": 250
+}
