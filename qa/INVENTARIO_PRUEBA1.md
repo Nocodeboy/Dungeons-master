@@ -43,7 +43,35 @@ Leyenda: ✅ está · 🟡 está a medias · ❌ no está.
 
 Gravedad: **alta** (bloquea o rompe la partida), **media** (molesta o confunde, tiene salida), **baja** (cosmético o de texto).
 
-<!-- FALLOS -->
+### F1 · El primer combate (e1) se pierde la mitad de las veces — gravedad **media** (equilibrio)
+
+- **Pasos:** Nueva partida → creador con la hoja por defecto (humano, guerrero, soldado) → prólogo → en Merrowick, caminar hacia el toro (≈ casilla 21,18). Salta la emboscada de e1: 6 trasgos (3 esbirros, 2 guerreros, 1 arquero) contra el héroe y Brenna, nivel 1, con el grupo sorprendido.
+- **Medido:** con la IA del núcleo en los dos bandos (`qa/simular.mjs --grupo=e1 --n=200`), el grupo gana **94 de 200** combates (47 %); en las derrotas caen los dos. El resto de combates del capítulo, con el grupo que se tiene en ese momento, se ganan 40 de 40 (santuario, centinelas, campamento, arañas, Vorhan): e1 es un pico aislado de dificultad justo en el primer minuto de juego.
+- **Esperado:** el reequilibrado perdido dejaba e1 en 3 esbirros; con ese cambio la simulación da 199 de 200.
+
+### F2 · Los tooltips pueden robar clics — gravedad **media**
+
+- **Causa:** `index.html` declara `#ui > * { pointer-events: auto; }` y el tooltip (`#mg-tip`, clase `.mg-tip`, hijo directo de `#ui`) solo tiene `pointer-events: none` en su propia regla, menos específica. Falta el arreglo `#ui > .mg-tip, #ui > [data-pasante] { pointer-events: none; }`.
+- **Pasos:** con ratón, pasar sobre un elemento con tooltip (una carta del creador, un botón de la barra de combate, una fila de la tienda) y, mientras el tooltip se ve o se desvanece (≈ 120 ms + retardo), hacer clic en el control que queda debajo: el clic lo recibe el tooltip. `getComputedStyle(document.getElementById('mg-tip')).pointerEvents` devuelve `auto` (lo registra `qa/humo.cjs` en «observaciones»).
+
+### F3 · El «saber» se desbloquea pero no se puede consultar — gravedad **media**
+
+- **Pasos:** empezar partida y avanzar el prólogo: salen avisos «Saber nuevo: …» (eventos `codex:unlock`: La guardia de Valdrecht, Merrowick, El toro de granito, Trasgos, Los Zarpas Grises…) y el consejo `codex` dice «queda apuntado en el diario, en la pestaña Saber». Abrir el diario (J): solo hay «Misiones» y «Notas». No hay ninguna pantalla que muestre `story.codex()`.
+
+### F4 · El jefe trasgo tiene dos nombres — gravedad **baja**
+
+- En la historia es «Krazzik Tres Dedos» (diálogo `chief`, epílogo, diario); el monstruo `goblin_boss` del núcleo y de los datos del juego se llama «Grisk, cabecilla» (y el bestiario visual, «Cabecilla trasgo»). Se ve si se asalta el campamento en vez de negociar: la barra de combate y el registro dicen «Grisk».
+- Parecido con Vorhan: «Vorhan, el guardián» en el núcleo y «Vorhan, el tumulario» en el bestiario visual.
+
+### F5 · `posada.js` publicado sin usar — gravedad **baja**
+
+- `posada.html` carga `app.js` (el banco antiguo); `posada.js` (950 KB) no lo referencia ninguna página. No afecta al juego (`index.html` + `juego.js`), pero la publicación lleva un archivo huérfano y el banco de la posada que se ve no es el más reciente.
+
+### F6 · `?autonivel` no cubre la subida a nivel 3 — gravedad **baja** (herramientas)
+
+- La subida a nivel 2 tras e1 respeta `?autonivel`, pero la de nivel 3 al salir de Kesh (`story.levelUp(3)`) abre siempre la pantalla `nivel`. Solo afecta a la automatización (el piloto la resuelve).
+
+<!-- MAS_FALLOS -->
 
 ## 4. Hasta dónde llega la partida automática
 
