@@ -1,0 +1,109 @@
+{
+  "id": "e3_tumulo",
+  "order": 3,
+  "level": 3,
+  "name": "El túmulo de Durn-Kahl",
+  "place": "Cámara del túmulo, bajo el prado",
+  "ambient": "crypt",
+  "intro": [
+    "Bajo el toro hay una escalera de piedra que nadie en Merrowick recordaba. Huele a tierra mojada y a algo más viejo que la tierra: es el Túmulo de Durn-Kahl.",
+    "La cámara es redonda, sostenida por columnas talladas con espirales. En el centro, sobre un estrado, un guerrero muerto sostiene una espada que todavía brilla. Sus ojos se abren cuando cruzáis el umbral.",
+    "«Mil años guardando el sello», dice Vorhan, el último guardián durn, con una voz de piedra arrastrada. «Y ahora lo traes tú, Marcado.» A su alrededor, los huesos del suelo empiezan a levantarse."
+  ],
+  "rows": [
+    "#####################",
+    "#=====#=======#=====#",
+    "#=====#===P===#=====#",
+    "#=P=========g=====P=#",
+    "#=====x===========x=#",
+    "#==g====P=====P=====#",
+    "#===================#",
+    "#==g====P=====P=====#",
+    "#=====x===========x=#",
+    "#=P=========g=====P=#",
+    "#=====#===P===#=====#",
+    "#=====#=======#=====#",
+    "#####################"
+  ],
+  "party_spawn": [
+    [
+      2,
+      5
+    ],
+    [
+      2,
+      7
+    ],
+    [
+      1,
+      6
+    ],
+    [
+      3,
+      6
+    ]
+  ],
+  "enemies": [
+    {
+      "id": "wight",
+      "cell": [
+        17,
+        6
+      ]
+    },
+    {
+      "id": "skeleton",
+      "cell": [
+        12,
+        4
+      ]
+    },
+    {
+      "id": "skeleton",
+      "cell": [
+        12,
+        8
+      ]
+    },
+    {
+      "id": "skeleton",
+      "cell": [
+        14,
+        6
+      ]
+    },
+    {
+      "id": "skeleton_archer",
+      "cell": [
+        18,
+        2
+      ]
+    },
+    {
+      "id": "skeleton_archer",
+      "cell": [
+        18,
+        10
+      ]
+    },
+    {
+      "id": "zombie",
+      "cell": [
+        11,
+        6
+      ]
+    }
+  ],
+  "tips": [
+    "Los esqueletos son vulnerables al daño contundente: mazas, bastones y martillos les hacen el doble.",
+    "Un clérigo o un paladín puede Canalizar divinidad para expulsar a los muertos vivientes.",
+    "El tumulario drena la vida: reduce tus puntos de golpe máximos. Mantén a los lanzadores lejos de su espada."
+  ],
+  "outro": [
+    "Vorhan se deshace en polvo y su espada cae al suelo con un sonido limpio, como una campana. Bajo el estrado, el primer sello de Kharzul, una losa con tres espirales, se ha partido en dos.",
+    "Arriba, en el prado, el toro de piedra deja de sangrar. Pero en las colinas de las Marcas, muy lejos, otros seis toros acaban de empezar.",
+    "Fin de la fase 2a. Gracias por jugar."
+  ],
+  "xp": 950,
+  "boss": "wight"
+}

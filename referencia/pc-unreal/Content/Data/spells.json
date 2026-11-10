@@ -1,0 +1,521 @@
+{
+  "_fuente": "Mecánica adaptada del SRD 5.2.1 (CC-BY-4.0). Textos en español propios.",
+
+  "fire_bolt": {
+    "name": "Descarga de fuego", "level": 0, "school": "evocation", "cast": "action", "range": 120,
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "1d10", "type": "fire"},
+    "tags": ["damage"], "fx": "fire", "desc": "Un dardo de fuego. Ataque de conjuro a distancia: 1d10 de fuego."
+  },
+  "ray_of_frost": {
+    "name": "Rayo de escarcha", "level": 0, "school": "evocation", "cast": "action", "range": 60,
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "1d8", "type": "cold"}, "on_hit": "slow10_caster_turn",
+    "tags": ["damage", "control"], "fx": "frost", "desc": "1d8 de frío y su velocidad baja 3 m hasta tu siguiente turno."
+  },
+  "shocking_grasp": {
+    "name": "Agarre electrizante", "level": 0, "school": "evocation", "cast": "action", "range": 5,
+    "target": "enemy", "attack": "melee_spell", "damage": {"dice": "1d8", "type": "lightning"}, "on_hit": "no_reactions",
+    "tags": ["damage", "escape"], "fx": "lightning", "desc": "Ataque de conjuro cuerpo a cuerpo: 1d8 de rayo y el objetivo no puede hacer ataques de oportunidad."
+  },
+  "sacred_flame": {
+    "name": "Llama sagrada", "level": 0, "school": "evocation", "cast": "action", "range": 60,
+    "target": "enemy", "save": {"ability": "dex", "half": false, "ignore_cover": true}, "damage": {"dice": "1d8", "type": "radiant"},
+    "tags": ["damage"], "fx": "radiant", "desc": "Salvación de Destreza o 1d8 radiante. La cobertura no le protege."
+  },
+  "spare_the_dying": {
+    "name": "Piedad con los moribundos", "level": 0, "school": "necromancy", "cast": "action", "range": 15,
+    "target": "downed_ally", "special": "stabilize",
+    "tags": ["rescue"], "fx": "heal", "desc": "Estabiliza a un aliado a 0 PG que esté a 4,5 m."
+  },
+  "vicious_mockery": {
+    "name": "Burla dañina", "level": 0, "school": "enchantment", "cast": "action", "range": 60,
+    "target": "enemy", "save": {"ability": "wis", "half": false}, "damage": {"dice": "1d6", "type": "psychic"},
+    "on_fail_effect": {"kind": "mocked", "name": "Burlado", "expires": "end_turn:target"},
+    "tags": ["damage", "debuff"], "fx": "psychic", "desc": "Un insulto con magia: salvación de Sabiduría o 1d6 psíquico y desventaja en su siguiente ataque."
+  },
+  "starry_wisp": {
+    "name": "Brizna estelar", "level": 0, "school": "evocation", "cast": "action", "range": 60,
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "1d8", "type": "radiant"},
+    "on_hit_effect": {"kind": "outlined_wisp", "name": "Brillo estelar", "expires": "end_turn_next:caster"},
+    "tags": ["damage"], "fx": "radiant", "desc": "Una chispa de luz: 1d8 radiante y el objetivo no puede volverse invisible hasta tu siguiente turno."
+  },
+  "true_strike": {
+    "name": "Golpe certero", "level": 0, "school": "divination", "cast": "action", "range": 0,
+    "target": "weapon", "special": "true_strike",
+    "tags": ["damage"], "fx": "radiant", "desc": "Atacas con tu arma usando tu característica mágica para el ataque y el daño, que puede ser radiante."
+  },
+  "eldritch_blast": {
+    "name": "Descarga sobrenatural", "level": 0, "school": "evocation", "cast": "action", "range": 120,
+    "target": "rays", "darts": 1, "cantrip_beams": true, "attack": "ranged_spell", "damage": {"dice": "1d10", "type": "force"}, "special_hit": "eldritch_blast",
+    "tags": ["damage"], "fx": "eldritch", "desc": "Un haz de energía crepitante: ataque de conjuro a distancia, 1d10 de fuerza."
+  },
+  "chill_touch": {
+    "name": "Toque helado", "level": 0, "school": "necromancy", "cast": "action", "range": 5,
+    "target": "enemy", "attack": "melee_spell", "damage": {"dice": "1d10", "type": "necrotic"},
+    "on_hit_effect": {"kind": "no_heal", "name": "Sin curación", "expires": "end_turn_next:caster"},
+    "tags": ["damage"], "fx": "necrotic", "desc": "Toque de ultratumba: 1d10 necrótico y el objetivo no puede curarse hasta tu siguiente turno."
+  },
+  "poison_spray": {
+    "name": "Rociada venenosa", "level": 0, "school": "necromancy", "cast": "action", "range": 30,
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "1d12", "type": "poison"},
+    "tags": ["damage"], "fx": "poison", "desc": "Niebla tóxica a 9 m: ataque de conjuro, 1d12 de veneno."
+  },
+  "acid_splash": {
+    "name": "Salpicadura ácida", "level": 0, "school": "evocation", "cast": "action", "range": 60,
+    "target": "point", "area": {"shape": "sphere", "radius": 5}, "save": {"ability": "dex", "half": false}, "damage": {"dice": "1d6", "type": "acid"},
+    "tags": ["damage", "aoe"], "fx": "acid", "desc": "Una burbuja de ácido estalla (esfera de 1,5 m): Destreza o 1d6 de ácido."
+  },
+  "produce_flame": {
+    "name": "Crear llama", "level": 0, "school": "conjuration", "cast": "bonus", "range": 0,
+    "target": "self", "special": "produce_flame", "derived": "produce_flame_hurl",
+    "tags": ["damage", "prep"], "fx": "fire", "desc": "Acción adicional: una llama en tu mano. Luego puedes lanzarla con una acción (1d8 de fuego a 18 m)."
+  },
+  "produce_flame_hurl": {
+    "name": "Lanzar llama", "level": 0, "school": "conjuration", "cast": "action", "range": 60, "hidden": true, "requires_effect": "produce_flame", "scale_as": "produce_flame",
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "1d8", "type": "fire"},
+    "tags": ["damage"], "fx": "fire", "desc": "Arrojas la llama de tu mano: ataque de conjuro a distancia, 1d8 de fuego."
+  },
+  "shillelagh": {
+    "name": "Garrote", "level": 0, "school": "transmutation", "cast": "bonus", "range": 0,
+    "target": "self", "special": "shillelagh",
+    "tags": ["buff"], "fx": "nature", "desc": "Acción adicional: tu garrote o bastón usa tu Sabiduría para atacar y hace 1d8 de daño durante 1 minuto."
+  },
+  "sorcerous_burst": {
+    "name": "Estallido hechicero", "level": 0, "school": "evocation", "cast": "action", "range": 120,
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "1d8", "type": "fire"}, "damage_choice": ["acid", "cold", "fire", "lightning", "poison", "psychic", "thunder"], "exploding": true,
+    "tags": ["damage"], "fx": "arcane", "desc": "Energía pura del tipo que elijas: 1d8, y cada 8 añade otro dado (hasta tu Carisma)."
+  },
+  "toll_the_dead": {
+    "name": "Toque de difuntos", "level": 0, "school": "necromancy", "cast": "action", "range": 60,
+    "target": "enemy", "save": {"ability": "wis", "half": false}, "damage": {"dice": "1d8", "type": "necrotic"}, "wounded_dice": "1d12",
+    "tags": ["damage"], "fx": "necrotic", "desc": "Una campana fúnebre: Sabiduría o 1d8 necrótico (1d12 si ya estaba herido)."
+  },
+  "word_of_radiance": {
+    "name": "Palabra radiante", "level": 0, "school": "evocation", "cast": "action", "range": 0,
+    "target": "self", "area": {"shape": "emanation", "radius": 5}, "only_enemies": true, "save": {"ability": "con", "half": false}, "damage": {"dice": "1d6", "type": "radiant"},
+    "tags": ["damage", "aoe"], "fx": "radiant", "desc": "Luz abrasadora a tu alrededor: los enemigos adyacentes que fallen Constitución sufren 1d6 radiante."
+  },
+  "thunderclap": {
+    "name": "Palmada atronadora", "level": 0, "school": "evocation", "cast": "action", "range": 0,
+    "target": "self", "area": {"shape": "emanation", "radius": 5}, "save": {"ability": "con", "half": false}, "damage": {"dice": "1d6", "type": "thunder"},
+    "tags": ["damage", "aoe"], "fx": "thunder", "desc": "Un estruendo a tu alrededor: todas las criaturas adyacentes (también aliadas) que fallen Constitución sufren 1d6 de trueno."
+  },
+  "thorn_whip": {
+    "name": "Látigo de espinas", "level": 0, "school": "transmutation", "cast": "action", "range": 30,
+    "target": "enemy", "attack": "melee_spell", "damage": {"dice": "1d6", "type": "piercing"}, "on_hit": "pull10",
+    "tags": ["damage", "control"], "fx": "nature", "desc": "Un látigo de espinas a 9 m: 1d6 perforante y atraes al objetivo 3 m hacia ti."
+  },
+  "guidance": {"name": "Orientación", "level": 0, "school": "divination", "cast": "action", "range": 5, "target": "ally", "utility": true, "tags": ["utility"], "desc": "Un aliado suma 1d4 a una prueba de característica (fuera de combate)."},
+  "light": {"name": "Luz", "level": 0, "school": "evocation", "cast": "action", "range": 5, "target": "self", "utility": true, "tags": ["utility"], "desc": "Un objeto brilla como una antorcha durante una hora (exploración)."},
+  "mage_hand": {"name": "Mano de mago", "level": 0, "school": "conjuration", "cast": "action", "range": 30, "target": "self", "utility": true, "tags": ["utility"], "desc": "Una mano espectral manipula objetos a distancia (exploración)."},
+  "prestidigitation": {"name": "Prestidigitación", "level": 0, "school": "transmutation", "cast": "action", "range": 10, "target": "self", "utility": true, "tags": ["utility"], "desc": "Pequeños trucos de magia: limpiar, encender una vela, un olor… (exploración y diálogos)."},
+  "druidcraft": {"name": "Druidismo", "level": 0, "school": "transmutation", "cast": "action", "range": 30, "target": "self", "utility": true, "tags": ["utility"], "desc": "Pequeños prodigios naturales: predecir el tiempo, hacer florecer una planta (exploración)."},
+  "dancing_lights": {"name": "Luces danzantes", "level": 0, "school": "illusion", "cast": "action", "range": 120, "target": "self", "utility": true, "tags": ["utility"], "desc": "Hasta cuatro luces flotantes que mueves a voluntad (exploración)."},
+  "minor_illusion": {"name": "Ilusión menor", "level": 0, "school": "illusion", "cast": "action", "range": 30, "target": "self", "utility": true, "tags": ["utility"], "desc": "Un sonido o una imagen ilusoria (exploración y diálogos)."},
+  "mending": {"name": "Remendar", "level": 0, "school": "transmutation", "cast": "action", "range": 5, "target": "self", "utility": true, "tags": ["utility"], "desc": "Reparas una rotura o rasgón en un objeto (exploración)."},
+  "thaumaturgy": {"name": "Taumaturgia", "level": 0, "school": "transmutation", "cast": "action", "range": 30, "target": "self", "utility": true, "tags": ["utility"], "desc": "Muestras un pequeño prodigio: voz atronadora, temblores, llamas que parpadean (diálogos)."},
+  "message": {"name": "Mensaje", "level": 0, "school": "transmutation", "cast": "action", "range": 120, "target": "self", "utility": true, "tags": ["utility"], "desc": "Susurras un mensaje a alguien lejano que puede responderte (exploración)."},
+
+  "magic_missile": {
+    "name": "Proyectil mágico", "level": 1, "school": "evocation", "cast": "action", "range": 120,
+    "target": "darts", "darts": 3, "upcast_darts": 1, "damage": {"dice": "1d4+1", "type": "force"},
+    "tags": ["damage", "sure"], "fx": "missile", "desc": "Tres dardos que nunca fallan: 1d4+1 de fuerza cada uno. Repártelos como quieras."
+  },
+  "sleep": {
+    "name": "Dormir", "level": 1, "school": "enchantment", "cast": "action", "range": 60, "concentration": true, "duration": 10,
+    "target": "point", "area": {"shape": "sphere", "radius": 5}, "save": {"ability": "wis", "half": false}, "special": "sleep", "only_enemies": true,
+    "tags": ["control"], "fx": "sleep", "desc": "Esfera de 1,5 m: quien falle Sabiduría queda incapacitado y luego dormido. No afecta a no muertos ni elfos."
+  },
+  "thunderwave": {
+    "name": "Onda atronadora", "level": 1, "school": "evocation", "cast": "action", "range": 0,
+    "target": "direction", "area": {"shape": "cube", "size": 15, "from_self": true}, "save": {"ability": "con", "half": true},
+    "damage": {"dice": "2d8", "type": "thunder"}, "upcast_dice": "1d8", "on_fail": "push10",
+    "tags": ["damage", "aoe", "escape"], "fx": "thunder", "desc": "Cubo de 4,5 m desde ti: 2d8 de trueno y empuja 3 m (mitad sin empujón si salva Constitución)."
+  },
+  "burning_hands": {
+    "name": "Manos ardientes", "level": 1, "school": "evocation", "cast": "action", "range": 0,
+    "target": "direction", "area": {"shape": "cone", "length": 15}, "save": {"ability": "dex", "half": true},
+    "damage": {"dice": "3d6", "type": "fire"}, "upcast_dice": "1d6",
+    "tags": ["damage", "aoe"], "fx": "fire_cone", "desc": "Cono de 4,5 m: 3d6 de fuego (mitad si salva Destreza)."
+  },
+  "shield": {
+    "name": "Escudo", "level": 1, "school": "abjuration", "cast": "reaction", "range": 0,
+    "target": "self", "special": "shield",
+    "tags": ["defense"], "desc": "Reacción al recibir un impacto: +5 a la CA hasta tu siguiente turno."
+  },
+  "mage_armor": {
+    "name": "Armadura de mago", "level": 1, "school": "abjuration", "cast": "action", "range": 5, "duration_hours": 8,
+    "target": "ally_unarmored", "special": "mage_armor",
+    "tags": ["buff", "precast"], "desc": "La CA base pasa a ser 13 + Destreza durante 8 horas."
+  },
+  "bless": {
+    "name": "Bendecir", "level": 1, "school": "enchantment", "cast": "action", "range": 30, "concentration": true, "duration": 10,
+    "target": "allies", "max_targets": 3, "upcast_targets": 1, "special": "bless",
+    "tags": ["buff"], "fx": "buff", "desc": "Hasta tres aliados suman 1d4 a sus ataques y salvaciones."
+  },
+  "cure_wounds": {
+    "name": "Curar heridas", "level": 1, "school": "abjuration", "cast": "action", "range": 5,
+    "target": "ally", "heal": {"dice": "2d8", "mod": true}, "upcast_heal": "2d8",
+    "tags": ["heal"], "fx": "heal", "desc": "Toque: recupera 2d8 + tu característica mágica."
+  },
+  "healing_word": {
+    "name": "Palabra de curación", "level": 1, "school": "abjuration", "cast": "bonus", "range": 60,
+    "target": "ally", "heal": {"dice": "2d4", "mod": true}, "upcast_heal": "2d4",
+    "tags": ["heal", "rescue"], "fx": "heal", "desc": "Acción adicional a 18 m: recupera 2d4 + tu característica mágica."
+  },
+  "guiding_bolt": {
+    "name": "Saeta guía", "level": 1, "school": "evocation", "cast": "action", "range": 120,
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "4d6", "type": "radiant"}, "upcast_dice": "1d6", "on_hit": "guiding_bolt",
+    "tags": ["damage"], "fx": "radiant", "desc": "4d6 radiante y el siguiente ataque contra el objetivo tiene ventaja."
+  },
+  "shield_of_faith": {
+    "name": "Escudo de fe", "level": 1, "school": "abjuration", "cast": "bonus", "range": 60, "concentration": true, "duration": 100,
+    "target": "ally", "special": "shield_of_faith",
+    "tags": ["buff", "defense"], "fx": "buff", "desc": "Acción adicional: +2 a la CA de un aliado mientras te concentres."
+  },
+  "command": {
+    "name": "Orden imperiosa", "level": 1, "school": "enchantment", "cast": "action", "range": 60,
+    "target": "enemy", "max_targets": 1, "upcast_targets": 1, "save": {"ability": "wis", "half": false}, "special": "command",
+    "tags": ["control"], "fx": "command", "desc": "Si falla Sabiduría: ¡De rodillas! (queda derribado y pierde el turno)."
+  },
+  "sanctuary": {
+    "name": "Santuario", "level": 1, "school": "abjuration", "cast": "bonus", "range": 30, "duration": 10,
+    "target": "ally", "special": "sanctuary",
+    "tags": ["defense", "rescue"], "fx": "buff", "desc": "Quien quiera atacar al aliado protegido debe superar Sabiduría o cambiar de objetivo."
+  },
+  "bane": {
+    "name": "Perdición", "level": 1, "school": "enchantment", "cast": "action", "range": 30, "concentration": true, "duration": 10,
+    "target": "enemies", "max_targets": 3, "upcast_targets": 1, "save": {"ability": "cha", "half": false},
+    "on_fail_effect": {"kind": "bane", "name": "Perdición"},
+    "tags": ["debuff"], "fx": "curse", "desc": "Hasta tres enemigos que fallen Carisma restan 1d4 a sus ataques y salvaciones."
+  },
+  "charm_person": {
+    "name": "Hechizar persona", "level": 1, "school": "enchantment", "cast": "action", "range": 30, "duration": 600,
+    "target": "enemy_humanoid", "max_targets": 1, "upcast_targets": 1, "save": {"ability": "wis", "half": false, "hostile_adv": true},
+    "on_fail_effect": {"kind": "charmed_by", "name": "Hechizado", "grants": ["charmed"], "ends_on_damage_from_team": true},
+    "tags": ["control", "social"], "fx": "charm", "desc": "Un humanoide te considera un amigo y no te atacará. En combate tiene ventaja en la salvación. Útil en diálogos."
+  },
+  "chromatic_orb": {
+    "name": "Orbe cromático", "level": 1, "school": "evocation", "cast": "action", "range": 90,
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "3d8", "type": "fire"}, "upcast_dice": "1d8",
+    "damage_choice": ["acid", "cold", "fire", "lightning", "poison", "thunder"], "special_hit": "chromatic_leap",
+    "tags": ["damage"], "fx": "arcane", "desc": "Un orbe del tipo de daño que elijas: 3d8. Si sacas dos dados iguales, salta a otro enemigo cercano."
+  },
+  "color_spray": {
+    "name": "Rociada de color", "level": 1, "school": "illusion", "cast": "action", "range": 0,
+    "target": "direction", "area": {"shape": "cone", "length": 15}, "save": {"ability": "con", "half": false},
+    "on_fail_effect": {"kind": "blinded_spell", "name": "Deslumbrado", "grants": ["blinded"], "expires": "end_turn_next:caster"},
+    "tags": ["control", "aoe"], "fx": "color", "desc": "Cono de 4,5 m de luces: quien falle Constitución queda cegado hasta el final de tu siguiente turno."
+  },
+  "detect_magic": {"name": "Detectar magia", "level": 1, "school": "divination", "cast": "action", "range": 0, "target": "self", "utility": true, "ritual": true, "tags": ["utility"], "desc": "Percibes la magia a 9 m (exploración)."},
+  "dissonant_whispers": {
+    "name": "Susurros disonantes", "level": 1, "school": "enchantment", "cast": "action", "range": 60,
+    "target": "enemy", "save": {"ability": "wis", "half": true}, "damage": {"dice": "3d6", "type": "psychic"}, "upcast_dice": "1d6", "on_fail": "flee_reaction",
+    "tags": ["damage", "control"], "fx": "psychic", "desc": "Una melodía atroz: 3d6 psíquico y, si falla Sabiduría, huye con su reacción (provocando ataques de oportunidad)."
+  },
+  "divine_favor": {
+    "name": "Favor divino", "level": 1, "school": "transmutation", "cast": "bonus", "range": 0, "duration": 10,
+    "target": "self", "self_effect": {"kind": "divine_favor", "name": "Favor divino", "positive": true, "rounds": 10},
+    "tags": ["buff"], "fx": "radiant", "desc": "Acción adicional: durante 1 minuto tus ataques con arma hacen 1d4 radiante extra."
+  },
+  "divine_smite": {
+    "name": "Castigo divino", "level": 1, "school": "evocation", "cast": "rider", "rider": "melee", "range": 0,
+    "target": "rider", "damage": {"dice": "2d8", "type": "radiant"}, "upcast_dice": "1d8", "vs_fiend_undead": "1d8",
+    "tags": ["damage", "smite"], "fx": "radiant", "desc": "Tras impactar cuerpo a cuerpo: 2d8 radiante extra (+1d8 contra infernales y muertos vivientes). Dobla en crítico."
+  },
+  "searing_smite": {
+    "name": "Castigo abrasador", "level": 1, "school": "evocation", "cast": "rider", "rider": "melee", "range": 0, "duration": 10,
+    "target": "rider", "damage": {"dice": "1d6", "type": "fire"}, "upcast_dice": "1d6",
+    "rider_effect": {"kind": "searing", "name": "En llamas", "rounds": 10, "dot": {"dice": "1d6", "type": "fire", "when": "start_turn", "upcast": "1d6", "then_save": "con"}},
+    "tags": ["damage", "smite"], "fx": "fire", "desc": "Tras impactar cuerpo a cuerpo: 1d6 de fuego y el objetivo arde (1d6 cada turno hasta que supere Constitución)."
+  },
+  "thunderous_smite": {
+    "name": "Castigo atronador", "level": 1, "school": "evocation", "cast": "rider", "rider": "melee", "range": 0,
+    "target": "rider", "damage": {"dice": "2d6", "type": "thunder"}, "upcast_dice": "1d6", "rider_save": {"ability": "str", "fail": "push10_prone"},
+    "tags": ["damage", "smite", "control"], "fx": "thunder", "desc": "Tras impactar cuerpo a cuerpo: 2d6 de trueno y, si falla Fuerza, sale despedido 3 m y queda derribado."
+  },
+  "wrathful_smite": {
+    "name": "Castigo colérico", "level": 1, "school": "necromancy", "cast": "rider", "rider": "melee", "range": 0, "concentration": true, "duration": 10,
+    "target": "rider", "damage": {"dice": "1d6", "type": "necrotic"}, "upcast_dice": "1d6", "rider_save": {"ability": "wis", "fail": "effect"},
+    "rider_effect": {"kind": "frightened_spell", "name": "Aterrado", "grants": ["frightened"], "save_end": {"ability": "wis", "when": "end_turn"}},
+    "tags": ["damage", "smite", "control"], "fx": "necrotic", "desc": "Tras impactar cuerpo a cuerpo: 1d6 necrótico y, si falla Sabiduría, queda aterrado (repite al final de cada turno)."
+  },
+  "ensnaring_strike": {
+    "name": "Golpe atrapador", "level": 1, "school": "conjuration", "cast": "rider", "rider": "weapon", "range": 0, "concentration": true, "duration": 10,
+    "target": "rider", "rider_save": {"ability": "str", "large_adv": true, "fail": "effect"},
+    "rider_effect": {"kind": "ensnared", "name": "Atrapado", "grants": ["restrained"], "escape": "athletics", "dot": {"dice": "1d6", "type": "piercing", "when": "start_turn", "upcast": "1d6"}},
+    "tags": ["control", "smite"], "fx": "nature", "desc": "Tras impactar con un arma: si falla Fuerza, unas enredaderas lo apresan (1d6 perforante cada turno). Puede liberarse con Atletismo."
+  },
+  "hail_of_thorns": {
+    "name": "Granizo de espinas", "level": 1, "school": "conjuration", "cast": "rider", "rider": "ranged", "range": 0,
+    "target": "rider", "rider_area": 5, "save": {"ability": "dex", "half": true}, "damage": {"dice": "2d10", "type": "piercing"}, "upcast_dice": "1d10",
+    "tags": ["damage", "smite", "aoe"], "fx": "nature", "desc": "Tras impactar a distancia: el objetivo y quien esté a 1,5 m de él sufren 2d10 perforante (mitad si salvan Destreza)."
+  },
+  "entangle": {
+    "name": "Enmarañar", "level": 1, "school": "conjuration", "cast": "action", "range": 90, "concentration": true, "duration": 10,
+    "target": "point", "area": {"shape": "square", "size": 20}, "save": {"ability": "str", "half": false}, "exclude_caster": true,
+    "on_fail_effect": {"kind": "entangled", "name": "Enmarañado", "grants": ["restrained"], "escape": "athletics"},
+    "zone": {"kind": "entangle", "difficult": true, "color": "#5f8f3a"},
+    "tags": ["control", "aoe", "zone"], "fx": "nature", "desc": "Cuadrado de 6 m de plantas: terreno difícil y quien falle Fuerza queda apresado (Atletismo para liberarse)."
+  },
+  "expeditious_retreat": {
+    "name": "Retirada expeditiva", "level": 1, "school": "transmutation", "cast": "bonus", "range": 0, "concentration": true, "duration": 100,
+    "target": "self", "special": "expeditious_retreat",
+    "tags": ["escape", "mobility"], "fx": "wind", "desc": "Acción adicional: corres ahora y, mientras dure, puedes Correr como acción adicional cada turno."
+  },
+  "faerie_fire": {
+    "name": "Fuego feérico", "level": 1, "school": "evocation", "cast": "action", "range": 60, "concentration": true, "duration": 10,
+    "target": "point", "area": {"shape": "square", "size": 20}, "save": {"ability": "dex", "half": false},
+    "on_fail_effect": {"kind": "outlined", "name": "Silueteado"},
+    "tags": ["debuff", "aoe"], "fx": "faerie", "desc": "Cubo de 6 m: quien falle Destreza brilla; los ataques contra él tienen ventaja y no puede volverse invisible."
+  },
+  "false_life": {
+    "name": "Falsa vida", "level": 1, "school": "necromancy", "cast": "action", "range": 0,
+    "target": "self", "temp_hp": {"dice": "2d4+4"}, "upcast_temp": 5,
+    "tags": ["defense", "precast"], "fx": "necrotic", "desc": "Ganas 2d4 + 4 PG temporales."
+  },
+  "feather_fall": {"name": "Caída de pluma", "level": 1, "school": "transmutation", "cast": "reaction", "range": 60, "target": "self", "utility": true, "tags": ["utility"], "desc": "Reacción: tú y hasta cinco aliados caéis lentamente (exploración)."},
+  "fog_cloud": {
+    "name": "Nube de niebla", "level": 1, "school": "conjuration", "cast": "action", "range": 120, "concentration": true, "duration": 100,
+    "target": "point", "area": {"shape": "sphere", "radius": 20}, "upcast_radius": 20,
+    "zone": {"kind": "fog", "obscure": 2, "color": "#c8d0d8"},
+    "tags": ["zone", "defense"], "fx": "fog", "desc": "Esfera de 6 m de niebla espesa: nadie ve a través de ella (desventaja al atacar lo que no se ve, ventaja al atacar sin ser visto)."
+  },
+  "grease": {
+    "name": "Grasa", "level": 1, "school": "conjuration", "cast": "action", "range": 60, "duration": 10,
+    "target": "point", "area": {"shape": "square", "size": 10}, "save": {"ability": "dex", "half": false}, "on_fail": "prone",
+    "zone": {"kind": "grease", "difficult": true, "rounds": 10, "enter": {"save": "dex", "fail": "prone"}, "end": {"save": "dex", "fail": "prone"}, "color": "#8a7a40"},
+    "tags": ["control", "aoe", "zone"], "fx": "grease", "desc": "Cuadrado de 3 m resbaladizo: terreno difícil y quien falle Destreza (al lanzarlo, al entrar o al acabar su turno ahí) cae derribado."
+  },
+  "hellish_rebuke": {
+    "name": "Reprensión infernal", "level": 1, "school": "evocation", "cast": "reaction", "range": 60,
+    "target": "enemy", "save": {"ability": "dex", "half": true}, "damage": {"dice": "2d10", "type": "fire"}, "upcast_dice": "1d10",
+    "tags": ["damage", "reaction"], "fx": "fire", "desc": "Reacción cuando alguien a 18 m te daña: llamas infernales, 2d10 de fuego (mitad si salva Destreza)."
+  },
+  "heroism": {
+    "name": "Heroísmo", "level": 1, "school": "enchantment", "cast": "action", "range": 5, "concentration": true, "duration": 10,
+    "target": "ally", "max_targets": 1, "upcast_targets": 1,
+    "target_effect": {"kind": "heroism", "name": "Heroísmo", "positive": true},
+    "tags": ["buff"], "fx": "buff", "desc": "Un aliado es inmune al miedo y gana PG temporales iguales a tu característica mágica al inicio de cada turno."
+  },
+  "hex": {
+    "name": "Maleficio", "level": 1, "school": "enchantment", "cast": "bonus", "range": 90, "concentration": true, "duration": 100,
+    "target": "enemy", "special": "mark", "mark_kind": "hexed", "mark_damage": {"dice": "1d6", "type": "necrotic"},
+    "tags": ["damage", "mark"], "fx": "curse", "desc": "Acción adicional: maldices a un enemigo; tus ataques le hacen 1d6 necrótico extra. Si cae, puedes pasar la maldición a otro."
+  },
+  "hunters_mark": {
+    "name": "Marca del cazador", "level": 1, "school": "divination", "cast": "bonus", "range": 90, "concentration": true, "duration": 100,
+    "target": "enemy", "special": "mark", "mark_kind": "hunters_mark", "mark_damage": {"dice": "1d6", "type": "force"},
+    "tags": ["damage", "mark"], "fx": "mark", "desc": "Acción adicional: marcas a tu presa; tus ataques le hacen 1d6 de fuerza extra. Si cae, puedes mover la marca."
+  },
+  "hideous_laughter": {
+    "name": "Risa horrible", "level": 1, "school": "enchantment", "cast": "action", "range": 30, "concentration": true, "duration": 10,
+    "target": "enemy", "max_targets": 1, "upcast_targets": 1, "save": {"ability": "wis", "half": false},
+    "on_fail_effect": {"kind": "laughing", "name": "Riéndose", "grants": ["prone", "incapacitated"], "save_end": {"ability": "wis", "when": "end_turn", "damage_adv": true}},
+    "tags": ["control"], "fx": "charm", "desc": "Si falla Sabiduría, cae al suelo muerto de risa: derribado e incapacitado (repite al final de cada turno y al recibir daño)."
+  },
+  "ice_knife": {
+    "name": "Cuchillo de hielo", "level": 1, "school": "conjuration", "cast": "action", "range": 60,
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "1d10", "type": "piercing"}, "special_hit": "ice_knife",
+    "burst": {"dice": "2d6", "type": "cold", "save": "dex", "upcast": "1d6"},
+    "tags": ["damage", "aoe"], "fx": "frost", "desc": "Un fragmento de hielo: 1d10 perforante al impactar y, impacte o no, estalla: 2d6 de frío al objetivo y a quien esté a 1,5 m (Destreza)."
+  },
+  "inflict_wounds": {
+    "name": "Infligir heridas", "level": 1, "school": "necromancy", "cast": "action", "range": 5,
+    "target": "enemy", "save": {"ability": "con", "half": true}, "damage": {"dice": "2d10", "type": "necrotic"}, "upcast_dice": "1d10",
+    "tags": ["damage"], "fx": "necrotic", "desc": "Toque: 2d10 necrótico (mitad si salva Constitución)."
+  },
+  "longstrider": {
+    "name": "Zancada prodigiosa", "level": 1, "school": "transmutation", "cast": "action", "range": 5, "duration": 600,
+    "target": "ally", "max_targets": 1, "upcast_targets": 1,
+    "target_effect": {"kind": "longstrider", "name": "Zancada", "positive": true, "rounds": 600},
+    "tags": ["buff", "precast"], "fx": "wind", "desc": "Un aliado gana 3 m de velocidad durante una hora."
+  },
+  "protection_from_evil_and_good": {
+    "name": "Protección contra el bien y el mal", "level": 1, "school": "abjuration", "cast": "action", "range": 5, "concentration": true, "duration": 100,
+    "target": "ally",
+    "target_effect": {"kind": "prot_evil", "name": "Protección", "positive": true},
+    "tags": ["buff", "defense"], "fx": "buff", "desc": "Aberraciones, celestiales, elementales, feéricos (trasgos incluidos), infernales y muertos vivientes atacan al protegido con desventaja y no pueden asustarlo ni hechizarlo."
+  },
+  "ray_of_sickness": {
+    "name": "Rayo de enfermedad", "level": 1, "school": "necromancy", "cast": "action", "range": 60,
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "2d8", "type": "poison"}, "upcast_dice": "1d8",
+    "on_hit_effect": {"kind": "poisoned_spell", "name": "Envenenado", "grants": ["poisoned"], "expires": "end_turn_next:caster"},
+    "tags": ["damage", "debuff"], "fx": "poison", "desc": "Un rayo verdoso: 2d8 de veneno y el objetivo queda envenenado hasta el final de tu siguiente turno."
+  },
+  "speak_with_animals": {"name": "Hablar con los animales", "level": 1, "school": "divination", "cast": "action", "range": 0, "target": "self", "utility": true, "ritual": true, "tags": ["utility"], "desc": "Entiendes a las bestias y ellas a ti durante 10 minutos (exploración y diálogos)."},
+  "armor_of_agathys": {
+    "name": "Armadura de Agathys", "level": 1, "school": "abjuration", "cast": "bonus", "range": 0,
+    "target": "self", "special": "armor_of_agathys", "temp_hp": {"dice": "5"}, "upcast_temp": 5,
+    "tags": ["defense", "precast"], "fx": "frost", "desc": "Acción adicional: 5 PG temporales de escarcha. Mientras duren, quien te golpee cuerpo a cuerpo sufre 5 de frío."
+  },
+  "arms_of_hadar": {
+    "name": "Brazos de Hadar", "level": 1, "school": "conjuration", "cast": "action", "range": 0,
+    "target": "self", "area": {"shape": "emanation", "radius": 10}, "save": {"ability": "str", "half": true}, "damage": {"dice": "2d6", "type": "necrotic"}, "upcast_dice": "1d6",
+    "on_fail_effect": {"kind": "no_reactions", "name": "Sin reacciones", "expires": "start_turn:target"},
+    "tags": ["damage", "aoe", "escape"], "fx": "necrotic", "desc": "Tentáculos a 3 m de ti: 2d6 necrótico (mitad si salvan Fuerza) y quien falle no puede usar reacciones."
+  },
+
+  "scorching_ray": {
+    "name": "Rayo abrasador", "level": 2, "school": "evocation", "cast": "action", "range": 120,
+    "target": "rays", "darts": 3, "upcast_darts": 1, "attack": "ranged_spell", "damage": {"dice": "2d6", "type": "fire"},
+    "tags": ["damage"], "fx": "fire", "desc": "Tres rayos (ataque de conjuro cada uno): 2d6 de fuego por rayo."
+  },
+  "shatter": {
+    "name": "Estallido", "level": 2, "school": "evocation", "cast": "action", "range": 60,
+    "target": "point", "area": {"shape": "sphere", "radius": 10}, "save": {"ability": "con", "half": true},
+    "damage": {"dice": "3d8", "type": "thunder"}, "upcast_dice": "1d8",
+    "tags": ["damage", "aoe"], "fx": "shatter", "desc": "Esfera de 3 m: 3d8 de trueno (mitad si salva Constitución)."
+  },
+  "misty_step": {
+    "name": "Paso brumoso", "level": 2, "school": "conjuration", "cast": "bonus", "range": 30,
+    "target": "cell", "special": "teleport",
+    "tags": ["escape"], "desc": "Acción adicional: te teletransportas hasta 9 m."
+  },
+  "hold_person": {
+    "name": "Inmovilizar persona", "level": 2, "school": "enchantment", "cast": "action", "range": 60, "concentration": true, "duration": 10,
+    "target": "enemy_humanoid", "max_targets": 1, "upcast_targets": 1, "save": {"ability": "wis", "half": false}, "special": "hold_person",
+    "tags": ["control"], "fx": "command", "desc": "Un humanoide que falle Sabiduría queda paralizado (repite la salvación al final de cada turno)."
+  },
+  "spiritual_weapon": {
+    "name": "Arma espiritual", "level": 2, "school": "evocation", "cast": "bonus", "range": 60, "concentration": true, "duration": 10,
+    "target": "cell", "special": "spiritual_weapon", "damage": {"dice": "1d8", "type": "force", "mod": true}, "upcast_dice": "1d8",
+    "tags": ["damage", "summon"], "desc": "Invoca un arma de fuerza que ataca (1d8 + característica mágica) y puedes mover cada turno."
+  },
+  "aid": {
+    "name": "Auxilio", "level": 2, "school": "abjuration", "cast": "action", "range": 30, "duration_hours": 8,
+    "target": "allies", "max_targets": 3, "special": "aid",
+    "tags": ["buff", "heal"], "fx": "buff", "desc": "Hasta tres aliados ganan 5 PG máximos y actuales."
+  },
+  "lesser_restoration": {
+    "name": "Restablecimiento menor", "level": 2, "school": "abjuration", "cast": "bonus", "range": 5,
+    "target": "ally", "special": "lesser_restoration",
+    "tags": ["cure"], "fx": "heal", "desc": "Acción adicional: elimina cegado, ensordecido, paralizado o envenenado."
+  },
+  "acid_arrow": {
+    "name": "Flecha ácida", "level": 2, "school": "evocation", "cast": "action", "range": 90,
+    "target": "enemy", "attack": "ranged_spell", "damage": {"dice": "4d4", "type": "acid"}, "upcast_dice": "1d4", "miss_half": true,
+    "on_hit_effect": {"kind": "acid_dot", "name": "Ácido", "expires": "end_turn:target", "dot": {"dice": "2d4", "type": "acid", "when": "end_turn", "upcast": "1d4"}},
+    "tags": ["damage"], "fx": "acid", "desc": "4d4 de ácido y otros 2d4 al final de su siguiente turno. Si fallas, la mitad del daño inicial."
+  },
+  "barkskin": {
+    "name": "Piel robliza", "level": 2, "school": "transmutation", "cast": "bonus", "range": 5, "duration": 600,
+    "target": "ally",
+    "target_effect": {"kind": "barkskin", "name": "Piel robliza", "positive": true, "rounds": 600},
+    "tags": ["buff", "defense", "precast"], "fx": "nature", "desc": "Acción adicional: la piel de un aliado se vuelve corteza; su CA no puede ser inferior a 17 durante una hora."
+  },
+  "blindness_deafness": {
+    "name": "Ceguera/sordera", "level": 2, "school": "transmutation", "cast": "action", "range": 120, "duration": 10,
+    "target": "enemy", "max_targets": 1, "upcast_targets": 1, "save": {"ability": "con", "half": false},
+    "on_fail_effect": {"kind": "blinded_long", "name": "Cegado", "grants": ["blinded"], "rounds": 10, "save_end": {"ability": "con", "when": "end_turn"}},
+    "tags": ["control"], "fx": "curse", "desc": "Si falla Constitución, queda cegado un minuto (repite la salvación al final de cada turno). No requiere concentración."
+  },
+  "blur": {
+    "name": "Desenfoque", "level": 2, "school": "illusion", "cast": "action", "range": 0, "concentration": true, "duration": 10,
+    "target": "self", "self_effect": {"kind": "blur", "name": "Desenfoque", "positive": true},
+    "tags": ["defense"], "fx": "arcane", "desc": "Tu silueta se difumina: todos los ataques contra ti tienen desventaja."
+  },
+  "darkness": {
+    "name": "Oscuridad", "level": 2, "school": "evocation", "cast": "action", "range": 60, "concentration": true, "duration": 100,
+    "target": "point", "area": {"shape": "sphere", "radius": 15},
+    "zone": {"kind": "darkness", "obscure": 3, "color": "#120d1a"},
+    "tags": ["zone", "defense"], "fx": "darkness", "desc": "Esfera de 4,5 m de oscuridad mágica: ni la visión en la oscuridad la atraviesa (salvo la Vista del diablo)."
+  },
+  "dragons_breath": {
+    "name": "Aliento de dragón", "level": 2, "school": "transmutation", "cast": "bonus", "range": 5, "concentration": true, "duration": 10,
+    "target": "ally", "special": "dragons_breath", "derived": "dragons_breath_exhale", "damage_choice": ["acid", "cold", "fire", "lightning", "poison"], "upcast_dice": "1d6",
+    "tags": ["buff", "damage"], "fx": "fire", "desc": "Acción adicional: un aliado (o tú) puede exhalar cada turno un cono de 4,5 m de 3d6 del tipo elegido (Destreza para la mitad)."
+  },
+  "dragons_breath_exhale": {
+    "name": "Exhalar aliento", "level": 0, "school": "transmutation", "cast": "action", "range": 0, "hidden": true, "requires_effect": "dragons_breath",
+    "target": "direction", "area": {"shape": "cone", "length": 15}, "save": {"ability": "dex", "half": true}, "damage": {"dice": "3d6", "type": "fire"},
+    "tags": ["damage", "aoe"], "fx": "fire_cone", "desc": "Exhalas el aliento de dragón en un cono de 4,5 m."
+  },
+  "enlarge_reduce": {
+    "name": "Agrandar/reducir", "level": 2, "school": "transmutation", "cast": "action", "range": 30, "concentration": true, "duration": 10,
+    "target": "creature", "special": "enlarge_reduce", "save": {"ability": "con", "half": false, "enemies_only": true},
+    "tags": ["buff", "debuff"], "fx": "arcane", "desc": "Sobre un aliado: crece, +1d4 al daño con armas y ventaja en Fuerza. Sobre un enemigo (Constitución): encoge, −1d4 al daño y desventaja en Fuerza."
+  },
+  "flame_blade": {
+    "name": "Hoja de fuego", "level": 2, "school": "evocation", "cast": "bonus", "range": 0, "concentration": true, "duration": 100,
+    "target": "self", "special": "flame_blade", "derived": "flame_blade_strike", "upcast_dice": "1d6",
+    "tags": ["damage", "prep"], "fx": "fire", "desc": "Acción adicional: una cimitarra de fuego en tu mano. Con una acción, ataque de conjuro cuerpo a cuerpo de 3d6 + tu característica mágica de fuego."
+  },
+  "flame_blade_strike": {
+    "name": "Tajo de fuego", "level": 0, "school": "evocation", "cast": "action", "range": 5, "hidden": true, "requires_effect": "flame_blade",
+    "target": "enemy", "attack": "melee_spell", "damage": {"dice": "3d6", "type": "fire", "mod": true},
+    "tags": ["damage"], "fx": "fire", "desc": "Atacas con la hoja de fuego: 3d6 + tu característica mágica de fuego."
+  },
+  "flaming_sphere": {
+    "name": "Esfera llameante", "level": 2, "school": "conjuration", "cast": "action", "range": 60, "concentration": true, "duration": 10,
+    "target": "cell", "special": "flaming_sphere", "save": {"ability": "dex", "half": true}, "damage": {"dice": "2d6", "type": "fire"}, "upcast_dice": "1d6",
+    "tags": ["damage", "summon"], "fx": "fire", "desc": "Una bola de fuego rodante: quien acabe su turno junto a ella sufre 2d6 (Destreza para la mitad). Con una acción adicional la mueves 9 m y embistes."
+  },
+  "invisibility": {
+    "name": "Invisibilidad", "level": 2, "school": "illusion", "cast": "action", "range": 5, "concentration": true, "duration": 100,
+    "target": "ally", "max_targets": 1, "upcast_targets": 1,
+    "target_effect": {"kind": "invisible_spell", "name": "Invisible", "grants": ["invisible"], "positive": true},
+    "tags": ["buff", "escape"], "fx": "arcane", "desc": "Un aliado se vuelve invisible hasta que ataque, haga daño o lance un conjuro."
+  },
+  "magic_weapon": {
+    "name": "Arma mágica", "level": 2, "school": "transmutation", "cast": "bonus", "range": 5, "duration": 600,
+    "target": "ally",
+    "target_effect": {"kind": "magic_weapon", "name": "Arma mágica +1", "positive": true, "rounds": 600, "data": {"bonus": 1}},
+    "tags": ["buff", "precast"], "fx": "arcane", "desc": "Acción adicional: el arma de un aliado gana +1 al ataque y al daño durante una hora."
+  },
+  "mind_spike": {
+    "name": "Púa mental", "level": 2, "school": "divination", "cast": "action", "range": 120, "concentration": true, "duration": 100,
+    "target": "enemy", "save": {"ability": "wis", "half": true}, "damage": {"dice": "3d8", "type": "psychic"}, "upcast_dice": "1d8",
+    "on_fail_effect": {"kind": "mind_spiked", "name": "Rastreado"},
+    "tags": ["damage"], "fx": "psychic", "desc": "3d8 psíquico (mitad si salva Sabiduría). Si falla, sabes dónde está y no puede esconderse de ti."
+  },
+  "mirror_image": {
+    "name": "Imagen múltiple", "level": 2, "school": "illusion", "cast": "action", "range": 0, "duration": 10,
+    "target": "self", "self_effect": {"kind": "mirror_image", "name": "Imágenes ×3", "positive": true, "rounds": 10, "data": {"dupes": 3}},
+    "tags": ["defense"], "fx": "arcane", "desc": "Tres dobles ilusorios: cada vez que te impactan, un d6 por doble; con 3 o más el golpe destruye un doble en vez de dañarte."
+  },
+  "moonbeam": {
+    "name": "Rayo de luna", "level": 2, "school": "evocation", "cast": "action", "range": 120, "concentration": true, "duration": 10,
+    "target": "point", "area": {"shape": "sphere", "radius": 5}, "save": {"ability": "con", "half": true}, "damage": {"dice": "2d10", "type": "radiant"}, "upcast_dice": "1d10",
+    "zone": {"kind": "moonbeam", "movable": 12, "enter_damage": true, "end_damage": true, "color": "#dfe8ff"},
+    "tags": ["damage", "aoe", "zone"], "fx": "moon", "desc": "Un haz de luz plateada: 2d10 radiante (mitad si salvan Constitución) al aparecer, al entrar o al acabar el turno dentro. Puedes moverlo con una acción."
+  },
+  "ray_of_enfeeblement": {
+    "name": "Rayo debilitador", "level": 2, "school": "necromancy", "cast": "action", "range": 60, "concentration": true, "duration": 10,
+    "target": "enemy", "save": {"ability": "con", "half": false},
+    "on_fail_effect": {"kind": "enfeebled", "name": "Debilitado", "save_end": {"ability": "con", "when": "end_turn"}},
+    "on_success_effect": {"kind": "mocked", "name": "Aturdido", "expires": "start_turn:caster"},
+    "tags": ["debuff"], "fx": "necrotic", "desc": "Si falla Constitución: resta 1d8 a su daño y tiene desventaja en todo lo de Fuerza. Si salva, desventaja en su siguiente ataque."
+  },
+  "shining_smite": {
+    "name": "Castigo resplandeciente", "level": 2, "school": "transmutation", "cast": "rider", "rider": "melee", "range": 0, "concentration": true, "duration": 10,
+    "target": "rider", "damage": {"dice": "2d6", "type": "radiant"}, "upcast_dice": "1d6",
+    "rider_effect": {"kind": "outlined_shine", "name": "Resplandeciente"},
+    "tags": ["damage", "smite"], "fx": "radiant", "desc": "Tras impactar cuerpo a cuerpo: 2d6 radiante y el objetivo brilla; los ataques contra él tienen ventaja."
+  },
+  "spike_growth": {
+    "name": "Crecimiento espinoso", "level": 2, "school": "transmutation", "cast": "action", "range": 150, "concentration": true, "duration": 100,
+    "target": "point", "area": {"shape": "sphere", "radius": 20},
+    "zone": {"kind": "spike", "difficult": true, "per_cell": {"dice": "2d4", "type": "piercing"}, "color": "#6b5a2e"},
+    "tags": ["damage", "zone", "control"], "fx": "nature", "desc": "Esfera de 6 m de espinas: terreno difícil y 2d4 perforante por cada 1,5 m que alguien se mueva dentro."
+  },
+  "suggestion": {
+    "name": "Sugestión", "level": 2, "school": "enchantment", "cast": "action", "range": 30, "concentration": true, "duration": 100,
+    "target": "enemy", "save": {"ability": "wis", "half": false}, "no_beasts": true,
+    "on_fail_effect": {"kind": "suggested", "name": "Sugestionado", "grants": ["charmed"], "ends_on_damage_from_team": true},
+    "tags": ["control", "social"], "fx": "charm", "desc": "Si falla Sabiduría, sigue tu sugerencia («vete de aquí»): deja de luchar hasta que tu grupo le haga daño. Útil en diálogos."
+  },
+  "warding_bond": {
+    "name": "Vínculo protector", "level": 2, "school": "abjuration", "cast": "action", "range": 5, "duration": 600,
+    "target": "ally_other",
+    "target_effect": {"kind": "warding_bond", "name": "Vínculo protector", "positive": true, "rounds": 600},
+    "tags": ["buff", "defense"], "fx": "buff", "desc": "Un aliado gana +1 a la CA y a las salvaciones y resistencia a todo el daño, pero tú recibes el mismo daño que él."
+  },
+  "web": {
+    "name": "Telaraña", "level": 2, "school": "conjuration", "cast": "action", "range": 60, "concentration": true, "duration": 100,
+    "target": "point", "area": {"shape": "square", "size": 20}, "save": {"ability": "dex", "half": false},
+    "on_fail_effect": {"kind": "webbed", "name": "Enredado", "grants": ["restrained"], "escape": "athletics"},
+    "zone": {"kind": "web", "difficult": true, "obscure": 1, "enter": {"save": "dex", "fail": "effect"}, "start": {"save": "dex", "fail": "effect"}, "color": "#e8e4dc"},
+    "tags": ["control", "aoe", "zone"], "fx": "web", "desc": "Cubo de 6 m de telarañas: terreno difícil y quien falle Destreza (al lanzarlo, al entrar o al empezar su turno dentro) queda apresado."
+  },
+  "alter_self": {"name": "Alterar el propio aspecto", "level": 2, "school": "transmutation", "cast": "action", "range": 0, "concentration": true, "target": "self", "utility": true, "tags": ["utility"], "desc": "Cambias tu apariencia o te adaptas al agua (exploración y diálogos)."}
+}

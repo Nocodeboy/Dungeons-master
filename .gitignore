@@ -1,0 +1,8 @@
+node_modules/
+web/dist/
+motor/build*/
+qa/salida/
+*.keystore
+.keystore_pass
+contraseña.txt
+.DS_Store

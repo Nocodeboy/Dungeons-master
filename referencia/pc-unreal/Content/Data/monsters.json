@@ -1,0 +1,783 @@
+{
+  "_fuente": "Bloques de estadísticas del SRD 5.2.1 (CC-BY-4.0). Nombres en español propios.",
+  "goblin_minion": {
+    "name": "Trasgo esbirro",
+    "size": "small",
+    "type": "fey",
+    "tags": [
+      "goblinoid"
+    ],
+    "ac": 12,
+    "hp": 7,
+    "hp_dice": "2d6",
+    "speed": 30,
+    "init": 2,
+    "abilities": {
+      "str": 8,
+      "dex": 15,
+      "con": 10,
+      "int": 10,
+      "wis": 8,
+      "cha": 8
+    },
+    "skills": {
+      "stealth": 6
+    },
+    "passive_perception": 9,
+    "darkvision": 60,
+    "cr": "1/8",
+    "xp": 25,
+    "pb": 2,
+    "attacks": [
+      {
+        "id": "dagger",
+        "name": "Daga",
+        "kind": "melee",
+        "bonus": 4,
+        "reach": 5,
+        "damage": [
+          {
+            "dice": "1d4+2",
+            "type": "piercing"
+          }
+        ]
+      },
+      {
+        "id": "dagger_thrown",
+        "name": "Daga arrojada",
+        "kind": "ranged",
+        "bonus": 4,
+        "range": [
+          20,
+          60
+        ],
+        "damage": [
+          {
+            "dice": "1d4+2",
+            "type": "piercing"
+          }
+        ],
+        "ammo": 3
+      }
+    ],
+    "bonus_actions": [
+      "nimble_escape"
+    ],
+    "visual": {
+      "model": "goblin",
+      "variant": "minion",
+      "weapon_r": "dagger"
+    },
+    "ai": "skirmisher",
+    "drops": [
+      {
+        "id": "gold",
+        "n": "1d4",
+        "chance": 0.7
+      },
+      {
+        "id": "goblin_charm",
+        "n": 1,
+        "chance": 0.25
+      }
+    ]
+  },
+  "goblin_warrior": {
+    "name": "Trasgo guerrero",
+    "size": "small",
+    "type": "fey",
+    "tags": [
+      "goblinoid"
+    ],
+    "ac": 15,
+    "hp": 10,
+    "hp_dice": "3d6",
+    "speed": 30,
+    "init": 2,
+    "abilities": {
+      "str": 8,
+      "dex": 15,
+      "con": 10,
+      "int": 10,
+      "wis": 8,
+      "cha": 8
+    },
+    "skills": {
+      "stealth": 6
+    },
+    "passive_perception": 9,
+    "darkvision": 60,
+    "cr": "1/4",
+    "xp": 50,
+    "pb": 2,
+    "attacks": [
+      {
+        "id": "scimitar",
+        "name": "Cimitarra",
+        "kind": "melee",
+        "bonus": 4,
+        "reach": 5,
+        "damage": [
+          {
+            "dice": "1d6+2",
+            "type": "slashing"
+          }
+        ],
+        "adv_extra": {
+          "dice": "1d4",
+          "type": "slashing"
+        }
+      },
+      {
+        "id": "shortbow",
+        "name": "Arco corto",
+        "kind": "ranged",
+        "bonus": 4,
+        "range": [
+          80,
+          320
+        ],
+        "damage": [
+          {
+            "dice": "1d6+2",
+            "type": "piercing"
+          }
+        ],
+        "adv_extra": {
+          "dice": "1d4",
+          "type": "piercing"
+        }
+      }
+    ],
+    "bonus_actions": [
+      "nimble_escape"
+    ],
+    "visual": {
+      "model": "goblin",
+      "variant": "warrior",
+      "weapon_r": "scimitar",
+      "shield": true
+    },
+    "ai": "skirmisher",
+    "drops": [
+      {
+        "id": "gold",
+        "n": "1d6",
+        "chance": 0.8
+      },
+      {
+        "id": "scimitar",
+        "n": 1,
+        "chance": 0.25
+      }
+    ]
+  },
+  "goblin_archer": {
+    "_nota": "Mismo bloque que el trasgo guerrero (SRD); la IA prefiere el arco.",
+    "base": "goblin_warrior",
+    "name": "Trasgo arquero",
+    "visual": {
+      "model": "goblin",
+      "variant": "archer",
+      "weapon_r": "bow"
+    },
+    "ai": "archer",
+    "drops": [
+      {
+        "id": "gold",
+        "n": "1d4",
+        "chance": 0.7
+      },
+      {
+        "id": "arrows",
+        "n": 1,
+        "chance": 0.35
+      }
+    ]
+  },
+  "goblin_boss": {
+    "name": "Grisk, cabecilla",
+    "size": "small",
+    "type": "fey",
+    "tags": [
+      "goblinoid"
+    ],
+    "ac": 17,
+    "hp": 21,
+    "hp_dice": "6d6",
+    "speed": 30,
+    "init": 2,
+    "abilities": {
+      "str": 10,
+      "dex": 15,
+      "con": 10,
+      "int": 10,
+      "wis": 8,
+      "cha": 10
+    },
+    "skills": {
+      "stealth": 6
+    },
+    "passive_perception": 9,
+    "darkvision": 60,
+    "cr": "1",
+    "xp": 200,
+    "pb": 2,
+    "attacks": [
+      {
+        "id": "scimitar",
+        "name": "Cimitarra",
+        "kind": "melee",
+        "bonus": 4,
+        "reach": 5,
+        "damage": [
+          {
+            "dice": "1d6+2",
+            "type": "slashing"
+          }
+        ],
+        "adv_extra": {
+          "dice": "1d4",
+          "type": "slashing"
+        }
+      },
+      {
+        "id": "shortbow",
+        "name": "Arco corto",
+        "kind": "ranged",
+        "bonus": 4,
+        "range": [
+          80,
+          320
+        ],
+        "damage": [
+          {
+            "dice": "1d6+2",
+            "type": "piercing"
+          }
+        ],
+        "adv_extra": {
+          "dice": "1d4",
+          "type": "piercing"
+        }
+      }
+    ],
+    "multiattack": {
+      "count": 2
+    },
+    "bonus_actions": [
+      "nimble_escape"
+    ],
+    "reactions": [
+      "redirect_attack"
+    ],
+    "visual": {
+      "model": "goblin",
+      "variant": "boss",
+      "weapon_r": "scimitar",
+      "shield": true
+    },
+    "ai": "boss",
+    "drops": [
+      {
+        "id": "gold",
+        "n": "3d6",
+        "chance": 1.0
+      },
+      {
+        "id": "key_cache",
+        "n": 1,
+        "chance": 1.0
+      },
+      {
+        "id": "potion_healing",
+        "n": 1,
+        "chance": 0.5
+      }
+    ]
+  },
+  "wolf": {
+    "name": "Lobo",
+    "size": "medium",
+    "type": "beast",
+    "tags": [],
+    "ac": 12,
+    "hp": 11,
+    "hp_dice": "2d8+2",
+    "speed": 40,
+    "init": 2,
+    "abilities": {
+      "str": 14,
+      "dex": 15,
+      "con": 12,
+      "int": 3,
+      "wis": 12,
+      "cha": 6
+    },
+    "skills": {
+      "perception": 5,
+      "stealth": 4
+    },
+    "passive_perception": 15,
+    "darkvision": 60,
+    "cr": "1/4",
+    "xp": 50,
+    "pb": 2,
+    "traits": [
+      "pack_tactics"
+    ],
+    "attacks": [
+      {
+        "id": "bite",
+        "name": "Mordisco",
+        "kind": "melee",
+        "bonus": 4,
+        "reach": 5,
+        "damage": [
+          {
+            "dice": "1d6+2",
+            "type": "piercing"
+          }
+        ],
+        "on_hit": "prone_if_medium"
+      }
+    ],
+    "visual": {
+      "model": "wolf"
+    },
+    "ai": "pack",
+    "form_desc": "Táctica de manada: ventaja si un aliado está junto al objetivo. Su mordisco derriba.",
+    "drops": [
+      {
+        "id": "wolf_pelt",
+        "n": 1,
+        "chance": 0.5
+      }
+    ]
+  },
+  "skeleton": {
+    "name": "Esqueleto",
+    "size": "medium",
+    "type": "undead",
+    "tags": [],
+    "ac": 14,
+    "hp": 13,
+    "hp_dice": "2d8+4",
+    "speed": 30,
+    "init": 3,
+    "abilities": {
+      "str": 10,
+      "dex": 16,
+      "con": 15,
+      "int": 6,
+      "wis": 8,
+      "cha": 5
+    },
+    "passive_perception": 9,
+    "darkvision": 60,
+    "vulnerable": [
+      "bludgeoning"
+    ],
+    "immune": [
+      "poison"
+    ],
+    "condition_immune": [
+      "exhaustion",
+      "poisoned"
+    ],
+    "cr": "1/4",
+    "xp": 50,
+    "pb": 2,
+    "attacks": [
+      {
+        "id": "shortsword",
+        "name": "Espada corta",
+        "kind": "melee",
+        "bonus": 5,
+        "reach": 5,
+        "damage": [
+          {
+            "dice": "1d6+3",
+            "type": "piercing"
+          }
+        ]
+      },
+      {
+        "id": "shortbow",
+        "name": "Arco corto",
+        "kind": "ranged",
+        "bonus": 5,
+        "range": [
+          80,
+          320
+        ],
+        "damage": [
+          {
+            "dice": "1d6+3",
+            "type": "piercing"
+          }
+        ]
+      }
+    ],
+    "visual": {
+      "model": "skeleton_warrior",
+      "weapon_r": "blade",
+      "shield_l": "skel_shield"
+    },
+    "ai": "brute",
+    "drops": [
+      {
+        "id": "coin_durn",
+        "n": 1,
+        "chance": 0.35
+      }
+    ]
+  },
+  "skeleton_archer": {
+    "_nota": "Mismo bloque que el esqueleto (SRD); la IA prefiere el arco.",
+    "base": "skeleton",
+    "name": "Esqueleto arquero",
+    "visual": {
+      "model": "skeleton_rogue",
+      "weapon_r": "skel_crossbow"
+    },
+    "ai": "archer",
+    "drops": [
+      {
+        "id": "coin_durn",
+        "n": 1,
+        "chance": 0.35
+      },
+      {
+        "id": "arrows",
+        "n": 1,
+        "chance": 0.2
+      }
+    ]
+  },
+  "zombie": {
+    "name": "Zombi",
+    "size": "medium",
+    "type": "undead",
+    "tags": [],
+    "ac": 8,
+    "hp": 15,
+    "hp_dice": "2d8+6",
+    "speed": 20,
+    "init": -2,
+    "abilities": {
+      "str": 13,
+      "dex": 6,
+      "con": 16,
+      "int": 3,
+      "wis": 6,
+      "cha": 5
+    },
+    "saves": {
+      "wis": 0
+    },
+    "passive_perception": 8,
+    "darkvision": 60,
+    "immune": [
+      "poison"
+    ],
+    "condition_immune": [
+      "exhaustion",
+      "poisoned"
+    ],
+    "cr": "1/4",
+    "xp": 50,
+    "pb": 2,
+    "traits": [
+      "undead_fortitude"
+    ],
+    "attacks": [
+      {
+        "id": "slam",
+        "name": "Golpe",
+        "kind": "melee",
+        "bonus": 3,
+        "reach": 5,
+        "damage": [
+          {
+            "dice": "1d8+1",
+            "type": "bludgeoning"
+          }
+        ]
+      }
+    ],
+    "visual": {
+      "model": "skeleton_minion"
+    },
+    "ai": "brute"
+  },
+  "wight": {
+    "name": "Vorhan, el guardián",
+    "size": "medium",
+    "type": "undead",
+    "tags": [],
+    "ac": 14,
+    "hp": 82,
+    "hp_dice": "11d8+33",
+    "speed": 30,
+    "init": 4,
+    "abilities": {
+      "str": 15,
+      "dex": 14,
+      "con": 16,
+      "int": 10,
+      "wis": 13,
+      "cha": 15
+    },
+    "skills": {
+      "perception": 3,
+      "stealth": 4
+    },
+    "passive_perception": 13,
+    "darkvision": 60,
+    "resist": [
+      "necrotic"
+    ],
+    "immune": [
+      "poison"
+    ],
+    "condition_immune": [
+      "exhaustion",
+      "poisoned"
+    ],
+    "cr": "3",
+    "xp": 700,
+    "pb": 2,
+    "traits": [
+      "sunlight_sensitivity"
+    ],
+    "attacks": [
+      {
+        "id": "necrotic_sword",
+        "name": "Espada necrótica",
+        "kind": "melee",
+        "bonus": 4,
+        "reach": 5,
+        "damage": [
+          {
+            "dice": "1d8+2",
+            "type": "slashing"
+          },
+          {
+            "dice": "1d8",
+            "type": "necrotic"
+          }
+        ]
+      },
+      {
+        "id": "necrotic_bow",
+        "name": "Arco necrótico",
+        "kind": "ranged",
+        "bonus": 4,
+        "range": [
+          150,
+          600
+        ],
+        "damage": [
+          {
+            "dice": "1d8+2",
+            "type": "piercing"
+          },
+          {
+            "dice": "1d8",
+            "type": "necrotic"
+          }
+        ]
+      }
+    ],
+    "multiattack": {
+      "count": 2,
+      "life_drain_replaces": 1
+    },
+    "life_drain": {
+      "dc": 13,
+      "save": "con",
+      "dice": "1d8+2",
+      "type": "necrotic"
+    },
+    "visual": {
+      "model": "skeleton_mage",
+      "weapon_r": "blade",
+      "scale": 1.18,
+      "tint": [
+        0.75,
+        0.85,
+        1.0
+      ]
+    },
+    "ai": "boss",
+    "drops": [
+      {
+        "id": "gold",
+        "n": "2d10",
+        "chance": 1.0
+      },
+      {
+        "id": "coin_durn",
+        "n": 3,
+        "chance": 1.0
+      },
+      {
+        "id": "gem_quartz",
+        "n": 1,
+        "chance": 0.6
+      }
+    ]
+  },
+  "mastiff": {
+    "name": "Mastín",
+    "size": "medium",
+    "type": "beast",
+    "tags": [
+      "wild_shape"
+    ],
+    "ac": 12,
+    "hp": 5,
+    "hp_dice": "1d8+1",
+    "speed": 40,
+    "init": 2,
+    "abilities": {
+      "str": 13,
+      "dex": 14,
+      "con": 12,
+      "int": 3,
+      "wis": 12,
+      "cha": 7
+    },
+    "skills": {
+      "perception": 5
+    },
+    "passive_perception": 15,
+    "darkvision": 60,
+    "cr": "1/8",
+    "xp": 25,
+    "pb": 2,
+    "attacks": [
+      {
+        "id": "bite",
+        "name": "Mordisco",
+        "kind": "melee",
+        "bonus": 3,
+        "reach": 5,
+        "damage": [
+          {
+            "dice": "1d6+1",
+            "type": "piercing"
+          }
+        ],
+        "on_hit": "prone_if_medium"
+      }
+    ],
+    "visual": {
+      "model": "mastiff"
+    },
+    "ai": "pack",
+    "form_desc": "Rápido (12 m) y derriba con su mordisco. Frágil."
+  },
+  "elk": {
+    "name": "Alce",
+    "size": "large",
+    "type": "beast",
+    "tags": [
+      "wild_shape"
+    ],
+    "ac": 10,
+    "hp": 11,
+    "hp_dice": "2d10",
+    "speed": 50,
+    "init": 0,
+    "abilities": {
+      "str": 16,
+      "dex": 10,
+      "con": 11,
+      "int": 2,
+      "wis": 10,
+      "cha": 6
+    },
+    "skills": {
+      "perception": 2
+    },
+    "passive_perception": 12,
+    "darkvision": 0,
+    "cr": "1/4",
+    "xp": 50,
+    "pb": 2,
+    "attacks": [
+      {
+        "id": "ram",
+        "name": "Embestida",
+        "kind": "melee",
+        "bonus": 5,
+        "reach": 5,
+        "damage": [
+          {
+            "dice": "1d6+3",
+            "type": "bludgeoning"
+          }
+        ],
+        "charge": {
+          "min_cells": 4,
+          "dice": "1d6",
+          "type": "bludgeoning",
+          "prone_max_size": "large"
+        }
+      }
+    ],
+    "visual": {
+      "model": "elk"
+    },
+    "ai": "brute",
+    "form_desc": "Grande y veloz (15 m). Si carga 6 m antes de embestir, hace 1d6 extra y derriba."
+  },
+  "riding_horse": {
+    "name": "Caballo de monta",
+    "size": "large",
+    "type": "beast",
+    "tags": [
+      "wild_shape"
+    ],
+    "ac": 11,
+    "hp": 13,
+    "hp_dice": "2d10+2",
+    "speed": 60,
+    "init": 1,
+    "abilities": {
+      "str": 16,
+      "dex": 13,
+      "con": 12,
+      "int": 2,
+      "wis": 11,
+      "cha": 7
+    },
+    "passive_perception": 10,
+    "darkvision": 0,
+    "cr": "1/4",
+    "xp": 50,
+    "pb": 2,
+    "attacks": [
+      {
+        "id": "hooves",
+        "name": "Coces",
+        "kind": "melee",
+        "bonus": 5,
+        "reach": 5,
+        "damage": [
+          {
+            "dice": "1d8+3",
+            "type": "bludgeoning"
+          }
+        ]
+      }
+    ],
+    "visual": {
+      "model": "horse"
+    },
+    "ai": "brute",
+    "form_desc": "El más rápido (18 m) y golpea fuerte con las coces."
+  }
+}

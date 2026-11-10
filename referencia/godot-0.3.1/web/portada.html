@@ -1,0 +1,349 @@
+<title>Marca de Granito</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Cinzel+Decorative:wght@700&family=Alegreya:ital,wght@0,400;0,700;1,400&family=Alegreya+SC:wght@700&display=swap">
+<style>
+/* Una sola atmósfera, oscura (como el juego): piedra y bronce al estilo de los clásicos,
+   con la grieta roja del toro. Portada a pantalla completa; el lienzo del juego detrás. */
+:root {
+  --bg: #12100e;
+  --stone: #1d1916;
+  --fg: #efe6d6;
+  --muted: #b1a48f;
+  --gold: #dbb366;
+  --blood: #d0402d;
+  --line: rgba(219, 179, 102, 0.35);
+  --deco: "Cinzel Decorative", "Cinzel", "Trajan Pro", Georgia, serif;
+  --display: "Cinzel", "Trajan Pro", Georgia, serif;
+  --body: "Alegreya", "Palatino Linotype", Georgia, serif;
+  --caps: "Alegreya SC", "Alegreya", Georgia, serif;
+  --ink: #1a120c;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--body);
+  font-size: 17px;
+  overflow: hidden;
+}
+#canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: var(--bg);
+  touch-action: none;
+  outline: none;
+}
+#portada {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding-inline: 16px;
+  padding-block: calc(env(safe-area-inset-top, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 16px);
+  overflow-y: auto;
+  background:
+    radial-gradient(60rem 40rem at 50% 38%, rgba(160, 40, 24, 0.28), transparent 60%),
+    radial-gradient(120rem 60rem at 50% 120%, rgba(0, 0, 0, 0.7), transparent 60%),
+    var(--bg);
+  transition: opacity 0.6s ease;
+}
+#portada.fuera { opacity: 0; pointer-events: none; }
+.columna {
+  width: min(36rem, 100%);
+  display: grid;
+  justify-items: center;
+  gap: 0.9rem;
+  text-align: center;
+}
+/* Losa de piedra con marco de bronce (las mismas texturas que la interfaz del juego) */
+.losa {
+  box-sizing: border-box;
+  border-style: solid;
+  border-width: 22px;
+  border-image: url("ui/panel.png") 28 fill / 22px round;
+  padding: 0.6rem 0.8rem 0.9rem;
+  min-width: 0;
+}
+.divisor { width: min(20rem, 80%); height: 14px; background: url("ui/divider.png") center / 100% 100% no-repeat; }
+.medallon {
+  width: clamp(7.5rem, 26vmin, 11rem);
+  aspect-ratio: 1;
+  max-width: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  box-shadow: 0 0 0 6px rgba(219, 179, 102, 0.06), 0 0 3rem rgba(208, 64, 45, 0.35);
+  object-fit: cover;
+}
+.antetitulo {
+  font-family: var(--caps);
+  color: var(--gold);
+  letter-spacing: 0.14em;
+  font-size: 0.85rem;
+  margin: 0.4rem 0 0;
+}
+h1 {
+  font-family: var(--deco);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 7vw, 3.6rem);
+  line-height: 1.02;
+  letter-spacing: 0.02em;
+  margin: 0;
+  color: var(--gold);
+  text-wrap: balance;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.6);
+}
+.entradilla {
+  margin: 0;
+  color: var(--fg);
+  max-width: 32rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.acciones { display: grid; gap: 0.6rem; justify-items: center; width: 100%; margin-top: 0.4rem; }
+#jugar {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.35rem;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.7);
+  background: none;
+  border-style: solid;
+  border-width: 11px;
+  border-image: url("ui/slab.png") 11 fill / 11px round;
+  padding: 0.55rem 2.6rem;
+  min-height: 3.4rem;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+#jugar:hover { border-image-source: url("ui/slab_hover.png"); filter: brightness(1.08); }
+#jugar:active { border-image-source: url("ui/slab_pressed.png"); transform: translateY(1px); }
+#jugar:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+.nota { color: var(--muted); font-size: 0.92rem; margin: 0; line-height: 1.4; }
+.progreso { width: min(22rem, 100%); display: grid; gap: 0.45rem; }
+.barra {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--stone);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.barra > i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--blood), var(--gold));
+  transition: width 0.25s ease;
+}
+#estado { color: var(--muted); font-size: 0.95rem; font-variant-numeric: tabular-nums; margin: 0; }
+.controles {
+  margin-top: 0.6rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.8rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  width: 100%;
+}
+.controles b { color: var(--fg); font-weight: 700; }
+.error { color: #f1a08f; }
+#girar {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: none;
+  place-items: center;
+  padding-inline: 16px;
+  background: rgba(10, 8, 7, 0.94);
+  text-align: center;
+}
+#girar .columna { gap: 1rem; }
+#girar svg { width: 4.5rem; height: 4.5rem; color: var(--gold); }
+#girar button {
+  font: 700 1rem var(--body);
+  color: var(--fg);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.6rem 1.4rem;
+  cursor: pointer;
+}
+@media (orientation: portrait) and (max-width: 820px) {
+  body.jugando:not(.vertical-ok) #girar { display: grid; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #portada, .barra > i, #jugar { transition: none; }
+}
+</style>
+
+<canvas id="canvas" tabindex="0">Tu navegador no admite el lienzo HTML5.</canvas>
+
+<section id="portada" aria-live="polite">
+  <div class="columna">
+    <img class="medallon" src="toro.png" alt="El toro de granito del prado, agrietado y sangrando luz roja">
+    <p class="antetitulo">Capítulo I · El toro que sangra · versión 0.3.1</p>
+    <h1>Marca de Granito</h1>
+    <div class="divisor" aria-hidden="true"></div>
+    <div class="losa">
+      <p class="entradilla">Rol táctico por turnos con reglas de la quinta edición. Crea a tu héroe, elige a tres compañeros y recorre Merrowick, el bosque de Elderhal y el túmulo que hay bajo el toro de piedra. Cuando os ven, el combate empieza ahí mismo, por turnos sobre el mismo escenario.</p>
+    </div>
+    <div class="acciones" id="acciones">
+      <button id="jugar" type="button">Jugar</button>
+      <p class="nota">La primera vez descarga unos 60 MB. Mejor en horizontal y con sonido. La partida se guarda en este navegador.</p>
+    </div>
+    <div class="progreso" id="progreso" hidden>
+      <div class="barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="barra"><i id="relleno"></i></div>
+      <p id="estado">Preparando…</p>
+    </div>
+    <div class="controles">
+      <span><b>En el móvil:</b> toca el suelo para moverte y a la gente o los cofres para usarlos; arrastra para mover la cámara, pellizca para el zoom y mantén pulsado un retrato para ver su equipo.</span>
+      <span><b>En el ordenador:</b> clic para tocar, arrastra para mover la cámara, rueda para el zoom y botón derecho para girar.</span>
+    </div>
+  </div>
+</section>
+
+<section id="girar" aria-live="polite">
+  <div class="columna">
+    <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="20" y="6" width="24" height="40" rx="4"></rect>
+      <path d="M8 40c0 9 7 16 16 16h18"></path>
+      <path d="M36 50l6 6-6 6"></path>
+    </svg>
+    <h1 style="font-size:1.8rem">Gira el móvil</h1>
+    <p class="entradilla">El juego está pensado para jugar en horizontal.</p>
+    <button type="button" id="seguir">Seguir en vertical</button>
+  </div>
+</section>
+
+<script src="engine.js"></script>
+<script>
+(function () {
+  // Las piezas grandes viajan comprimidas y troceadas; aquí se reensamblan al vuelo.
+  var PARTES = {
+    'index.wasm': ['g/w0.wasm'],
+    'index.pck': ['g/p0.wasm', 'g/p1.wasm', 'g/p2.wasm', 'g/p3.wasm']
+  };
+  var TAM = { 'index.wasm': 39514754, 'index.pck': 53834544 };
+  var TOTAL_DESCARGA = 62162703;
+  var descargado = 0;
+
+  var portada = document.getElementById('portada');
+  var acciones = document.getElementById('acciones');
+  var progreso = document.getElementById('progreso');
+  var relleno = document.getElementById('relleno');
+  var barra = document.getElementById('barra');
+  var estado = document.getElementById('estado');
+  var jugar = document.getElementById('jugar');
+
+  function mb(n) { return (n / 1048576).toFixed(1).replace('.', ','); }
+  function pintar(frac, texto) {
+    var p = Math.max(0, Math.min(100, Math.round(frac * 100)));
+    relleno.style.width = p + '%';
+    barra.setAttribute('aria-valuenow', String(p));
+    if (texto) estado.textContent = texto;
+  }
+  function fallo(msg) {
+    acciones.hidden = true;
+    progreso.hidden = false;
+    estado.className = 'error';
+    estado.textContent = msg;
+  }
+
+  var fetchReal = window.fetch.bind(window);
+  window.fetch = function (entrada, init) {
+    var url = typeof entrada === 'string' ? entrada : (entrada && entrada.url) || '';
+    var nombre = Object.keys(PARTES).find(function (k) { return url.split('?')[0].endsWith(k); });
+    if (!nombre) return fetchReal(entrada, init);
+    var lista = PARTES[nombre];
+    var i = 0;
+    var lector = null;
+    var flujo = new ReadableStream({
+      pull: async function (ctrl) {
+        for (;;) {
+          if (!lector) {
+            if (i >= lista.length) { ctrl.close(); return; }
+            var r = await fetchReal(lista[i++]);
+            if (!r.ok) throw new Error('No se pudo descargar una parte del juego (' + r.status + ').');
+            lector = r.body.getReader();
+          }
+          var paso = await lector.read();
+          if (paso.done) { lector = null; continue; }
+          descargado += paso.value.byteLength;
+          var f = descargado / TOTAL_DESCARGA;
+          pintar(f * 0.92, f < 1 ? 'Descargando ' + mb(descargado) + ' de ' + mb(TOTAL_DESCARGA) + ' MB' : 'Preparando el mundo…');
+          ctrl.enqueue(paso.value);
+          return;
+        }
+      }
+    });
+    var cuerpo = flujo.pipeThrough(new DecompressionStream('gzip'));
+    var tipo = nombre.endsWith('.wasm') ? 'application/wasm' : 'application/octet-stream';
+    return Promise.resolve(new Response(cuerpo, { status: 200, headers: { 'Content-Type': tipo } }));
+  };
+
+  var engine = new Engine({
+    args: [],
+    canvasResizePolicy: 2,
+    executable: 'index',
+    mainPack: 'index.pck',
+    fileSizes: TAM,
+    focusCanvas: true,
+    ensureCrossOriginIsolationHeaders: false,
+    experimentalVK: false,
+    gdextensionLibs: [],
+    emscriptenPoolSize: 8,
+    godotPoolSize: 4
+  });
+
+  function arrancar() {
+    if (typeof DecompressionStream === 'undefined') {
+      fallo('Tu navegador es demasiado antiguo para este juego. Prueba con Chrome, Edge, Firefox o Safari actualizados.');
+      return;
+    }
+    var faltan = Engine.getMissingFeatures({ threads: false });
+    if (faltan.length) {
+      fallo('A tu navegador le falta: ' + faltan.join(', ') + '.');
+      return;
+    }
+    // Pantalla completa y horizontal si el dispositivo lo permite (opcional)
+    try {
+      var el = document.documentElement;
+      if (el.requestFullscreen) {
+        el.requestFullscreen({ navigationUI: 'hide' }).then(function () {
+          if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () {});
+        }).catch(function () {});
+      }
+    } catch (e) {}
+    acciones.hidden = true;
+    progreso.hidden = false;
+    pintar(0.02, 'Descargando…');
+    document.body.classList.add('jugando');
+    engine.startGame({
+      onProgress: function () {}
+    }).then(function () {
+      pintar(1, 'Listo');
+      portada.classList.add('fuera');
+      setTimeout(function () { portada.hidden = true; }, 700);
+      document.getElementById('canvas').focus();
+    }, function (err) {
+      console.error(err);
+      var m = (err && err.message) ? err.message : String(err);
+      fallo('No se pudo iniciar el juego: ' + m);
+    });
+  }
+
+  jugar.addEventListener('click', arrancar, { once: true });
+  document.getElementById('seguir').addEventListener('click', function () {
+    document.body.classList.add('vertical-ok');
+  });
+}());
+</script>

@@ -1,0 +1,28 @@
+# Unreal
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+*.sln
+*.suo
+*.sdf
+*.VC.db
+*.VC.opendb
+.vs/
+.vscode/
+.idea/
+
+# Configuración del servidor MCP (la genera el editor en cada equipo)
+.mcp.json
+
+# Pruebas del núcleo
+Tests/build/
+build/
+
+# Sistema
+Thumbs.db
+.DS_Store
+desktop.ini

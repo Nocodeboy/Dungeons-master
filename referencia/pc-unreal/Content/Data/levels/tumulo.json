@@ -1,0 +1,75 @@
+{
+  "id": "tumulo",
+  "name": "Túmulo de Durn-Kahl",
+  "place": "Bajo el toro de Merrowick",
+  "ambient": "crypt",
+  "music": "tumulo",
+  "music_combat": "tumulo",
+  "wall_height": 0.85,
+  "width": 25,
+  "height": 21,
+  "rows": [
+    "#########################",
+    "###=====#=======#=====###",
+    "###=====#=======#=====###",
+    "###=o=========g=====P=###",
+    "###=====x===========x=###",
+    "###==g==========P=====###",
+    "###===================###",
+    "###==g====P=====P=====###",
+    "###=====x===========x=###",
+    "###=P=========g=====P=###",
+    "###=====#=======#=====###",
+    "###=====#===P===#=====###",
+    "######=====#=#=====######",
+    "######=============######",
+    "######========x====######",
+    "######==P=======P==######",
+    "######=============######",
+    "######====x========######",
+    "######==P=======P==######",
+    "######=============######",
+    "############=############"
+  ],
+  "spawns": {"entry": [12, 18], "default": [12, 18]},
+  "exits": [
+  ],
+  "props": [
+  ],
+  "objects": [
+    {"id": "up", "type": "stairs", "cell": [12, 20], "name": "Escalera al prado", "to": "level:merrowick:tumulo", "text": ["La escalera sube hacia la luz gris del prado de Merrowick."]},
+    {"id": "seal_door", "type": "inspect", "cell": [12, 1], "name": "La puerta del sello", "text": ["Una puerta de granito sin tirador ni bisagras. En el centro, tres huecos con forma de cuerno y, alrededor, runas durn que palpitan con una luz rojiza.", "La Marca de tu piel late al mismo ritmo. Detrás de esa puerta está el primer sello.", "[color=#bfb3a0](Lo que hay más allá llegará en la fase 3.)[/color]"], "requires": "tumulo_hall_done"},
+    {"id": "sarcophagus", "type": "chest", "cell": [4, 3], "name": "Sarcófago de un guardián", "lock": {"dc": 14}, "loot": [["gold", 38], ["coin_durn", 5], ["shield_p1", 1], ["potion_greater_healing", 1]]}
+  ],
+  "groups": [
+    {"id": "guardians", "enemies": [{"id": "wight", "cell": [12, 4], "face": 180}, {"id": "skeleton", "cell": [10, 5], "face": 180}, {"id": "skeleton", "cell": [14, 5], "face": 180}, {"id": "skeleton_archer", "cell": [19, 3], "face": 210}, {"id": "zombie", "cell": [12, 2], "face": 180}], "name": "Los guardianes de Durn-Kahl", "sight": 7, "flag": "tumulo_hall_done", "loot": [["gold", 20]], "story_after": ["Cuando el último guardián se deshace en polvo, el túmulo queda en silencio. Solo se oye vuestra respiración… y, muy por debajo, ese latido lento que ya conocéis.", "Al fondo de la sala, la puerta del sello brilla con una luz rojiza. Tres huecos con forma de cuerno esperan algo que todavía no tenéis.", "Aquí termina, por ahora, la fase 2 de Marca de Granito. Podéis seguir explorando Merrowick y el bosque, comerciar y descansar: la partida queda guardada para cuando llegue el final del capítulo."], "story_title": "Continuará"}
+  ],
+  "triggers": [
+    {"id": "enter", "cells": [], "once": true, "on_load": true, "spawn": "entry", "text": ["Los peldaños bajan más de lo que parece posible. Huele a piedra mojada y a algo dulzón, viejo.", "Al fondo, en una sala de columnas, algo se mueve entre los sarcófagos."]}
+  ],
+  "lights": [
+    {"cell": [11, 2], "color": "#ffb050", "energy": 0.9, "range": 3.0, "height": 0.9},
+    {"cell": [13, 2], "color": "#ffb050", "energy": 0.9, "range": 3.0, "height": 0.9},
+    {"cell": [3, 9], "color": "#ffb050", "energy": 0.9, "range": 3.0, "height": 0.9},
+    {"cell": [21, 3], "color": "#ffb050", "energy": 0.9, "range": 3.0, "height": 0.9}
+  ],
+  "decor": [
+    {"key": "q_candles", "cell": [11, 2], "rot": 0, "scale": 1.0},
+    {"key": "q_candles", "cell": [13, 2], "rot": 0, "scale": 1.0},
+    {"key": "q_candles", "cell": [3, 9], "rot": 0, "scale": 1.0},
+    {"key": "q_candles", "cell": [21, 3], "rot": 0, "scale": 1.0},
+    {"key": "q_coins", "cell": [5, 3], "rot": 0, "scale": 1.0, "offset": [0.15, 0.1]},
+    {"key": "q_vase_rubble", "cell": [4, 4], "rot": 0, "scale": 1.0, "offset": [0.15, 0.1]},
+    {"key": "q_chain", "cell": [19, 8], "rot": 0, "scale": 1.0, "offset": [0.15, 0.1]},
+    {"key": "skull", "cell": [7, 6], "rot": 0, "scale": 1.0, "offset": [0.15, 0.1]},
+    {"key": "bones", "cell": [17, 6], "rot": 0, "scale": 1.0, "offset": [0.15, 0.1]},
+    {"key": "q_vase_rubble", "cell": [9, 16], "rot": 0, "scale": 1.0, "offset": [0.15, 0.1]},
+    {"key": "ribcage", "cell": [15, 17], "rot": 0, "scale": 1.0, "offset": [0.15, 0.1]},
+    {"key": "q_coins2", "cell": [13, 9], "rot": 0, "scale": 1.0, "offset": [0.15, 0.1]},
+    {"key": "q_vase_s", "cell": [3, 11], "rot": 0, "scale": 1.0, "offset": [0.15, 0.1]}
+  ],
+  "animals": [
+  ],
+  "paint": [
+  ]
+}

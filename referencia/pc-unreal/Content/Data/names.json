@@ -1,0 +1,63 @@
+{
+  "_fuente": "Nombres inventados para Eredhal. Se combinan inicio + final; el apellido es opcional.",
+  "human": {
+    "start": ["Al", "Bran", "Cor", "Dar", "Ed", "Fen", "Gar", "Hal", "Is", "Jor", "Kel", "Lor", "Mar", "Nor", "Os", "Per", "Ro", "Sar", "Tam", "Ul", "Vor", "Wen", "Yar", "Ced", "Ber"],
+    "end_m": ["ric", "an", "ek", "win", "mund", "ton", "rec", "as", "ard", "en", "oth", "is"],
+    "end_f": ["a", "wyn", "eth", "ra", "ise", "enna", "ia", "ell", "ara", "ith", "ane", "ey"],
+    "family": ["Ashford", "Blackwater", "Corvane", "Dunmere", "Fairwind", "Greymantle", "Hollowell", "Ironwood", "Kestrel", "Marrow", "Oakheart", "Ravensworth", "Stonebridge", "Thorne", "Vale", "Whitlock", "Halvane", "Brightmoor"]
+  },
+  "elf": {
+    "start": ["Ae", "Cael", "Ela", "Fae", "Gal", "Ith", "Lae", "Mi", "Nai", "Quel", "Rhae", "Syl", "Tha", "Va", "Ye", "Ilu", "Ara", "Eri"],
+    "end_m": ["lar", "ndil", "rion", "thas", "ric", "vain", "dor", "las", "nor", "ion"],
+    "end_f": ["wen", "ria", "lith", "nys", "sa", "thiel", "ra", "ndra", "lia", "rel"],
+    "family": ["Ilvarien", "Selenthor", "Myrrhavel", "Quessaril", "Thaeloris", "Aelindor", "Nimrasel", "Sylvarein", "Lunaveth", "Estrallan"]
+  },
+  "dwarf": {
+    "start": ["Bal", "Bor", "Dur", "Gim", "Har", "Kil", "Mor", "Rur", "Thor", "Ulf", "Vond", "Dag", "Brom", "Tor"],
+    "end_m": ["in", "ak", "grim", "rik", "dun", "bek", "nar", "gar", "li"],
+    "end_f": ["a", "dis", "ra", "hild", "ka", "ryn", "wyn", "ga"],
+    "family": ["Ironfist", "Stonehelm", "Deepdelver", "Coppervein", "Hammerfall", "Granitebeard", "Anvilborn", "Emberforge", "Coalbrow", "Rockmantle"]
+  },
+  "halfling": {
+    "start": ["Bil", "Cor", "Mil", "Ros", "Tob", "Wil", "Fen", "Lid", "Mer", "Nob", "Per", "Dob", "Lin", "Tam"],
+    "end_m": ["bo", "do", "lin", "ric", "ry", "wick", "mo", "o"],
+    "end_f": ["ie", "a", "ly", "sy", "ella", "wyn", "da", "ina"],
+    "family": ["Underbough", "Greenbottle", "Hilltopple", "Brushgather", "Thistledown", "Goodbarrel", "Applecrest", "Puddlefoot", "Honeywell", "Tealeaf"]
+  },
+  "gnome": {
+    "start": ["Al", "Bim", "Dim", "Fon", "Gim", "Nim", "Orr", "Pock", "Quil", "Ser", "Tink", "Zook", "Wim", "Fizz"],
+    "end_m": ["ble", "wick", "nob", "dle", "ston", "zle", "bert", "kin"],
+    "end_f": ["bella", "na", "ri", "wyn", "ella", "fizz", "ina", "pip"],
+    "family": ["Cogsworth", "Fizzlebang", "Gearwhistle", "Nackle", "Sprocketson", "Tinkerdown", "Wobblecog", "Quickgear", "Copperpot", "Brasswhistle"]
+  },
+  "dragonborn": {
+    "start": ["Ar", "Bal", "Dra", "Ghe", "Kriv", "Med", "Nad", "Rha", "She", "Tor", "Vor", "Zor", "Ix", "Kal"],
+    "end_m": ["jhan", "asar", "rash", "inn", "ak", "ix", "oth", "azar"],
+    "end_f": ["ra", "sha", "thi", "ys", "inda", "ka", "rix", "essa"],
+    "family": ["Vorkhaal", "Ithrazen", "Sarrvoth", "Kalaxis", "Draemmor", "Thurnax", "Yrrhezal", "Ombrakhar", "Zerathis", "Korrvane"]
+  },
+  "goliath": {
+    "start": ["Aun", "Eg", "Gae", "Kav", "Lo", "Ma", "Ores", "Pa", "Tha", "Vau", "Ka", "Ne"],
+    "end_m": ["kal", "ath", "rak", "gath", "tar", "lok", "vak"],
+    "end_f": ["ra", "gea", "ia", "thi", "nea", "kia", "lia"],
+    "family": ["Stormpeak", "Skyhammer", "Frostcairn", "Highcliff", "Rockrunner", "Thunderstride", "Cloudwalker", "Stonebrow"]
+  },
+  "orc": {
+    "start": ["Dren", "Gor", "Hruk", "Kras", "Mog", "Ruk", "Shag", "Thok", "Urz", "Vrag", "Zug", "Bra", "Ugh", "Ka"],
+    "end_m": ["ash", "ok", "gar", "nak", "uth", "or", "ug"],
+    "end_f": ["a", "ka", "ra", "ga", "ish", "ya", "ra"],
+    "family": ["Ironjaw", "Ashmaw", "Redfang", "Stonetusk", "Grimhowl", "Blackmane", "Wolfbane", "Emberhide"]
+  },
+  "tiefling": {
+    "start": ["Ak", "Bar", "Cri", "Dam", "Eke", "Kal", "Lev", "Mor", "Nem", "Ori", "Sky", "Zar", "Ma", "Vel"],
+    "end_m": ["menos", "akas", "ion", "eus", "ith", "ael", "os", "on"],
+    "end_f": ["ia", "ys", "ka", "ira", "ielle", "ora", "is", "a"],
+    "virtue": ["Hope", "Ash", "Ember", "Sorrow", "Riddle", "Vesper", "Quill", "Wander", "Solace", "Thorn", "Cinder", "Nadir"]
+  },
+  "half_elf": {
+    "mix": ["human", "elf"]
+  },
+  "half_orc": {
+    "mix": ["human", "orc"]
+  }
+}
