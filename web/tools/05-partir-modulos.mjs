@@ -282,7 +282,13 @@ function generarImports(mod) {
     porFuente.get(fuente).push(especificador(importado, n));
     pend.delete(n);
   }
-  const fuentes = [...porFuente.keys()].sort((a, b) => (a === 'three' ? -1 : b === 'three' ? 1 : a.localeCompare(b)));
+  // Mismo orden en que el publicado inicializaba three y sus addons.
+  const ORDEN_NPM = ['three', 'three/addons/utils/BufferGeometryUtils.js', 'three/addons/utils/SkeletonUtils.js',
+    'three/addons/loaders/GLTFLoader.js', 'three/addons/libs/meshopt_decoder.module.js', 'three/addons/controls/OrbitControls.js',
+    'three/addons/postprocessing/EffectComposer.js', 'three/addons/postprocessing/ShaderPass.js', 'three/addons/postprocessing/RenderPass.js',
+    'three/addons/postprocessing/UnrealBloomPass.js', 'three/addons/postprocessing/GTAOPass.js', 'three/addons/postprocessing/OutputPass.js'];
+  const rango = (f) => (ORDEN_NPM.includes(f) ? ORDEN_NPM.indexOf(f) : 99);
+  const fuentes = [...porFuente.keys()].sort((a, b) => rango(a) - rango(b) || a.localeCompare(b));
   for (const f of fuentes) lineas.push(`import { ${porFuente.get(f).join(', ')} } from '${f}';`);
   // Orden de los demás: módulos de la cola (sin envolver) y luego las dependencias init en orden.
   const orden = [];
