@@ -21,7 +21,8 @@ const StrList& BattleSetup::precast_ok()
 	return kOk;
 }
 
-std::unique_ptr<Battle> BattleSetup::build(const std::string& encounter_id, int64_t seed_value, const Json& party_override)
+std::unique_ptr<Battle> BattleSetup::build(const std::string& encounter_id, int64_t seed_value, const Json& party_override,
+	int level_override)
 {
 	const Json& enc = jobj(RulesDB::encounters, encounter_id);
 	BattleMap map;
@@ -29,7 +30,8 @@ std::unique_ptr<Battle> BattleSetup::build(const std::string& encounter_id, int6
 	auto battle = std::make_unique<Battle>(std::move(map), seed_value);
 	battle->encounter = enc;
 	battle->settings["sunlight"] = jstr(enc, "ambient", "") == "day";
-	const int level = jint(enc, "level", 1);
+	// El puente web permite forzar el nivel del grupo (init {level})
+	const int level = level_override > 0 ? level_override : jint(enc, "level", 1);
 	const Json& spawns = jarr(enc, "party_spawn");
 
 	Json party = party_override;

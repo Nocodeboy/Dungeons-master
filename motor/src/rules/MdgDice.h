@@ -21,6 +21,12 @@ public:
 	uint64_t get_seed() const { return current_seed_; }
 	/** Siembra con la hora y el reloj del sistema (rng.randomize()). */
 	void randomize();
+	/**
+	 * Gancho para pruebas deterministas: si está puesto, randomize() toma de aquí la hora (en las
+	 * unidades de system_clock de libc++, microsegundos) y los dos valores de random_device.
+	 */
+	using EntropiaFn = void (*)(uint64_t& reloj, uint32_t& r1, uint32_t& r2);
+	static EntropiaFn entropia;
 	/** randi(): 32 bits. */
 	uint32_t rand();
 	/** Entero en [0, bound). */

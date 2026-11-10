@@ -24,7 +24,7 @@ public:
 	 * Vacío = el grupo por defecto.
 	 */
 	static std::unique_ptr<Battle> build(const std::string& encounter_id, int64_t seed_value = -1,
-		const Json& party_override = Json::array());
+		const Json& party_override = Json::array(), int level_override = -1);
 
 	/** Conjuros de larga duración lanzados antes del combate (Armadura de mago, Falsa vida...). */
 	static void precast(Battle& battle, Creature& pc);

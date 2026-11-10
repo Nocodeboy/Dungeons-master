@@ -1,0 +1,29 @@
+{"req":"","res":"{\"error\":\"Petición JSON no válida.\"}"}
+{"req":"xx","res":"{\"error\":\"Petición JSON no válida.\"}"}
+{"req":"[]","res":"{\"error\":\"Petición JSON no válida.\"}"}
+{"req":"1","res":"{\"error\":\"Petición JSON no válida.\"}"}
+{"req":"\"op\"","res":"{\"error\":\"Petición JSON no válida.\"}"}
+{"req":"{}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"zzz\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"cp_zzz\"}","res":"{\"error\":\"Falta el documento de campaña (cp).\"}"}
+{"req":"{\"op\":\"xmap_zzz\"}","res":"{\"error\":\"No hay mapa cargado (llama antes a xmap_load).\"}"}
+{"req":"{\"op\":\"inv_zzz\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"[{\"op\":\"data\"}]","res":"{\"error\":\"Petición JSON no válida.\"}"}
+{"req":" {\"op\":\"data\",\"name\":\"world\"} ","res":"{\"_fuente\":\"Mapa de viaje de las Marcas de Vharen. pos: posición relativa (0-1) en el pergamino. roads: [a, b, horas].\",\"title\":\"Las Marcas de Vharen\",\"places\":[{\"id\":\"merrowick\",\"name\":\"Merrowick\",\"pos\":[0.34,0.6],\"level\":\"merrowick\",\"spawn\":\"east\",\"icon\":\"village\",\"desc\":\"Aldea de pastores y canteros junto al toro de granito del prado.\"},{\"id\":\"elderhal\",\"name\":\"Bosque de Elderhal\",\"pos\":[0.63,0.33],\"level\":\"elderhal\",\"spawn\":\"entry\",\"icon\":\"forest\",\"requires\":\"e1_done\",\"desc\":\"Pinar viejo al este de Merrowick. Ahí acampan los Zarpas Grises.\"},{\"id\":\"kesh\",\"name\":\"Vado de Kesh\",\"pos\":[0.8,0.66],\"icon\":\"tower\",\"locked\":\"Unas ruinas durn sobre el río. Aún no conocéis el camino.\",\"desc\":\"Puente durn derruido sobre el río.\"},{\"id\":\"valdrecht\",\"name\":\"Valdrecht\",\"pos\":[0.1,0.74],\"icon\":\"gate\",\"locked\":\"La ciudad queda a varios días al sur. Lo que pasa aquí no puede esperar.\",\"desc\":\"Ciudad amurallada sobre un cerro.\"}],\"roads\":[[\"merrowick\",\"elderhal\",2],[\"merrowick\",\"kesh\",5],[\"merrowick\",\"valdrecht\",40],[\"elderhal\",\"kesh\",4]]}"}
+{"req":"{\"op\":\"state\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"options\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"threats\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"move\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"undo_move\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"attack_plan\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"attack\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"offhand\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"spell_begin\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"spell_preview\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"cast\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"simple_targets\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"simple\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"feature\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"ai_turn\"}","res":"{\"error\":\"sin combate\"}"}
+{"req":"{\"op\":\"end_turn\"}","res":"{\"error\":\"sin combate\"}"}

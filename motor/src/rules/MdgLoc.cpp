@@ -70,6 +70,11 @@ std::string Loc::t(const std::string& key, const Var& args)
 	return out;
 }
 
+const Json& Loc::table()
+{
+	return jobj(tables, lang);
+}
+
 bool Loc::has(const std::string& key)
 {
 	return jobj(tables, lang).contains(key) || jobj(tables, "es").contains(key);

@@ -19,6 +19,8 @@ public:
 	/** Traduce una clave y sustituye {marcadores} con str() de cada valor (como String.format). */
 	static std::string t(const std::string& key, const Var& args = Var());
 	static bool has(const std::string& key);
+	/** Tabla de textos del idioma actual (para la operación «loc» sin claves). */
+	static const Json& table();
 	static std::string dmg_type(const std::string& t_id) { return t("dmg." + t_id); }
 	static std::string cond(const std::string& c) { return t("cond." + c); }
 	static std::string ability(const std::string& a) { return t("ab." + a); }

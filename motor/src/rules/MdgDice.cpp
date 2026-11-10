@@ -56,8 +56,19 @@ void Pcg32::seed(uint64_t seed_value)
 	current_seed_ = seed_value;
 }
 
+Pcg32::EntropiaFn Pcg32::entropia = nullptr;
+
 void Pcg32::randomize()
 {
+	if (entropia != nullptr)
+	{
+		uint64_t t = 0;
+		uint32_t r1 = 0;
+		uint32_t r2 = 0;
+		entropia(t, r1, r2);
+		seed((t ^ ((static_cast<uint64_t>(r1) << 32) ^ static_cast<uint64_t>(r2))) * (state_ | 1u) + kDefaultInc);
+		return;
+	}
 	const uint64_t t = static_cast<uint64_t>(std::chrono::system_clock::now().time_since_epoch().count());
 	std::random_device rd;
 	const uint64_t r = (static_cast<uint64_t>(rd()) << 32) ^ static_cast<uint64_t>(rd());
