@@ -1,0 +1,228 @@
+{
+  "_nota": "Objetos de los niveles que lleva la historia. Clave: id o nivel.id. dialog = conversación (la historia se encarga; si el diálogo hace 'proceed', Exploración sigue con su mecánica). lines = texto de ambiente (own: true = la historia se encarga; false = se muestra una vez y Exploración sigue). found/triggered/disarmed = avisos de trampas y escondites. if = solo si se cumple (si no, Exploración hace lo suyo).",
+  "merrowick.bull": {
+    "dialog": "bull"
+  },
+  "merrowick.board": {
+    "dialog": "board"
+  },
+  "merrowick.ledger": {
+    "dialog": "ledger"
+  },
+  "merrowick.sign_west": {
+    "own": true,
+    "lines": [
+      "«MERROWICK». Debajo, alguien ha tallado a navaja un toro pequeño y una fecha que ya no se lee.",
+      {
+        "if": "seal_choice=broken",
+        "text": "Alguien ha tachado el toro con una raya de carbón."
+      }
+    ]
+  },
+  "merrowick.chest_mill": {
+    "own": false,
+    "once": true,
+    "lines": [
+      "El arcón del molinero, que se fue a Valdrecht la noche que se agrietó el toro, con la mujer y la cabra. Tenía tanta prisa que se dejó el candado echado y la llave en la cerradura de la puerta de al lado."
+    ]
+  },
+  "merrowick.cache_mill": {
+    "found": "Bajo una losa suelta detrás del molino hay un hueco con un paquete envuelto en hule: los ahorros que el molinero no se atrevió a llevarse."
+  },
+  "merrowick.chest_yard": {
+    "own": false,
+    "once": true,
+    "lines": [
+      "Un baúl de cobertizo con la tapa hinchada por la humedad. Huele a cebolla y a cuerda vieja."
+    ]
+  },
+  "merrowick.tumulo": {
+    "own": false,
+    "once": true,
+    "if": "camp_done & !tumulo_entered",
+    "lines": [
+      "La losa del pedestal se ha desplazado un palmo. Debajo, unos peldaños gastados bajan a la oscuridad. Sube un aire frío que huele a piedra mojada y a hierro.",
+      "La Marca te tira de la piel hacia abajo, como un anzuelo."
+    ]
+  },
+  "elderhal.shrine_text": {
+    "own": true,
+    "lines": [
+      "Un santuario de piedra blanca, quemado y saqueado. Alguien ha pintado con barro una zarpa sobre el disco del alba que coronaba la puerta.",
+      "Entre las cenizas hay huellas pequeñas, de trasgo, y otras más grandes que no sabéis reconocer: largas, de cuatro dedos, hundidas como si quien las dejó pesara como una piedra.",
+      {
+        "if": "party:ilyra",
+        "text": "Ilyra no mira las huellas. Mira el hueco de la pared donde colgaba el disco."
+      }
+    ]
+  },
+  "elderhal.shrine_box": {
+    "dialog": "shrine_box",
+    "if": "party:ilyra & !loot_shrine_box"
+  },
+  "elderhal.shrine_rubble": {
+    "dialog": "shrine_rubble",
+    "if": "party:ilyra & !seen:shrine_rubble.look"
+  },
+  "elderhal.pilgrim": {
+    "dialog": "pilgrim",
+    "if": "!seen:pilgrim.look"
+  },
+  "elderhal.stash": {
+    "dialog": "stash",
+    "if": "party:pip & !pip_stash_talk",
+    "found": "Un tronco hueco con la corteza marcada a navaja: una P y una T entrelazadas. Dentro hay un hatillo bien atado."
+  },
+  "elderhal.boss_chest": {
+    "own": false,
+    "once": true,
+    "lines": [
+      "El arcón del cabecilla: escudos de la guardia de Valdrecht abollados, un arco bueno, trofeos de hueso… y una tablilla de piedra con espirales, envuelta en piel como si fuera lo más valioso de todo."
+    ]
+  },
+  "elderhal.camp_fire": {
+    "own": false,
+    "once": true,
+    "if": "camp_done",
+    "lines": [
+      "La hoguera de los Zarpas Grises aún humea. Alrededor, la hierba pisada dibuja un círculo perfecto."
+    ]
+  },
+  "elderhal.snare": {
+    "found": "Agujas de pino demasiado bien puestas: debajo hay un cepo de dientes de hierro.",
+    "triggered": "¡Clac! Los dientes del cepo se cierran sobre un tobillo.",
+    "disarmed": "Encajas un palo entre los dientes del cepo. Se cierran sobre él con un chasquido de rabia.",
+    "say": [
+      {
+        "who": "brenna",
+        "text": "Mira dónde pisas, ¿quieres?"
+      },
+      {
+        "who": "pip",
+        "text": "¡Agujas demasiado bien puestas! ¡Lo dijo Tobin!"
+      }
+    ]
+  },
+  "elderhal.pit": {
+    "found": "Unas ramas cruzadas tapan un foso. En el fondo, estacas afiladas.",
+    "triggered": "Las ramas ceden y el suelo desaparece.",
+    "disarmed": "Apartáis las ramas: el foso queda a la vista, inofensivo, como una boca abierta.",
+    "say": [
+      {
+        "who": "ilyra",
+        "text": "¿Estás bien? ¡No te muevas, te miro esa pierna!"
+      }
+    ]
+  },
+  "elderhal.tripwire": {
+    "found": "Una cuerda tensa a la altura del tobillo, atada a un manojo de latas.",
+    "triggered": "Las latas suenan como una cencerrada. Al este, alguien grita en trasgo.",
+    "disarmed": "Cortas la cuerda y sujetas las latas para que no suenen.",
+    "say": [
+      {
+        "who": "pip",
+        "text": "Bueno. Ahora ya saben que venimos. ¿Alguien quiere cambiar de plan?"
+      }
+    ]
+  },
+  "kesh.rune_1": {
+    "dialog": "rune_1"
+  },
+  "kesh.rune_2": {
+    "dialog": "rune_2"
+  },
+  "kesh.rune_3": {
+    "dialog": "rune_3"
+  },
+  "kesh.kesh_statue": {
+    "dialog": "kesh_statue"
+  },
+  "kesh.kesh_door": {
+    "own": true,
+    "if": "!runes_solved",
+    "lines": [
+      "Una losa de granito sin tirador ni bisagras, encajada en el arranque del puente. Tiene tres espirales grabadas, una por cada piedra que habla."
+    ]
+  },
+  "kesh.odvar_satchel": {
+    "own": false,
+    "once": true,
+    "lines": [
+      "Entre telarañas y huesos de conejo cuelga una cartera de cuero con las iniciales O. S. bordadas en hilo de oro. Pesa como si llevara piedras. Lleva cuadernos."
+    ]
+  },
+  "kesh.kesh_chest": {
+    "own": false,
+    "once": true,
+    "lines": [
+      "La cámara es pequeña y redonda, con el techo cubierto de espirales que parecen moverse con la luz. En el centro, sobre un pedestal, entre huesos de toro, descansa un cuerno de granito del tamaño de un antebrazo.",
+      "Cuando lo miras, la Marca te tira de la piel como un anzuelo."
+    ]
+  },
+  "tumulo.seal_1": {
+    "dialog": "seal_1"
+  },
+  "tumulo.seal_2": {
+    "dialog": "seal_2"
+  },
+  "tumulo.seal_3": {
+    "dialog": "seal_3"
+  },
+  "tumulo.tumulo_inscription": {
+    "dialog": "tumulo_inscription"
+  },
+  "tumulo.seal": {
+    "dialog": "seal"
+  },
+  "tumulo.crypt_door": {
+    "own": true,
+    "if": "!seals_solved",
+    "lines": [
+      "Una puerta de piedra sin tirador ni cerradura, con tres espirales talladas como las de las losas del suelo. Por las rendijas sale un aire tibio que huele a hierro."
+    ]
+  },
+  "tumulo.sarcophagus": {
+    "dialog": "crypt_gate",
+    "if": "(party:ilyra | party:odvar) & !loot_crypt"
+  },
+  "tumulo.crypt_chest": {
+    "dialog": "crypt_gate",
+    "if": "(party:ilyra | party:odvar) & !loot_crypt"
+  },
+  "tumulo.trap_1": {
+    "found": "Una placa de presión entre las losas, y agujeros en los muros a la altura del pecho.",
+    "triggered": "¡Dardos! Salen silbando de los muros.",
+    "disarmed": "Atascas el mecanismo con una cuña. Los dardos se quedan dentro, esperando otros mil años.",
+    "say": [
+      {
+        "who": "odvar",
+        "text": "¡Mil años y todavía funciona! Los Durn sabían hacer las cosas. Ay."
+      }
+    ]
+  },
+  "tumulo.trap_2": {
+    "found": "Una losa más limpia que las demás. En el techo, justo encima, una ranura larga y oscura.",
+    "triggered": "Una cuchilla de piedra cae del techo como una guillotina.",
+    "disarmed": "Calzas la losa con dos piedras. La cuchilla gime en su ranura, pero no baja.",
+    "say": [
+      {
+        "who": "brenna",
+        "text": "¿Todos los dedos en su sitio? Bien. Seguimos."
+      }
+    ]
+  },
+  "elderhal.shrine": {
+    "own": true,
+    "lines": [
+      "Un santuario de piedra blanca, quemado y saqueado. Alguien ha pintado con barro una zarpa sobre el disco del alba que coronaba la puerta.",
+      "Entre las cenizas hay huellas pequeñas, de trasgo, y otras más grandes que no sabéis reconocer: largas, de cuatro dedos, hundidas como si quien las dejó pesara como una piedra.",
+      {
+        "if": "party:ilyra",
+        "text": "Ilyra no mira las huellas. Mira el hueco de la pared donde colgaba el disco."
+      }
+    ]
+  },
+  "tumulo.horn_socket": {
+    "dialog": "horn_socket"
+  }
+}

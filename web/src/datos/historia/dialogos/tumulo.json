@@ -1,0 +1,736 @@
+{
+  "tumulo_inscription": {
+    "speaker": "",
+    "title": "La inscripción del muro",
+    "start": "look",
+    "nodes": {
+      "look": {
+        "text": [
+          "*En el muro, por encima de las tres losas, una franja de espirales recorre la piedra de lado a lado, como una frase escrita por alguien que no quería que la leyeran deprisa.*",
+          {
+            "if": "kesh_verse",
+            "text": "*Reconoces el ritmo de las espirales: es el mismo verso de las piedras de Kesh. Agua que pasa, piedra que queda, toro que vela.*"
+          },
+          {
+            "if": "inscription_read",
+            "text": "*Dice: «Como se cerró, se abre: primero lo que corre, después lo que queda, al final lo que vela».*"
+          }
+        ],
+        "options": [
+          {
+            "text": "Leer la inscripción.",
+            "if": "!inscription_read",
+            "check": {
+              "skill": "history",
+              "dc": 12,
+              "easier": [
+                {
+                  "if": "kesh_verse",
+                  "dc": 9
+                }
+              ]
+            },
+            "success": "read",
+            "failure": "read_no"
+          },
+          {
+            "text": "Leer el durn antiguo: lo estudiaste en el Archivo.",
+            "if": "!inscription_read & bg:sage",
+            "goto": "read"
+          },
+          {
+            "text": "Odvar, leedla vos.",
+            "if": "!inscription_read & party:odvar",
+            "goto": "odvar"
+          },
+          {
+            "text": "Dejarla.",
+            "end": true
+          }
+        ]
+      },
+      "read": {
+        "text": "*Siguiendo las espirales con el dedo, lees: «Como se cerró, se abre: primero lo que corre, después lo que queda, al final lo que vela».*",
+        "do": [
+          "set:inscription_read"
+        ],
+        "end": true
+      },
+      "read_no": {
+        "text": "*Las espirales se enroscan unas en otras hasta que ya no sabes dónde empieza una y acaba la otra. Te quedas con una palabra suelta: «primero».*",
+        "end": true
+      },
+      "odvar": {
+        "who": "odvar",
+        "text": [
+          "*Odvar se sube a un sarcófago para llegar, y lee en voz alta, con voz de catedrático:*",
+          "«“Como se cerró, se abre: primero lo que corre, después lo que queda, al final lo que vela.” ¡El río, la piedra, el toro! ¡Como en Kesh!»",
+          "*Se baja del sarcófago y le pide perdón al muerto que hay dentro.*"
+        ],
+        "do": [
+          "set:inscription_read",
+          "set:kesh_verse"
+        ],
+        "end": true
+      }
+    }
+  },
+  "crypt_gate": {
+    "speaker": "",
+    "title": "Los guardianes enterrados",
+    "start": "look",
+    "nodes": {
+      "look": {
+        "text": "*Un sarcófago de granito con la tapa movida. Dentro, un guardián durn enterrado con su escudo de escamas de piedra y su casco de cuernos, las manos cruzadas sobre una espada.*",
+        "say": [
+          {
+            "who": "ilyra",
+            "text": "«Son tumbas, {nombre}. Ellos ya dieron todo lo que tenían.»"
+          },
+          {
+            "who": "odvar",
+            "text": "«¡No toquéis nada! ¡El contexto! Bueno, tocad un poco. Con cuidado. Y apuntad dónde estaba cada cosa.»"
+          },
+          {
+            "who": "pip",
+            "text": "«Los muertos no gastan, jef{e/a}. Es un dato.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Abrirlo.",
+            "do": [
+              "decision:loot_crypt",
+              "proceed"
+            ],
+            "end": true
+          },
+          {
+            "text": "Dejar descansar a los muertos.",
+            "tone": "amable",
+            "approve": {
+              "ilyra": 3,
+              "odvar": 3
+            },
+            "end": true
+          }
+        ]
+      }
+    }
+  },
+  "vorhan": {
+    "speaker": "Vorhan",
+    "title": "El último guardián durn",
+    "important": true,
+    "start": "v",
+    "nodes": {
+      "v": {
+        "speaker": "",
+        "text": [
+          "*La cámara es redonda, sostenida por columnas talladas con espirales. Sobre un estrado, entre sarcófagos abiertos, un guerrero muerto se apoya en una espada que todavía brilla. Lleva un casco con cuernos y una armadura de escamas de piedra. Bajo el casco no hay cara: solo dos ascuas rojas.*",
+          "*Las ascuas se encienden cuando cruzáis el umbral.*"
+        ],
+        "next": "speak"
+      },
+      "speak": {
+        "text": [
+          "«Mil años guardando el sello.»",
+          "*La voz es de piedra arrastrada.*",
+          "«Mil años. Y ahora lo traes tú, Marcad{o/a}.»",
+          "*A su alrededor, los huesos del suelo empiezan a levantarse.*",
+          "«Dime, sangre de piedra. ¿A qué vienes? ¿A cerrar… o a abrir?»"
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Un guardián durn! ¡Que habla! ¡Que alguien tome notas!»"
+          },
+          {
+            "who": "brenna",
+            "text": "«Odvar. Ese muerto tiene una espada.»",
+            "if": "party:odvar"
+          },
+          {
+            "who": "brenna",
+            "if": "!party:odvar",
+            "text": "«Ese muerto tiene una espada. Y la sabe usar. Lo veo en cómo la sujeta.»"
+          },
+          {
+            "who": "ilyra",
+            "text": "«Está sufriendo. Mil años despierto… Solenne, ten piedad de él.»"
+          },
+          {
+            "who": "pip",
+            "text": "«¿Y si le decimos que solo veníamos a buscar el baño?»"
+          }
+        ],
+        "options": [
+          {
+            "text": "A cerrarlo. A renovarlo.",
+            "goto": "close"
+          },
+          {
+            "text": "A romperlo. Nadie debería cargar con esto.",
+            "tone": "frio",
+            "goto": "open"
+          },
+          {
+            "text": "Todavía no lo sé.",
+            "goto": "unsure"
+          },
+          {
+            "text": "Saludarle al modo de los guardianes durn.",
+            "check": {
+              "skill": "history",
+              "dc": 14,
+              "easier": [
+                {
+                  "if": "kesh_verse",
+                  "dc": 12
+                },
+                {
+                  "if": "bg:sage",
+                  "dc": 11
+                }
+              ]
+            },
+            "success": "doubt",
+            "failure": "fight"
+          },
+          {
+            "text": "(Alzar el arma en saludo, como se saluda a un veterano antes de un duelo)",
+            "if": "class:fighter | class:paladin",
+            "check": {
+              "skill": "athletics",
+              "dc": 12
+            },
+            "success": "salute",
+            "failure": "fight"
+          },
+          {
+            "text": "Ilyra, háblale tú. Del descanso.",
+            "check": {
+              "skill": "religion",
+              "dc": 13,
+              "who": "ilyra",
+              "easier": [
+                {
+                  "if": "ilyra_faith=renewed",
+                  "dc": 11
+                }
+              ]
+            },
+            "success": "doubt",
+            "failure": "fight"
+          },
+          {
+            "text": "(Quedarte inmóvil, la respiración lenta, y esperar a que él hable primero)",
+            "if": "class:monk",
+            "check": {
+              "skill": "insight",
+              "dc": 11
+            },
+            "success": "insight",
+            "failure": "fight"
+          },
+          {
+            "text": "Mi pueblo también talla a sus muertos en la piedra de las montañas, guardián. Sé lo que es velar.",
+            "if": "species:goliath",
+            "check": {
+              "skill": "persuasion",
+              "dc": 12
+            },
+            "success": "doubt",
+            "failure": "fight"
+          },
+          {
+            "text": "¡A por él!",
+            "goto": "fight"
+          }
+        ]
+      },
+      "close": {
+        "text": [
+          "«Eso dijeron los últimos.»",
+          "*Las ascuas parpadean.*",
+          "«Las bocas mienten. La sangre, no. Que hable tu sangre, entonces… sobre mi espada.»"
+        ],
+        "options": [
+          {
+            "text": "No vengo a luchar contigo, guardián.",
+            "tone": "amable",
+            "check": {
+              "skill": "persuasion",
+              "dc": 15,
+              "easier": [
+                {
+                  "if": "seals_solved & kesh_verse",
+                  "dc": 13
+                }
+              ]
+            },
+            "success": "doubt",
+            "failure": "fight"
+          },
+          {
+            "text": "(Recitar el verso de Kesh) «Agua que pasa, piedra que queda, toro que vela.»",
+            "if": "kesh_verse",
+            "special": "Verso de Kesh",
+            "goto": "doubt"
+          },
+          {
+            "text": "Que así sea.",
+            "goto": "fight"
+          }
+        ]
+      },
+      "open": {
+        "text": [
+          "«Entonces eres lo que temíamos.»",
+          "*Alza la espada.*",
+          "«Ninguna sangre pasará mientras yo me tenga en pie.»"
+        ],
+        "next": "fight"
+      },
+      "unsure": {
+        "text": [
+          "*Las ascuas se quedan quietas. Por un momento parece que el muerto sonríe, si es que puede.*",
+          "«La primera respuesta sincera en mil años.»"
+        ],
+        "options": [
+          {
+            "text": "Mirarle de verdad.",
+            "check": {
+              "skill": "insight",
+              "dc": 13
+            },
+            "success": "insight",
+            "failure": "fight"
+          },
+          {
+            "text": "(Recitar el verso de Kesh) «Agua que pasa, piedra que queda, toro que vela.»",
+            "if": "kesh_verse",
+            "special": "Verso de Kesh",
+            "goto": "doubt"
+          },
+          {
+            "text": "Basta de palabras.",
+            "goto": "fight"
+          }
+        ]
+      },
+      "insight": {
+        "speaker": "",
+        "text": "*No es odio lo que hay en esas ascuas. Es cansancio. Mil años de vigilia, y la voz de abajo susurrándole cada noche. Quiere descansar, pero no puede rendirse: su juramento no se lo permite.*",
+        "options": [
+          {
+            "text": "Te liberaré, guardián. Te lo prometo.",
+            "tone": "amable",
+            "goto": "doubt"
+          },
+          {
+            "text": "Entonces acabemos con esto.",
+            "goto": "fight"
+          }
+        ]
+      },
+      "doubt": {
+        "text": [
+          "«…»",
+          "*Vorhan baja la espada un palmo. Solo un palmo.*",
+          "«Lo que corre, lo que queda, lo que vela.»",
+          "*Las ascuas tiemblan.*",
+          "«Mi juramento no me deja apartarme, sangre de piedra. Nadie toca el sello sin pasar por mí. Pero lucharé… a medias. Y moriré entero.»"
+        ],
+        "do": [
+          "set:vorhan_doubt"
+        ],
+        "options": [
+          {
+            "text": "Que así sea, guardián.",
+            "do": [
+              "battle:guardians!"
+            ]
+          }
+        ]
+      },
+      "fight": {
+        "text": "«¡Guardianes de Durn-Kahl! ¡En pie!»",
+        "options": [
+          {
+            "text": "¡A las armas!",
+            "do": [
+              "battle:guardians"
+            ]
+          }
+        ]
+      },
+      "salute": {
+        "text": [
+          "*Vorhan te mira largo rato. Luego levanta su espada y te devuelve el saludo, despacio, con un crujido de huesos viejos.*",
+          "«Hace mil años que nadie me saludaba como a un guerrero. Me saludaban como a una tumba.»"
+        ],
+        "next": "doubt"
+      }
+    }
+  },
+  "seal": {
+    "speaker": "",
+    "title": "El primer sello",
+    "important": true,
+    "start": [
+      {
+        "if": "seal_choice",
+        "goto": "done"
+      },
+      {
+        "if": "seen:seal.s1",
+        "goto": "back"
+      },
+      {
+        "goto": "s1"
+      }
+    ],
+    "nodes": {
+      "s1": {
+        "text": [
+          "*Detrás del estrado, en el suelo, hay una losa redonda de granito con tres espirales entrelazadas. Está partida casi en dos. Por la grieta sale un resplandor rojo que late, despacio, al mismo ritmo que tu Marca.*",
+          "*Hace calor. Un calor seco, de horno, que no debería existir a tanta profundidad.*",
+          "*Y entonces la oyes. No con los oídos.*"
+        ],
+        "next": "voice"
+      },
+      "back": {
+        "text": "*La losa de las tres espirales late, roja. El calor te seca los labios. La voz no dice nada: espera.*",
+        "next": "choice"
+      },
+      "voice": {
+        "speaker": "La voz bajo la piedra",
+        "title": "",
+        "portrait": "voice",
+        "text": [
+          "«Por fin.»",
+          "«Sangre de piedra. {Hijo/Hija/Criatura} de los que me encadenaron.»",
+          "«Mira lo que te hicieron. Te pusieron mi cadena en la piel antes de que nacieras. Te hacen arder por una guerra que no es tuya, por un pueblo que ni siquiera recuerda su nombre.»",
+          "«Rompe la losa y te soltaré. Nunca más arderás. Nunca más soñarás con toros. Serás libre, como ellos nunca te dejaron ser.»"
+        ],
+        "next": "choice",
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«{nombre}. Escúchame, por una vez, sin interrumpir.» *Odvar no se ríe.* «Si viertes tu sangre en las espirales, el sello la beberá y se cerrará otra vez. Generaciones. Pero quedarás atad{o/a} a los siete: la veta seguirá subiendo y oirás latir a todos los toros, siempre. Si rompes la losa, el vínculo se corta. Dejarás de arder. Y lo que hay debajo… dará un paso hacia fuera. Uno. Quedan seis sellos.»"
+          }
+        ]
+      },
+      "choice": {
+        "text": [
+          "*La voz se calla, pero el latido sigue. Tienes la mano izquierda apoyada en la losa y no recuerdas haberla puesto ahí.*",
+          {
+            "if": "!party:odvar & !odvar_seals",
+            "text": "*No sabes cómo, pero lo sabes: la sangre de la Marca puede cerrar la grieta o terminar de abrirla. Si la cierras, la piedra te reclamará. Si la rompes, te soltará… y soltará algo más.*"
+          }
+        ],
+        "options": [
+          {
+            "text": "Brenna, ¿tú qué harías?",
+            "if": "party:brenna",
+            "once": true,
+            "goto": "ask_brenna"
+          },
+          {
+            "text": "Pip, ¿y tú?",
+            "if": "party:pip",
+            "once": true,
+            "goto": "ask_pip"
+          },
+          {
+            "text": "Ilyra, ¿qué dice Solenne?",
+            "if": "party:ilyra",
+            "once": true,
+            "goto": "ask_ilyra"
+          },
+          {
+            "text": "Odvar, ¿qué haríais vos?",
+            "if": "party:odvar",
+            "once": true,
+            "goto": "ask_odvar"
+          },
+          {
+            "text": "Responder a la voz.",
+            "once": true,
+            "goto": "answer"
+          },
+          {
+            "text": "Verter tu sangre en las espirales y restaurar el sello.",
+            "goto": "confirm_restore"
+          },
+          {
+            "text": "Romper el sello y cortar el vínculo de la Marca.",
+            "goto": "confirm_break"
+          },
+          {
+            "text": "Todavía no.",
+            "goto": "later"
+          }
+        ]
+      },
+      "later": {
+        "text": "*Apartas la mano de la losa. El latido te sigue igual, por dentro, como un segundo corazón.*",
+        "end": true
+      },
+      "answer": {
+        "text": "*¿Qué le dices?*",
+        "options": [
+          {
+            "text": "¿Qué eres?",
+            "goto": "voice_what"
+          },
+          {
+            "text": "Mientes.",
+            "tone": "frio",
+            "goto": "voice_lie"
+          },
+          {
+            "text": "No te tengo miedo.",
+            "goto": "voice_fear"
+          },
+          {
+            "text": "Ya hice un pacto con alguien de tu calaña. No firmo dos.",
+            "if": "class:warlock",
+            "goto": "voice_pact"
+          }
+        ]
+      },
+      "voice_what": {
+        "speaker": "La voz bajo la piedra",
+        "portrait": "voice",
+        "text": "«Soy lo que había antes de los toros. Antes de los Durn. Antes de que alguien le pusiera nombre a las colinas. Me llaman Kharzul, la Sangre de la Piedra.» *Algo parecido a una risa.* «Pero tú puedes llamarme como quieras. Vamos a pasar mucho tiempo juntos, decidas lo que decidas.»",
+        "next": "choice2",
+        "title": ""
+      },
+      "voice_lie": {
+        "speaker": "La voz bajo la piedra",
+        "portrait": "voice",
+        "text": "«A veces. Esta vez, no.» *El latido se hace más lento, casi tierno.* «Rómpela y dejarás de arder. Eso es verdad. Lo demás… lo demás es otra conversación.»",
+        "next": "choice2",
+        "title": ""
+      },
+      "voice_fear": {
+        "speaker": "La voz bajo la piedra",
+        "portrait": "voice",
+        "text": "«Lo sé. Por eso me gustas. Los que me temían se convirtieron en toros.»",
+        "next": "choice2",
+        "title": ""
+      },
+      "ask_brenna": {
+        "who": "brenna",
+        "text": [
+          "«¿Yo?»",
+          "*Brenna mira la losa y luego te mira a ti.*",
+          "«Yo me pasé veinte años sujetando una puerta para que no entrara lo que había fuera. Sé lo que pesa.»",
+          "*Pausa.*",
+          "«Ciérralo. Y luego deja que te ayudemos a cargar con ello. Eso es lo que haría yo. Pero no es mi brazo.»"
+        ],
+        "next": "choice2"
+      },
+      "ask_pip": {
+        "who": "pip",
+        "text": [
+          "«¿Sinceramente? Rómpelo. Que lo arregle el Gremio, la Orden o quien cobre por arreglar estas cosas.»",
+          "*Se frota la nuca.*",
+          "«Y luego… bueno, luego vámonos muy lejos, por si acaso. Pero que conste que tu sangre es tuya, jef{e/a}. No de unos muertos de hace mil años.»"
+        ],
+        "next": "choice2"
+      },
+      "ask_ilyra": {
+        "who": "ilyra",
+        "text": [
+          {
+            "if": "ilyra_faith=renewed",
+            "text": "«Solenne no nos pide que suframos. Pero a veces alguien tiene que cargar con la noche para que los demás vean el alba.» *Te coge la mano buena.* «Si lo cierras, no estarás sol{o/a}. Te lo prometo.»"
+          },
+          {
+            "if": "!ilyra_faith=renewed",
+            "text": "«No lo sé. De verdad que no lo sé. Antes te habría dicho lo que dice la Orden. Ahora solo sé que no quiero que te haga daño. Ni a ti ni a nadie.»"
+          }
+        ],
+        "next": "choice2"
+      },
+      "ask_odvar": {
+        "who": "odvar",
+        "text": [
+          "«¿Yo? Yo lo restauraría, claro. Es una obra maestra. ¡Mira esas espirales!»",
+          "*Se le apaga la voz.*",
+          "«Pero no es mi sangre. Y he leído lo que les pasó a los guardianes que cerraron los otros sellos. La parte que no borraron.»"
+        ],
+        "next": "choice2"
+      },
+      "confirm_restore": {
+        "text": "*Sacas el cuchillo. Si lo haces, no habrá vuelta atrás.*",
+        "options": [
+          {
+            "text": "Hacerlo.",
+            "goto": "restored"
+          },
+          {
+            "text": "Espera.",
+            "goto": "choice2"
+          }
+        ]
+      },
+      "confirm_break": {
+        "text": "*Buscas el punto donde la grieta es más honda. Si lo haces, no habrá vuelta atrás.*",
+        "options": [
+          {
+            "text": "Hacerlo.",
+            "goto": "broken"
+          },
+          {
+            "text": "Espera.",
+            "goto": "choice2"
+          }
+        ]
+      },
+      "restored": {
+        "text": [
+          "*Te abres la palma de la mano izquierda, justo donde empieza la veta. La sangre que cae no es roja del todo: tiene hebras grises, como la piedra. Cae en la primera espiral, y la espiral se la bebe.*",
+          "*Luego la segunda. Luego la tercera.*",
+          "*La grieta se cierra con un ruido de hielo que se rompe al revés. El resplandor rojo se apaga. El calor se va.*",
+          "*Muy abajo, algo grita sin voz: un grito largo y lejano que se apaga despacio, como un trueno que se aleja.*",
+          "*La Marca te arde una última vez, un fuego blanco que te sube por el brazo, el hombro, el cuello… y se queda ahí, fría otra vez. Cuando te tocas la garganta, notas la piedra.*",
+          "*Y entonces los oyes. Siete latidos. Uno aquí, bajo tus pies, tranquilo. Y seis más, lejos, en las colinas. Uno de ellos va demasiado deprisa.*"
+        ],
+        "do": [
+          "decision:seal_choice=restored",
+          "prefetch:epilogue"
+        ],
+        "next": "out"
+      },
+      "broken": {
+        "text": [
+          "*Levantas el arma y golpeas la losa donde la grieta es más honda.*",
+          "*La losa se parte con un ruido de campana rota. El resplandor rojo sale disparado hacia arriba como el aliento de un horno y se apaga en el techo.*",
+          "*La Marca te arde una última vez, tanto que gritas. Y luego… nada. Por primera vez desde este otoño, tu brazo es solo tu brazo. La veta sigue ahí, gris, pero fría y quieta, como una cicatriz vieja.*",
+          "*Muy abajo, algo se ríe. Un sonido grave, satisfecho, que hace temblar el polvo de las columnas. Luego se calla.*",
+          "*Arriba, en el prado de Merrowick, el toro de granito se desmorona sobre su pedestal. Y lejos, en las colinas de las Marcas, otros seis toros empiezan a sangrar.*"
+        ],
+        "do": [
+          "decision:seal_choice=broken",
+          "prefetch:epilogue"
+        ],
+        "next": "out"
+      },
+      "out": {
+        "text": "*Subís la escalera sin hablar. Arriba ya es de noche, y Merrowick os espera con antorchas.*",
+        "do": [
+          "epilogue"
+        ],
+        "end": true
+      },
+      "done": {
+        "text": [
+          {
+            "if": "seal_choice=restored",
+            "text": "*La losa está entera y fría. Las tres espirales tienen un tono más oscuro, del color de la sangre seca. El latido de abajo es lento y tranquilo.*"
+          },
+          {
+            "if": "seal_choice=broken",
+            "text": "*La losa está partida en dos. Por la grieta no sale ninguna luz. Solo un aire tibio, de vez en cuando, como el aliento de algo que duerme con un ojo abierto.*"
+          }
+        ],
+        "end": true
+      },
+      "choice2": {
+        "text": "*La losa late bajo tu mano. Arriba, muy lejos, alguien reza; abajo, algo espera.*",
+        "optionsFrom": "choice"
+      },
+      "voice_pact": {
+        "speaker": "La voz bajo la piedra",
+        "title": "",
+        "portrait": "voice",
+        "text": "«¿Un pacto?» *El latido se detiene un instante, curioso.* «Qué pequeño. Qué prestado. Yo no te ofrezco poder, sangre de piedra: te ofrezco lo que ya es tuyo.» *Y el calor vuelve, paciente.*",
+        "next": "choice2"
+      }
+    }
+  },
+  "horn_socket": {
+    "speaker": "",
+    "title": "El hueco del cuerno",
+    "start": [
+      {
+        "if": "horn_placed",
+        "goto": "placed"
+      },
+      {
+        "goto": "look"
+      }
+    ],
+    "nodes": {
+      "look": {
+        "text": [
+          "*Un pedestal bajo, en el centro de la sala, entre las tres losas. Tiene un hueco en espiral con la forma exacta de un cuerno de toro.*",
+          {
+            "if": "!seal_key",
+            "text": "*Sin lo que tenga que ir ahí, las losas del suelo no se moverán. Lo sabes sin saber cómo.*"
+          }
+        ],
+        "options": [
+          {
+            "text": "Encajar el cuerno de piedra en el hueco.",
+            "if": "item:stone_horn | seal_key",
+            "goto": "place"
+          },
+          {
+            "text": "Estudiar el pedestal.",
+            "check": {
+              "skill": "history",
+              "dc": 12,
+              "easier": [
+                {
+                  "if": "bg:sage",
+                  "dc": 8
+                }
+              ]
+            },
+            "success": "study",
+            "failure": "study_no"
+          },
+          {
+            "text": "Dejarlo.",
+            "end": true
+          }
+        ]
+      },
+      "study": {
+        "text": "*Alrededor del hueco hay tres palabras durn, una por cada losa, unidas por una espiral que empieza en la del río, pasa por la de la piedra y termina en la del toro.*",
+        "do": [
+          "set:seal_hint_2"
+        ],
+        "optionsFrom": "look"
+      },
+      "study_no": {
+        "text": "*Polvo, espirales y un hueco con forma de cuerno. Poco más.*",
+        "optionsFrom": "look"
+      },
+      "place": {
+        "text": "*El cuerno encaja con un chasquido, como si la piedra lo hubiera estado esperando mil años. Las espirales de las tres losas se iluminan, débiles, con una luz gris, y el suelo tiembla un poco bajo vuestros pies.*",
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Encaja! ¡Encaja! Perdón. Es que encaja.»"
+          }
+        ],
+        "do": [
+          "take:stone_horn",
+          "set:horn_placed",
+          "object:horn_socket=lit"
+        ],
+        "end": true
+      },
+      "placed": {
+        "text": "*El cuerno de piedra descansa en su hueco. Las espirales del suelo brillan, débiles, esperando.*",
+        "end": true
+      }
+    }
+  }
+}

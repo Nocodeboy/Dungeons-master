@@ -1,0 +1,1108 @@
+{
+  "id": "kesh",
+  "name": "Vado de Kesh",
+  "place": "Ruinas de un puente durn sobre un río frío",
+  "ambient": "kesh",
+  "music": "kesh",
+  "music_combat": "combate",
+  "ambience": "river",
+  "ground": {
+    ".": "dirt"
+  },
+  "fence": "q_fence",
+  "width": 40,
+  "height": 30,
+  "rows": [
+    "TTTTTTTTTTTTTTTTT,~www~TT,T,TTTTTTTTTTTT",
+    "T,TT,TT,,T,T,,T,TT,~www~TTTb,,,rTTrrTrTT",
+    "T,,,,,,,TTrT,,T,T,,~~www~,,,,bT########,",
+    "TT,,,,,,,,,bb,,,T,,,~www~,,,,,,##====##,",
+    "T,,,,,,,,,,,,,,,,,,,~www~,,,,,,##====##T",
+    "TTT,,,,,,,bb,,b,,,,~www~,,,,,,,##====##T",
+    "TT,,,T,,,,,,,,,,,,~~www~,,,,,,,##====##T",
+    "TT,,,,,,,,,,,,T,,,~www~,,,,,,b,###==###T",
+    "TTT,,,,,OT,,b,,,,~~www~,,,,,,,b###o####T",
+    "T,,,,,,,....o,,,,~wwww~,,,,,,,,,,,==,TTT",
+    ",,,,,,,,.....x===~wxwx=====,T,,,,,,,,,TT",
+    "TT,,,,,cT...,o===~PwP=O====,P,,,P,,,,,TT",
+    ",,,,O,,,,:o,,===xxwww======,,===x,,,,,,T",
+    "TTT,,,,,,:,,,,,rO~www~,,,,P,=====P,,,,TT",
+    ",,,,,,,,:,,,,,,,~www~,,,,,,,=SSO==,,Tb,T",
+    ":::,,,bb:,,,,,,~wwww~,,b,x,==S====x,,,,T",
+    ",,T:::::,,,,,r~wwww~~,b,,,,,======,,,T,T",
+    "TTr,,,b::::,,~~~~~~~,,,,,,P:=====P,,,,b,",
+    "TT,b,,,,,,,::::~~~~~,,,,::,x,====,,b,,TT",
+    "T,,,,,,,,T,T,~~~~~~~,,,,,,,,,,,,,,,,,r,T",
+    "TTT,,,,,,,,,,,~wwww~~,,,,,,,bb,,,,,,,b,T",
+    ",T,,,,,,,,,,,,,~wwww~,,,,,,,,,x,,bbbobTT",
+    "TT,,,,,,,,,,,,,,~www~~,,,b,,,bb,,o,,,,TT",
+    "bTb,,,,,,,,,,,,,,~www~r,,T,,,bbo,,,,,o,T",
+    ",Tb,,,,,,,,,,,,,,~www~~,,b,,,,,b,,,o,,bT",
+    "TT,,,,,,,,,,T,,,,~wwww~bb,,,bbbb,xbb,T,T",
+    "TT,,,,,Tb,,,,,,,,~wwww~,,,,,,,,,o,o,x,TT",
+    "TTT,,,,,,,,,,,,,,~wwww~,,,,,,T,TTb,r,rbT",
+    ",TT,,TTTTTT,T,TTT,~www~TTb,,TTT,TTT,,TT,",
+    "TTTTTTT,TTT,T,TTT,~www~TTTTTTTTTTTTTTTTT"
+  ],
+  "spawns": {
+    "entry": [
+      1,
+      15
+    ],
+    "default": [
+      3,
+      16
+    ],
+    "west": [
+      1,
+      15
+    ]
+  },
+  "exits": [
+    {
+      "id": "west",
+      "cells": [
+        [
+          0,
+          14
+        ],
+        [
+          0,
+          15
+        ],
+        [
+          0,
+          16
+        ]
+      ],
+      "label": "Volver al camino",
+      "to": "travel"
+    }
+  ],
+  "props": [
+    {
+      "key": "tent",
+      "cell": [
+        8,
+        8
+      ],
+      "rot": 120,
+      "scale": 1
+    },
+    {
+      "key": "q_table",
+      "cell": [
+        12,
+        9
+      ],
+      "rot": 15,
+      "scale": 0.8
+    },
+    {
+      "key": "q_bookstand",
+      "cell": [
+        11,
+        8
+      ],
+      "rot": 200,
+      "scale": 1
+    },
+    {
+      "key": "crate_open",
+      "cell": [
+        6,
+        10
+      ],
+      "rot": 30,
+      "scale": 1
+    },
+    {
+      "key": "q_stool",
+      "cell": [
+        11,
+        9
+      ],
+      "rot": 60,
+      "scale": 1,
+      "offset": [
+        0.25,
+        0.2
+      ]
+    },
+    {
+      "key": "lantern",
+      "cell": [
+        13,
+        11
+      ],
+      "rot": 270,
+      "scale": 1
+    },
+    {
+      "key": "arch_ruin",
+      "cell": [
+        30,
+        11
+      ],
+      "rot": 0,
+      "scale": 0.8
+    },
+    {
+      "key": "arch_ruin",
+      "cell": [
+        25,
+        16
+      ],
+      "rot": 80,
+      "scale": 0.7
+    },
+    {
+      "key": "wagon",
+      "cell": [
+        4,
+        12
+      ],
+      "rot": 200,
+      "scale": 0.9
+    }
+  ],
+  "decor": [
+    {
+      "key": "q_book",
+      "cell": [
+        12,
+        9
+      ],
+      "rot": 20,
+      "scale": 1,
+      "offset": [
+        0.1,
+        -0.05
+      ],
+      "y": 0.5
+    },
+    {
+      "key": "q_scroll",
+      "cell": [
+        12,
+        9
+      ],
+      "rot": 80,
+      "scale": 1,
+      "offset": [
+        -0.2,
+        0.1
+      ],
+      "y": 0.5
+    },
+    {
+      "key": "q_candles3",
+      "cell": [
+        12,
+        9
+      ],
+      "rot": 0,
+      "scale": 1,
+      "offset": [
+        0.3,
+        0.2
+      ],
+      "y": 0.5
+    },
+    {
+      "key": "fire_pit",
+      "cell": [
+        10,
+        12
+      ],
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "key": "q_pot",
+      "cell": [
+        10,
+        12
+      ],
+      "rot": 0,
+      "scale": 1,
+      "offset": [
+        0.35,
+        0.1
+      ]
+    },
+    {
+      "key": "sack",
+      "cell": [
+        7,
+        11
+      ],
+      "rot": 40,
+      "scale": 1,
+      "offset": [
+        0.4,
+        0.3
+      ]
+    },
+    {
+      "key": "web",
+      "cell": [
+        31,
+        23
+      ],
+      "rot": 10,
+      "scale": 1.2
+    },
+    {
+      "key": "web",
+      "cell": [
+        33,
+        22
+      ],
+      "rot": 70,
+      "scale": 1
+    },
+    {
+      "key": "web",
+      "cell": [
+        35,
+        24
+      ],
+      "rot": 140,
+      "scale": 1.4
+    },
+    {
+      "key": "web",
+      "cell": [
+        32,
+        26
+      ],
+      "rot": 200,
+      "scale": 1.1
+    },
+    {
+      "key": "web",
+      "cell": [
+        36,
+        21
+      ],
+      "rot": 250,
+      "scale": 1
+    },
+    {
+      "key": "web",
+      "cell": [
+        34,
+        26
+      ],
+      "rot": 300,
+      "scale": 1.2
+    },
+    {
+      "key": "web",
+      "cell": [
+        37,
+        23
+      ],
+      "rot": 30,
+      "scale": 1.3
+    },
+    {
+      "key": "egg_sac",
+      "cell": [
+        33,
+        23
+      ],
+      "rot": 0,
+      "scale": 1,
+      "offset": [
+        0.2,
+        0.1
+      ]
+    },
+    {
+      "key": "egg_sac",
+      "cell": [
+        35,
+        25
+      ],
+      "rot": 0,
+      "scale": 1,
+      "offset": [
+        -0.2,
+        0.2
+      ]
+    },
+    {
+      "key": "bones",
+      "cell": [
+        32,
+        24
+      ],
+      "rot": 30,
+      "scale": 1
+    },
+    {
+      "key": "skull",
+      "cell": [
+        34,
+        23
+      ],
+      "rot": 100,
+      "scale": 1,
+      "offset": [
+        0.3,
+        -0.2
+      ]
+    },
+    {
+      "key": "ribcage",
+      "cell": [
+        36,
+        25
+      ],
+      "rot": 200,
+      "scale": 1,
+      "offset": [
+        -0.3,
+        0.2
+      ]
+    },
+    {
+      "key": "bones",
+      "cell": [
+        35,
+        4
+      ],
+      "rot": 20,
+      "scale": 1,
+      "offset": [
+        0.3,
+        0.3
+      ]
+    },
+    {
+      "key": "skull",
+      "cell": [
+        34,
+        4
+      ],
+      "rot": 160,
+      "scale": 1.4,
+      "offset": [
+        -0.2,
+        0.2
+      ]
+    },
+    {
+      "key": "stepstone",
+      "cell": [
+        16,
+        18
+      ],
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "key": "stepstone",
+      "cell": [
+        18,
+        18
+      ],
+      "rot": 40,
+      "scale": 1
+    },
+    {
+      "key": "stepstone",
+      "cell": [
+        20,
+        18
+      ],
+      "rot": 80,
+      "scale": 1
+    },
+    {
+      "key": "stepstone",
+      "cell": [
+        22,
+        18
+      ],
+      "rot": 120,
+      "scale": 1
+    }
+  ],
+  "objects": [
+    {
+      "id": "odvar",
+      "type": "npc",
+      "cell": [
+        11,
+        10
+      ],
+      "face": 200,
+      "name": "Maese Odvar Stonebrow",
+      "title": "Sabio durnólogo",
+      "companion": "odvar",
+      "visual": {
+        "model": "mage",
+        "species": "dwarf",
+        "class": "wizard",
+        "scale": 0.9
+      },
+      "pronoun": "m"
+    },
+    {
+      "id": "rune_1",
+      "type": "rune",
+      "cell": [
+        16,
+        13
+      ],
+      "name": "Piedra rúnica de la orilla",
+      "face": 90
+    },
+    {
+      "id": "rune_2",
+      "type": "rune",
+      "cell": [
+        22,
+        11
+      ],
+      "name": "Piedra rúnica del puente",
+      "face": 270
+    },
+    {
+      "id": "rune_3",
+      "type": "rune",
+      "cell": [
+        31,
+        14
+      ],
+      "name": "Piedra rúnica del toro",
+      "face": 200
+    },
+    {
+      "id": "kesh_statue",
+      "type": "inspect",
+      "cell": [
+        30,
+        15
+      ],
+      "name": "El toro caído"
+    },
+    {
+      "id": "kesh_door",
+      "type": "door",
+      "cell": [
+        34,
+        8
+      ],
+      "name": "Puerta de piedra durn",
+      "requires": "runes_solved",
+      "style": "stone",
+      "closed": "Una losa de granito sin tirador ni bisagras. Tres huecos en espiral, como los de las piedras de la orilla."
+    },
+    {
+      "id": "kesh_chest",
+      "type": "chest",
+      "cell": [
+        35,
+        4
+      ],
+      "name": "Pedestal del cuerno",
+      "big": true,
+      "loot": [
+        [
+          "stone_horn",
+          1
+        ],
+        [
+          "gold",
+          40
+        ],
+        [
+          "coin_durn",
+          6
+        ],
+        [
+          "potion_greater_healing",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "odvar_satchel",
+      "type": "chest",
+      "cell": [
+        36,
+        25
+      ],
+      "name": "La cartera de Odvar",
+      "loot": [
+        [
+          "odvar_notes",
+          1
+        ],
+        [
+          "gold",
+          12
+        ],
+        [
+          "scroll_shield",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "kesh_cache",
+      "type": "cache",
+      "cell": [
+        4,
+        22
+      ],
+      "name": "Bajo una losa del camino viejo",
+      "hidden": {
+        "dc": 14
+      },
+      "loot": [
+        [
+          "gold",
+          18
+        ],
+        [
+          "potion_healing",
+          1
+        ],
+        [
+          "coin_durn",
+          3
+        ]
+      ],
+      "found_text": "Una losa del viejo camino durn suena hueca. Debajo, un hueco con monedas antiguas."
+    }
+  ],
+  "groups": [
+    {
+      "id": "spiders",
+      "name": "Las arañas del vado",
+      "sight": 6,
+      "flag": "spiders_dead",
+      "enemies": [
+        {
+          "id": "giant_spider",
+          "cell": [
+            33,
+            24
+          ],
+          "face": 300
+        },
+        {
+          "id": "giant_spider",
+          "cell": [
+            35,
+            22
+          ],
+          "face": 250
+        }
+      ],
+      "loot": [
+        [
+          "gold",
+          9
+        ],
+        [
+          "potion_healing",
+          1
+        ]
+      ]
+    }
+  ],
+  "triggers": [
+    {
+      "id": "enter",
+      "cells": [],
+      "once": true,
+      "on_load": true,
+      "spawn": "entry",
+      "text": [
+        "El vado de Kesh: un río frío y ruidoso que salta entre los restos de un puente que ya era viejo cuando Merrowick era un prado.",
+        "Al otro lado, un toro de piedra yace de costado entre columnas rotas. Junto a la orilla humea un fuego pequeño."
+      ]
+    },
+    {
+      "id": "nest",
+      "cells": [
+        [
+          28,
+          19
+        ],
+        [
+          29,
+          19
+        ],
+        [
+          30,
+          19
+        ],
+        [
+          31,
+          19
+        ],
+        [
+          32,
+          19
+        ],
+        [
+          28,
+          20
+        ],
+        [
+          29,
+          20
+        ],
+        [
+          30,
+          20
+        ],
+        [
+          31,
+          20
+        ],
+        [
+          32,
+          20
+        ],
+        [
+          28,
+          21
+        ],
+        [
+          29,
+          21
+        ],
+        [
+          31,
+          21
+        ],
+        [
+          32,
+          21
+        ],
+        [
+          28,
+          22
+        ],
+        [
+          29,
+          22
+        ],
+        [
+          30,
+          22
+        ],
+        [
+          31,
+          22
+        ],
+        [
+          32,
+          22
+        ]
+      ],
+      "once": true
+    }
+  ],
+  "lights": [
+    {
+      "cell": [
+        10,
+        12
+      ],
+      "color": "#ff9a40",
+      "energy": 1.2,
+      "range": 4,
+      "height": 0.6
+    },
+    {
+      "cell": [
+        13,
+        11
+      ],
+      "color": "#ffb060",
+      "energy": 1,
+      "range": 3.5,
+      "height": 0.9
+    },
+    {
+      "cell": [
+        35,
+        5
+      ],
+      "color": "#ffb46a",
+      "energy": 0.7,
+      "range": 3,
+      "height": 0.8
+    }
+  ],
+  "animals": [
+    {
+      "kind": "deer",
+      "cell": [
+        6,
+        24
+      ],
+      "wander": 1.2
+    }
+  ],
+  "paint": [
+    {
+      "cells": [
+        [
+          28,
+          19
+        ],
+        [
+          29,
+          19
+        ],
+        [
+          30,
+          19
+        ],
+        [
+          31,
+          19
+        ],
+        [
+          32,
+          19
+        ],
+        [
+          33,
+          19
+        ],
+        [
+          34,
+          19
+        ],
+        [
+          35,
+          19
+        ],
+        [
+          36,
+          19
+        ],
+        [
+          38,
+          19
+        ],
+        [
+          28,
+          20
+        ],
+        [
+          29,
+          20
+        ],
+        [
+          30,
+          20
+        ],
+        [
+          31,
+          20
+        ],
+        [
+          32,
+          20
+        ],
+        [
+          33,
+          20
+        ],
+        [
+          34,
+          20
+        ],
+        [
+          35,
+          20
+        ],
+        [
+          36,
+          20
+        ],
+        [
+          37,
+          20
+        ],
+        [
+          38,
+          20
+        ],
+        [
+          28,
+          21
+        ],
+        [
+          29,
+          21
+        ],
+        [
+          31,
+          21
+        ],
+        [
+          32,
+          21
+        ],
+        [
+          33,
+          21
+        ],
+        [
+          34,
+          21
+        ],
+        [
+          35,
+          21
+        ],
+        [
+          36,
+          21
+        ],
+        [
+          37,
+          21
+        ],
+        [
+          28,
+          22
+        ],
+        [
+          29,
+          22
+        ],
+        [
+          30,
+          22
+        ],
+        [
+          31,
+          22
+        ],
+        [
+          32,
+          22
+        ],
+        [
+          33,
+          22
+        ],
+        [
+          34,
+          22
+        ],
+        [
+          35,
+          22
+        ],
+        [
+          36,
+          22
+        ],
+        [
+          37,
+          22
+        ],
+        [
+          28,
+          23
+        ],
+        [
+          29,
+          23
+        ],
+        [
+          30,
+          23
+        ],
+        [
+          31,
+          23
+        ],
+        [
+          32,
+          23
+        ],
+        [
+          33,
+          23
+        ],
+        [
+          34,
+          23
+        ],
+        [
+          35,
+          23
+        ],
+        [
+          36,
+          23
+        ],
+        [
+          37,
+          23
+        ],
+        [
+          38,
+          23
+        ],
+        [
+          28,
+          24
+        ],
+        [
+          29,
+          24
+        ],
+        [
+          30,
+          24
+        ],
+        [
+          31,
+          24
+        ],
+        [
+          32,
+          24
+        ],
+        [
+          33,
+          24
+        ],
+        [
+          34,
+          24
+        ],
+        [
+          35,
+          24
+        ],
+        [
+          36,
+          24
+        ],
+        [
+          37,
+          24
+        ],
+        [
+          38,
+          24
+        ],
+        [
+          28,
+          25
+        ],
+        [
+          29,
+          25
+        ],
+        [
+          30,
+          25
+        ],
+        [
+          31,
+          25
+        ],
+        [
+          32,
+          25
+        ],
+        [
+          34,
+          25
+        ],
+        [
+          35,
+          25
+        ],
+        [
+          36,
+          25
+        ],
+        [
+          38,
+          25
+        ],
+        [
+          28,
+          26
+        ],
+        [
+          29,
+          26
+        ],
+        [
+          30,
+          26
+        ],
+        [
+          31,
+          26
+        ],
+        [
+          32,
+          26
+        ],
+        [
+          33,
+          26
+        ],
+        [
+          34,
+          26
+        ],
+        [
+          35,
+          26
+        ],
+        [
+          37,
+          26
+        ],
+        [
+          28,
+          27
+        ],
+        [
+          30,
+          27
+        ],
+        [
+          33,
+          27
+        ],
+        [
+          34,
+          27
+        ],
+        [
+          36,
+          27
+        ],
+        [
+          38,
+          27
+        ]
+      ],
+      "ground": "litter"
+    }
+  ]
+}

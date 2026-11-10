@@ -1,0 +1,66 @@
+{
+  "_fuente": "Dotes del SRD 5.2.1 (CC-BY-4.0). Textos en español propios.",
+  "alert": {
+    "name": "Alerta",
+    "category": "origin",
+    "desc": "Sumas tu bonificador por competencia a la iniciativa. Nunca te pillan desprevenido."
+  },
+  "magic_initiate": {
+    "name": "Iniciado en la magia",
+    "category": "origin",
+    "repeatable": true,
+    "desc": "Aprendes dos trucos y un conjuro de nivel 1 de la lista de clérigo, druida o mago. Puedes lanzar ese conjuro una vez al día sin gastar espacio (o con tus espacios, si los tienes).",
+    "lists": [
+      "cleric",
+      "druid",
+      "wizard"
+    ]
+  },
+  "savage_attacker": {
+    "name": "Atacante salvaje",
+    "category": "origin",
+    "desc": "Una vez por turno, al impactar con un arma tiras dos veces sus dados de daño y te quedas con el mejor resultado."
+  },
+  "skilled": {
+    "name": "Versado",
+    "category": "origin",
+    "repeatable": true,
+    "desc": "Ganas competencia en tres habilidades a tu elección."
+  },
+  "archery": {
+    "name": "Tirador",
+    "category": "fighting_style",
+    "desc": "+2 a las tiradas de ataque con armas a distancia."
+  },
+  "defense": {
+    "name": "Defensa",
+    "category": "fighting_style",
+    "desc": "+1 a la CA mientras lleves armadura."
+  },
+  "great_weapon_fighting": {
+    "name": "Combate con arma a dos manos",
+    "category": "fighting_style",
+    "desc": "Con un arma cuerpo a cuerpo empuñada a dos manos, cualquier 1 o 2 en los dados de daño cuenta como 3."
+  },
+  "two_weapon_fighting": {
+    "name": "Combate con dos armas",
+    "category": "fighting_style",
+    "desc": "El ataque adicional con la otra mano suma tu modificador de característica al daño."
+  },
+  "blessed_warrior": {
+    "name": "Guerrero bendito",
+    "category": "fighting_style",
+    "only": [
+      "paladin"
+    ],
+    "desc": "En vez de un estilo de combate, aprendes dos trucos de clérigo. Usas tu Carisma para lanzarlos."
+  },
+  "druidic_warrior": {
+    "name": "Guerrero druídico",
+    "category": "fighting_style",
+    "only": [
+      "ranger"
+    ],
+    "desc": "En vez de un estilo de combate, aprendes dos trucos de druida. Usas tu Sabiduría para lanzarlos."
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "_fuente": "Mapa de viaje de las Marcas de Vharen. pos: posición relativa (0-1) en el pergamino. roads: [a, b, horas].",
+  "title": "Las Marcas de Vharen",
+  "places": [
+    {
+      "id": "merrowick",
+      "name": "Merrowick",
+      "pos": [
+        0.34,
+        0.6
+      ],
+      "level": "merrowick",
+      "spawn": "east",
+      "icon": "village",
+      "desc": "Aldea de pastores y canteros junto al toro de granito del prado."
+    },
+    {
+      "id": "elderhal",
+      "name": "Bosque de Elderhal",
+      "pos": [
+        0.63,
+        0.33
+      ],
+      "level": "elderhal",
+      "spawn": "entry",
+      "icon": "forest",
+      "requires": "e1_done",
+      "desc": "Pinar viejo al este de Merrowick. Ahí acampan los Zarpas Grises."
+    },
+    {
+      "id": "kesh",
+      "name": "Vado de Kesh",
+      "pos": [
+        0.8,
+        0.66
+      ],
+      "icon": "tower",
+      "locked": "Unas ruinas durn sobre el río. Aún no conocéis el camino.",
+      "desc": "Puente durn derruido sobre el río."
+    },
+    {
+      "id": "valdrecht",
+      "name": "Valdrecht",
+      "pos": [
+        0.1,
+        0.74
+      ],
+      "icon": "gate",
+      "locked": "La ciudad queda a varios días al sur. Lo que pasa aquí no puede esperar.",
+      "desc": "Ciudad amurallada sobre un cerro."
+    }
+  ],
+  "roads": [
+    [
+      "merrowick",
+      "elderhal",
+      2
+    ],
+    [
+      "merrowick",
+      "kesh",
+      5
+    ],
+    [
+      "merrowick",
+      "valdrecht",
+      40
+    ],
+    [
+      "elderhal",
+      "kesh",
+      4
+    ]
+  ]
+}

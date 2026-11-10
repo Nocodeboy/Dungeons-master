@@ -1,0 +1,123 @@
+{
+  "_fuente": "SRD 5.2.1 (CC-BY-4.0), tabla de armaduras.",
+  "padded": {
+    "name": "Acolchada",
+    "cat": "light",
+    "base": 11,
+    "dex_cap": 99,
+    "str_req": 0,
+    "stealth_dis": true,
+    "cost": 5,
+    "weight": 8
+  },
+  "leather": {
+    "name": "Cuero",
+    "cat": "light",
+    "base": 11,
+    "dex_cap": 99,
+    "str_req": 0,
+    "stealth_dis": false,
+    "cost": 10,
+    "weight": 10
+  },
+  "studded_leather": {
+    "name": "Cuero tachonado",
+    "cat": "light",
+    "base": 12,
+    "dex_cap": 99,
+    "str_req": 0,
+    "stealth_dis": false,
+    "cost": 45,
+    "weight": 13
+  },
+  "hide": {
+    "name": "Pieles",
+    "cat": "medium",
+    "base": 12,
+    "dex_cap": 2,
+    "str_req": 0,
+    "stealth_dis": false,
+    "cost": 10,
+    "weight": 12
+  },
+  "chain_shirt": {
+    "name": "Camisote de mallas",
+    "cat": "medium",
+    "base": 13,
+    "dex_cap": 2,
+    "str_req": 0,
+    "stealth_dis": false,
+    "cost": 50,
+    "weight": 20
+  },
+  "scale_mail": {
+    "name": "Cota de escamas",
+    "cat": "medium",
+    "base": 14,
+    "dex_cap": 2,
+    "str_req": 0,
+    "stealth_dis": true,
+    "cost": 50,
+    "weight": 45
+  },
+  "breastplate": {
+    "name": "Coraza",
+    "cat": "medium",
+    "base": 14,
+    "dex_cap": 2,
+    "str_req": 0,
+    "stealth_dis": false,
+    "cost": 400,
+    "weight": 20
+  },
+  "half_plate": {
+    "name": "Semiplacas",
+    "cat": "medium",
+    "base": 15,
+    "dex_cap": 2,
+    "str_req": 0,
+    "stealth_dis": true,
+    "cost": 750,
+    "weight": 40
+  },
+  "ring_mail": {
+    "name": "Cota de anillas",
+    "cat": "heavy",
+    "base": 14,
+    "dex_cap": 0,
+    "str_req": 0,
+    "stealth_dis": true,
+    "cost": 30,
+    "weight": 40
+  },
+  "chain_mail": {
+    "name": "Cota de mallas",
+    "cat": "heavy",
+    "base": 16,
+    "dex_cap": 0,
+    "str_req": 13,
+    "stealth_dis": true,
+    "cost": 75,
+    "weight": 55
+  },
+  "splint": {
+    "name": "Bandas",
+    "cat": "heavy",
+    "base": 17,
+    "dex_cap": 0,
+    "str_req": 15,
+    "stealth_dis": true,
+    "cost": 200,
+    "weight": 60
+  },
+  "plate": {
+    "name": "Placas",
+    "cat": "heavy",
+    "base": 18,
+    "dex_cap": 0,
+    "str_req": 15,
+    "stealth_dis": true,
+    "cost": 1500,
+    "weight": 65
+  }
+}

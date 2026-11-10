@@ -1,0 +1,549 @@
+{
+  "seal_1": {
+    "speaker": "",
+    "title": "La losa del toro",
+    "start": [
+      {
+        "if": "seals_solved",
+        "goto": "solved"
+      },
+      {
+        "if": "!horn_placed",
+        "goto": "locked"
+      },
+      {
+        "goto": "look"
+      }
+    ],
+    "nodes": {
+      "locked": {
+        "text": [
+          "*Una losa del suelo, ancha como una mesa, grabada con un toro de perfil, con los cuernos hacia delante. No cede ni un pelo, aunque te pongas encima con todo tu peso.*",
+          "*En el centro de la sala, entre las tres losas, hay un hueco en la piedra con forma de cuerno.*"
+        ],
+        "options": [
+          {
+            "text": "Encajar el cuerno de piedra en el hueco.",
+            "if": "item:stone_horn | seal_key",
+            "goto": "place"
+          },
+          {
+            "text": "Estudiar el símbolo.",
+            "check": {
+              "skill": "history",
+              "dc": 12,
+              "easier": [
+                {
+                  "if": "bg:sage",
+                  "dc": 8
+                }
+              ]
+            },
+            "success": "info",
+            "failure": "info_no"
+          },
+          {
+            "text": "Dejarla.",
+            "end": true
+          }
+        ]
+      },
+      "place": {
+        "text": "*El cuerno encaja con un chasquido, como si la piedra lo hubiera estado esperando mil años. Las espirales de las tres losas se iluminan, débiles, con una luz gris, y el suelo tiembla un poco bajo vuestros pies.*",
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Encaja! ¡Encaja! Perdón. Es que encaja.»"
+          }
+        ],
+        "do": [
+          "take:stone_horn",
+          "set:horn_placed"
+        ],
+        "next": "look"
+      },
+      "look": {
+        "text": [
+          "*La losa del toro: un toro de perfil, con los cuernos hacia delante. La espiral brilla, débil.*",
+          {
+            "if": "seals_step=1",
+            "text": "*Una de las losas de la sala ya ha bajado.*"
+          },
+          {
+            "if": "seals_step=2",
+            "text": "*Dos de las losas de la sala ya han bajado.*"
+          }
+        ],
+        "options": [
+          {
+            "text": "Pisar la losa del toro.",
+            "goto": "press"
+          },
+          {
+            "text": "Estudiar el símbolo.",
+            "check": {
+              "skill": "history",
+              "dc": 12,
+              "easier": [
+                {
+                  "if": "bg:sage",
+                  "dc": 8
+                }
+              ]
+            },
+            "success": "info",
+            "failure": "info_no"
+          },
+          {
+            "text": "Buscar la mano de Solenne en esto.",
+            "if": "class:cleric | class:paladin",
+            "check": {
+              "skill": "religion",
+              "dc": 12
+            },
+            "success": "info",
+            "failure": "info_no"
+          },
+          {
+            "text": "Odvar, ¿qué opináis?",
+            "if": "party:odvar",
+            "goto": "odvar"
+          },
+          {
+            "text": "Dejarla.",
+            "end": true
+          }
+        ]
+      },
+      "info": {
+        "text": "*La espiral del toro está tallada encima de las otras dos, como un cierre: la última que se grabó.*",
+        "do": [
+          "set:seal_hint_1"
+        ],
+        "optionsFrom": "look"
+      },
+      "info_no": {
+        "text": "*Espirales. Muy antiguas, muy bonitas y muy calladas.*",
+        "optionsFrom": "look"
+      },
+      "odvar": {
+        "who": "odvar",
+        "text": [
+          {
+            "if": "kesh_verse",
+            "text": "«¡El verso de Kesh! “Agua que pasa, piedra que queda, toro que vela.” Así se cerró y así se abre: primero lo que corre, después lo que queda y al final lo que vela.» *Se frota las manos.* «Si me equivoco, los dardos me los llevo yo. Bueno, no. Pero lo lamentaré muchísimo.»"
+          },
+          {
+            "if": "!kesh_verse",
+            "text": "«Si tuviera el verso de Kesh… Tres losas, tres palabras. Los Durn abrían siempre en el mismo orden en que habían cerrado.» *Se tira de la barba.* «Mira el muro. Los Durn nunca dejaban una puerta sin instrucciones. Eran unos pesados.»"
+          }
+        ],
+        "optionsFrom": "look"
+      },
+      "press": {
+        "text": "*Pones el pie en la losa del toro y cargas el peso.*",
+        "redirect": [
+          {
+            "if": "seals_step=2",
+            "goto": "final"
+          },
+          {
+            "goto": "bad"
+          }
+        ],
+        "next": "bad"
+      },
+      "bad": {
+        "text": [
+          "*La losa baja… y algo hace clic en las paredes.*",
+          "*De las rendijas de los muros salen dardos silbando. Las losas que habían bajado vuelven a subir con un gemido de piedra.*"
+        ],
+        "do": [
+          "damage:actor=1d6:piercing:dex:12",
+          "set:seals_step=0"
+        ],
+        "end": true
+      },
+      "solved": {
+        "text": "*La losa está abajo, quieta. La cripta está abierta.*",
+        "end": true
+      },
+      "final": {
+        "text": [
+          "*La losa del toro baja la última.*",
+          "*Durante un momento no pasa nada. Luego, al fondo de la sala, la puerta de la cripta se abre hacia dentro con un suspiro de aire frío que huele a hierro y a mil años.*",
+          "*La Marca te late en el brazo como si alguien la hubiera llamado por su nombre.*"
+        ],
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«Bien. Ahora, lo que haya ahí dentro, que salga.»"
+          }
+        ],
+        "do": [
+          "set:seals_step=3",
+          "set:seals_solved",
+          "object:crypt_door=open",
+          "refresh"
+        ],
+        "end": true
+      }
+    }
+  },
+  "seal_2": {
+    "speaker": "",
+    "title": "La losa del río",
+    "start": [
+      {
+        "if": "seals_solved",
+        "goto": "solved"
+      },
+      {
+        "if": "!horn_placed",
+        "goto": "locked"
+      },
+      {
+        "goto": "look"
+      }
+    ],
+    "nodes": {
+      "locked": {
+        "text": [
+          "*Una losa del suelo, ancha como una mesa, grabada con tres líneas onduladas que se cruzan: el río. No cede ni un pelo, aunque te pongas encima con todo tu peso.*",
+          "*En el centro de la sala, entre las tres losas, hay un hueco en la piedra con forma de cuerno.*"
+        ],
+        "options": [
+          {
+            "text": "Encajar el cuerno de piedra en el hueco.",
+            "if": "item:stone_horn | seal_key",
+            "goto": "place"
+          },
+          {
+            "text": "Estudiar el símbolo.",
+            "check": {
+              "skill": "history",
+              "dc": 12,
+              "easier": [
+                {
+                  "if": "bg:sage",
+                  "dc": 8
+                }
+              ]
+            },
+            "success": "info",
+            "failure": "info_no"
+          },
+          {
+            "text": "Dejarla.",
+            "end": true
+          }
+        ]
+      },
+      "place": {
+        "text": "*El cuerno encaja con un chasquido, como si la piedra lo hubiera estado esperando mil años. Las espirales de las tres losas se iluminan, débiles, con una luz gris, y el suelo tiembla un poco bajo vuestros pies.*",
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Encaja! ¡Encaja! Perdón. Es que encaja.»"
+          }
+        ],
+        "do": [
+          "take:stone_horn",
+          "set:horn_placed"
+        ],
+        "next": "look"
+      },
+      "look": {
+        "text": [
+          "*La losa del río: tres líneas onduladas que se cruzan: el río. La espiral brilla, débil.*",
+          {
+            "if": "seals_step=1",
+            "text": "*Una de las losas de la sala ya ha bajado.*"
+          },
+          {
+            "if": "seals_step=2",
+            "text": "*Dos de las losas de la sala ya han bajado.*"
+          }
+        ],
+        "options": [
+          {
+            "text": "Pisar la losa del río.",
+            "goto": "press"
+          },
+          {
+            "text": "Estudiar el símbolo.",
+            "check": {
+              "skill": "history",
+              "dc": 12,
+              "easier": [
+                {
+                  "if": "bg:sage",
+                  "dc": 8
+                }
+              ]
+            },
+            "success": "info",
+            "failure": "info_no"
+          },
+          {
+            "text": "Buscar la mano de Solenne en esto.",
+            "if": "class:cleric | class:paladin",
+            "check": {
+              "skill": "religion",
+              "dc": 12
+            },
+            "success": "info",
+            "failure": "info_no"
+          },
+          {
+            "text": "Odvar, ¿qué opináis?",
+            "if": "party:odvar",
+            "goto": "odvar"
+          },
+          {
+            "text": "Dejarla.",
+            "end": true
+          }
+        ]
+      },
+      "info": {
+        "text": "*La espiral del río está tallada más honda que las otras, gastada por dentro: la primera que se grabó, y la que más manos ha tocado.*",
+        "do": [
+          "set:seal_hint_2"
+        ],
+        "optionsFrom": "look"
+      },
+      "info_no": {
+        "text": "*Espirales. Muy antiguas, muy bonitas y muy calladas.*",
+        "optionsFrom": "look"
+      },
+      "odvar": {
+        "who": "odvar",
+        "text": [
+          {
+            "if": "kesh_verse",
+            "text": "«¡El verso de Kesh! “Agua que pasa, piedra que queda, toro que vela.” Así se cerró y así se abre: primero lo que corre, después lo que queda y al final lo que vela.» *Se frota las manos.* «Si me equivoco, los dardos me los llevo yo. Bueno, no. Pero lo lamentaré muchísimo.»"
+          },
+          {
+            "if": "!kesh_verse",
+            "text": "«Si tuviera el verso de Kesh… Tres losas, tres palabras. Los Durn abrían siempre en el mismo orden en que habían cerrado.» *Se tira de la barba.* «Mira el muro. Los Durn nunca dejaban una puerta sin instrucciones. Eran unos pesados.»"
+          }
+        ],
+        "optionsFrom": "look"
+      },
+      "press": {
+        "text": "*Pones el pie en la losa del río y cargas el peso.*",
+        "redirect": [
+          {
+            "if": "!seals_step",
+            "goto": "good"
+          },
+          {
+            "goto": "bad"
+          }
+        ],
+        "next": "bad"
+      },
+      "good": {
+        "text": "*La losa baja un palmo con un ruido de molino y se queda abajo. En los muros, algo suspira y se calla.*",
+        "do": [
+          "inc:seals_step"
+        ],
+        "end": true
+      },
+      "bad": {
+        "text": [
+          "*La losa baja… y algo hace clic en las paredes.*",
+          "*De las rendijas de los muros salen dardos silbando. Las losas que habían bajado vuelven a subir con un gemido de piedra.*"
+        ],
+        "do": [
+          "damage:actor=1d6:piercing:dex:12",
+          "set:seals_step=0"
+        ],
+        "end": true
+      },
+      "solved": {
+        "text": "*La losa está abajo, quieta. La cripta está abierta.*",
+        "end": true
+      }
+    }
+  },
+  "seal_3": {
+    "speaker": "",
+    "title": "La losa de la piedra",
+    "start": [
+      {
+        "if": "seals_solved",
+        "goto": "solved"
+      },
+      {
+        "if": "!horn_placed",
+        "goto": "locked"
+      },
+      {
+        "goto": "look"
+      }
+    ],
+    "nodes": {
+      "locked": {
+        "text": [
+          "*Una losa del suelo, ancha como una mesa, grabada con un monte de tres picos: la piedra. No cede ni un pelo, aunque te pongas encima con todo tu peso.*",
+          "*En el centro de la sala, entre las tres losas, hay un hueco en la piedra con forma de cuerno.*"
+        ],
+        "options": [
+          {
+            "text": "Encajar el cuerno de piedra en el hueco.",
+            "if": "item:stone_horn | seal_key",
+            "goto": "place"
+          },
+          {
+            "text": "Estudiar el símbolo.",
+            "check": {
+              "skill": "history",
+              "dc": 12,
+              "easier": [
+                {
+                  "if": "bg:sage",
+                  "dc": 8
+                }
+              ]
+            },
+            "success": "info",
+            "failure": "info_no"
+          },
+          {
+            "text": "Dejarla.",
+            "end": true
+          }
+        ]
+      },
+      "place": {
+        "text": "*El cuerno encaja con un chasquido, como si la piedra lo hubiera estado esperando mil años. Las espirales de las tres losas se iluminan, débiles, con una luz gris, y el suelo tiembla un poco bajo vuestros pies.*",
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Encaja! ¡Encaja! Perdón. Es que encaja.»"
+          }
+        ],
+        "do": [
+          "take:stone_horn",
+          "set:horn_placed"
+        ],
+        "next": "look"
+      },
+      "look": {
+        "text": [
+          "*La losa de la piedra: un monte de tres picos: la piedra. La espiral brilla, débil.*",
+          {
+            "if": "seals_step=1",
+            "text": "*Una de las losas de la sala ya ha bajado.*"
+          },
+          {
+            "if": "seals_step=2",
+            "text": "*Dos de las losas de la sala ya han bajado.*"
+          }
+        ],
+        "options": [
+          {
+            "text": "Pisar la losa de la piedra.",
+            "goto": "press"
+          },
+          {
+            "text": "Estudiar el símbolo.",
+            "check": {
+              "skill": "history",
+              "dc": 12,
+              "easier": [
+                {
+                  "if": "bg:sage",
+                  "dc": 8
+                }
+              ]
+            },
+            "success": "info",
+            "failure": "info_no"
+          },
+          {
+            "text": "Buscar la mano de Solenne en esto.",
+            "if": "class:cleric | class:paladin",
+            "check": {
+              "skill": "religion",
+              "dc": 12
+            },
+            "success": "info",
+            "failure": "info_no"
+          },
+          {
+            "text": "Odvar, ¿qué opináis?",
+            "if": "party:odvar",
+            "goto": "odvar"
+          },
+          {
+            "text": "Dejarla.",
+            "end": true
+          }
+        ]
+      },
+      "info": {
+        "text": "*La espiral de la piedra está tallada entre las otras dos, tocando a ambas: la de en medio.*",
+        "do": [
+          "set:seal_hint_3"
+        ],
+        "optionsFrom": "look"
+      },
+      "info_no": {
+        "text": "*Espirales. Muy antiguas, muy bonitas y muy calladas.*",
+        "optionsFrom": "look"
+      },
+      "odvar": {
+        "who": "odvar",
+        "text": [
+          {
+            "if": "kesh_verse",
+            "text": "«¡El verso de Kesh! “Agua que pasa, piedra que queda, toro que vela.” Así se cerró y así se abre: primero lo que corre, después lo que queda y al final lo que vela.» *Se frota las manos.* «Si me equivoco, los dardos me los llevo yo. Bueno, no. Pero lo lamentaré muchísimo.»"
+          },
+          {
+            "if": "!kesh_verse",
+            "text": "«Si tuviera el verso de Kesh… Tres losas, tres palabras. Los Durn abrían siempre en el mismo orden en que habían cerrado.» *Se tira de la barba.* «Mira el muro. Los Durn nunca dejaban una puerta sin instrucciones. Eran unos pesados.»"
+          }
+        ],
+        "optionsFrom": "look"
+      },
+      "press": {
+        "text": "*Pones el pie en la losa de la piedra y cargas el peso.*",
+        "redirect": [
+          {
+            "if": "seals_step=1",
+            "goto": "good"
+          },
+          {
+            "goto": "bad"
+          }
+        ],
+        "next": "bad"
+      },
+      "good": {
+        "text": "*La losa baja un palmo con un ruido de molino y se queda abajo. En los muros, algo suspira y se calla.*",
+        "do": [
+          "inc:seals_step"
+        ],
+        "end": true
+      },
+      "bad": {
+        "text": [
+          "*La losa baja… y algo hace clic en las paredes.*",
+          "*De las rendijas de los muros salen dardos silbando. Las losas que habían bajado vuelven a subir con un gemido de piedra.*"
+        ],
+        "do": [
+          "damage:actor=1d6:piercing:dex:12",
+          "set:seals_step=0"
+        ],
+        "end": true
+      },
+      "solved": {
+        "text": "*La losa está abajo, quieta. La cripta está abierta.*",
+        "end": true
+      }
+    }
+  }
+}

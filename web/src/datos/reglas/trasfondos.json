@@ -1,0 +1,168 @@
+{
+  "_fuente": "Acólito, Criminal, Sabio y Soldado: SRD 5.2.1 (CC-BY-4.0). El resto son trasfondos propios de Eredhal con la misma estructura. Textos en español propios.",
+  "acolyte": {
+    "name": "Acólito",
+    "srd": true,
+    "desc": "Serviste en un templo de la Orden del Alba: ritos al amanecer, copiar oraciones y atender a peregrinos. Conoces la fe y sabes leer a la gente.",
+    "abilities": [
+      "int",
+      "wis",
+      "cha"
+    ],
+    "feat": "magic_initiate",
+    "feat_list": "cleric",
+    "skills": [
+      "insight",
+      "religion"
+    ],
+    "tool": "Útiles de caligrafía",
+    "items": {
+      "holy_symbol": 1,
+      "prayer_book": 1
+    },
+    "gold": 8
+  },
+  "criminal": {
+    "name": "Criminal",
+    "srd": true,
+    "desc": "Te ganaste la vida en los callejones de Valdrecht: cerraduras, bolsas ajenas y mantener la cabeza baja. Siempre duermes con un ojo abierto.",
+    "abilities": [
+      "dex",
+      "con",
+      "int"
+    ],
+    "feat": "alert",
+    "skills": [
+      "sleight_of_hand",
+      "stealth"
+    ],
+    "tool": "Herramientas de ladrón",
+    "items": {
+      "thieves_tools": 1,
+      "crowbar": 1
+    },
+    "gold": 16
+  },
+  "sage": {
+    "name": "Sabio",
+    "srd": true,
+    "desc": "Pasaste años entre los anaqueles del Archivo de Valdrecht, descifrando runas durn y crónicas olvidadas. La magia empezó como una nota al margen.",
+    "abilities": [
+      "con",
+      "int",
+      "wis"
+    ],
+    "feat": "magic_initiate",
+    "feat_list": "wizard",
+    "skills": [
+      "arcana",
+      "history"
+    ],
+    "tool": "Útiles de caligrafía",
+    "items": {
+      "history_book": 1
+    },
+    "gold": 8
+  },
+  "soldier": {
+    "name": "Soldado",
+    "srd": true,
+    "desc": "Serviste en la guardia de una muralla de las Marcas. Aprendiste a aguantar en formación, a obedecer y a golpear primero.",
+    "abilities": [
+      "str",
+      "dex",
+      "con"
+    ],
+    "feat": "savage_attacker",
+    "skills": [
+      "athletics",
+      "intimidation"
+    ],
+    "tool": "Juego de dados",
+    "items": {
+      "healers_kit": 1
+    },
+    "gold": 14
+  },
+  "warden": {
+    "name": "Guardabosques de las Marcas",
+    "srd": false,
+    "desc": "Patrullaste los pinares de la frontera siguiendo rastros de lobos y saqueadores. Los druidas de los túmulos te enseñaron algún secreto.",
+    "abilities": [
+      "str",
+      "dex",
+      "wis"
+    ],
+    "feat": "magic_initiate",
+    "feat_list": "druid",
+    "skills": [
+      "nature",
+      "survival"
+    ],
+    "tool": "Útiles de herborista",
+    "items": {
+      "herbalism_kit": 1
+    },
+    "gold": 10
+  },
+  "minstrel": {
+    "name": "Juglar",
+    "srd": false,
+    "desc": "Recorriste las ferias de Eredhal con un laúd a la espalda. Sabes caer de pie, ganarte al público y oír lo que nadie cuenta.",
+    "abilities": [
+      "dex",
+      "wis",
+      "cha"
+    ],
+    "feat": "skilled",
+    "skills": [
+      "acrobatics",
+      "performance"
+    ],
+    "tool": "Instrumento musical",
+    "items": {
+      "lute": 1
+    },
+    "gold": 15
+  },
+  "noble": {
+    "name": "Heredero",
+    "srd": false,
+    "desc": "Naciste en una casa menor de Valdrecht, con apellido, deudas y una educación esmerada. Sabes negociar y recordar quién debe qué a quién.",
+    "abilities": [
+      "str",
+      "int",
+      "cha"
+    ],
+    "feat": "skilled",
+    "skills": [
+      "history",
+      "persuasion"
+    ],
+    "tool": "Juego de ajedrez",
+    "items": {
+      "signet_ring": 1
+    },
+    "gold": 25
+  },
+  "bounty_hunter": {
+    "name": "Cazarrecompensas",
+    "srd": false,
+    "desc": "Perseguiste fugitivos por los caminos del norte a cambio de oro. Nadie te sorprende dos veces.",
+    "abilities": [
+      "dex",
+      "con",
+      "wis"
+    ],
+    "feat": "alert",
+    "skills": [
+      "investigation",
+      "perception"
+    ],
+    "tool": "Útiles de cartógrafo",
+    "items": {
+      "manacles": 1
+    },
+    "gold": 12
+  }
+}

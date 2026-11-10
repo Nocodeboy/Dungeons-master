@@ -1,0 +1,175 @@
+{
+  "_nota": "Guía fija del narrador con IA y textos de respaldo por momento. El respaldo se usa sin capacidad sample, con el narrador desactivado, si falla o si tarda más de ~6 s.",
+  "style": [
+    "Español de España, con vocabulario de fantasía clásica. Nada de anacronismos (ni relojes, ni pólvora, ni palabras modernas) ni nombres del mundo real.",
+    "Segunda persona del singular: te diriges al protagonista de tú («cruzas», «notas»).",
+    "Entre 2 y 3 frases, 70 palabras como mucho.",
+    "Tono de narrador de Baldur's Gate: sobrio, evocador, heroico en la superficie y con una amenaza antigua por debajo. Detalle sensorial concreto: luz, olores, sonidos, frío.",
+    "No inventes hechos, personajes, lugares ni objetos que no aparezcan en los datos. No contradigas los hechos ni adelantes lo que aún no ha pasado. No decidas por el jugador ni le atribuyas emociones fuertes.",
+    "Usa solo los nombres del grupo que se dan. Puedes mencionar a un compañero con un gesto breve que encaje con su carácter.",
+    "Sin comillas de diálogo largas, sin títulos, sin listas, sin emojis, sin cursivas ni negritas."
+  ],
+  "world": "Las Marcas de Vharen, frontera de colinas, pinares y ríos fríos al norte del viejo reino de Caeldor. Hace mil años los Durn, un pueblo desaparecido, encerraron bajo las colinas algo antiguo con siete sellos y tallaron toros de granito que los vigilan. El protagonista nació con una veta de granito en la piel, la Marca, que arde cerca de los sellos. Dioses: Solenne (alba y curación), Thorun (forja y piedra), Mirelle (caminos y suerte), Vesk (noche y secretos).",
+  "places": {
+    "merrowick": "Merrowick, aldea de pastores y canteros con tejados de pizarra, una posada (el Toro Dormido), un templo de Solenne y, en el prado, un toro de granito agrietado que sangra.",
+    "elderhal": "El bosque de Elderhal, un pinar viejo al este de Merrowick: resina, agujas secas, un estanque, un santuario de Solenne quemado y el campamento de una tribu de trasgos, los Zarpas Grises.",
+    "kesh": "El Vado de Kesh: un puente durn derruido sobre un río frío y verde, pilares con espirales, un toro de piedra caído y el campamento de estudio de un erudito enano.",
+    "tumulo": "El Túmulo de Durn-Kahl, bajo el toro de Merrowick: escaleras de piedra húmeda, columnas con espirales, sarcófagos de guardianes y, al fondo, el primer sello, que late.",
+    "camino": "El camino de Valdrecht hacia el norte, al anochecer, entre colinas peladas y muros de piedra seca."
+  },
+  "facts": [
+    {
+      "if": "e1_done",
+      "text": "Defendiste Merrowick de un asalto de trasgos de los Zarpas Grises junto al toro que sangra."
+    },
+    {
+      "if": "pip_joined",
+      "text": "Pip Tallowmere, un contrabandista mediano, se unió al grupo después de que saldaras su deuda."
+    },
+    {
+      "if": "holt_exposed",
+      "text": "Desenmascaraste a Holt Varga, el prestamista que vendía espadas a los trasgos."
+    },
+    {
+      "if": "marca_sedge",
+      "text": "La vieja Sedge te contó que hace treinta años pasó por Merrowick una mujer con la misma veta gris."
+    },
+    {
+      "if": "sedge_done=killed",
+      "text": "Mataste a los lobos que robaban las ovejas de la vieja Sedge."
+    },
+    {
+      "if": "sedge_done=scared",
+      "text": "Espantaste a los lobos que robaban las ovejas de la vieja Sedge sin matarlos."
+    },
+    {
+      "if": "sedge_done=tamed",
+      "text": "Amansaste a los lobos de la vieja Sedge y les quitaste los collares de los trasgos."
+    },
+    {
+      "if": "ilyra_joined",
+      "text": "Salvaste a Ilyra Sorendel, novicia de Solenne, en el santuario arrasado de Elderhal; su maestra murió."
+    },
+    {
+      "if": "ilyra_dead",
+      "text": "Huiste del santuario de Elderhal y la novicia que resistía dentro murió."
+    },
+    {
+      "if": "camp_done=assault",
+      "text": "Arrasaste el campamento de los Zarpas Grises."
+    },
+    {
+      "if": "camp_done=stealth",
+      "text": "Llegaste en sigilo hasta el cabecilla de los Zarpas Grises y la tribu se dispersó."
+    },
+    {
+      "if": "camp_done=peace",
+      "text": "Convenciste a los Zarpas Grises de marcharse de las Marcas sin derramar sangre."
+    },
+    {
+      "if": "odvar_joined",
+      "text": "Maese Odvar Stonebrow, erudito enano, se unió al grupo en el Vado de Kesh."
+    },
+    {
+      "if": "runes_solved",
+      "text": "Hiciste hablar a las tres piedras rúnicas del Vado de Kesh."
+    },
+    {
+      "if": "seal_key",
+      "text": "Tienes el cuerno de piedra que abre la sala de los sellos."
+    },
+    {
+      "if": "vorhan_dead",
+      "text": "Venciste a Vorhan, el último guardián durn."
+    },
+    {
+      "if": "seal_choice=restored",
+      "text": "Renovaste el primer sello con tu propia sangre: la Marca te sube ya por el cuello."
+    },
+    {
+      "if": "seal_choice=broken",
+      "text": "Rompiste el primer sello y cortaste el vínculo de la Marca."
+    }
+  ],
+  "moments": {
+    "arrive_merrowick": {
+      "desc": "Llegada a Merrowick al anochecer, justo antes de que unos trasgos asalten la aldea. Primer momento del juego en la aldea: inquietud, no combate todavía.",
+      "text": [
+        "Merrowick, al caer la tarde. Humo de chimeneas, olor a lana mojada y, al fondo, el toro de piedra del prado. Algo va mal: los perros ladran hacia el este y no hay nadie en la calle."
+      ]
+    },
+    "arrive_elderhal": {
+      "desc": "El grupo entra por primera vez en el bosque de Elderhal, donde acampan los trasgos.",
+      "text": [
+        "El pinar de Elderhal huele a resina y a humo. Hay demasiado silencio para ser de día."
+      ]
+    },
+    "arrive_kesh": {
+      "desc": "El grupo llega por primera vez al Vado de Kesh, unas ruinas durn sobre el río, donde hay un erudito enano acampado.",
+      "text": [
+        "El río baja de las colinas frío y deprisa. Sobre él, lo que queda de un puente durn y, en la otra orilla, un toro de piedra caído que aún mira al este."
+      ]
+    },
+    "arrive_tumulo": {
+      "desc": "El grupo baja por primera vez al túmulo que hay bajo el toro de Merrowick. La Marca del protagonista late con algo enorme que hay abajo.",
+      "text": [
+        "Los peldaños bajan más de lo que parece posible. Huele a piedra mojada y a algo dulzón, viejo. La Marca te late en el brazo como un segundo corazón."
+      ]
+    },
+    "after_e1": {
+      "desc": "Justo después de vencer a los trasgos que asaltaban Merrowick. Silencio tras el combate; un latido bajo el toro; los vecinos empiezan a salir.",
+      "text": [
+        "El último trasgo cae junto al abrevadero. En el silencio que sigue se oye un latido lento y grave bajo el toro."
+      ]
+    },
+    "after_camp": {
+      "desc": "Justo después de arrasar el campamento de los Zarpas Grises; su cabecilla muere con unas últimas palabras.",
+      "text": [
+        "El campamento de los Zarpas Grises arde y se apaga. Su cabecilla ha caído."
+      ]
+    },
+    "after_vorhan": {
+      "desc": "Justo después de vencer a Vorhan, el último guardián durn, ante el primer sello. Momento solemne, triste.",
+      "text": [
+        "Vorhan, el último guardián durn, se deshace en polvo. El sello late detrás del estrado."
+      ]
+    },
+    "rest": {
+      "desc": "El grupo descansa toda la noche. Narra el anochecer y el sueño en una o dos frases tranquilas, según el lugar.",
+      "variants": [
+        {
+          "if": "ctx:place=posada",
+          "text": [
+            "Cenáis caliente en la sala del Toro Dormido mientras Corwin atiza el fuego. Por una noche dormís bajo techo y nadie os despierta, aunque la Marca sigue tibia bajo la manta."
+          ]
+        },
+        {
+          "if": "in:tumulo",
+          "text": [
+            "Descansáis por turnos entre columnas que sudan agua. Nadie duerme del todo: muy abajo, algo late."
+          ]
+        },
+        {
+          "if": "seal_key & !vorhan_dead",
+          "text": [
+            "La hoguera crepita y nadie habla mucho. El cuerno de piedra descansa junto a tu mochila, frío, y aun así lo notas latir."
+          ]
+        },
+        {
+          "text": [
+            "Encendéis una hoguera pequeña y hacéis turnos de guardia. El bosque cruje, el fuego se apaga despacio y, al alba, la Marca sigue tibia."
+          ]
+        }
+      ]
+    },
+    "epilogue": {
+      "desc": "El final del capítulo: un último párrafo de cierre, personal, que resuma el camino del protagonista con sus compañeros y mire hacia el viaje a Valdrecht, sin inventar lo que pasará allí.",
+      "text": [
+        "El camino a Valdrecht se abre al sur, entre colinas que ahora sabes que no duermen. Lo que empezó como un picor en el brazo es ya una pregunta con nombre. La respuesta, como la piedra, espera."
+      ]
+    }
+  },
+  "levelup3": [
+    "Lo que habéis visto en Kesh os ha cambiado. Cada uno, a su manera, se siente más capaz de lo que era al cruzar el vado."
+  ]
+}

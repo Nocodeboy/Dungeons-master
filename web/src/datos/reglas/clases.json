@@ -1,0 +1,2044 @@
+{
+  "_fuente": "Clases del SRD 5.2.1 (CC-BY-4.0), niveles 1-3. Textos en español propios.",
+  "barbarian": {
+    "name": "Bárbaro",
+    "plural": "bárbaros",
+    "desc": "Un guerrero salvaje que entra en furia: aguanta golpes que tumbarían a cualquiera y los devuelve con el doble de fuerza.",
+    "role": "Primera línea",
+    "primary": [
+      "str",
+      "con"
+    ],
+    "difficulty": 1,
+    "hit_die": 12,
+    "saves": [
+      "str",
+      "con"
+    ],
+    "armor": [
+      "light",
+      "medium",
+      "shield"
+    ],
+    "weapons": [
+      "simple",
+      "martial"
+    ],
+    "skills": {
+      "choose": 2,
+      "from": [
+        "animal_handling",
+        "athletics",
+        "intimidation",
+        "nature",
+        "perception",
+        "survival"
+      ]
+    },
+    "std_array": {
+      "str": 15,
+      "dex": 13,
+      "con": 14,
+      "int": 10,
+      "wis": 12,
+      "cha": 8
+    },
+    "features": {
+      "1": [
+        "rage",
+        "unarmored_defense_barbarian",
+        "weapon_mastery"
+      ],
+      "2": [
+        "danger_sense",
+        "reckless_attack"
+      ],
+      "3": [
+        "subclass",
+        "primal_knowledge"
+      ]
+    },
+    "rages": {
+      "1": 2,
+      "2": 2,
+      "3": 3
+    },
+    "rage_damage": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "mastery_count": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "mastery_melee_only": true,
+    "subclass_label": "Senda primordial",
+    "subclasses": {
+      "berserker": {
+        "name": "Senda del berserker",
+        "desc": "La furia como tormenta: golpes temerarios que hacen aún más daño.",
+        "features": {
+          "3": [
+            "frenzy"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "greataxe",
+        "name": "Gran hacha y hachas arrojadizas",
+        "armor": "",
+        "shield": false,
+        "weapons": [
+          "greataxe",
+          "handaxe"
+        ],
+        "ammo": {
+          "handaxe": 4
+        },
+        "gold": 15
+      },
+      {
+        "id": "axe_shield",
+        "name": "Hacha de batalla y escudo",
+        "armor": "hide",
+        "shield": true,
+        "weapons": [
+          "battleaxe",
+          "javelin"
+        ],
+        "ammo": {
+          "javelin": 4
+        },
+        "gold": 5
+      }
+    ],
+    "ai": "frontline",
+    "visual": {
+      "model": "barbarian"
+    }
+  },
+  "bard": {
+    "name": "Bardo",
+    "plural": "bardos",
+    "desc": "Su música es magia: inspira a los aliados, confunde a los enemigos y sabe un poco de todo.",
+    "role": "Apoyo y control",
+    "primary": [
+      "cha",
+      "dex"
+    ],
+    "difficulty": 2,
+    "hit_die": 8,
+    "saves": [
+      "dex",
+      "cha"
+    ],
+    "armor": [
+      "light"
+    ],
+    "weapons": [
+      "simple"
+    ],
+    "skills": {
+      "choose": 3,
+      "from": [
+        "acrobatics",
+        "animal_handling",
+        "arcana",
+        "athletics",
+        "deception",
+        "history",
+        "insight",
+        "intimidation",
+        "investigation",
+        "medicine",
+        "nature",
+        "perception",
+        "performance",
+        "persuasion",
+        "religion",
+        "sleight_of_hand",
+        "stealth",
+        "survival"
+      ]
+    },
+    "std_array": {
+      "str": 8,
+      "dex": 14,
+      "con": 12,
+      "int": 13,
+      "wis": 10,
+      "cha": 15
+    },
+    "features": {
+      "1": [
+        "bardic_inspiration",
+        "spellcasting"
+      ],
+      "2": [
+        "expertise",
+        "jack_of_all_trades"
+      ],
+      "3": [
+        "subclass"
+      ]
+    },
+    "expertise_count": {
+      "2": 2
+    },
+    "casting": {
+      "ability": "cha",
+      "type": "full",
+      "cantrips": {
+        "1": 2,
+        "2": 2,
+        "3": 2
+      },
+      "prepared": {
+        "1": 4,
+        "2": 5,
+        "3": 6
+      },
+      "list": [
+        "vicious_mockery",
+        "starry_wisp",
+        "true_strike",
+        "dancing_lights",
+        "light",
+        "mage_hand",
+        "mending",
+        "message",
+        "minor_illusion",
+        "prestidigitation",
+        "thunderclap",
+        "bane",
+        "charm_person",
+        "color_spray",
+        "command",
+        "cure_wounds",
+        "detect_magic",
+        "dissonant_whispers",
+        "faerie_fire",
+        "feather_fall",
+        "healing_word",
+        "heroism",
+        "hideous_laughter",
+        "longstrider",
+        "sleep",
+        "speak_with_animals",
+        "thunderwave",
+        "aid",
+        "blindness_deafness",
+        "enlarge_reduce",
+        "hold_person",
+        "invisibility",
+        "lesser_restoration",
+        "mirror_image",
+        "shatter",
+        "suggestion"
+      ],
+      "recommended": {
+        "1": [
+          "dissonant_whispers",
+          "healing_word",
+          "color_spray",
+          "bane"
+        ],
+        "2": [
+          "hold_person",
+          "faerie_fire"
+        ],
+        "3": [
+          "blindness_deafness"
+        ],
+        "cantrips": [
+          "vicious_mockery",
+          "starry_wisp"
+        ]
+      }
+    },
+    "subclass_label": "Colegio bárdico",
+    "subclasses": {
+      "lore": {
+        "name": "Colegio del saber",
+        "desc": "Coleccionistas de secretos: más habilidades y palabras que hieren.",
+        "features": {
+          "3": [
+            "bonus_proficiencies",
+            "cutting_words"
+          ]
+        },
+        "bonus_skills": {
+          "3": 3
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "rapier",
+        "name": "Estoque y cuero",
+        "armor": "leather",
+        "shield": false,
+        "weapons": [
+          "rapier",
+          "dagger"
+        ],
+        "ammo": {
+          "dagger": 2
+        },
+        "items": {
+          "lute": 1
+        },
+        "gold": 9
+      },
+      {
+        "id": "classic",
+        "name": "Dagas y laúd",
+        "armor": "leather",
+        "shield": false,
+        "weapons": [
+          "dagger",
+          "light_crossbow"
+        ],
+        "ammo": {
+          "dagger": 2,
+          "light_crossbow": 20
+        },
+        "items": {
+          "lute": 1
+        },
+        "gold": 19
+      }
+    ],
+    "ai": "support",
+    "visual": {
+      "model": "rogue"
+    }
+  },
+  "cleric": {
+    "name": "Clérigo",
+    "plural": "clérigos",
+    "desc": "Canaliza el poder de su dios para curar, proteger y castigar. El pilar de cualquier grupo.",
+    "role": "Sanador",
+    "primary": [
+      "wis",
+      "str"
+    ],
+    "difficulty": 1,
+    "hit_die": 8,
+    "saves": [
+      "wis",
+      "cha"
+    ],
+    "armor": [
+      "light",
+      "medium",
+      "shield"
+    ],
+    "weapons": [
+      "simple"
+    ],
+    "skills": {
+      "choose": 2,
+      "from": [
+        "history",
+        "insight",
+        "medicine",
+        "persuasion",
+        "religion"
+      ]
+    },
+    "std_array": {
+      "str": 13,
+      "dex": 8,
+      "con": 14,
+      "int": 10,
+      "wis": 15,
+      "cha": 12
+    },
+    "features": {
+      "1": [
+        "spellcasting",
+        "divine_order"
+      ],
+      "2": [
+        "channel_divinity"
+      ],
+      "3": [
+        "subclass"
+      ]
+    },
+    "channel_divinity_uses": {
+      "2": 2,
+      "3": 2
+    },
+    "casting": {
+      "ability": "wis",
+      "type": "full",
+      "cantrips": {
+        "1": 3,
+        "2": 3,
+        "3": 3
+      },
+      "prepared": {
+        "1": 4,
+        "2": 5,
+        "3": 6
+      },
+      "list": [
+        "guidance",
+        "light",
+        "mending",
+        "sacred_flame",
+        "spare_the_dying",
+        "thaumaturgy",
+        "toll_the_dead",
+        "word_of_radiance",
+        "bane",
+        "bless",
+        "command",
+        "cure_wounds",
+        "detect_magic",
+        "guiding_bolt",
+        "healing_word",
+        "inflict_wounds",
+        "protection_from_evil_and_good",
+        "sanctuary",
+        "shield_of_faith",
+        "aid",
+        "blindness_deafness",
+        "hold_person",
+        "lesser_restoration",
+        "spiritual_weapon",
+        "warding_bond"
+      ],
+      "recommended": {
+        "1": [
+          "bless",
+          "cure_wounds",
+          "guiding_bolt",
+          "healing_word"
+        ],
+        "2": [
+          "shield_of_faith"
+        ],
+        "3": [
+          "spiritual_weapon",
+          "hold_person"
+        ],
+        "cantrips": [
+          "sacred_flame",
+          "toll_the_dead",
+          "guidance"
+        ]
+      }
+    },
+    "orders": {
+      "protector": {
+        "name": "Protector",
+        "desc": "Entrenado para la batalla: armas marciales y armadura pesada."
+      },
+      "thaumaturge": {
+        "name": "Taumaturgo",
+        "desc": "Un truco adicional y tu Sabiduría se suma a Arcanos y Religión."
+      }
+    },
+    "subclass_label": "Dominio divino",
+    "subclasses": {
+      "life": {
+        "name": "Dominio de la Vida",
+        "desc": "La curación como vocación: curas más y puedes salvar a todo el grupo de golpe.",
+        "features": {
+          "3": [
+            "life_domain_spells",
+            "disciple_of_life",
+            "preserve_life"
+          ]
+        },
+        "always_prepared": {
+          "3": [
+            "aid",
+            "bless",
+            "cure_wounds",
+            "lesser_restoration"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "mace",
+        "name": "Maza, escudo y camisote",
+        "armor": "chain_shirt",
+        "shield": true,
+        "weapons": [
+          "mace",
+          "light_crossbow"
+        ],
+        "ammo": {
+          "light_crossbow": 20
+        },
+        "items": {
+          "holy_symbol": 1
+        },
+        "gold": 7
+      },
+      {
+        "id": "protector",
+        "name": "Cota de mallas y espada (Protector)",
+        "armor": "chain_mail",
+        "shield": true,
+        "weapons": [
+          "longsword",
+          "javelin"
+        ],
+        "ammo": {
+          "javelin": 3
+        },
+        "items": {
+          "holy_symbol": 1
+        },
+        "gold": 2,
+        "requires": "protector"
+      }
+    ],
+    "ai": "healer",
+    "visual": {
+      "model": "knight"
+    }
+  },
+  "druid": {
+    "name": "Druida",
+    "plural": "druidas",
+    "desc": "Guardián de la naturaleza: invoca enredaderas, fuego y luz de luna, y puede convertirse en bestia.",
+    "role": "Control y cambio de forma",
+    "primary": [
+      "wis",
+      "con"
+    ],
+    "difficulty": 3,
+    "hit_die": 8,
+    "saves": [
+      "int",
+      "wis"
+    ],
+    "armor": [
+      "light",
+      "shield"
+    ],
+    "weapons": [
+      "simple"
+    ],
+    "skills": {
+      "choose": 2,
+      "from": [
+        "arcana",
+        "animal_handling",
+        "insight",
+        "medicine",
+        "nature",
+        "perception",
+        "religion",
+        "survival"
+      ]
+    },
+    "std_array": {
+      "str": 8,
+      "dex": 13,
+      "con": 14,
+      "int": 12,
+      "wis": 15,
+      "cha": 10
+    },
+    "features": {
+      "1": [
+        "spellcasting",
+        "druidic",
+        "primal_order"
+      ],
+      "2": [
+        "wild_shape",
+        "wild_companion"
+      ],
+      "3": [
+        "subclass"
+      ]
+    },
+    "wild_shape_uses": {
+      "2": 2,
+      "3": 2
+    },
+    "wild_shape_forms": [
+      "wolf",
+      "mastiff",
+      "elk",
+      "riding_horse"
+    ],
+    "wild_shape_known": 4,
+    "casting": {
+      "ability": "wis",
+      "type": "full",
+      "cantrips": {
+        "1": 2,
+        "2": 2,
+        "3": 2
+      },
+      "prepared": {
+        "1": 4,
+        "2": 5,
+        "3": 6
+      },
+      "list": [
+        "druidcraft",
+        "guidance",
+        "mending",
+        "message",
+        "poison_spray",
+        "produce_flame",
+        "shillelagh",
+        "spare_the_dying",
+        "starry_wisp",
+        "thorn_whip",
+        "thunderclap",
+        "charm_person",
+        "cure_wounds",
+        "detect_magic",
+        "entangle",
+        "faerie_fire",
+        "fog_cloud",
+        "healing_word",
+        "ice_knife",
+        "longstrider",
+        "protection_from_evil_and_good",
+        "speak_with_animals",
+        "thunderwave",
+        "aid",
+        "barkskin",
+        "enlarge_reduce",
+        "flame_blade",
+        "flaming_sphere",
+        "hold_person",
+        "lesser_restoration",
+        "moonbeam",
+        "spike_growth"
+      ],
+      "recommended": {
+        "1": [
+          "entangle",
+          "healing_word",
+          "faerie_fire",
+          "ice_knife"
+        ],
+        "2": [
+          "cure_wounds"
+        ],
+        "3": [
+          "moonbeam"
+        ],
+        "cantrips": [
+          "produce_flame",
+          "starry_wisp"
+        ]
+      },
+      "always": {
+        "1": [
+          "speak_with_animals"
+        ]
+      }
+    },
+    "orders": {
+      "warden": {
+        "name": "Guardián",
+        "desc": "Entrenado para la batalla: armas marciales y armadura intermedia."
+      },
+      "magician": {
+        "name": "Místico",
+        "desc": "Un truco adicional y tu Sabiduría se suma a Arcanos y Naturaleza."
+      }
+    },
+    "subclass_label": "Círculo druídico",
+    "subclasses": {
+      "land": {
+        "name": "Círculo de la Tierra",
+        "desc": "Sabios ligados a un paisaje: más conjuros y la tierra misma como aliada.",
+        "features": {
+          "3": [
+            "circle_spells",
+            "lands_aid"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "staff",
+        "name": "Bastón, escudo y cuero",
+        "armor": "leather",
+        "shield": true,
+        "weapons": [
+          "quarterstaff",
+          "sling"
+        ],
+        "ammo": {
+          "sling": 20
+        },
+        "items": {
+          "herbalism_kit": 1
+        },
+        "gold": 9
+      },
+      {
+        "id": "warden",
+        "name": "Cimitarra y pieles (Guardián)",
+        "armor": "hide",
+        "shield": true,
+        "weapons": [
+          "scimitar",
+          "javelin"
+        ],
+        "ammo": {
+          "javelin": 3
+        },
+        "items": {
+          "herbalism_kit": 1
+        },
+        "gold": 3,
+        "requires": "warden"
+      }
+    ],
+    "ai": "caster",
+    "visual": {
+      "model": "rogue_hooded"
+    }
+  },
+  "fighter": {
+    "name": "Guerrero",
+    "plural": "guerreros",
+    "desc": "Maestro de todas las armas y armaduras. Sencillo de llevar, difícil de tumbar.",
+    "role": "Primera línea",
+    "primary": [
+      "str",
+      "con"
+    ],
+    "difficulty": 1,
+    "hit_die": 10,
+    "saves": [
+      "str",
+      "con"
+    ],
+    "armor": [
+      "light",
+      "medium",
+      "heavy",
+      "shield"
+    ],
+    "weapons": [
+      "simple",
+      "martial"
+    ],
+    "skills": {
+      "choose": 2,
+      "from": [
+        "acrobatics",
+        "animal_handling",
+        "athletics",
+        "history",
+        "insight",
+        "intimidation",
+        "persuasion",
+        "perception",
+        "survival"
+      ]
+    },
+    "std_array": {
+      "str": 15,
+      "dex": 14,
+      "con": 13,
+      "int": 8,
+      "wis": 10,
+      "cha": 12
+    },
+    "features": {
+      "1": [
+        "fighting_style",
+        "second_wind",
+        "weapon_mastery"
+      ],
+      "2": [
+        "action_surge",
+        "tactical_mind"
+      ],
+      "3": [
+        "subclass"
+      ]
+    },
+    "second_wind_uses": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "mastery_count": {
+      "1": 3,
+      "2": 3,
+      "3": 3
+    },
+    "fighting_style_level": 1,
+    "subclass_label": "Arquetipo marcial",
+    "subclasses": {
+      "champion": {
+        "name": "Campeón",
+        "desc": "Excelencia física pura: críticos más frecuentes y un cuerpo atlético.",
+        "features": {
+          "3": [
+            "improved_critical",
+            "remarkable_athlete"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "sword_board",
+        "name": "Espada larga, escudo y cota de mallas",
+        "armor": "chain_mail",
+        "shield": true,
+        "weapons": [
+          "longsword",
+          "javelin"
+        ],
+        "ammo": {
+          "javelin": 4
+        },
+        "gold": 6
+      },
+      {
+        "id": "greatsword",
+        "name": "Mandoble y cota de mallas",
+        "armor": "chain_mail",
+        "shield": false,
+        "weapons": [
+          "greatsword",
+          "javelin"
+        ],
+        "ammo": {
+          "javelin": 4
+        },
+        "gold": 4
+      },
+      {
+        "id": "archer",
+        "name": "Arco largo y cuero tachonado",
+        "armor": "studded_leather",
+        "shield": false,
+        "weapons": [
+          "longbow",
+          "shortsword",
+          "scimitar"
+        ],
+        "ammo": {
+          "longbow": 20
+        },
+        "gold": 11
+      }
+    ],
+    "ai": "frontline",
+    "visual": {
+      "model": "knight"
+    }
+  },
+  "monk": {
+    "name": "Monje",
+    "plural": "monjes",
+    "desc": "Su cuerpo es su arma: golpes rapidísimos, movilidad enorme y técnicas para derribar o empujar.",
+    "role": "Hostigador cuerpo a cuerpo",
+    "primary": [
+      "dex",
+      "wis"
+    ],
+    "difficulty": 2,
+    "hit_die": 8,
+    "saves": [
+      "str",
+      "dex"
+    ],
+    "armor": [],
+    "weapons": [
+      "simple",
+      "martial_light"
+    ],
+    "skills": {
+      "choose": 2,
+      "from": [
+        "acrobatics",
+        "athletics",
+        "history",
+        "insight",
+        "religion",
+        "stealth"
+      ]
+    },
+    "std_array": {
+      "str": 12,
+      "dex": 15,
+      "con": 13,
+      "int": 10,
+      "wis": 14,
+      "cha": 8
+    },
+    "features": {
+      "1": [
+        "martial_arts",
+        "unarmored_defense_monk"
+      ],
+      "2": [
+        "monks_focus",
+        "unarmored_movement",
+        "uncanny_metabolism"
+      ],
+      "3": [
+        "deflect_attacks",
+        "subclass"
+      ]
+    },
+    "martial_arts_die": {
+      "1": "1d6",
+      "2": "1d6",
+      "3": "1d6"
+    },
+    "focus_points": {
+      "2": 2,
+      "3": 3
+    },
+    "unarmored_movement": {
+      "2": 10,
+      "3": 10
+    },
+    "subclass_label": "Tradición monástica",
+    "subclasses": {
+      "open_hand": {
+        "name": "Guerrero de la mano abierta",
+        "desc": "Maestros del cuerpo a cuerpo: cada ráfaga derriba, empuja o desequilibra.",
+        "features": {
+          "3": [
+            "open_hand_technique"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "spear",
+        "name": "Lanza y dagas",
+        "armor": "",
+        "shield": false,
+        "weapons": [
+          "spear",
+          "dagger"
+        ],
+        "ammo": {
+          "dagger": 5
+        },
+        "gold": 11
+      },
+      {
+        "id": "staff",
+        "name": "Bastón y dardos",
+        "armor": "",
+        "shield": false,
+        "weapons": [
+          "quarterstaff",
+          "dart"
+        ],
+        "ammo": {
+          "dart": 10
+        },
+        "gold": 8
+      }
+    ],
+    "ai": "skirmisher_melee",
+    "visual": {
+      "model": "rogue"
+    }
+  },
+  "paladin": {
+    "name": "Paladín",
+    "plural": "paladines",
+    "desc": "Un guerrero santo ligado a un juramento: armadura pesada, curación con las manos y castigos que hacen temblar a los muertos.",
+    "role": "Primera línea y apoyo",
+    "primary": [
+      "str",
+      "cha"
+    ],
+    "difficulty": 2,
+    "hit_die": 10,
+    "saves": [
+      "wis",
+      "cha"
+    ],
+    "armor": [
+      "light",
+      "medium",
+      "heavy",
+      "shield"
+    ],
+    "weapons": [
+      "simple",
+      "martial"
+    ],
+    "skills": {
+      "choose": 2,
+      "from": [
+        "athletics",
+        "insight",
+        "intimidation",
+        "medicine",
+        "persuasion",
+        "religion"
+      ]
+    },
+    "std_array": {
+      "str": 15,
+      "dex": 10,
+      "con": 13,
+      "int": 8,
+      "wis": 12,
+      "cha": 14
+    },
+    "features": {
+      "1": [
+        "lay_on_hands",
+        "spellcasting",
+        "weapon_mastery"
+      ],
+      "2": [
+        "fighting_style",
+        "paladins_smite"
+      ],
+      "3": [
+        "channel_divinity",
+        "subclass"
+      ]
+    },
+    "lay_on_hands_pool": 5,
+    "mastery_count": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "fighting_style_level": 2,
+    "channel_divinity_uses": {
+      "3": 2
+    },
+    "casting": {
+      "ability": "cha",
+      "type": "half",
+      "cantrips": {},
+      "prepared": {
+        "1": 2,
+        "2": 3,
+        "3": 4
+      },
+      "list": [
+        "bless",
+        "command",
+        "cure_wounds",
+        "detect_magic",
+        "divine_favor",
+        "divine_smite",
+        "heroism",
+        "protection_from_evil_and_good",
+        "searing_smite",
+        "shield_of_faith",
+        "thunderous_smite",
+        "wrathful_smite"
+      ],
+      "recommended": {
+        "1": [
+          "searing_smite",
+          "bless"
+        ],
+        "2": [
+          "cure_wounds"
+        ],
+        "3": [
+          "heroism"
+        ]
+      },
+      "always": {
+        "2": [
+          "divine_smite"
+        ]
+      }
+    },
+    "subclass_label": "Juramento sagrado",
+    "subclasses": {
+      "devotion": {
+        "name": "Juramento de devoción",
+        "desc": "El caballero ideal: honor, verdad y un arma que brilla con luz sagrada.",
+        "features": {
+          "3": [
+            "oath_spells",
+            "sacred_weapon"
+          ]
+        },
+        "always_prepared": {
+          "3": [
+            "protection_from_evil_and_good",
+            "shield_of_faith"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "sword_board",
+        "name": "Espada larga, escudo y cota de mallas",
+        "armor": "chain_mail",
+        "shield": true,
+        "weapons": [
+          "longsword",
+          "javelin"
+        ],
+        "ammo": {
+          "javelin": 5
+        },
+        "items": {
+          "holy_symbol": 1
+        },
+        "gold": 9
+      },
+      {
+        "id": "greatsword",
+        "name": "Mandoble y cota de mallas",
+        "armor": "chain_mail",
+        "shield": false,
+        "weapons": [
+          "greatsword",
+          "javelin"
+        ],
+        "ammo": {
+          "javelin": 5
+        },
+        "items": {
+          "holy_symbol": 1
+        },
+        "gold": 7
+      }
+    ],
+    "ai": "frontline",
+    "visual": {
+      "model": "knight"
+    }
+  },
+  "ranger": {
+    "name": "Explorador",
+    "plural": "exploradores",
+    "desc": "Cazador de las fronteras: arquero letal que marca a su presa y conoce la magia de los bosques.",
+    "role": "Daño a distancia",
+    "primary": [
+      "dex",
+      "wis"
+    ],
+    "difficulty": 2,
+    "hit_die": 10,
+    "saves": [
+      "str",
+      "dex"
+    ],
+    "armor": [
+      "light",
+      "medium",
+      "shield"
+    ],
+    "weapons": [
+      "simple",
+      "martial"
+    ],
+    "skills": {
+      "choose": 3,
+      "from": [
+        "animal_handling",
+        "athletics",
+        "insight",
+        "investigation",
+        "nature",
+        "perception",
+        "stealth",
+        "survival"
+      ]
+    },
+    "std_array": {
+      "str": 12,
+      "dex": 15,
+      "con": 13,
+      "int": 8,
+      "wis": 14,
+      "cha": 10
+    },
+    "features": {
+      "1": [
+        "spellcasting",
+        "favored_enemy",
+        "weapon_mastery"
+      ],
+      "2": [
+        "deft_explorer",
+        "fighting_style"
+      ],
+      "3": [
+        "subclass"
+      ]
+    },
+    "favored_enemy_uses": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "mastery_count": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "fighting_style_level": 2,
+    "expertise_count": {
+      "2": 1
+    },
+    "casting": {
+      "ability": "wis",
+      "type": "half",
+      "cantrips": {},
+      "prepared": {
+        "1": 2,
+        "2": 3,
+        "3": 4
+      },
+      "list": [
+        "cure_wounds",
+        "detect_magic",
+        "ensnaring_strike",
+        "entangle",
+        "fog_cloud",
+        "hail_of_thorns",
+        "hunters_mark",
+        "longstrider",
+        "speak_with_animals"
+      ],
+      "recommended": {
+        "1": [
+          "hail_of_thorns",
+          "ensnaring_strike"
+        ],
+        "2": [
+          "cure_wounds"
+        ],
+        "3": [
+          "entangle"
+        ]
+      },
+      "always": {
+        "1": [
+          "hunters_mark"
+        ]
+      }
+    },
+    "subclass_label": "Arquetipo de explorador",
+    "subclasses": {
+      "hunter": {
+        "name": "Cazador",
+        "desc": "Especialista en abatir lo que amenaza a los suyos, sea un coloso o una horda.",
+        "features": {
+          "3": [
+            "hunters_lore",
+            "hunters_prey"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "longbow",
+        "name": "Arco largo, espadas cortas y cuero tachonado",
+        "armor": "studded_leather",
+        "shield": false,
+        "weapons": [
+          "longbow",
+          "shortsword",
+          "scimitar"
+        ],
+        "ammo": {
+          "longbow": 20
+        },
+        "gold": 7
+      },
+      {
+        "id": "melee",
+        "name": "Dos espadas cortas y camisote",
+        "armor": "chain_shirt",
+        "shield": false,
+        "weapons": [
+          "shortsword",
+          "scimitar",
+          "shortbow"
+        ],
+        "ammo": {
+          "shortbow": 20
+        },
+        "gold": 5
+      }
+    ],
+    "ai": "archer_pc",
+    "visual": {
+      "model": "rogue_hooded"
+    }
+  },
+  "rogue": {
+    "name": "Pícaro",
+    "plural": "pícaros",
+    "desc": "Rápido, sigiloso y certero: aparece donde no debe y remata con un ataque furtivo devastador.",
+    "role": "Daño y movilidad",
+    "primary": [
+      "dex",
+      "int"
+    ],
+    "difficulty": 2,
+    "hit_die": 8,
+    "saves": [
+      "dex",
+      "int"
+    ],
+    "armor": [
+      "light"
+    ],
+    "weapons": [
+      "simple",
+      "martial_finesse_or_light"
+    ],
+    "skills": {
+      "choose": 4,
+      "from": [
+        "acrobatics",
+        "athletics",
+        "deception",
+        "insight",
+        "intimidation",
+        "investigation",
+        "perception",
+        "persuasion",
+        "sleight_of_hand",
+        "stealth"
+      ]
+    },
+    "std_array": {
+      "str": 12,
+      "dex": 15,
+      "con": 13,
+      "int": 14,
+      "wis": 10,
+      "cha": 8
+    },
+    "features": {
+      "1": [
+        "expertise",
+        "sneak_attack",
+        "thieves_cant",
+        "weapon_mastery"
+      ],
+      "2": [
+        "cunning_action"
+      ],
+      "3": [
+        "subclass",
+        "steady_aim"
+      ]
+    },
+    "expertise_count": {
+      "1": 2
+    },
+    "sneak_attack": {
+      "1": "1d6",
+      "2": "1d6",
+      "3": "2d6"
+    },
+    "mastery_count": {
+      "1": 2,
+      "2": 2,
+      "3": 2
+    },
+    "subclass_label": "Arquetipo de pícaro",
+    "subclasses": {
+      "thief": {
+        "name": "Ladrón",
+        "desc": "Manos rápidas y escaladas imposibles.",
+        "features": {
+          "3": [
+            "fast_hands",
+            "second_story_work"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "classic",
+        "name": "Espada corta, dagas y arco corto",
+        "armor": "leather",
+        "shield": false,
+        "weapons": [
+          "shortsword",
+          "dagger",
+          "shortbow"
+        ],
+        "ammo": {
+          "shortbow": 20,
+          "dagger": 2
+        },
+        "items": {
+          "thieves_tools": 1
+        },
+        "gold": 8
+      },
+      {
+        "id": "crossbow",
+        "name": "Estoque y ballesta ligera",
+        "armor": "leather",
+        "shield": false,
+        "weapons": [
+          "rapier",
+          "dagger",
+          "light_crossbow"
+        ],
+        "ammo": {
+          "light_crossbow": 20,
+          "dagger": 2
+        },
+        "items": {
+          "thieves_tools": 1
+        },
+        "gold": 6
+      }
+    ],
+    "ai": "skirmisher_pc",
+    "visual": {
+      "model": "rogue_hooded"
+    }
+  },
+  "sorcerer": {
+    "name": "Hechicero",
+    "plural": "hechiceros",
+    "desc": "La magia le corre por la sangre. Conoce pocos conjuros, pero los retuerce a su antojo con metamagia.",
+    "role": "Daño mágico",
+    "primary": [
+      "cha",
+      "con"
+    ],
+    "difficulty": 2,
+    "hit_die": 6,
+    "saves": [
+      "con",
+      "cha"
+    ],
+    "armor": [],
+    "weapons": [
+      "simple"
+    ],
+    "skills": {
+      "choose": 2,
+      "from": [
+        "arcana",
+        "deception",
+        "insight",
+        "intimidation",
+        "persuasion",
+        "religion"
+      ]
+    },
+    "std_array": {
+      "str": 10,
+      "dex": 13,
+      "con": 14,
+      "int": 8,
+      "wis": 12,
+      "cha": 15
+    },
+    "features": {
+      "1": [
+        "spellcasting",
+        "innate_sorcery"
+      ],
+      "2": [
+        "font_of_magic",
+        "metamagic"
+      ],
+      "3": [
+        "subclass"
+      ]
+    },
+    "innate_sorcery_uses": 2,
+    "sorcery_points": {
+      "2": 2,
+      "3": 3
+    },
+    "metamagic_count": {
+      "2": 2
+    },
+    "casting": {
+      "ability": "cha",
+      "type": "full",
+      "cantrips": {
+        "1": 4,
+        "2": 4,
+        "3": 4
+      },
+      "prepared": {
+        "1": 2,
+        "2": 4,
+        "3": 6
+      },
+      "list": [
+        "acid_splash",
+        "chill_touch",
+        "dancing_lights",
+        "fire_bolt",
+        "light",
+        "mage_hand",
+        "mending",
+        "message",
+        "minor_illusion",
+        "poison_spray",
+        "prestidigitation",
+        "ray_of_frost",
+        "shocking_grasp",
+        "sorcerous_burst",
+        "thunderclap",
+        "true_strike",
+        "burning_hands",
+        "charm_person",
+        "chromatic_orb",
+        "color_spray",
+        "detect_magic",
+        "expeditious_retreat",
+        "false_life",
+        "feather_fall",
+        "fog_cloud",
+        "grease",
+        "ice_knife",
+        "magic_missile",
+        "ray_of_sickness",
+        "shield",
+        "sleep",
+        "thunderwave",
+        "alter_self",
+        "blindness_deafness",
+        "blur",
+        "darkness",
+        "dragons_breath",
+        "enlarge_reduce",
+        "flame_blade",
+        "flaming_sphere",
+        "hold_person",
+        "invisibility",
+        "magic_weapon",
+        "mind_spike",
+        "mirror_image",
+        "misty_step",
+        "scorching_ray",
+        "shatter",
+        "suggestion",
+        "web"
+      ],
+      "recommended": {
+        "1": [
+          "chromatic_orb",
+          "shield"
+        ],
+        "2": [
+          "magic_missile",
+          "burning_hands"
+        ],
+        "3": [
+          "scorching_ray",
+          "hold_person"
+        ],
+        "cantrips": [
+          "sorcerous_burst",
+          "fire_bolt",
+          "shocking_grasp",
+          "light"
+        ]
+      }
+    },
+    "subclass_label": "Origen mágico",
+    "subclasses": {
+      "draconic": {
+        "name": "Hechicería dracónica",
+        "desc": "Sangre de dragón: escamas que protegen y aliento de fuego.",
+        "features": {
+          "3": [
+            "draconic_resilience",
+            "draconic_spells"
+          ]
+        },
+        "always_prepared": {
+          "3": [
+            "alter_self",
+            "chromatic_orb",
+            "command",
+            "dragons_breath"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "spear",
+        "name": "Lanza y dagas",
+        "armor": "",
+        "shield": false,
+        "weapons": [
+          "spear",
+          "dagger"
+        ],
+        "ammo": {
+          "dagger": 2
+        },
+        "gold": 28
+      },
+      {
+        "id": "crossbow",
+        "name": "Ballesta ligera y daga",
+        "armor": "",
+        "shield": false,
+        "weapons": [
+          "light_crossbow",
+          "dagger"
+        ],
+        "ammo": {
+          "light_crossbow": 20,
+          "dagger": 1
+        },
+        "gold": 18
+      }
+    ],
+    "ai": "caster",
+    "visual": {
+      "model": "mage"
+    }
+  },
+  "warlock": {
+    "name": "Brujo",
+    "plural": "brujos",
+    "desc": "Pactó con un ser de otro mundo. Pocos espacios de conjuro, pero se recargan rápido, y una descarga sobrenatural que no se agota.",
+    "role": "Daño mágico",
+    "primary": [
+      "cha",
+      "con"
+    ],
+    "difficulty": 2,
+    "hit_die": 8,
+    "saves": [
+      "wis",
+      "cha"
+    ],
+    "armor": [
+      "light"
+    ],
+    "weapons": [
+      "simple"
+    ],
+    "skills": {
+      "choose": 2,
+      "from": [
+        "arcana",
+        "deception",
+        "history",
+        "intimidation",
+        "investigation",
+        "nature",
+        "religion"
+      ]
+    },
+    "std_array": {
+      "str": 8,
+      "dex": 14,
+      "con": 13,
+      "int": 12,
+      "wis": 10,
+      "cha": 15
+    },
+    "features": {
+      "1": [
+        "eldritch_invocations",
+        "pact_magic"
+      ],
+      "2": [
+        "magical_cunning"
+      ],
+      "3": [
+        "subclass"
+      ]
+    },
+    "invocation_count": {
+      "1": 1,
+      "2": 3,
+      "3": 3
+    },
+    "casting": {
+      "ability": "cha",
+      "type": "pact",
+      "cantrips": {
+        "1": 2,
+        "2": 2,
+        "3": 2
+      },
+      "prepared": {
+        "1": 2,
+        "2": 3,
+        "3": 4
+      },
+      "list": [
+        "chill_touch",
+        "eldritch_blast",
+        "mage_hand",
+        "minor_illusion",
+        "poison_spray",
+        "prestidigitation",
+        "true_strike",
+        "armor_of_agathys",
+        "arms_of_hadar",
+        "bane",
+        "charm_person",
+        "expeditious_retreat",
+        "hellish_rebuke",
+        "hex",
+        "protection_from_evil_and_good",
+        "darkness",
+        "hold_person",
+        "invisibility",
+        "mind_spike",
+        "mirror_image",
+        "misty_step",
+        "ray_of_enfeeblement",
+        "suggestion"
+      ],
+      "recommended": {
+        "1": [
+          "hex",
+          "armor_of_agathys"
+        ],
+        "2": [
+          "hellish_rebuke"
+        ],
+        "3": [
+          "hold_person"
+        ],
+        "cantrips": [
+          "eldritch_blast",
+          "chill_touch"
+        ]
+      }
+    },
+    "subclass_label": "Patrón de otro mundo",
+    "subclasses": {
+      "fiend": {
+        "name": "Patrón infernal",
+        "desc": "Un señor de los Planos Inferiores: fuego, control y vigor robado a los caídos.",
+        "features": {
+          "3": [
+            "dark_ones_blessing",
+            "fiend_spells"
+          ]
+        },
+        "always_prepared": {
+          "3": [
+            "burning_hands",
+            "command",
+            "scorching_ray",
+            "suggestion"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "classic",
+        "name": "Hoz, dagas y cuero",
+        "armor": "leather",
+        "shield": false,
+        "weapons": [
+          "sickle",
+          "dagger"
+        ],
+        "ammo": {
+          "dagger": 2
+        },
+        "gold": 15
+      },
+      {
+        "id": "blade",
+        "name": "Espada corta y cuero (para Pacto del filo)",
+        "armor": "leather",
+        "shield": false,
+        "weapons": [
+          "shortsword",
+          "dagger"
+        ],
+        "ammo": {
+          "dagger": 2
+        },
+        "gold": 5
+      }
+    ],
+    "ai": "caster",
+    "visual": {
+      "model": "mage"
+    }
+  },
+  "wizard": {
+    "name": "Mago",
+    "plural": "magos",
+    "desc": "Estudioso de lo arcano con el repertorio de conjuros más amplio. Frágil, pero capaz de cambiar una batalla.",
+    "role": "Control y daño en área",
+    "primary": [
+      "int",
+      "con"
+    ],
+    "difficulty": 2,
+    "hit_die": 6,
+    "saves": [
+      "int",
+      "wis"
+    ],
+    "armor": [],
+    "weapons": [
+      "simple"
+    ],
+    "skills": {
+      "choose": 2,
+      "from": [
+        "arcana",
+        "history",
+        "insight",
+        "investigation",
+        "medicine",
+        "nature",
+        "religion"
+      ]
+    },
+    "std_array": {
+      "str": 8,
+      "dex": 12,
+      "con": 13,
+      "int": 15,
+      "wis": 14,
+      "cha": 10
+    },
+    "features": {
+      "1": [
+        "spellcasting",
+        "ritual_adept",
+        "arcane_recovery"
+      ],
+      "2": [
+        "scholar"
+      ],
+      "3": [
+        "subclass"
+      ]
+    },
+    "expertise_count": {
+      "2": 1
+    },
+    "expertise_from": [
+      "arcana",
+      "history",
+      "investigation",
+      "medicine",
+      "nature",
+      "religion"
+    ],
+    "casting": {
+      "ability": "int",
+      "type": "full",
+      "cantrips": {
+        "1": 3,
+        "2": 3,
+        "3": 3
+      },
+      "prepared": {
+        "1": 4,
+        "2": 5,
+        "3": 6
+      },
+      "list": [
+        "acid_splash",
+        "chill_touch",
+        "dancing_lights",
+        "fire_bolt",
+        "light",
+        "mage_hand",
+        "mending",
+        "message",
+        "minor_illusion",
+        "poison_spray",
+        "prestidigitation",
+        "ray_of_frost",
+        "shocking_grasp",
+        "thunderclap",
+        "true_strike",
+        "burning_hands",
+        "charm_person",
+        "chromatic_orb",
+        "color_spray",
+        "detect_magic",
+        "expeditious_retreat",
+        "false_life",
+        "feather_fall",
+        "fog_cloud",
+        "grease",
+        "hideous_laughter",
+        "ice_knife",
+        "longstrider",
+        "mage_armor",
+        "magic_missile",
+        "protection_from_evil_and_good",
+        "ray_of_sickness",
+        "shield",
+        "sleep",
+        "thunderwave",
+        "acid_arrow",
+        "alter_self",
+        "blindness_deafness",
+        "blur",
+        "darkness",
+        "dragons_breath",
+        "enlarge_reduce",
+        "flaming_sphere",
+        "hold_person",
+        "invisibility",
+        "magic_weapon",
+        "mind_spike",
+        "mirror_image",
+        "misty_step",
+        "ray_of_enfeeblement",
+        "scorching_ray",
+        "shatter",
+        "suggestion",
+        "web"
+      ],
+      "recommended": {
+        "1": [
+          "magic_missile",
+          "shield",
+          "sleep",
+          "thunderwave"
+        ],
+        "2": [
+          "burning_hands"
+        ],
+        "3": [
+          "scorching_ray",
+          "web"
+        ],
+        "cantrips": [
+          "fire_bolt",
+          "ray_of_frost",
+          "shocking_grasp"
+        ]
+      }
+    },
+    "subclass_label": "Escuela arcana",
+    "subclasses": {
+      "evoker": {
+        "name": "Evocador",
+        "desc": "Especialista en fuego, rayo y trueno: sus trucos nunca se desperdician.",
+        "features": {
+          "3": [
+            "evocation_savant",
+            "potent_cantrip"
+          ]
+        }
+      }
+    },
+    "kits": [
+      {
+        "id": "staff",
+        "name": "Bastón y dagas",
+        "armor": "",
+        "shield": false,
+        "weapons": [
+          "quarterstaff",
+          "dagger"
+        ],
+        "ammo": {
+          "dagger": 2
+        },
+        "items": {
+          "spellbook": 1
+        },
+        "gold": 5
+      },
+      {
+        "id": "crossbow",
+        "name": "Ballesta ligera y daga",
+        "armor": "",
+        "shield": false,
+        "weapons": [
+          "light_crossbow",
+          "dagger"
+        ],
+        "ammo": {
+          "light_crossbow": 20,
+          "dagger": 1
+        },
+        "items": {
+          "spellbook": 1
+        },
+        "gold": 3
+      }
+    ],
+    "ai": "caster",
+    "visual": {
+      "model": "mage"
+    }
+  },
+  "_spell_slots": {
+    "full": {
+      "1": [
+        2
+      ],
+      "2": [
+        3
+      ],
+      "3": [
+        4,
+        2
+      ]
+    },
+    "half": {
+      "1": [
+        2
+      ],
+      "2": [
+        2
+      ],
+      "3": [
+        3
+      ]
+    },
+    "pact": {
+      "1": [
+        1
+      ],
+      "2": [
+        2
+      ],
+      "3": [
+        0,
+        2
+      ]
+    }
+  }
+}

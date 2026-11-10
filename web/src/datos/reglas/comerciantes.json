@@ -1,0 +1,111 @@
+{
+  "_fuente": "Comerciantes. stock: objeto -> unidades (-1 = sin límite). buys: tipos de objeto que compran. markup: multiplicador del precio de venta.",
+  "smith": {
+    "name": "Herrería de Dagna",
+    "who": "dagna",
+    "markup": 1,
+    "buys": [
+      "weapon",
+      "armor",
+      "shield",
+      "ammo",
+      "treasure"
+    ],
+    "stock": {
+      "dagger": 4,
+      "handaxe": 3,
+      "javelin": 6,
+      "mace": 2,
+      "quarterstaff": 2,
+      "spear": 3,
+      "shortsword": 2,
+      "scimitar": 2,
+      "longsword": 2,
+      "battleaxe": 2,
+      "warhammer": 1,
+      "greataxe": 1,
+      "greatsword": 1,
+      "rapier": 1,
+      "flail": 1,
+      "shortbow": 2,
+      "longbow": 1,
+      "light_crossbow": 2,
+      "sling": 2,
+      "leather": 2,
+      "studded_leather": 1,
+      "hide": 1,
+      "chain_shirt": 1,
+      "scale_mail": 1,
+      "ring_mail": 1,
+      "chain_mail": 1,
+      "shield": 3,
+      "arrows": -1,
+      "bolts": -1,
+      "bullets": -1,
+      "javelins": 3,
+      "handaxes": 2,
+      "darts": 2,
+      "daggers": 2,
+      "longsword_p1": 1,
+      "shield_p1": 1
+    }
+  },
+  "herbalist": {
+    "name": "Puesto de Ysolde",
+    "who": "ysolde",
+    "markup": 1,
+    "buys": [
+      "potion",
+      "treasure",
+      "tool"
+    ],
+    "stock": {
+      "potion_healing": 6,
+      "potion_greater_healing": 1,
+      "antitoxin": 3,
+      "healers_kit": 2,
+      "herbalism_kit": 1,
+      "scroll_cure_wounds": 2,
+      "scroll_healing_word": 1,
+      "scroll_bless": 1,
+      "scroll_entangle": 1,
+      "rations": -1
+    }
+  },
+  "peddler": {
+    "name": "Carro de Tobin",
+    "who": "tobin",
+    "markup": 1.1,
+    "buys": [
+      "weapon",
+      "armor",
+      "shield",
+      "gear",
+      "tool",
+      "treasure",
+      "potion",
+      "scroll",
+      "wand",
+      "wondrous",
+      "ammo"
+    ],
+    "stock": {
+      "rope": 3,
+      "torch": 10,
+      "crowbar": 2,
+      "thieves_tools": 2,
+      "rations": -1,
+      "healers_kit": 1,
+      "scroll_magic_missile": 1,
+      "scroll_sleep": 1,
+      "scroll_burning_hands": 1,
+      "scroll_shield_of_faith": 1,
+      "scroll_web": 1,
+      "potion_healing": 2,
+      "potion_giant_strength": 1,
+      "boots_elvenkind": 1,
+      "stone_good_luck": 1,
+      "wand_magic_missiles": 1
+    }
+  }
+}

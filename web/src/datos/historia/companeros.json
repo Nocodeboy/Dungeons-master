@@ -1,0 +1,50 @@
+{
+  "brenna": {
+    "name": "Brenna Halvard",
+    "short": "Brenna",
+    "title": "Veterana de la guardia de Valdrecht",
+    "start": 10,
+    "voice": "veterana de la guardia de Valdrecht, humana, sarcástica, seca y leal",
+    "leave": [
+      "«Te he seguido porque creía que eras de {los/las} que hacen lo correcto aunque cueste. O me equivoqué o has cambiado. Me da igual cuál de las dos.»",
+      "*Se cuelga el escudo a la espalda sin prisa.*",
+      "«Cuídate, {nombre}. De verdad. Pero ya no conmigo.»"
+    ]
+  },
+  "pip": {
+    "name": "Pip Tallowmere",
+    "short": "Pip",
+    "title": "Contrabandista de las Marcas",
+    "start": 0,
+    "voice": "mediano contrabandista, pícaro encantador, charlatán y moroso",
+    "leave": [
+      "«Mira, jef{e/a}: yo soy un sinvergüenza, pero tengo mis límites, y tú los has pasado con carro y mula.»",
+      "*Se encasqueta la capucha y te dedica una reverencia exagerada.*",
+      "«Me vuelvo a mis caminos. No me busques. Bueno, sí, si es para pagarme algo.»"
+    ]
+  },
+  "ilyra": {
+    "name": "Ilyra Sorendel",
+    "short": "Ilyra",
+    "title": "Novicia de la Orden del Alba",
+    "start": 10,
+    "voice": "elfa de los bosques, novicia de Solenne, dulce, educada y en plena crisis de fe",
+    "leave": [
+      "«Creía que Solenne me había mandado contigo. Ahora no sé qué creer, y eso es lo que más duele.»",
+      "*Te mira un momento, sin rencor, y aprieta el símbolo del alba contra el pecho.*",
+      "«Que el alba te encuentre, {nombre}. Yo vuelvo al santuario. Alguien tiene que barrer las cenizas.»"
+    ]
+  },
+  "odvar": {
+    "name": "Maese Odvar Stonebrow",
+    "short": "Odvar",
+    "title": "Erudito de las piedras durn",
+    "start": 5,
+    "voice": "enano erudito de las piedras durn, pedante, verborreico y cómico, pero sabio",
+    "leave": [
+      "«Me marcho. No, no me interrumpas: es la primera vez en ciento ochenta y tres años que digo algo tan corto, y quiero que conste.»",
+      "*Recoge sus cuadernos, su bastón y una dignidad un poco abollada.*",
+      "«Adiós.»"
+    ]
+  }
+}

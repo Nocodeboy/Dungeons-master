@@ -1,0 +1,928 @@
+{
+  "pip": {
+    "speaker": "Pip Tallowmere",
+    "title": "Contrabandista de las Marcas",
+    "start": [
+      {
+        "if": "party:pip",
+        "goto": "c_hub"
+      },
+      {
+        "if": "pip_waiting",
+        "goto": "waiting"
+      },
+      {
+        "if": "pip_debt & !pip_joined",
+        "goto": "free"
+      },
+      {
+        "if": "!seen:pip.hello",
+        "goto": "hello"
+      },
+      {
+        "goto": "held"
+      }
+    ],
+    "nodes": {
+      "hello": {
+        "text": [
+          "*Un mediano de rizos castaños y chaleco de terciopelo raído ocupa la mesa del rincón, con una jarra vacía y la sonrisa más llena de la sala. De pie junto a la mesa, dos mozos como armarios no le quitan ojo.*",
+          "«¡Los salvadores de Merrowick! Pip Tallowmere, para serviros.»",
+          "*Hace una reverencia sin levantarse.*",
+          "«Os invitaría a algo, pero estoy, cómo decirlo… temporalmente retenido.»"
+        ],
+        "do": [
+          "set:pip_met"
+        ],
+        "options": [
+          {
+            "text": "¿Retenido por quién?",
+            "goto": "who"
+          },
+          {
+            "text": "¿Qué has hecho?",
+            "goto": "what"
+          },
+          {
+            "text": "«Retenido». Qué palabra tan bonita para «pillado».",
+            "tone": "sarcastico",
+            "goto": "vocab"
+          },
+          {
+            "text": "No es asunto mío.",
+            "tone": "frio",
+            "goto": "bye"
+          }
+        ]
+      },
+      "vocab": {
+        "text": "«¡Exacto! Siempre he tenido buen vocabulario. Es lo único que no me han embargado.»",
+        "next": "who"
+      },
+      "bye": {
+        "text": "«Nunca lo es, hasta que lo es. Si cambias de opinión, estaré aquí. Literalmente: no me dejan levantarme.»",
+        "end": true
+      },
+      "who": {
+        "text": [
+          "«Por Holt Varga, el caballero del abrigo bueno. Prestamista de Valdrecht. Dice que le debo cuarenta piezas de oro por una carga que «se perdió en el río».»",
+          "*Dibuja las comillas en el aire con dos dedos.*",
+          "«Y sus amigos los armarios se aseguran de que no me pierda yo también.»"
+        ],
+        "next": "offer"
+      },
+      "what": {
+        "text": [
+          "«¿Yo? Nada. Transportar cosas. Cosas de otros, de un sitio a otro, sin hacer preguntas.»",
+          "*Bebe de la jarra vacía por pura costumbre.*",
+          "«Hasta que hice una pregunta. Mala costumbre esa, la de preguntar.»"
+        ],
+        "next": "who"
+      },
+      "offer": {
+        "text": "«Os propongo un trato: sacadme de aquí y os seré útil. Abro cerraduras, encuentro caminos y conozco el bosque de Elderhal como mi bolsillo, que está vacío, por eso conozco tan bien su forma.»",
+        "options": [
+          {
+            "text": "¿Qué llevabas exactamente en esa carga?",
+            "if": "!pip_secret",
+            "goto": "cargo"
+          },
+          {
+            "text": "¿Por qué debería ayudarte?",
+            "tone": "frio",
+            "once": true,
+            "goto": "why"
+          },
+          {
+            "text": "Hablaré con Holt.",
+            "goto": "deal"
+          },
+          {
+            "text": "Ya veremos.",
+            "end": true
+          }
+        ]
+      },
+      "why": {
+        "text": "«Porque soy encantador. Y porque los trasgos vienen del bosque, yo conozco el bosque, y vosotros, con perdón, no.»",
+        "optionsFrom": "offer"
+      },
+      "deal": {
+        "text": "«¡Esa es la actitud! Cuidado con su sonrisa: muerde.»",
+        "end": true
+      },
+      "cargo": {
+        "text": [
+          "«Cajas. Largas. Pesadas. Con paja.»",
+          "*Sonríe demasiado.*"
+        ],
+        "options": [
+          {
+            "text": "Mientes. ¿Qué había en las cajas?",
+            "check": {
+              "skill": "insight",
+              "dc": 12
+            },
+            "success": "secret",
+            "failure": "lie"
+          },
+          {
+            "text": "Prometo no juzgarte. Dime la verdad.",
+            "tone": "amable",
+            "approve": {
+              "pip": 5
+            },
+            "goto": "secret"
+          },
+          {
+            "text": "No me importa.",
+            "goto": "offer2"
+          }
+        ]
+      },
+      "lie": {
+        "text": "«¿Mentir yo? Qué ofensa. Cajas, paja, río. Fin de la historia.»",
+        "next": "offer2"
+      },
+      "secret": {
+        "text": [
+          "*Pip mira de reojo a los mozos y baja la voz.*",
+          "«Espadas. Doce hojas de acero de Valdrecht, de las buenas. Holt me pagaba por llevarlas al bosque, a un tronco hueco junto al estanque. Yo no preguntaba para quién eran.»",
+          "*Se le borra la sonrisa.*",
+          "«Hasta que vi quién venía a recogerlas. Trasgos. Los mismos que esta noche han entrado en el pueblo. Así que las tiré al río, con cajas y con paja. Y ahora le debo cuarenta piezas a un hombre que arma a los trasgos.»"
+        ],
+        "do": [
+          "set:pip_secret"
+        ],
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«¿Y no se te ocurrió contárselo a nadie?»",
+            "reply": "«¿A quién? ¿A la guardia de Valdrecht? Holt cena con el capitán los jueves.»"
+          }
+        ],
+        "next": "offer2"
+      },
+      "offer2": {
+        "text": "«Entonces, ¿qué me dices? ¿Me sacas de aquí?»",
+        "options": [
+          {
+            "text": "Hablaré con Holt.",
+            "goto": "deal"
+          },
+          {
+            "text": "Lo pensaré.",
+            "end": true
+          }
+        ]
+      },
+      "held": {
+        "text": [
+          {
+            "if": "!holt_angry",
+            "text": "«¿Novedades? ¿Holt se ha atragantado con una aceituna? ¿No? Qué pena.»"
+          },
+          {
+            "if": "holt_angry",
+            "text": "«¡Cincuenta piezas! ¡Me ha subido la deuda por tu culpa! Ese hombre cobra hasta el aire que respira uno.» *Suspira.* «Bueno. No te lo tengo en cuenta. Mucho.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "¿Qué llevabas exactamente en esa carga?",
+            "if": "!pip_secret",
+            "goto": "cargo"
+          },
+          {
+            "text": "Estoy en ello.",
+            "end": true
+          }
+        ]
+      },
+      "free": {
+        "text": [
+          {
+            "if": "pip_debt=paid",
+            "text": "«¡Me has comprado! Como a una mula. Una mula muy guapa.» *Se levanta por fin y se estira hasta que le crujen los huesos.* «En serio: gracias. Te debo una, y yo pago mis deudas. A veces. Esta, seguro.»"
+          },
+          {
+            "if": "pip_debt=persuaded",
+            "text": "«No sé qué le has dicho, pero Holt se ha ido a su cuarto con la misma cara que pone cuando alguien le devuelve un préstamo. ¡Libre, y sin gastar un cobre! Eso sí que es talento.»"
+          },
+          {
+            "if": "pip_debt=intimidated",
+            "text": "«¡Holt ha roto el pagaré con las manos temblando! Ese momento lo voy a recordar en mi lecho de muerte, que con un poco de suerte será dentro de mucho.» *Se ríe, pero mira hacia la puerta.* «Aunque yo que tú dormiría con un ojo abierto. Holt no olvida. Ni perdona. Ni paga las rondas.»"
+          },
+          {
+            "if": "pip_debt=stolen",
+            "text": "«¡El libro! ¡Le has quitado el libro! Jef{e/a}, eso es arte. Eso es poesía hecha con las manos.» *Se pone en pie de un salto.* «Por fin alguien con talento en este valle.»"
+          },
+          "«Bueno. Prometí seros útil, y Pip Tallowmere cumple sus promesas, sobre todo cuando le conviene. ¿Me llevas contigo?»"
+        ],
+        "options": [
+          {
+            "text": "Bienvenido al grupo, Pip.",
+            "tone": "amable",
+            "do": [
+              "recruit:pip"
+            ],
+            "goto": "joined"
+          },
+          {
+            "text": "Vale. Pero las manos, quietas.",
+            "tone": "sarcastico",
+            "do": [
+              "recruit:pip"
+            ],
+            "goto": "joined_hands"
+          },
+          {
+            "text": "Por ahora no. Espéranos aquí, en la posada.",
+            "do": [
+              "set:pip_waiting"
+            ],
+            "goto": "stay"
+          }
+        ]
+      },
+      "joined": {
+        "text": "«¡Excelente decisión! La mejor de tu vida. No, la segunda: la primera fue salvarme.»",
+        "end": true
+      },
+      "joined_hands": {
+        "text": "*Pip se mira las manos con fingida sorpresa, como si acabara de descubrirlas.* «¿Estas? Son inofensivas. Casi siempre. Trato hecho, jef{e/a}.»",
+        "end": true
+      },
+      "stay": {
+        "text": "«Te espero aquí, en la posada. Corwin no me va a cobrar… ¿Verdad, Corwin?» *Desde la barra llega un gruñido que no suena a «verdad».*",
+        "end": true
+      },
+      "waiting": {
+        "text": "«¿Vienes a buscarme? Dime que vienes a buscarme. Corwin me mira raro.»",
+        "options": [
+          {
+            "text": "Vámonos, Pip.",
+            "do": [
+              "recruit:pip"
+            ],
+            "goto": "joined"
+          },
+          {
+            "text": "Todavía no.",
+            "end": true
+          }
+        ]
+      },
+      "c_hub": {
+        "text": "«¿Qué pasa, jef{e/a}? ¿Hay algo que robar? Digo, ¿que investigar?»",
+        "options": [
+          {
+            "text": "¿Qué opinas de todo esto?",
+            "goto": "c_opinion"
+          },
+          {
+            "text": "Háblame de ti.",
+            "goto": "c_self"
+          },
+          {
+            "text": "¿Qué sabes de los Zarpas Grises?",
+            "if": "!camp_done",
+            "goto": "c_zarpas"
+          },
+          {
+            "text": "Sobre Holt…",
+            "if": "pip_debt=stolen | holt_exposed | pip_debt=intimidated",
+            "once": true,
+            "goto": "c_holt"
+          },
+          {
+            "text": "Espéranos en la posada de Merrowick.",
+            "do": [
+              "wait:pip"
+            ],
+            "goto": "c_wait"
+          },
+          {
+            "text": "Nada. Sigamos.",
+            "end": true
+          }
+        ]
+      },
+      "c_wait": {
+        "text": "«Me pido la cama junto a la chimenea. Y si Corwin pregunta por la sidra, no me has visto.»",
+        "end": true
+      },
+      "c_opinion": {
+        "text": [
+          {
+            "if": "!camp_done",
+            "text": "«¿Mi opinión? Que un toro que sangra es mala señal, unos trasgos con espadas buenas es peor señal, y que yo esté en medio es la peor de todas. Pero aquí estamos.»"
+          },
+          {
+            "if": "camp_done & !seal_key",
+            "text": "«Que lo que hay debajo del toro llamó a los trasgos y ahora te llama a ti. Y que yo, que podría estar en Valdrecht vendiendo gorros, sigo aquí. Debe de ser amor. O curiosidad. Con los medianos nunca se sabe.»"
+          },
+          {
+            "if": "seal_key & !vorhan_dead",
+            "text": "«Que ese cuerno late, jef{e/a}. Las piedras no laten. Lo sé: he tocado muchas, y casi ninguna era mía.»"
+          },
+          {
+            "if": "vorhan_dead",
+            "text": "«Que decidas lo que decidas, yo te voy a decir que te quites el problema de encima. Pero tú no me vas a hacer caso. Nadie me hace caso, y por eso sigo vivo.»"
+          }
+        ],
+        "optionsFrom": "c_hub"
+      },
+      "c_self": {
+        "text": [
+          "«¿Yo? Nací en una barcaza del río Vharen, crecí en todas las tabernas de la frontera y me licencié en contrabando en la Universidad de Hacerse el Tonto.»",
+          "*Se encoge de hombros.*",
+          "«Llevo cosas de un lado a otro. Lana sin diezmo, vino sin sello, cartas de amor de gente casada. Nunca armas. Bueno: una vez. Ya sabes cómo acabó.»"
+        ],
+        "optionsFrom": "c_hub"
+      },
+      "c_zarpas": {
+        "text": [
+          "«Muchos. Tienen el campamento al este del bosque: tres tiendas grandes y una hoguera que se ve desde el estanque. Ponen centinelas en el sendero y cuerdas con latas.»",
+          "*Se da un golpecito en la sien.*",
+          "«Y su jefe, Krazzik Tres Dedos, le tiene miedo a algo más que a nosotros. Le he visto mirar al suelo cuando habla, como si alguien le escuchara desde abajo.»"
+        ],
+        "optionsFrom": "c_hub"
+      },
+      "c_holt": {
+        "text": [
+          "«Holt… Ese hombre tiene socios en Valdrecht. Gente con más abrigo que él. Algún día alguien vendrá a preguntar por su libro.»",
+          "*Sonríe.*",
+          "«Y yo les diré que lo tiene la persona más peligrosa de las Marcas. Tú.»"
+        ],
+        "optionsFrom": "c_hub"
+      }
+    }
+  },
+  "holt": {
+    "speaker": "Holt Varga",
+    "title": "Prestamista de Valdrecht",
+    "start": [
+      {
+        "if": "holt_exposed",
+        "goto": "jailed"
+      },
+      {
+        "if": "pip_debt",
+        "goto": "done"
+      },
+      {
+        "if": "!seen:holt.hello",
+        "goto": "hello"
+      },
+      {
+        "goto": "hub"
+      }
+    ],
+    "nodes": {
+      "hello": {
+        "text": [
+          "*Un hombre de unos cincuenta años, con un abrigo de paño de Valdrecht demasiado bueno para una posada de pastores. Tiene una sonrisa fina, de las que cortan como el papel, y unos anillos que pesan más que sus palabras.*",
+          "«Holt Varga: préstamos y compraventa. Préstamos honrados, compraventa discreta.»",
+          "*Te mira de arriba abajo, calculando.*",
+          "«Vosotros sois los del prado. Bonita pelea. ¿En qué puedo serviros?»"
+        ],
+        "do": [
+          "set:holt_met"
+        ],
+        "optionsFrom": "hub"
+      },
+      "hub": {
+        "text": [
+          {
+            "if": "!holt_angry",
+            "text": "«Os escucho. Mi tiempo es caro, pero hoy hago descuento a los héroes.»"
+          },
+          {
+            "if": "holt_angry",
+            "text": "«Vosotros otra vez. Ahora son cincuenta, y ni una palabra más sobre rebajas.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "¿Por qué retienes a Pip?",
+            "once": true,
+            "goto": "why"
+          },
+          {
+            "text": "¿Qué había en esa carga del río?",
+            "once": true,
+            "goto": "cargo"
+          },
+          {
+            "text": "Aquí tienes la deuda de Pip.",
+            "if": "!holt_haggled & !holt_angry",
+            "cost": 40,
+            "goto": "paid"
+          },
+          {
+            "text": "Aquí tienes la deuda de Pip.",
+            "if": "holt_haggled & !holt_angry",
+            "cost": 25,
+            "goto": "paid"
+          },
+          {
+            "text": "Aquí tienes la deuda de Pip.",
+            "if": "holt_angry",
+            "cost": 50,
+            "goto": "paid"
+          },
+          {
+            "text": "Todavía no tengo ese dinero.",
+            "if": "(!holt_angry & !holt_haggled & gold<40) | (!holt_angry & holt_haggled & gold<25) | (holt_angry & gold<50)",
+            "goto": "broke"
+          },
+          {
+            "text": "Cuarenta piezas es un robo. Rebájalo.",
+            "if": "!holt_haggled & !holt_angry",
+            "check": {
+              "skill": "persuasion",
+              "dc": 13
+            },
+            "success": "haggled",
+            "failure": "haggle_no"
+          },
+          {
+            "text": "Conozco el interés legal de Valdrecht: el diezmo, no el doble. ¿Quieres que lo vea un juez?",
+            "if": "bg:noble & !holt_haggled & !holt_angry",
+            "goto": "haggled_noble"
+          },
+          {
+            "text": "Olvida la deuda. No te conviene que la alcaldesa sepa a quién vendes acero.",
+            "if": "!holt_angry",
+            "check": {
+              "skill": "persuasion",
+              "dc": 16,
+              "easier": [
+                {
+                  "if": "pip_secret | dagna_blades | ledger_read | holt_lie",
+                  "dc": 13
+                },
+                {
+                  "if": "(pip_secret | ledger_read) & (dagna_blades | holt_lie)",
+                  "dc": 11
+                }
+              ]
+            },
+            "success": "persuaded",
+            "failure": "persuade_no"
+          },
+          {
+            "text": "Suelta a Pip o te arrepentirás.",
+            "tone": "frio",
+            "check": {
+              "skill": "intimidation",
+              "dc": 14,
+              "easier": [
+                {
+                  "if": "party>=3",
+                  "dc": 13
+                },
+                {
+                  "if": "species:orc | species:half_orc | species:goliath | class:barbarian",
+                  "dc": 12
+                }
+              ]
+            },
+            "success": "intimidated",
+            "failure": "intim_no"
+          },
+          {
+            "text": "Brenna, ¿te encargas tú?",
+            "check": {
+              "skill": "intimidation",
+              "dc": 12,
+              "who": "brenna"
+            },
+            "success": "brenna_intim",
+            "failure": "intim_no"
+          },
+          {
+            "text": "(Dejar que se te escape un hilo de humo por la nariz) Suelta a Pip, Holt.",
+            "if": "species:dragonborn",
+            "check": {
+              "skill": "intimidation",
+              "dc": 11
+            },
+            "success": "intimidated",
+            "failure": "intim_no"
+          },
+          {
+            "text": "Hice un pacto con algo peor que tú, Holt. Y sigo aquí. ¿Quieres saber qué le pasó al otro?",
+            "if": "class:warlock",
+            "check": {
+              "skill": "intimidation",
+              "dc": 11
+            },
+            "success": "intimidated",
+            "failure": "intim_no"
+          },
+          {
+            "text": "Conozco a tu socio del puerto de Valdrecht. Le interesará saber que vendes por tu cuenta.",
+            "if": "bg:criminal",
+            "check": {
+              "skill": "deception",
+              "dc": 12
+            },
+            "success": "criminal_ok",
+            "failure": "intim_no"
+          },
+          {
+            "text": "¿Y si te canto una copla nueva? «Holt Varga, el de los trasgos»… Se pega mucho.",
+            "if": "class:bard | bg:minstrel",
+            "check": {
+              "skill": "performance",
+              "dc": 13
+            },
+            "success": "song_ok",
+            "failure": "song_no"
+          },
+          {
+            "text": "Tengo tu libro de cuentas, Holt.",
+            "if": "item:holt_ledger",
+            "goto": "ledger"
+          },
+          {
+            "text": "Adiós.",
+            "end": true
+          }
+        ]
+      },
+      "why": {
+        "text": "«Retener es una palabra fea. Digamos que le acompaño hasta que salde su deuda. Cuarenta piezas de oro: el valor de una carga que me perdió y los intereses de mi paciencia, que no es poca.»",
+        "optionsFrom": "hub"
+      },
+      "cargo": {
+        "text": [
+          "«Mercancía. Herramientas de cantero.»",
+          "*La sonrisa no se mueve ni un pelo.*",
+          "«Picos, cinceles… esas cosas.»"
+        ],
+        "options": [
+          {
+            "text": "Mientes.",
+            "check": {
+              "skill": "insight",
+              "dc": 13
+            },
+            "success": "insight_ok",
+            "failure": "insight_no"
+          },
+          {
+            "text": "Picos. Claro.",
+            "tone": "sarcastico",
+            "goto": "hub"
+          }
+        ]
+      },
+      "insight_ok": {
+        "text": "*Le tiembla un párpado. Muy poco. Lo justo para que sepas que no eran picos, y para que él sepa que lo sabes.*",
+        "do": [
+          "set:holt_lie"
+        ],
+        "optionsFrom": "hub"
+      },
+      "insight_no": {
+        "text": "*Holt sostiene tu mirada sin pestañear. O dice la verdad, o lleva tanto tiempo mintiendo que ya no lo nota.*",
+        "optionsFrom": "hub"
+      },
+      "paid": {
+        "text": [
+          "*Cuentas las monedas sobre la mesa. Holt las apila en torres de diez, sin prisa, y sonríe a cada torre como a un hijo.*",
+          "«Siempre es un placer hacer negocios con gente honrada.»",
+          "*Saca un pagaré arrugado y lo rompe en dos.*",
+          "«Tallowmere, eres libre. Procura no perder nada más en el río.»"
+        ],
+        "do": [
+          "decision:pip_debt=paid"
+        ],
+        "end": true
+      },
+      "haggled": {
+        "text": "«…Veinticinco. Y porque me caéis bien, que no se diga. No os acostumbréis.»",
+        "do": [
+          "set:holt_haggled"
+        ],
+        "optionsFrom": "hub"
+      },
+      "haggled_noble": {
+        "text": "*A Holt se le congela la sonrisa.* «…Veinticinco. Y dejemos a los jueces en paz, que bastante trabajo tienen.»",
+        "do": [
+          "set:holt_haggled"
+        ],
+        "optionsFrom": "hub"
+      },
+      "haggle_no": {
+        "text": "«Cuarenta. El precio de la paciencia no baja: sube.»",
+        "optionsFrom": "hub"
+      },
+      "persuaded": {
+        "text": [
+          "*Holt deja de sonreír por primera vez. Se pasa la lengua por los labios y mira hacia la ventana, hacia la casa de la alcaldesa.*",
+          "«Qué imaginación tenéis los jóvenes.»",
+          "*Saca el pagaré y lo rompe, despacio.*",
+          "«Me habéis convencido: el mediano no vale la molestia. Tallowmere, eres libre. Y vosotros… vosotros no sabéis nada de cuentas, ¿verdad?»"
+        ],
+        "do": [
+          "decision:pip_debt=persuaded"
+        ],
+        "end": true
+      },
+      "persuade_no": {
+        "text": "«¿Me estáis amenazando? Qué poco elegante.» *Se sacude una mota invisible del abrigo.* «La alcaldesa y yo somos viejos amigos. Pregúntale a quién le presta dinero cuando el pueblo no llega a fin de año.»",
+        "optionsFrom": "hub"
+      },
+      "intimidated": {
+        "text": [
+          "*Holt da un paso atrás y choca con uno de sus mozos, que de pronto parece muy interesado en las vigas del techo.*",
+          "«Está bien, está bien. No hace falta… La violencia es cosa de pobres.»",
+          "*Rompe el pagaré con las manos temblando.*",
+          "«El mediano es libre. Y yo me voy de este pueblo de bárbaros al alba.»"
+        ],
+        "do": [
+          "decision:pip_debt=intimidated",
+          "set:holt_gone"
+        ],
+        "end": true
+      },
+      "brenna_intim": {
+        "who": "brenna",
+        "text": [
+          "*Brenna no dice nada. Se acerca a Holt, le coloca bien el cuello del abrigo con dos dedos y se queda ahí, a un palmo, mirándole.*",
+          "«Ya está», dice al fin, en voz muy baja. «¿Ves qué fácil?»",
+          "*Holt rompe el pagaré sin que nadie se lo pida. Mañana, al alba, su carro ya no estará en Merrowick.*"
+        ],
+        "do": [
+          "decision:pip_debt=intimidated",
+          "set:holt_gone",
+          "approve:brenna+3"
+        ],
+        "end": true
+      },
+      "intim_no": {
+        "text": [
+          "*Holt se ríe. Es una risa seca, sin ganas.*",
+          "«¿Amenazas? ¿En una posada llena de testigos?»",
+          "*Sus mozos se ponen a tu lado, uno en cada hombro.*",
+          "«Ahora son cincuenta. Y la próxima vez, los testigos me darán igual.»"
+        ],
+        "do": [
+          "set:holt_angry"
+        ],
+        "optionsFrom": "hub"
+      },
+      "criminal_ok": {
+        "text": [
+          "*Holt se queda blanco.*",
+          "«¿Cómo sabes tú…?»",
+          "*Mira a su alrededor.*",
+          "«Está bien. Está bien. El mediano no existe. Yo no existo. Tú no existes. Nadie ha estado nunca en esta posada.»",
+          "*Rompe el pagaré en trocitos muy pequeños.*"
+        ],
+        "do": [
+          "decision:pip_debt=persuaded"
+        ],
+        "end": true
+      },
+      "song_ok": {
+        "text": [
+          "*Te arrancas con la copla. A la segunda estrofa, media sala da palmas y Corwin se ríe con el trapo en la boca. Holt se pone rojo, luego morado.*",
+          "«¡Basta! ¡Basta! Llévate al mediano y llévate esa voz de grajo.»"
+        ],
+        "do": [
+          "decision:pip_debt=persuaded"
+        ],
+        "end": true
+      },
+      "song_no": {
+        "text": "«Canta todo lo que quieras. En Valdrecht no me conoce nadie que sepa música.»",
+        "optionsFrom": "hub"
+      },
+      "ledger": {
+        "text": [
+          "*Dejas el libro negro sobre la mesa. Holt lo mira como quien encuentra una serpiente en la cama.*",
+          "«Eso es… mío.»"
+        ],
+        "options": [
+          {
+            "text": "Era. Rompe el pagaré de Pip y nadie más lo leerá.",
+            "goto": "ledger_deal"
+          },
+          {
+            "text": "Rompe el pagaré. Y aun así se lo llevaré a la alcaldesa.",
+            "tone": "frio",
+            "goto": "ledger_justice"
+          }
+        ]
+      },
+      "ledger_deal": {
+        "text": [
+          "*Holt rompe el pagaré en ocho trozos, con una precisión que da miedo.*",
+          "«Ahí lo tienes. Ahora, el libro.»",
+          "*Cuando alargas la mano, ya lo has guardado. Holt se queda mirando el sitio donde estaba, muy quieto.*"
+        ],
+        "do": [
+          "decision:pip_debt=stolen"
+        ],
+        "end": true
+      },
+      "ledger_justice": {
+        "text": [
+          "«¡Eso no es un trato!»",
+          "«No. Es justicia.»",
+          "*Holt rompe el pagaré de todas formas. Le tiemblan las manos y, por una vez, no lo disimula.*"
+        ],
+        "do": [
+          "decision:pip_debt=stolen"
+        ],
+        "end": true
+      },
+      "done": {
+        "text": [
+          {
+            "if": "pip_debt=paid | pip_debt=persuaded",
+            "text": "«El mediano ya es vuestro. Que os aproveche.»"
+          },
+          {
+            "if": "pip_debt=stolen",
+            "text": "«No tengo nada que hablar contigo, ladr{ón/ona}. Devuélveme lo que es mío.»"
+          },
+          {
+            "if": "pip_debt=intimidated",
+            "text": "«¡Me voy, me voy! Dejadme al menos recoger mis cosas.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Tengo algo que enseñarle a la alcaldesa, Holt.",
+            "if": "item:holt_ledger & !holt_exposed",
+            "goto": "threat"
+          },
+          {
+            "text": "Adiós.",
+            "end": true
+          }
+        ]
+      },
+      "threat": {
+        "text": "*Holt mira el libro que asoma de tu mochila y traga saliva.* «Hagamos un trato. Lo que quieras. Todo tiene precio.»",
+        "options": [
+          {
+            "text": "Esto no.",
+            "tone": "frio",
+            "end": true
+          },
+          {
+            "text": "Cien piezas de oro y el libro es tuyo.",
+            "goto": "sell"
+          }
+        ]
+      },
+      "sell": {
+        "text": [
+          "*Holt saca una bolsa del abrigo sin discutir, como quien paga una multa que esperaba.*",
+          "«Cien. Y que no te vuelva a ver.»"
+        ],
+        "do": [
+          "take:holt_ledger",
+          "gold:+100",
+          "set:ledger_sold"
+        ],
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«Le hemos vendido el silencio a un hombre que arma a los trasgos. Muy bonito.»",
+            "approve": {
+              "brenna": -10
+            }
+          }
+        ],
+        "end": true
+      },
+      "jailed": {
+        "text": "*Holt Varga ya no está en la posada. Dicen que duerme en la cantera vieja, con candado, a la espera de la guardia de Valdrecht.*",
+        "end": true
+      },
+      "broke": {
+        "text": [
+          "«Lo imaginaba.» *Holt sonríe como quien ve llover sobre el campo del vecino.*",
+          "«Volved cuando lo tengáis. El interés no espera, pero yo sí. Tallowmere tampoco se va a ir a ninguna parte.»"
+        ],
+        "optionsFrom": "hub"
+      }
+    }
+  },
+  "ledger": {
+    "speaker": "",
+    "title": "El carro de Holt",
+    "start": [
+      {
+        "if": "item:holt_ledger | ledger_sold | holt_exposed",
+        "goto": "empty"
+      },
+      {
+        "if": "ledger_caught",
+        "goto": "guarded"
+      },
+      {
+        "goto": "cart"
+      }
+    ],
+    "nodes": {
+      "cart": {
+        "text": [
+          "*Bajo el pescante del carro de Holt, envuelto en un hule, hay un libro de tapas negras.*",
+          "*Los mozos de Holt están en la puerta de la posada, a veinte pasos, discutiendo por una partida de dados.*"
+        ],
+        "options": [
+          {
+            "text": "Cogerlo sin que nadie lo vea.",
+            "check": {
+              "skill": "sleight_of_hand",
+              "dc": 13,
+              "who": "best"
+            },
+            "success": "got",
+            "failure": "caught"
+          },
+          {
+            "text": "Rodear el carro a hurtadillas y cogerlo por detrás.",
+            "check": {
+              "skill": "stealth",
+              "dc": 13,
+              "who": "best"
+            },
+            "success": "got",
+            "failure": "caught"
+          },
+          {
+            "text": "Esto es trabajo para profesionales.",
+            "if": "class:rogue",
+            "goto": "got"
+          },
+          {
+            "text": "Leerlo aquí mismo, sin llevármelo.",
+            "check": {
+              "skill": "investigation",
+              "dc": 12
+            },
+            "success": "read_only",
+            "failure": "caught"
+          },
+          {
+            "text": "Dejarlo donde está.",
+            "end": true
+          }
+        ]
+      },
+      "got": {
+        "text": [
+          "*Un tirón, un paso atrás, y el libro está bajo tu capa. Nadie se ha dado cuenta. Ni siquiera el perro.*",
+          "*Más tarde, a escondidas, lo hojeas: préstamos a pastores al doble y al triple, ventas de «monedas antiguas» a coleccionistas de Valdrecht… y una línea que se repite cada mes desde la primavera: «Zarpa — 12 hojas — cobrado en piedra».*"
+        ],
+        "do": [
+          "give:holt_ledger",
+          "set:ledger_read"
+        ],
+        "end": true
+      },
+      "read_only": {
+        "text": [
+          "*Hojeas el libro con el corazón en la boca: préstamos a pastores al doble y al triple, ventas de «monedas antiguas» a coleccionistas de Valdrecht… y una línea que se repite cada mes desde la primavera: «Zarpa — 12 hojas — cobrado en piedra».*",
+          "*Lo devuelves a su sitio justo cuando uno de los mozos se gira.*"
+        ],
+        "do": [
+          "set:ledger_read"
+        ],
+        "end": true
+      },
+      "caught": {
+        "text": [
+          "*—¡Eh! ¡Tú! ¡Quieto ahí!*",
+          "*Uno de los mozos ya corre hacia el carro, y detrás de él sale Holt, con la sonrisa torcida.*",
+          "«Vaya, vaya. Los héroes del prado, con las manos en mi carro.»",
+          "*Recoge el libro y se lo guarda dentro del abrigo.*",
+          "«Esto me lo cobro. La deuda de Tallowmere acaba de subir a cincuenta, y ya no negocio con ladrones.»"
+        ],
+        "do": [
+          "set:holt_angry",
+          "set:ledger_caught"
+        ],
+        "end": true
+      },
+      "guarded": {
+        "text": "*Holt ha puesto a uno de sus mozos a dormir junto al carro, con un garrote en el regazo. Ni lo intentes.*",
+        "end": true
+      },
+      "empty": {
+        "text": "*Bajo el pescante ya no hay nada, salvo paja y un olor a aceite de armas.*",
+        "end": true
+      }
+    }
+  }
+}

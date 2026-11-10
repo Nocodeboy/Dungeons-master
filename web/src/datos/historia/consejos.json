@@ -1,0 +1,159 @@
+{
+  "_nota": "Tutorial contextual (src/story/tips.js): un consejo la primera vez que pasa algo. text vale para todo; touch/mouse lo sustituyen en pantalla táctil o con ratón. {name} = el personaje del que va el aviso. now = sale enseguida aunque haya una conversación abierta (va sobre esa conversación). ttl = segundos que puede esperar en cola antes de olvidarse (por defecto 40). Se guardan vistos en cp.story.tips y respetan settings.tips.",
+  "gap": 7,
+  "tips": {
+    "explore": {
+      "text": "Haz clic en el suelo para moveros. Arrastra para desplazar la cámara, gírala con el botón derecho (o Q y E) y acércala con la rueda.",
+      "touch": "Toca el suelo para moveros. Arrastra para mover la cámara, gírala con dos dedos y pellizca para acercarla."
+    },
+    "move": {
+      "text": "Tus compañeros te siguen en formación. Haz clic en uno, o en su retrato, para moverlo por su cuenta; con Mayúsculas eliges a varios.",
+      "touch": "Tus compañeros te siguen en formación. Toca a uno, o su retrato, para moverlo por su cuenta."
+    },
+    "dialog_tone": {
+      "now": true,
+      "text": "El icono al final de algunas respuestas indica el tono: amable, sarcástico o frío. Tus compañeros escuchan, y a cada uno le gusta una cosa distinta."
+    },
+    "dialog_check": {
+      "now": true,
+      "text": "Las respuestas con etiqueta, como [Persuasión CD 13], piden una tirada: un d20 más tu bonificador contra esa dificultad. Fallar no siempre cierra la puerta; a veces queda otro camino."
+    },
+    "dialog_special": {
+      "now": true,
+      "text": "Hay respuestas que solo aparecen por quién eres: tu especie, tu clase o tu pasado. Llevan su etiqueta delante, y no hace falta tirar nada."
+    },
+    "journal": {
+      "text": "Tienes una misión nueva. El diario (J) guarda las misiones, los pasos que faltan y lo que vais averiguando del mundo.",
+      "touch": "Tienes una misión nueva. El diario guarda las misiones, los pasos que faltan y lo que vais averiguando del mundo."
+    },
+    "codex": {
+      "text": "Lo que vas sabiendo del mundo (lugares, gentes, criaturas, dioses) queda apuntado en el diario, en la pestaña Saber."
+    },
+    "companion_talk": {
+      "text": "{name} viaja ya con vosotros. Haz doble clic sobre un compañero para hablar con él cuando quieras: con el tiempo, cada uno tiene cosas que contar.",
+      "touch": "{name} viaja ya con vosotros. Toca dos veces a un compañero para hablar con él cuando quieras: con el tiempo, cada uno tiene cosas que contar."
+    },
+    "approval_down": {
+      "text": "A {name} no le ha gustado eso. Cada compañero lleva la cuenta a su manera, y quien se harta de verdad acaba marchándose."
+    },
+    "approval_up": {
+      "text": "A {name} le ha gustado eso. Quien te aprecia se abre más en las charlas junto al fuego."
+    },
+    "locked": {
+      "now": true,
+      "text": "Cerrado con llave: se puede forzar con herramientas de ladrón (Pip tiene manos para eso), reventar con Atletismo, que hace ruido, o abrir con el conjuro adecuado. A veces, además, la llave está en algún bolsillo."
+    },
+    "trap_found": {
+      "text": "Una trampa a la vista. Puedes rodearla, o desactivarla con herramientas de ladrón; si fallas por mucho, salta."
+    },
+    "traps_area": {
+      "text": "Los trasgos ponen trampas: al pasar cerca, la Percepción pasiva del grupo puede descubrirlas, y Buscar (B) revisa los alrededores con calma. En sigilo os movéis despacio, pero podéis acercaros sin que os vean.",
+      "touch": "Los trasgos ponen trampas: al pasar cerca, la Percepción pasiva del grupo puede descubrirlas, y Buscar revisa los alrededores con calma. En sigilo os movéis despacio, pero podéis acercaros sin que os vean."
+    },
+    "trap_hit": {
+      "text": "Las trampas de los trasgos se ven mejor cuando se buscan. En sitios sospechosos, avanza en sigilo o pulsa Buscar (B) antes de pisar.",
+      "touch": "Las trampas de los trasgos se ven mejor cuando se buscan. En sitios sospechosos, avanza en sigilo o usa Buscar antes de pisar."
+    },
+    "hidden_found": {
+      "text": "{name} ha visto algo que se le escapaba al resto. Al pasar cerca, la Percepción pasiva del grupo descubre escondites; Buscar mira con más calma."
+    },
+    "ambush_found": {
+      "text": "Habéis visto a unos enemigos escondidos antes de que os vieran ellos. Si atacáis ahora, los pillaréis por sorpresa."
+    },
+    "stealth": {
+      "text": "En sigilo el grupo avanza agachado y despacio; si los enemigos no os descubren, empezaréis el combate por sorpresa. Ojo con las armaduras pesadas, que hacen ruido."
+    },
+    "spotted": {
+      "text": "Os han visto. Al entrar en su vista, el grupo hace una sola prueba de Sigilo contra la mejor Percepción de los enemigos: tiene que superarla la mitad de vosotros, por lo menos."
+    },
+    "ambushed": {
+      "text": "¡Una emboscada! Quien no la ve venir empieza sorprendido y tira la iniciativa con desventaja; una buena Percepción pasiva es la mejor defensa."
+    },
+    "loot": {
+      "text": "Lo que se recoge va a la mochila de quien lo coge. Desde el inventario (I) puedes pasárselo a otro o equiparlo.",
+      "touch": "Lo que se recoge va a la mochila de quien lo coge. Desde el inventario puedes pasárselo a otro o equiparlo."
+    },
+    "unidentified": {
+      "text": "Hay objetos mágicos que no dicen lo que son hasta que alguien los identifica. La hermana Aldis lo hace en el templo de Merrowick; un mago con el conjuro Identificar, también."
+    },
+    "heavy": {
+      "text": "La mochila de {name} pesa ya más de lo que puede cargar. Reparte lo que sobre entre el grupo o véndelo en la herrería de Dagna."
+    },
+    "shop": {
+      "text": "Los comerciantes compran a la mitad de lo que venden. Lo que no uséis vale más en vuestra bolsa que en la mochila."
+    },
+    "rest_short": {
+      "text": "Un descanso corto dura una hora: cada uno gasta dados de golpe para curarse y recupera algunas capacidades. Solo hay dos entre un descanso largo y el siguiente."
+    },
+    "rest_long": {
+      "text": "El descanso largo lo devuelve todo: vida, espacios de conjuro y capacidades. Y junto al fuego, a veces, los compañeros hablan."
+    },
+    "levelup": {
+      "text": "¡Subís de nivel! Cada personaje gana vida y, según su clase, rasgos o conjuros nuevos: echa un vistazo a las fichas (C) antes de la próxima pelea.",
+      "touch": "¡Subís de nivel! Cada personaje gana vida y, según su clase, rasgos o conjuros nuevos: echa un vistazo a las fichas antes de la próxima pelea."
+    },
+    "travel": {
+      "text": "En el mapa se viaja entre los lugares que conocéis. Los nuevos aparecen al enterarte de ellos: escucha a la gente."
+    },
+    "battle": {
+      "text": "El combate va por turnos, en el orden de la iniciativa (un d20 más la Destreza). Mientras no es tu turno, puedes mirar el campo con calma."
+    },
+    "turn": {
+      "text": "En tu turno tienes movimiento, una acción y, si algo te la da, una acción adicional; se gastan en el orden que quieras. Lo que no uses se pierde al pasar el turno."
+    },
+    "surprise": {
+      "text": "Los habéis pillado por sorpresa: los enemigos sorprendidos tiran la iniciativa con desventaja. Aprovecha los primeros golpes."
+    },
+    "attack": {
+      "text": "Atacar es tirar un d20 más tu bonificador contra la clase de armadura (CA) del blanco. Un 20 natural es un crítico: los dados de daño se tiran dos veces."
+    },
+    "advantage": {
+      "text": "Con ventaja (▲) tiras dos d20 y te quedas con el mejor; con desventaja (▼), con el peor. Esconderse da ventaja; atacar a distancia con un enemigo al lado, desventaja."
+    },
+    "opportunity": {
+      "text": "Salir del alcance de un enemigo le permite un ataque de oportunidad. Destrabarse te deja retirarte sin recibirlo, a cambio de la acción."
+    },
+    "spell": {
+      "text": "Los conjuros de nivel 1 o más gastan un espacio de conjuro, que vuelve con el descanso largo. Los trucos se lanzan tantas veces como quieras."
+    },
+    "concentration": {
+      "text": "Ese conjuro pide concentración: si {name} recibe daño, tira Constitución para no perderlo, y no puede mantener dos a la vez."
+    },
+    "condition": {
+      "text": "{name} sufre un estado alterado. Su icono, junto al retrato, explica qué hace y cuánto dura."
+    },
+    "downed": {
+      "ttl": 90,
+      "text": "{name} ha caído a 0 puntos de golpe, pero aún no está muerto: en cada turno tira una salvación contra la muerte. Cualquier curación lo levanta, y una prueba de Medicina lo estabiliza."
+    },
+    "dead": {
+      "ttl": 120,
+      "text": "Perder a un compañero duele, pero no siempre es para siempre: en el templo de Merrowick, la hermana Aldis conoce el rito para traer de vuelta a los caídos. Cuesta caro."
+    },
+    "sneak": {
+      "text": "¡Ataque furtivo! Una vez por turno, el pícaro hace daño extra si ataca con ventaja o si un aliado está junto a su blanco."
+    },
+    "hide": {
+      "text": "Escondido, el enemigo no sabe dónde estás y tu próximo ataque tiene ventaja. Al atacar, o al hacer ruido, se acabó el escondite."
+    },
+    "dash": {
+      "text": "Correr duplica el movimiento de este turno a cambio de la acción. Útil para llegar a tiempo… o para salir de allí."
+    },
+    "disengage": {
+      "text": "Al destrabarse, ese personaje puede alejarse de los enemigos sin recibir ataques de oportunidad durante el resto del turno."
+    },
+    "potion": {
+      "text": "Beber una poción, o dársela a un compañero que esté al lado, es una acción adicional: aún te queda la acción para atacar."
+    },
+    "reaction": {
+      "text": "Cada personaje tiene una reacción por asalto, incluso en el turno de otro: un ataque de oportunidad, un conjuro de Escudo… Vuelve al empezar su turno."
+    },
+    "fled": {
+      "text": "Huir no es ninguna vergüenza. Los enemigos que dejáis atrás siguen ahí; quizá, la próxima vez, os estén esperando."
+    },
+    "save": {
+      "text": "Buen momento para guardar. F5 hace un guardado rápido; desde el menú (Esc) puedes guardar en otra ranura.",
+      "touch": "Buen momento para guardar: desde el menú puedes hacerlo en cualquier ranura."
+    }
+  }
+}

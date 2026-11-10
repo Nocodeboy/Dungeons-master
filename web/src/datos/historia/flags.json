@@ -1,0 +1,435 @@
+{
+  "_nota": "Registro de flags (memoria del mundo) — docs/CAPITULO1.md §4. contract: id del esqueleto (no cambiar). values: valores posibles (si no, true). by: quién lo pone si no es un diálogo (code = src/story, battle = tras un combate, loot = al coger un objeto).",
+  "prologue_done": {
+    "desc": "Termina el prólogo en el camino",
+    "by": "code"
+  },
+  "e1_done": {
+    "desc": "Ganado el asalto del prado",
+    "contract": true,
+    "by": "battle"
+  },
+  "quest_camp": {
+    "desc": "La alcaldesa encarga acabar con el campamento",
+    "contract": true
+  },
+  "camp_paid": {
+    "desc": "Maren paga la recompensa del campamento"
+  },
+  "inn_first_night": {
+    "desc": "Primera noche en la posada (gratis)"
+  },
+  "aldwen_rumor": {
+    "desc": "Alguien (Corwin o Aldis) cuenta que no hay noticias del santuario de Elderhal"
+  },
+  "aldis_words": {
+    "desc": "Aldis habla de la fe con un héroe clérigo, paladín o acólito (ayuda con Ilyra)"
+  },
+  "bull_touched": {
+    "desc": "El héroe tocó la grieta del toro y oyó la voz"
+  },
+  "bull_knot": {
+    "desc": "El héroe descifró el «nudo» de las tallas del toro"
+  },
+  "brenna_asked": {
+    "desc": "Preguntaste a Brenna por la guardia en el camino"
+  },
+  "brenna_story": {
+    "desc": "Brenna contó por qué la echaron de la guardia (campamento)"
+  },
+  "pip_met": {
+    "desc": "Hablas con Pip en la posada",
+    "contract": true
+  },
+  "pip_secret": {
+    "desc": "Pip confiesa lo de las espadas del río"
+  },
+  "pip_stash_talk": {
+    "desc": "Pip reclama su alijo del tronco hueco"
+  },
+  "pip_gloves": {
+    "desc": "Decisión: dejas a Pip sus guantes del alijo"
+  },
+  "pip_story": {
+    "desc": "Pip contó la noche del río y lo del Gremio (campamento)"
+  },
+  "corwin_tab": {
+    "desc": "Se habló de la cuenta de sidra de Pip con Corwin"
+  },
+  "holt_met": {
+    "desc": "Hablas con Holt Varga"
+  },
+  "holt_lie": {
+    "desc": "Pillas a Holt mintiendo sobre la carga"
+  },
+  "holt_haggled": {
+    "desc": "Holt rebaja la deuda a 25 po"
+  },
+  "holt_angry": {
+    "desc": "Holt te pilla o le amenazas mal: la deuda sube a 50 y no negocia"
+  },
+  "holt_named": {
+    "desc": "El cabecilla trasgo describe al hombre del abrigo que les vende espadas"
+  },
+  "ledger_hint": {
+    "desc": "Tobin cuenta dónde guarda Holt su libro"
+  },
+  "ledger_read": {
+    "desc": "Has leído las cuentas de Holt (ventas a los trasgos)"
+  },
+  "ledger_stolen": {
+    "desc": "Tienes el libro de cuentas de Holt",
+    "by": "loot"
+  },
+  "ledger_caught": {
+    "desc": "Holt te pilla intentando coger el libro"
+  },
+  "ledger_sold": {
+    "desc": "Le vendes a Holt su libro por 100 po"
+  },
+  "holt_exposed": {
+    "desc": "Entregas el libro a Maren: Holt detenido"
+  },
+  "holt_gone": {
+    "desc": "Holt se marcha de Merrowick (amenazado o detenido)"
+  },
+  "pip_debt": {
+    "desc": "Cómo se salda la deuda de Pip",
+    "contract": true,
+    "values": [
+      "paid",
+      "intimidated",
+      "stolen",
+      "persuaded"
+    ]
+  },
+  "pip_joined": {
+    "desc": "Pip se une",
+    "contract": true,
+    "by": "code"
+  },
+  "dagna_blades": {
+    "desc": "Dagna señala el acero de Valdrecht"
+  },
+  "ysolde_tip": {
+    "desc": "Ysolde aconseja cómo tratar a los lobos"
+  },
+  "sedge_quest": {
+    "desc": "Sedge pide ayuda con los lobos",
+    "contract": true
+  },
+  "marca_sedge": {
+    "desc": "Sedge cuenta lo de la mujer de la veta gris"
+  },
+  "sedge_brooch": {
+    "desc": "Sedge recuerda el broche del Gremio de Canteros"
+  },
+  "sedge_done": {
+    "desc": "Cómo se resuelve lo de los lobos",
+    "contract": true,
+    "values": [
+      "killed",
+      "scared",
+      "tamed"
+    ]
+  },
+  "sedge_rewarded": {
+    "desc": "Sedge da la piedra de la suerte"
+  },
+  "wolves_collars": {
+    "desc": "Visteis los collares trasgos de los lobos"
+  },
+  "wolves_dead": {
+    "desc": "Lobos del estanque vencidos",
+    "contract": true,
+    "by": "battle"
+  },
+  "sentries_dead": {
+    "desc": "Centinelas trasgos vencidos",
+    "contract": true,
+    "by": "battle"
+  },
+  "shrine_seen": {
+    "desc": "Habéis visto el santuario asaltado"
+  },
+  "shrine_goblins_dead": {
+    "desc": "Trasgos del santuario vencidos (o espantados)",
+    "by": "battle"
+  },
+  "ilyra_dead": {
+    "desc": "Huisteis del santuario: Ilyra muere"
+  },
+  "ilyra_met": {
+    "desc": "Hablas con Ilyra",
+    "contract": true
+  },
+  "ilyra_joined": {
+    "desc": "Ilyra se une",
+    "contract": true,
+    "by": "code"
+  },
+  "ilyra_temple": {
+    "desc": "Ilyra no viene: espera en el templo de Aldis"
+  },
+  "aldwen_buried": {
+    "desc": "Enterrasteis a Madre Aldwen"
+  },
+  "disc_found": {
+    "desc": "Tenéis el Disco del Alba",
+    "by": "loot"
+  },
+  "ilyra_faith": {
+    "desc": "Desenlace de la crisis de fe de Ilyra",
+    "values": [
+      "renewed",
+      "own_path",
+      "broken"
+    ]
+  },
+  "ilyra_story": {
+    "desc": "Ilyra habló de Madre Aldwen (campamento)"
+  },
+  "loot_shrine_box": {
+    "desc": "Decisión: saqueáis el cepillo del santuario delante de Ilyra"
+  },
+  "chief_fear": {
+    "desc": "Ves que el cabecilla tiene miedo de la voz"
+  },
+  "camp_sneak": {
+    "desc": "Llegasteis a la tienda del cabecilla sin ser vistos"
+  },
+  "camp_done": {
+    "desc": "Campamento resuelto (abre el túmulo y la ruta a Kesh)",
+    "contract": true,
+    "values": [
+      "assault",
+      "stealth",
+      "peace"
+    ]
+  },
+  "chief_alive": {
+    "desc": "El cabecilla trasgo sobrevive (negociación o rendición)",
+    "contract": true
+  },
+  "camp_tribute": {
+    "desc": "Decisión: pagáis tributo a los trasgos"
+  },
+  "place_kesh": {
+    "desc": "Se conoce el camino al Vado de Kesh (desbloquea el lugar del mapa)",
+    "contract": true,
+    "by": "loot"
+  },
+  "odvar_met": {
+    "desc": "Conocéis a Odvar",
+    "contract": true
+  },
+  "odvar_joined": {
+    "desc": "Odvar se une",
+    "contract": true,
+    "by": "code"
+  },
+  "odvar_marca": {
+    "desc": "Odvar ha visto la Marca"
+  },
+  "odvar_satchel": {
+    "desc": "Decisión: devolvéis la cartera a Odvar"
+  },
+  "odvar_tablet": {
+    "desc": "Odvar lee la tablilla durn del cabecilla"
+  },
+  "odvar_goat": {
+    "desc": "Odvar insiste en que el tercer acertijo es una cabra"
+  },
+  "odvar_seals": {
+    "desc": "Odvar ha explicado qué pasa al romper o restaurar un sello"
+  },
+  "odvar_story": {
+    "desc": "Odvar contó su teoría de los Marcados (campamento)"
+  },
+  "notes_found": {
+    "desc": "Cogisteis los cuadernos de Odvar del nido",
+    "by": "loot"
+  },
+  "kesh_read_1": {
+    "desc": "Acertijo de la piedra 1 descifrado"
+  },
+  "kesh_read_2": {
+    "desc": "Acertijo de la piedra 2 descifrado"
+  },
+  "kesh_read_3": {
+    "desc": "Acertijo de la piedra 3 descifrado"
+  },
+  "kesh_r1": {
+    "desc": "Glifo de la piedra 1",
+    "values": [
+      "agua",
+      "monte",
+      "cuernos",
+      "ojo",
+      "llama"
+    ]
+  },
+  "kesh_r2": {
+    "desc": "Glifo de la piedra 2",
+    "values": [
+      "agua",
+      "monte",
+      "cuernos",
+      "ojo",
+      "llama"
+    ]
+  },
+  "kesh_r3": {
+    "desc": "Glifo de la piedra 3",
+    "values": [
+      "agua",
+      "monte",
+      "cuernos",
+      "ojo",
+      "llama"
+    ]
+  },
+  "kesh_verse": {
+    "desc": "Conocéis el verso de Kesh (agua, piedra, toro)"
+  },
+  "runes_solved": {
+    "desc": "Las tres piedras responden: se abre kesh_door",
+    "contract": true
+  },
+  "spiders_dead": {
+    "desc": "Arañas vencidas",
+    "contract": true,
+    "by": "battle"
+  },
+  "seal_key": {
+    "desc": "Tenéis el cuerno de piedra",
+    "contract": true,
+    "by": "loot"
+  },
+  "kesh_done": {
+    "desc": "Cuerno recogido: Kesh resuelto (al volver, nivel 3)",
+    "contract": true,
+    "by": "loot"
+  },
+  "tumulo_entered": {
+    "desc": "Bajáis al túmulo",
+    "by": "code"
+  },
+  "tumulo_traps_1": {
+    "desc": "Trampa 1 del túmulo",
+    "contract": true,
+    "values": [
+      "disarmed",
+      "sprung"
+    ],
+    "by": "code"
+  },
+  "tumulo_traps_2": {
+    "desc": "Trampa 2 del túmulo",
+    "contract": true,
+    "values": [
+      "disarmed",
+      "sprung"
+    ],
+    "by": "code"
+  },
+  "inscription_read": {
+    "desc": "Leísteis la inscripción de la sala de los sellos"
+  },
+  "horn_placed": {
+    "desc": "El cuerno encaja en el hueco de la sala de los sellos"
+  },
+  "seal_hint_1": {
+    "desc": "Pista de la losa del toro"
+  },
+  "seal_hint_2": {
+    "desc": "Pista de la losa del río"
+  },
+  "seal_hint_3": {
+    "desc": "Pista de la losa de la piedra"
+  },
+  "seals_step": {
+    "desc": "Losas pulsadas en orden correcto (0..3)",
+    "values": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "seals_solved": {
+    "desc": "Puzle de los tres sellos resuelto (abre crypt_door)",
+    "contract": true
+  },
+  "loot_crypt": {
+    "desc": "Decisión: abrís las tumbas de los guardianes delante de Ilyra u Odvar"
+  },
+  "crypt_patrol_dead": {
+    "desc": "Patrulla de esqueletos vencida",
+    "by": "battle"
+  },
+  "zombies_dead": {
+    "desc": "Zombis vencidos",
+    "by": "battle"
+  },
+  "vorhan_doubt": {
+    "desc": "Tus palabras hacen dudar a Vorhan (sorpresa en el combate)"
+  },
+  "vorhan_dead": {
+    "desc": "Vorhan vencido",
+    "contract": true,
+    "by": "battle"
+  },
+  "seal_choice": {
+    "desc": "Decisión final",
+    "contract": true,
+    "values": [
+      "broken",
+      "restored"
+    ]
+  },
+  "marca_talk": {
+    "desc": "Charla de campamento sobre la Marca"
+  },
+  "chapter1_done": {
+    "desc": "Fin del capítulo",
+    "contract": true,
+    "by": "code"
+  },
+  "brenna_joined": {
+    "desc": "Brenna está (o ha estado) en el grupo",
+    "by": "code"
+  },
+  "brenna_waiting": {
+    "desc": "Brenna espera en la posada",
+    "by": "code"
+  },
+  "pip_waiting": {
+    "desc": "Pip espera en la posada",
+    "by": "code"
+  },
+  "ilyra_waiting": {
+    "desc": "Ilyra espera en la posada",
+    "by": "code"
+  },
+  "odvar_waiting": {
+    "desc": "Odvar espera en la posada",
+    "by": "code"
+  },
+  "brenna_left": {
+    "desc": "Brenna se ha marchado",
+    "by": "code"
+  },
+  "pip_left": {
+    "desc": "Pip se ha marchado",
+    "by": "code"
+  },
+  "ilyra_left": {
+    "desc": "Ilyra se ha marchado",
+    "by": "code"
+  },
+  "odvar_left": {
+    "desc": "Odvar se ha marchado",
+    "by": "code"
+  }
+}

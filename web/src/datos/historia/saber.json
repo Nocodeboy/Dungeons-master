@@ -1,0 +1,843 @@
+{
+  "_nota": "Saber del mundo (story.codex()). Cada entrada: cat, title (texto o lista de {if, text}: vale la primera que se cumpla), unlock (condición del lenguaje de cond.js; además visited:nivel, met:pnj, fought:monstruo, killed:monstruo), text (párrafos; los {if, text} solo cuando se cumplen) y monsters (ids del núcleo: tras luchar se añade lo que se sabe de ellos con monster_info). groups: monstruos de cada grupo por si el nivel no está a mano.",
+  "cats": {
+    "lugares": "Lugares",
+    "gentes": "Gentes",
+    "criaturas": "Criaturas",
+    "dioses": "Dioses",
+    "facciones": "Facciones",
+    "objetos": "Objetos"
+  },
+  "groups": {
+    "e1": [
+      "goblin_minion",
+      "goblin_warrior",
+      "goblin_archer"
+    ],
+    "wolves": [
+      "wolf"
+    ],
+    "sentries": [
+      "goblin_minion",
+      "goblin_archer"
+    ],
+    "camp": [
+      "goblin_boss",
+      "goblin_warrior",
+      "goblin_archer"
+    ],
+    "shrine_goblins": [
+      "goblin_minion",
+      "goblin_warrior"
+    ],
+    "spiders": [
+      "giant_spider"
+    ],
+    "crypt_patrol": [
+      "skeleton",
+      "skeleton_archer"
+    ],
+    "zombies": [
+      "zombie"
+    ],
+    "guardians": [
+      "wight",
+      "skeleton",
+      "skeleton_archer",
+      "zombie"
+    ]
+  },
+  "entries": {
+    "marcas": {
+      "cat": "lugares",
+      "title": "Las Marcas de Vharen",
+      "unlock": "true",
+      "text": [
+        "Frontera de colinas peladas, pinares viejos y ríos fríos al norte del antiguo reino de Caeldor. Los pastores la llaman «la tierra de los muros», por las paredes de piedra seca que la cruzan en todas direcciones; nadie recuerda quién levantó las más viejas.",
+        "Aquí manda más el invierno que el rey. Los pueblos están a una jornada unos de otros, los caminos son de cabras y la piedra de las canteras baja a Valdrecht todo el año.",
+        {
+          "if": "odvar_seals | seen:seal.voice_what",
+          "text": "Ahora sabes lo que los pastores no saben: las paredes más viejas las levantaron los Durn, y debajo de las colinas duerme algo que cosieron con siete sellos."
+        }
+      ]
+    },
+    "valdrecht": {
+      "cat": "lugares",
+      "title": "Valdrecht",
+      "unlock": "true",
+      "text": [
+        "La ciudad grande del sur, a seis días de camino: murallas de sillería, un puerto de río, el Archivo, la Academia y el Gremio de Canteros, que, según dicen en las tabernas, manda más que el rey.",
+        {
+          "if": "brenna_asked | brenna_story",
+          "text": "Brenna sirvió en su guardia muchos años, hasta la huelga de las canteras."
+        },
+        {
+          "if": "holt_met",
+          "text": "De allí viene Holt Varga, con su carro, sus dos mozos de cuerda y su abrigo de paño demasiado bueno."
+        },
+        {
+          "if": "sedge_brooch",
+          "text": "Sedge recuerda un broche del Gremio de Canteros en el pecho de la mujer de la veta gris. La respuesta, si la hay, está en Valdrecht."
+        }
+      ]
+    },
+    "mula_coja": {
+      "cat": "lugares",
+      "title": "La venta de La Mula Coja",
+      "unlock": "prologue_done | true",
+      "text": [
+        "Una venta del camino de Valdrecht con más pulgas que camas y un vino que se bebe por no ofender. Allí conociste a Brenna Halvard, que también iba al norte y no tenía ganas de explicar por qué.",
+        {
+          "if": "seal_choice",
+          "text": "Ahora parece que fue hace años. Fue hace dos semanas."
+        }
+      ]
+    },
+    "merrowick": {
+      "cat": "lugares",
+      "title": "Merrowick",
+      "unlock": "visited:merrowick | e1_done",
+      "text": [
+        "Aldea de pastores y canteros al pie de las colinas: casas de piedra gris, tejados de pizarra, olor a lana mojada y, en el centro del prado, un toro de granito más viejo que el pueblo.",
+        "Tiene posada, templo de Solenne, herrería y un mercado de tres puestos los días buenos. La alcaldesa es Maren Ashford.",
+        {
+          "if": "e1_done",
+          "text": "La tarde que llegasteis, los trasgos de los Zarpas Grises asaltaron el prado. El toro se había agrietado la noche antes, y sangraba."
+        },
+        {
+          "if": "seal_choice=restored",
+          "text": "El toro ya no sangra. Los niños han vuelto a subirse a su lomo."
+        },
+        {
+          "if": "seal_choice=broken",
+          "text": "El toro del prado se ha desmoronado. Desde entonces, algunos vecinos evitan mirarte a los ojos."
+        }
+      ]
+    },
+    "toro_dormido": {
+      "cat": "lugares",
+      "title": "La posada del Toro Dormido",
+      "unlock": "met:corwin | inn_first_night",
+      "text": [
+        "La única posada de Merrowick: vigas bajas, una chimenea que tira mal, sidra turbia y estofado de cordero. La lleva Corwin con su hija Nell.",
+        "Dos piezas de oro por cabeza la noche. En el tablón de la entrada se cuelgan avisos, se pierden cabras y, de vez en cuando, se alquilan espadas.",
+        {
+          "if": "brenna_waiting | pip_waiting | ilyra_waiting | odvar_waiting",
+          "text": "Quien no viaja con vosotros os espera aquí, junto al fuego."
+        }
+      ]
+    },
+    "elderhal": {
+      "cat": "lugares",
+      "title": "El bosque de Elderhal",
+      "unlock": "visited:elderhal | quest_camp | aldwen_rumor | sedge_quest",
+      "text": [
+        "Pinar viejo al este de Merrowick, de troncos rectos y suelo de agujas. Huele a resina y, en otoño, a setas y a humo.",
+        "Tiene un estanque donde bajan a beber los lobos, un santuario de Solenne en un claro y, desde este verano, el campamento de los Zarpas Grises.",
+        {
+          "if": "camp_done",
+          "text": "Los Zarpas ya no amenazan Merrowick desde el pinar."
+        },
+        {
+          "if": "pip_stash_talk",
+          "text": "En un tronco hueco, con la corteza marcada a navaja, guardaba Pip su contrabando."
+        }
+      ]
+    },
+    "santuario": {
+      "cat": "lugares",
+      "title": "El santuario de Elderhal",
+      "unlock": "shrine_seen | ilyra_met | aldwen_rumor",
+      "text": [
+        "Un santuario de Solenne de piedra blanca en un claro del pinar, con una campana pequeña y una puerta que mira al alba. Lo cuidaban Madre Aldwen y su novicia, Ilyra.",
+        {
+          "if": "shrine_seen",
+          "text": "Los trasgos lo asaltaron dos noches antes de que llegarais: quemaron los bancos, pintaron una zarpa de barro sobre el sol del altar y se llevaron el Disco del Alba."
+        },
+        {
+          "if": "aldwen_buried",
+          "text": "Madre Aldwen descansa ahora junto al muro del este, donde da el primer sol."
+        }
+      ]
+    },
+    "kesh": {
+      "cat": "lugares",
+      "title": "El Vado de Kesh",
+      "unlock": "visited:kesh | place_kesh",
+      "text": [
+        "Un vado sobre un río verde y frío, colinas arriba. Encima, los restos de un puente durn: tres arcos rotos, pilares con espirales y un toro de piedra caído de costado que aún mira al este.",
+        {
+          "if": "odvar_met",
+          "text": "Maese Odvar Stonebrow llevaba semanas acampado entre las ruinas, discutiendo con las piedras."
+        },
+        {
+          "if": "runes_solved",
+          "text": "Las tres piedras rúnicas respondieron al verso: agua, piedra, toro. Detrás de la puerta esperaba el cuerno."
+        },
+        {
+          "if": "fought:giant_spider",
+          "text": "Al otro lado del vado anidaban arañas gigantes, y nadie que tuviera prisa cruzaba de noche."
+        }
+      ]
+    },
+    "tumulo": {
+      "cat": "lugares",
+      "title": "El túmulo de Durn-Kahl",
+      "unlock": "tumulo_entered | visited:tumulo",
+      "text": [
+        "Bajo el pedestal del toro de Merrowick, una escalera de peldaños gastados baja más de lo que parece posible. Es uno de los siete túmulos de las Marcas, y guarda uno de los siete sellos.",
+        {
+          "if": "inscription_read",
+          "text": "En la sala de los sellos, una inscripción: «Como se cerró, se abre: primero lo que corre, después lo que queda, al final lo que vela»."
+        },
+        {
+          "if": "seal_choice=restored",
+          "text": "El sello vuelve a estar cerrado. Lo cerró tu sangre."
+        },
+        {
+          "if": "seal_choice=broken",
+          "text": "El sello está roto. Abajo, en la oscuridad, algo respira más tranquilo."
+        }
+      ]
+    },
+    "corwin": {
+      "cat": "gentes",
+      "title": "Corwin, el posadero",
+      "unlock": "met:corwin",
+      "text": [
+        "Grande, cálido y asustado, como un oso que ha visto el fuego. Viudo; tiene una hija de diez años, Nell, que le pone orden en la cocina.",
+        "Sabe todo lo que se dice en la sala, y lo cuenta si le preguntas con educación.",
+        {
+          "if": "corwin_tab",
+          "text": "Pip le debe una cuenta de sidra que crece cada vez que Corwin la recuerda."
+        }
+      ]
+    },
+    "aldis": {
+      "cat": "gentes",
+      "title": "La hermana Aldis",
+      "unlock": "met:aldis",
+      "text": [
+        "Sacerdotisa de Solenne en el templo de Merrowick. Mayor, serena y afilada; reza poco en voz alta y escucha mucho.",
+        "Cura heridas, identifica objetos y, por un precio que le duele cobrar, conoce el rito para devolver la vida a los caídos.",
+        {
+          "if": "aldwen_rumor",
+          "text": "Lleva días sin noticias de Madre Aldwen, del santuario de Elderhal."
+        }
+      ]
+    },
+    "dagna": {
+      "cat": "gentes",
+      "title": "Dagna Emberforge",
+      "unlock": "met:dagna",
+      "text": [
+        "Herrera enana de Merrowick. Gruñona, práctica, con brazos como mazas y paciencia de yunque. Vende armas, armaduras y verdades que nadie le ha pedido.",
+        {
+          "if": "dagna_blades",
+          "text": "Fue ella quien se fijó en las hojas de los trasgos: acero de Valdrecht, del bueno, con el sello del forjador limado."
+        }
+      ]
+    },
+    "ysolde": {
+      "cat": "gentes",
+      "title": "Ysolde, la herbolaria",
+      "unlock": "met:ysolde",
+      "text": [
+        "Tiene un puesto de hierbas en el mercado y habla de las plantas como si fueran vecinas. Fue aprendiz de una druida del Círculo del Brezo.",
+        "Dice que el bosque está raro desde que se agrietó el toro, y nadie en Merrowick sabe si es una manera de hablar.",
+        {
+          "if": "ysolde_tip",
+          "text": "Su consejo sobre los lobos: no son malos, tienen hambre y miedo."
+        }
+      ]
+    },
+    "tobin": {
+      "cat": "gentes",
+      "title": "Tobin Hilltopple",
+      "unlock": "met:tobin",
+      "text": [
+        "Buhonero mediano, alegre y charlatán, con un carro que es media tienda y media leyenda. Primo tercero de Pip, por parte de una tía que no reconoce a nadie.",
+        "Avisa gratis de los cepos de los trasgos. Lo demás lo cobra."
+      ]
+    },
+    "maren": {
+      "cat": "gentes",
+      "title": "Maren Ashford, alcaldesa",
+      "unlock": "met:maren",
+      "text": [
+        "Manos de cantera y voz de quien ha gritado en muchas asambleas. Competente, cansada y capaz de cualquier cosa por su aldea.",
+        {
+          "if": "quest_camp",
+          "text": "Ofreció cincuenta piezas de oro, todo lo que había en la caja, por acabar con el campamento de los Zarpas Grises."
+        },
+        {
+          "if": "holt_exposed",
+          "text": "Mandó detener a Holt Varga con su propio libro de cuentas en la mano."
+        }
+      ]
+    },
+    "sedge": {
+      "cat": "gentes",
+      "title": "La vieja Sedge",
+      "unlock": "met:sedge",
+      "text": [
+        "Pastora medio ciega, con lengua de esparto y un cayado que sabe usar. De joven fue del Círculo del Brezo.",
+        "«El hambre no es maldad», dice de los lobos que le roban una oveja cada noche.",
+        {
+          "if": "sedge_done=tamed",
+          "text": "Los lobos del estanque ya no bajan al redil: Sedge les deja los despojos de la matanza, lejos de las ovejas."
+        },
+        {
+          "if": "sedge_rewarded",
+          "text": "Te dio su piedra de la suerte. Dice que a ella ya no le hace falta."
+        }
+      ]
+    },
+    "holt": {
+      "cat": "gentes",
+      "title": "Holt Varga",
+      "unlock": "met:holt | holt_met",
+      "text": [
+        "Prestamista de Valdrecht que viene a Merrowick dos veces al año. Sonrisa de cuchillo, voz suave, números en la cabeza. «Préstamos honrados, compraventa discreta.»",
+        {
+          "if": "ledger_read | holt_named",
+          "text": "Compra a los trasgos monedas y reliquias durn sacadas de Kesh, y les paga con hojas de acero de Valdrecht. No sabe nada de lo que hay bajo las colinas: solo es codicioso."
+        },
+        {
+          "if": "holt_exposed",
+          "text": "Lo detuvieron en Merrowick y lo mandaron a Valdrecht atado a su propio carro."
+        },
+        {
+          "if": "holt_gone & !holt_exposed",
+          "text": "Se marchó de Merrowick con prisa y sin despedirse. Gente así siempre vuelve."
+        }
+      ]
+    },
+    "aldwen": {
+      "cat": "gentes",
+      "title": "Madre Aldwen",
+      "unlock": "aldwen_rumor | ilyra_met",
+      "text": [
+        "Sacerdotisa del santuario de Elderhal durante cuarenta años. Curaba con hierbas antes que con oraciones, y pedía que no se lo contaran a la Orden.",
+        {
+          "if": "ilyra_met",
+          "text": "Murió protegiendo a Ilyra la noche que los trasgos asaltaron el santuario."
+        }
+      ]
+    },
+    "brenna": {
+      "cat": "gentes",
+      "title": "Brenna Halvard",
+      "unlock": "true",
+      "text": [
+        "Humana, cuarenta y un años, soldado de oficio. Seca, sarcástica y leal hasta el final; te llama «Marcad{o/a}» medio en broma.",
+        {
+          "if": "brenna_story",
+          "text": "La echaron de la guardia de Valdrecht por negarse a cargar contra los canteros en huelga y romperle la nariz al capitán Orrin Vell. No la ahorcaron por su hoja de servicios."
+        },
+        {
+          "if": "brenna_left",
+          "text": "Se marchó. No dijo adónde."
+        }
+      ]
+    },
+    "pip": {
+      "cat": "gentes",
+      "title": "Pip Tallowmere",
+      "unlock": "pip_met | met:pip | party:pip",
+      "text": [
+        "Mediano, contrabandista de las Marcas, encantador y moroso: debe dinero a medio Merrowick y una mula a su primo. Te llama «jef{e/a}» y se ríe de sí mismo antes que nadie.",
+        {
+          "if": "pip_secret",
+          "text": "Hizo de porteador para Holt hasta que vio para quién eran las espadas. Las tiró al río una noche, y desde entonces le debe a Holt hasta la sombra."
+        },
+        {
+          "if": "pip_debt",
+          "text": "La deuda con Holt está saldada, de una manera o de otra."
+        },
+        {
+          "if": "pip_left",
+          "text": "Se marchó una mañana sin pagar la última ronda. Era de esperar, y aun así duele."
+        }
+      ]
+    },
+    "ilyra": {
+      "cat": "gentes",
+      "title": "Ilyra Sorendel",
+      "unlock": "ilyra_met | met:ilyra | party:ilyra",
+      "text": [
+        "Elfa de los bosques, novicia de Solenne en el santuario de Elderhal. Dulce, educada, con una sinceridad que desarma; cita a Solenne y luego se corrige.",
+        "Rezó toda la noche del asalto y nadie contestó.",
+        {
+          "if": "ilyra_faith=renewed",
+          "text": "Ha vuelto a oír a Solenne, o algo que se le parece mucho."
+        },
+        {
+          "if": "ilyra_faith=own_path",
+          "text": "Ya no reza como le enseñaron. Reza a su manera, y dice que así la oyen mejor."
+        },
+        {
+          "if": "ilyra_faith=broken",
+          "text": "Ha dejado de rezar."
+        },
+        {
+          "if": "ilyra_dead",
+          "text": "Murió en el santuario. No llegasteis a tiempo."
+        }
+      ]
+    },
+    "odvar": {
+      "cat": "gentes",
+      "title": "Maese Odvar Stonebrow",
+      "unlock": "odvar_met | met:odvar | party:odvar",
+      "text": [
+        "Enano, mago, ciento ochenta y tres años, doctor en piedras por la Academia de Valdrecht y autor del *Tratado sobre la piedra que canta*, en tres tomos. Nadie ha leído el tercero.",
+        "Pedante, verborreico y despistado. También el que más sabe de los Durn en todas las Marcas, y valiente cuando importa.",
+        {
+          "if": "notes_found",
+          "text": "Las arañas de Kesh le robaron treinta años de notas. Se las devolvisteis, con alguna tela de araña de propina."
+        },
+        {
+          "if": "odvar_story",
+          "text": "Tiene una teoría sobre los Marcados que no ha publicado porque, dice, aún no tenía un ejemplar vivo que estudiar."
+        }
+      ]
+    },
+    "krazzik": {
+      "cat": "gentes",
+      "title": "Krazzik Tres Dedos",
+      "unlock": "met:chief | fought:goblin_boss | holt_named | chief_fear",
+      "monsters": [
+        "goblin_boss"
+      ],
+      "text": [
+        "Cabecilla de los Zarpas Grises. Le faltan dos dedos de la mano izquierda: se los arrancó su propio lobo. Bravucón con miedo debajo, habla de sí mismo en plural: «los Zarpas no se arrodillan».",
+        {
+          "if": "chief_fear",
+          "text": "Oye en sueños a «la piedra-que-llama», y le tiene más miedo a esa voz que a vosotros."
+        },
+        {
+          "if": "chief_alive",
+          "text": "Sigue vivo, y su tribu también."
+        }
+      ]
+    },
+    "vorhan": {
+      "cat": "gentes",
+      "title": "Vorhan, el último guardián",
+      "unlock": "met:vorhan | fought:wight",
+      "monsters": [
+        "wight"
+      ],
+      "text": [
+        "El último de los guardianes durn que juraron velar el sello de Durn-Kahl. Mil años de vigilia y de susurros lo han dejado medio roto: ya no sabe si el Marcado viene a cerrar o a abrir.",
+        "«Nadie toca el sello sin pasar por mí.»",
+        {
+          "if": "vorhan_doubt",
+          "text": "Tus palabras lo hicieron dudar. Durante un instante, bajó la espada."
+        },
+        {
+          "if": "vorhan_dead",
+          "text": "Descansa, por fin, junto a sus hermanos."
+        }
+      ]
+    },
+    "mujer_veta": {
+      "cat": "gentes",
+      "title": "La mujer de la veta gris",
+      "unlock": "marca_sedge",
+      "text": [
+        "Hace treinta años, Sedge vio pasar camino del norte a una mujer con una veta de granito en el brazo, igual que la tuya. No volvió a bajar.",
+        {
+          "if": "sedge_brooch",
+          "text": "Llevaba en el pecho un broche del Gremio de Canteros de Valdrecht."
+        }
+      ]
+    },
+    "marcados": {
+      "cat": "gentes",
+      "title": "Los Marcados",
+      "unlock": "odvar_marca | odvar_story | marca_sedge | odvar_seals",
+      "text": [
+        "Muy de tarde en tarde nace alguien con una veta de granito en la piel. Los curanderos lo llaman mancha; los Durn lo llamaban otra cosa.",
+        {
+          "if": "odvar_seals | odvar_story",
+          "text": "Los Durn sellaron a Kharzul con su propia sangre mezclada con la piedra. Esa sangre vuelve a veces, y su portador puede renovar un sello… o romperlo."
+        },
+        {
+          "if": "seal_choice=restored",
+          "text": "Desde el túmulo, la veta te sube por el cuello y oyes latir los siete toros."
+        },
+        {
+          "if": "seal_choice=broken",
+          "text": "Desde el túmulo, la Marca ya no arde. Está fría, como al principio, y tú eres libre. Los otros seis toros, no."
+        }
+      ]
+    },
+    "trasgos": {
+      "cat": "criaturas",
+      "title": "Trasgos",
+      "unlock": "fought:goblin_minion | fought:goblin_warrior | fought:goblin_archer | e1_done",
+      "monsters": [
+        "goblin_minion",
+        "goblin_warrior",
+        "goblin_archer"
+      ],
+      "text": [
+        "Pequeños, rápidos y rencorosos, con ojos que ven en la oscuridad y dientes que no se lavan desde el bautizo. Pelean en grupo y huyen en cuanto la cosa se tuerce, que es su manera de ganar.",
+        {
+          "if": "killed:goblin_minion | e1_done",
+          "text": "En combate se escabullen sin provocar ataques y aprovechan cualquier esquina. Los arqueros, mejor tumbarlos los primeros."
+        }
+      ]
+    },
+    "lobos": {
+      "cat": "criaturas",
+      "title": "Lobos del pinar",
+      "unlock": "fought:wolf | sedge_quest",
+      "monsters": [
+        "wolf"
+      ],
+      "text": [
+        "Lobos grises de las Marcas, flacos este otoño. Bajan al estanque de Elderhal y, desde hace semanas, a los rediles de Sedge.",
+        {
+          "if": "killed:wolf | fought:wolf",
+          "text": "Cazan en manada: atacan con ventaja si otro lobo está junto a su presa, y su mordisco tumba. No dejes que rodeen a nadie."
+        },
+        {
+          "if": "wolves_collars",
+          "text": "Algunos llevan collares de cuero trenzado. Collares trasgos."
+        }
+      ]
+    },
+    "aranas": {
+      "cat": "criaturas",
+      "title": "Arañas gigantes",
+      "unlock": "fought:giant_spider | visited:kesh",
+      "monsters": [
+        "giant_spider"
+      ],
+      "text": [
+        "Del tamaño de un poni, con más ojos de los necesarios. Anidan en las ruinas de Kesh, al otro lado del vado, y se llevan a su nido todo lo que brilla o se mueve.",
+        {
+          "if": "fought:giant_spider",
+          "text": "Trepan por cualquier pared, caminan por sus telas sin enredarse y escupen telaraña que inmoviliza. Su mordisco lleva veneno."
+        },
+        {
+          "if": "odvar_met",
+          "text": "Odvar las odia con una pasión que no dedica ni a sus críticos."
+        }
+      ]
+    },
+    "esqueletos": {
+      "cat": "criaturas",
+      "title": "Esqueletos durn",
+      "unlock": "fought:skeleton | fought:skeleton_archer",
+      "monsters": [
+        "skeleton",
+        "skeleton_archer"
+      ],
+      "text": [
+        "Huesos de los guardianes durn, que siguen haciendo la ronda mil años después de olvidar por qué.",
+        {
+          "if": "killed:skeleton | killed:skeleton_archer",
+          "text": "El veneno no les hace nada, pero se quiebran con los golpes contundentes: mazas, martillos, bastones. Ilyra dice que rezar por ellos también ayuda."
+        }
+      ]
+    },
+    "zombis": {
+      "cat": "criaturas",
+      "title": "Zombis del túmulo",
+      "unlock": "fought:zombie",
+      "monsters": [
+        "zombie"
+      ],
+      "text": [
+        "Cuerpos que no se pudren del todo, porque algo debajo de la piedra no les deja. Lentos, torpes y muy difíciles de tumbar.",
+        {
+          "if": "killed:zombie",
+          "text": "A veces, cuando deberían caer, se levantan otra vez. Un golpe crítico o la luz radiante les quitan esas ganas."
+        }
+      ]
+    },
+    "solenne": {
+      "cat": "dioses",
+      "title": "Solenne, la del Alba",
+      "unlock": "met:aldis | ilyra_met | party:ilyra | class:cleric | bg:acolyte",
+      "text": [
+        "Diosa del alba y de la curación. Sus templos miran al este y sus sacerdotes, la Orden del Alba, visten de blanco aunque luego no haya manera de lavarlo.",
+        "Se le reza al amanecer y a la cabecera de los enfermos. Dicen que contesta; Ilyra lo dice con menos seguridad que antes.",
+        {
+          "if": "disc_found",
+          "text": "El Disco del Alba, robado del santuario de Elderhal, vuelve a estar en manos amigas."
+        }
+      ]
+    },
+    "thorun": {
+      "cat": "dioses",
+      "title": "Thorun, el de la Forja",
+      "unlock": "met:dagna | odvar_met | species:dwarf",
+      "text": [
+        "Dios de la forja y de la piedra. Le rezan herreros, canteros y casi todos los enanos, que lo tratan con la confianza de un pariente que les debe dinero.",
+        {
+          "if": "odvar_met",
+          "text": "Odvar sostiene que Thorun aprendió a tallar mirando a los Durn. No lo digas delante de un sacerdote."
+        }
+      ]
+    },
+    "mirelle": {
+      "cat": "dioses",
+      "title": "Mirelle, la de los Caminos",
+      "unlock": "met:tobin | pip_met | party:pip",
+      "text": [
+        "Diosa de los caminos y de la suerte. Le rezan buhoneros, viajeros y jugadores, casi siempre justo antes de tirar los dados.",
+        "En los cruces de las Marcas hay montoncitos de piedras para ella. Se añade una al pasar, y nunca se quita ninguna."
+      ]
+    },
+    "vesk": {
+      "cat": "dioses",
+      "title": "Vesk, el de la Noche",
+      "unlock": "pip_met | holt_met | sedge_done=scared | class:rogue | bg:criminal",
+      "text": [
+        "Dios de la noche y de los secretos. No tiene templos en las Marcas, o no a la vista; se le reza en voz baja, con la vela apagada.",
+        "Los contrabandistas le dejan una moneda en el primer cruce de cada viaje. Pip asegura que es una superstición, y siempre la deja."
+      ]
+    },
+    "kharzul": {
+      "cat": "dioses",
+      "title": [
+        {
+          "if": "odvar_seals | seen:seal.voice_what",
+          "text": "Kharzul, la Sangre de la Piedra"
+        },
+        "La voz bajo la piedra"
+      ],
+      "unlock": "bull_touched | odvar_seals | chief_fear | tumulo_entered",
+      "text": [
+        "Una voz que habla a través de la piedra agrietada y de los sueños. Seductora, paciente, en primera persona: «Yo no soy tu enemigo. Soy lo que tus antepasados te negaron».",
+        {
+          "if": "chief_fear",
+          "text": "Los Zarpas Grises la llaman «la piedra-que-llama». Les ha prometido las colinas enteras si le abren la puerta."
+        },
+        {
+          "if": "odvar_seals | seen:seal.voice_what",
+          "text": "No es un dios, aunque lo parezca: es un primordial, algo más viejo que los dioses, que los Durn cosieron bajo las Marcas con siete sellos hace mil años."
+        },
+        {
+          "if": "seal_choice=broken",
+          "text": "Ha dado un paso hacia fuera. Los otros seis toros han empezado a sangrar."
+        }
+      ]
+    },
+    "zarpas": {
+      "cat": "facciones",
+      "title": "Los Zarpas Grises",
+      "unlock": "e1_done | fought:goblin_minion | quest_camp",
+      "text": [
+        "Una tribu de trasgos del pinar de Elderhal. Su señal es una zarpa de barro pintada en lo que conquistan; su cabecilla, Krazzik Tres Dedos.",
+        {
+          "if": "dagna_blades | ledger_read",
+          "text": "Llevan espadas de acero de Valdrecht que no fabricaron ellos. Alguien se las vende."
+        },
+        {
+          "if": "chief_fear",
+          "text": "Excavan en Kesh porque una voz bajo la piedra se lo pide. Les ha prometido las colinas."
+        },
+        {
+          "if": "camp_done=peace",
+          "text": "Han levantado el campamento y se han ido monte adentro, hambrientos pero vivos."
+        },
+        {
+          "if": "camp_done=assault | camp_done=stealth",
+          "text": "Del campamento quedan tiendas quemadas y escudos rotos."
+        }
+      ]
+    },
+    "durn": {
+      "cat": "facciones",
+      "title": "Los Durn",
+      "unlock": "bull_knot | odvar_met | visited:kesh | odvar_tablet | met:aldis",
+      "text": [
+        "Un pueblo desaparecido hace mil años que tallaba toros de granito y espirales en todo lo que tocaba. De ellos quedan puentes rotos, túmulos y paredes de piedra seca que nadie sabe derribar.",
+        "La balada de los siete toros dice: «mientras miren a las colinas, las colinas dormirán».",
+        {
+          "if": "odvar_seals",
+          "text": "Encerraron a Kharzul bajo las Marcas con siete sellos, y cerraron cada uno con su propia sangre."
+        }
+      ]
+    },
+    "brezo": {
+      "cat": "facciones",
+      "title": "El Círculo del Brezo",
+      "unlock": "met:ysolde | met:sedge | bg:warden",
+      "text": [
+        "Druidas de las Marcas que cuidaban de los túmulos antes de que nadie en Merrowick tuviera memoria. Quedan pocos, y casi ninguno en los caminos.",
+        {
+          "if": "met:sedge",
+          "text": "Sedge fue del Círculo de joven. Lo dejó, o el Círculo la dejó a ella; depende del día que se lo preguntes."
+        }
+      ]
+    },
+    "gremio": {
+      "cat": "facciones",
+      "title": "El Gremio de Canteros",
+      "unlock": "sedge_brooch | pip_story | brenna_story | holt_named",
+      "text": [
+        "Los dueños de la piedra de las Marcas. Desde Valdrecht controlan las canteras, los precios y a buena parte de los jueces.",
+        {
+          "if": "brenna_story",
+          "text": "En la última huelga, la guardia de la ciudad cargó contra los canteros por orden suya. Brenna se negó."
+        },
+        {
+          "if": "pip_story",
+          "text": "Holt tiene socios en el Gremio, según Pip, que lo sabe por las malas."
+        },
+        {
+          "if": "sedge_brooch",
+          "text": "La mujer de la veta gris llevaba su broche."
+        }
+      ]
+    },
+    "orden_alba": {
+      "cat": "facciones",
+      "title": "La Orden del Alba",
+      "unlock": "met:aldis | ilyra_met | bg:acolyte",
+      "text": [
+        "Los sacerdotes y novicios de Solenne, de túnica blanca y cordón dorado. Cuidan templos, hospitales y caminos de peregrinos por todo el viejo Caeldor.",
+        {
+          "if": "ilyra_met",
+          "text": "Hace doscientos años confiaron el Disco del Alba al santuario de Elderhal."
+        }
+      ]
+    },
+    "guardia": {
+      "cat": "facciones",
+      "title": "La guardia de Valdrecht",
+      "unlock": "brenna_asked | brenna_story | camp_done",
+      "text": [
+        "Soldados de la ciudad, con escudos de bronce y el emblema de la torre. Pagan a tiempo y obedecen a quien les paga.",
+        {
+          "if": "camp_done",
+          "text": "El cabecilla de los Zarpas tenía un trono hecho con escudos de la guardia, abollados."
+        },
+        {
+          "if": "brenna_story",
+          "text": "Brenna aún lleva uno, con el emblema arrancado."
+        }
+      ]
+    },
+    "toro": {
+      "cat": "objetos",
+      "title": "El toro de granito",
+      "unlock": "e1_done | bull_touched | visited:merrowick",
+      "text": [
+        "Un toro de piedra tallado por los Durn en el prado de Merrowick, con la cabeza vuelta hacia las colinas. Uno de siete.",
+        {
+          "if": "e1_done",
+          "text": "La víspera de tu llegada se le abrió una grieta en el lomo, y de ella mana algo oscuro que huele a hierro."
+        },
+        {
+          "if": "bull_knot",
+          "text": "En la frente lleva tres espirales entrelazadas, «el nudo»: el signo durn de algo que se cerró y no debe abrirse."
+        },
+        {
+          "if": "bull_touched",
+          "text": "Cuando lo tocaste, la Marca ardió y la piedra te habló."
+        }
+      ]
+    },
+    "disco": {
+      "cat": "objetos",
+      "title": "El Disco del Alba",
+      "unlock": "shrine_seen | disc_found | ilyra_met",
+      "text": [
+        "Un disco de latón bruñido del tamaño de una mano, con el sol naciente de Solenne grabado. La Orden del Alba lo confió al santuario de Elderhal hace doscientos años.",
+        {
+          "if": "disc_found",
+          "text": "Estaba entre los trofeos de los Zarpas. Lo habéis recuperado."
+        }
+      ]
+    },
+    "cuerno": {
+      "cat": "objetos",
+      "title": "El cuerno de piedra",
+      "unlock": "seal_key | place_kesh | odvar_tablet | item:chief_map",
+      "text": [
+        "Un cuerno de toro tallado en granito, frío y pesado, con tres espirales en la base. Es la llave de las cámaras de los sellos.",
+        {
+          "if": "place_kesh | item:chief_map",
+          "text": "El mapa del cabecilla marcaba un cuerno junto al puente roto de Kesh."
+        },
+        {
+          "if": "seal_key",
+          "text": "Late cuando lo acercas a la Marca."
+        },
+        {
+          "if": "horn_placed",
+          "text": "Encajó en el hueco de la sala de los sellos como si lo hubieran tallado ayer."
+        }
+      ]
+    },
+    "libro_holt": {
+      "cat": "objetos",
+      "title": "El libro de cuentas de Holt",
+      "unlock": "ledger_read | ledger_stolen | ledger_hint",
+      "text": [
+        "Tapas de cuero gastado y letra pequeña y apretada: préstamos a pastores al doble de interés y una línea que se repite: «Zarpa — hojas — cobrado en piedra».",
+        {
+          "if": "holt_exposed",
+          "text": "Ahora lo guarda Maren, como prueba."
+        },
+        {
+          "if": "ledger_sold",
+          "text": "Se lo vendisteis a Holt por cien piezas de oro. Las cuentas, al menos, salieron bien."
+        }
+      ]
+    },
+    "espadas": {
+      "cat": "objetos",
+      "title": "Las espadas de Valdrecht",
+      "unlock": "dagna_blades | pip_secret | ledger_read",
+      "text": [
+        "Hojas de acero de Valdrecht, templadas en aceite, demasiado buenas para unos trasgos. Alguien les limó el sello del forjador.",
+        {
+          "if": "pip_secret",
+          "text": "Doce cajas iban río arriba una noche, en una barca. Pip las tiró al agua."
+        }
+      ]
+    },
+    "tablilla": {
+      "cat": "objetos",
+      "title": "La tablilla durn",
+      "unlock": "odvar_tablet | item:durn_tablet",
+      "text": [
+        "Una tablilla de piedra con espirales que los Zarpas guardaban envuelta en piel, como lo más valioso de su botín.",
+        {
+          "if": "odvar_tablet",
+          "text": "Odvar la leyó de un tirón: es la mitad del verso de Kesh, el que abre la puerta del cuerno."
+        }
+      ]
+    },
+    "cuadernos": {
+      "cat": "objetos",
+      "title": "Los cuadernos de Odvar",
+      "unlock": "notes_found | odvar_met",
+      "text": [
+        "Treinta años de notas sobre los Durn, en una letra que solo entiende su autor, y a veces ni él.",
+        {
+          "if": "notes_found",
+          "text": "Los encontrasteis en el nido de las arañas, envueltos en seda y con solo un poco de baba."
+        }
+      ]
+    },
+    "piedra_suerte": {
+      "cat": "objetos",
+      "title": "La piedra de la suerte de Sedge",
+      "unlock": "sedge_rewarded",
+      "text": [
+        "Un canto rodado con un agujero en el centro, gastado de tanto tocarlo. Sedge lo llevó treinta años colgado del cuello.",
+        "Dice que una piedra con agujero deja pasar la suerte y no deja pasar la desgracia. Dice también que no se lo cree."
+      ]
+    }
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "_nota": "Objetos de la historia (nombres para los avisos). Los nuevos los añade Motor a items.json del núcleo (tabla en docs/CAPITULO1.md §8); los demás ya existen en el núcleo y aquí solo se listan para validar.",
+  "new": {
+    "holt_ledger": {
+      "name": "Libro de cuentas de Holt Varga",
+      "kind": "key",
+      "desc": "Tapas de cuero gastado, letra pequeña y apretada. Entre préstamos a pastores, una línea se repite: «Zarpa — hojas — cobrado en piedra»."
+    },
+    "dawn_disc": {
+      "name": "Disco del Alba",
+      "kind": "key",
+      "desc": "Un disco de latón bruñido del tamaño de una mano, con el sol naciente de Solenne grabado. Lo robaron del santuario de Elderhal."
+    },
+    "chief_map": {
+      "name": "Mapa de piel del cabecilla",
+      "kind": "key",
+      "desc": "Un trozo de piel curtida con el bosque, el río y un puente roto pintados con hollín. Junto al puente, un cuerno."
+    },
+    "odvar_notes": {
+      "name": "Cuadernos de Maese Odvar",
+      "kind": "key",
+      "desc": "Treinta años de notas sobre los Durn, en una letra que solo entiende su autor (y a veces ni él)."
+    },
+    "stone_horn": {
+      "name": "Cuerno de piedra",
+      "kind": "key",
+      "desc": "Un cuerno de toro tallado en granito, frío y pesado, con tres espirales en la base. Late cuando lo acercas a la Marca."
+    }
+  },
+  "known": {
+    "durn_tablet": {
+      "name": "Tablilla durn"
+    },
+    "stone_good_luck": {
+      "name": "Piedra de la suerte"
+    },
+    "rations": {
+      "name": "Raciones (1 día)"
+    },
+    "key_cache": {
+      "name": "Llave oxidada"
+    },
+    "coin_durn": {
+      "name": "Moneda durn"
+    },
+    "gloves_thievery": {
+      "name": "Guantes de ladrón"
+    },
+    "periapt_wound_closure": {
+      "name": "Periapto de cierre de heridas"
+    }
+  }
+}

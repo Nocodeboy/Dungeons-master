@@ -1,0 +1,196 @@
+{
+  "title": "Epílogo",
+  "subtitle": "El toro que sangra",
+  "slides": [
+    {
+      "id": "sello",
+      "title": "El primer sello",
+      "variants": [
+        {
+          "if": "seal_choice=restored",
+          "text": "El primer sello de Durn-Kahl vuelve a estar cerrado. El toro de Merrowick deja de sangrar esa misma noche; por la mañana, la grieta de su lomo es una costura gris, como una cicatriz vieja, y el toro mira otra vez a las colinas.\n\nA ti la veta te llega ya a la garganta, fría. Por las noches oyes latir siete corazones de piedra. Uno, muy al norte, va demasiado deprisa."
+        },
+        {
+          "if": "seal_choice=broken",
+          "text": "El primer sello de Durn-Kahl se ha roto. Tu Marca ya no arde: es solo una veta gris, fría y quieta, como una cicatriz que nadie recuerda haberse hecho. Por primera vez en meses duermes una noche entera.\n\nDel toro de Merrowick queda un montón de granito sobre su pedestal. Y en las colinas, los pastores empiezan a hablar de otros toros que sangran."
+        }
+      ]
+    },
+    {
+      "id": "merrowick",
+      "title": "Merrowick",
+      "variants": [
+        {
+          "if": "camp_done=peace",
+          "text": "Los Zarpas Grises no vuelven. Algunos pastores dicen haber visto humo en las colinas peladas del norte, y a un trasgo de tres dedos que les saluda desde lejos. La alcaldesa Maren no sabe si darte las gracias o vigilarte, así que hace las dos cosas."
+        },
+        {
+          "if": "camp_done=assault",
+          "text": "Merrowick entierra a sus muertos, que son pocos, y quema lo que queda del campamento de Elderhal, que es mucho. La alcaldesa Maren manda tallar en el tablón de la posada los nombres de quienes defendieron la aldea. El tuyo es el primero."
+        },
+        {
+          "if": "camp_done=stealth",
+          "text": "Sin su cabecilla, los Zarpas Grises se dispersan por el bosque como hormigas sin reina. Durante semanas faltan gallinas y sobran trasgos, pero ninguno vuelve a bajar a Merrowick. La alcaldesa Maren no pregunta cómo lo hiciste. Prefiere no saberlo."
+        }
+      ],
+      "extras": [
+        {
+          "if": "holt_exposed",
+          "text": "Holt Varga pasa el invierno encerrado en la cantera vieja, hasta que llega de Valdrecht la guardia a llevárselo. Nunca llega a juicio: alguien con un abrigo mejor que el suyo paga para que no llegue."
+        },
+        {
+          "if": "ledger_sold",
+          "text": "Holt Varga recupera su libro de cuentas y vuelve a Valdrecht. En primavera, los pastores de Merrowick reciben cartas de sus socios reclamando deudas, con la misma letra pequeña y apretada."
+        },
+        {
+          "if": "holt_gone & !holt_exposed & !ledger_sold",
+          "text": "Holt Varga no vuelve a Merrowick. Pero el carro que cruje sigue subiendo a las Marcas: ahora lo conduce otro, con un abrigo igual de bueno."
+        }
+      ]
+    },
+    {
+      "id": "sedge",
+      "title": "La vieja Sedge",
+      "if": "sedge_quest | sedge_done",
+      "variants": [
+        {
+          "if": "sedge_done=tamed",
+          "text": "Los lobos no vuelven a los pastos. A veces, al anochecer, la vieja Sedge oye aullar en el norte, y dice que no es hambre: que es una canción. Guarda en una caja los collares de los trasgos, con sus piedrecitas de espirales, y no deja que nadie los toque."
+        },
+        {
+          "if": "sedge_done=scared",
+          "text": "Los lobos no vuelven a los pastos. Las ovejas engordan, el perro también, y la vieja Sedge vuelve a quejarse de todo, que es su manera de estar contenta."
+        },
+        {
+          "if": "sedge_done=killed",
+          "text": "Las ovejas de la vieja Sedge duermen tranquilas. Ella no tanto: dice que el bosque está más callado sin lobos, y que el silencio, en las Marcas, nunca es buena señal."
+        },
+        {
+          "if": "!sedge_done",
+          "text": "Los lobos siguen bajando a los pastos cada noche. La vieja Sedge cuenta las ovejas que le quedan y no le pide ayuda a nadie más."
+        }
+      ],
+      "extras": [
+        {
+          "if": "sedge_brooch",
+          "text": "Antes de que te vayas, la vieja Sedge te para en el camino: «La mujer de la veta llevaba un broche con un toro de plata. Como los del Gremio de Canteros. Pregunta en Valdrecht.»"
+        },
+        {
+          "if": "marca_sedge & !sedge_brooch",
+          "text": "Antes de que te vayas, la vieja Sedge te para en el camino: «La mujer de la veta… Ahora me acuerdo: llevaba un broche con un toro de plata, como los del Gremio de Canteros de Valdrecht.»"
+        }
+      ]
+    },
+    {
+      "id": "pip",
+      "title": "Pip Tallowmere",
+      "if": "pip_met",
+      "variants": [
+        {
+          "if": "pip_left",
+          "text": "Pip Tallowmere se fue por los caminos sin despedirse de nadie más. En primavera llega a la posada de Corwin una carta sin remite con tres piezas de oro dentro y una nota: «Por la sidra. No me busquéis.»"
+        },
+        {
+          "if": "party:pip & approval:pip>=30",
+          "text": "Pip Tallowmere sigue a tu lado, contando en cada taberna que fue él quien te salvó a ti. Nadie le cree. Él tampoco, pero lo cuenta muy bien. Por primera vez en su vida, no debe dinero a nadie. Bueno: casi a nadie."
+        },
+        {
+          "if": "party:pip & approval:pip<0",
+          "text": "Pip sigue contigo, de momento. Duerme con la bolsa debajo de la almohada y un ojo en la puerta: no sabe si fiarse de ti, y tú tampoco de él."
+        },
+        {
+          "if": "party:pip",
+          "text": "Pip Tallowmere sigue contigo, apostando con los arrieros, perdiendo con elegancia y robando manzanas en cada huerto del camino. Dice que es su manera de pagar el viaje."
+        },
+        {
+          "if": "pip_waiting | pip_debt",
+          "text": "Pip Tallowmere se queda en la posada del Toro Dormido, ayudando a Corwin en la barra a cambio de la sidra que le debe. Cada noche cuenta tu historia, cada vez más larga y con más trasgos."
+        },
+        {
+          "if": "!pip_debt",
+          "text": "Pip Tallowmere sigue sentado en la mesa del rincón de la posada. Holt Varga, también. Ninguno de los dos parece tener prisa."
+        }
+      ]
+    },
+    {
+      "id": "ilyra",
+      "title": "Ilyra Sorendel",
+      "if": "ilyra_met | ilyra_dead",
+      "variants": [
+        {
+          "if": "ilyra_dead",
+          "text": "Entre las cenizas del santuario de Elderhal, la hermana Aldis entierra a Madre Aldwen y a su novicia, juntas, y planta encima un rosal blanco. Nadie más vuelve a rezar allí."
+        },
+        {
+          "if": "ilyra_faith=renewed",
+          "text": "Ilyra Sorendel reconstruye el santuario de Elderhal piedra a piedra, con ayuda de la hermana Aldis y de media aldea. El Disco del Alba vuelve a colgar sobre la puerta. Dicen que al amanecer brilla, aunque Ilyra jura que es solo latón y que lo que brilla es el sol."
+        },
+        {
+          "if": "ilyra_faith=own_path",
+          "text": "Ilyra cuelga el hábito de novicia en el santuario quemado y recorre los caminos de las Marcas con una bolsa de vendas y una maza. Cura a quien encuentra, pague o no pague, rece o no rece. Los pastores empiezan a llamarla «la del alba», sin saber muy bien por qué."
+        },
+        {
+          "if": "ilyra_faith=broken",
+          "text": "Ilyra Sorendel vuelve a Valdrecht y deja la Orden del Alba. Nadie sabe qué ha sido de ella. El Disco del Alba descansa en el templo de Merrowick, y la hermana Aldis lo limpia cada mañana, por si acaso."
+        },
+        {
+          "if": "ilyra_left",
+          "text": "Ilyra Sorendel se marchó sola hacia el santuario quemado. Dicen que barre las cenizas cada mañana, aunque ya no queda nada que barrer."
+        },
+        {
+          "text": "Ilyra Sorendel se queda en el templo de Merrowick, con la hermana Aldis. Todavía espera una respuesta, y todavía reza, por si acaso."
+        }
+      ]
+    },
+    {
+      "id": "odvar",
+      "title": "Maese Odvar Stonebrow",
+      "if": "odvar_met",
+      "variants": [
+        {
+          "if": "odvar_left",
+          "text": "Maese Odvar volvió a Kesh, ofendido y digno. Desde allí te escribe cartas larguísimas que no menciona nunca la discusión, y que siempre terminan con un acertijo."
+        },
+        {
+          "if": "odvar_joined & seal_choice=broken",
+          "text": "Maese Odvar Stonebrow empieza el cuarto tomo de su Tratado: «De la piedra que sangra». En el prefacio llama a tu decisión «lamentable desde el punto de vista arqueológico y comprensible desde todos los demás». Te lo dedica igual."
+        },
+        {
+          "if": "odvar_joined",
+          "text": "Maese Odvar Stonebrow empieza el cuarto tomo de su Tratado: «De la piedra que sangra». Te dedica el primer capítulo sin pedirte permiso, con un nombre en clave que le parece muy discreto y que reconocería cualquiera."
+        },
+        {
+          "text": "Maese Odvar se queda en Kesh, copiando las espirales de la cámara abierta. Dice que tardará diez años. Probablemente tarde veinte, y será feliz cada uno de ellos."
+        }
+      ]
+    },
+    {
+      "id": "brenna",
+      "title": "Brenna Halvard",
+      "variants": [
+        {
+          "if": "brenna_left",
+          "text": "Brenna Halvard se fue hacia el sur con su escudo sin emblema. En las tabernas del camino de Valdrecht se habla de una guardia de caravanas que no acepta encargos de nadie con abrigo bueno."
+        },
+        {
+          "if": "party:brenna & brenna_story & approval:brenna>=30",
+          "text": "Brenna Halvard sigue a tu lado. Una noche, con vino del bueno, te cuenta el resto de la historia del capitán Vell, la parte que no te contó junto a la hoguera. Al terminar, levanta la copa: «Por los que sujetan la puerta.»"
+        },
+        {
+          "if": "party:brenna & approval:brenna>=0",
+          "text": "Brenna sigue contigo, refunfuñando por el frío, por la comida y por tus decisiones. No se separa de ti ni un paso."
+        },
+        {
+          "if": "party:brenna",
+          "text": "Brenna sigue contigo, aunque cada día habla menos. A veces la sorprendes mirándote como se mira a un arma que no se sabe si va a disparar."
+        },
+        {
+          "text": "Brenna Halvard te espera en la posada del Toro Dormido, con la mesa de la ventana y una cerveza que, como prometiste, pagas tú."
+        }
+      ]
+    }
+  ],
+  "closing": [
+    "El camino a Valdrecht se abre al sur, entre colinas que ahora sabes que no duermen. Lo que empezó como un picor en el brazo es ya una pregunta con nombre: Kharzul, la Sangre de la Piedra. La respuesta, como la piedra, espera."
+  ]
+}
