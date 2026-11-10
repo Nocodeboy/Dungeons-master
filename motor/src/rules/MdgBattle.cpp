@@ -1858,7 +1858,7 @@ void Battle::gain_temp_hp(Creature* target, int amount)
 
 // ================================================================== perfiles de ataque
 
-std::vector<Var> Battle::attack_profiles(const Creature* c) const
+std::vector<Var> Battle::profiles_of(const Creature* c)
 {
 	std::vector<Var> out;
 	for (const Var& w : c->weapons)

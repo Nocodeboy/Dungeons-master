@@ -120,7 +120,9 @@ public:
 	void gain_temp_hp(Creature* target, int amount);
 
 	// ---------------------------------------------------------------- ataques
-	std::vector<Var> attack_profiles(const Creature* c) const;
+	std::vector<Var> attack_profiles(const Creature* c) const { return profiles_of(c); }
+	/** Perfiles de ataque de una criatura (no depende del estado del combate: lo usa la hoja). */
+	static std::vector<Var> profiles_of(const Creature* c);
 	Var profile_by_key(const Creature* c, const std::string& key) const;
 	bool in_attack_range(const Creature* c, const Var& p, const Creature* target, std::optional<Cell> from_cell = std::nullopt) const;
 	Var best_melee_profile(const Creature* c) const;
