@@ -66,7 +66,8 @@ class Sesion {
     this.pagina.on('console', (m) => {
       const t = m.text();
       if (/GL Driver Message|KHR_parallel_shader_compile|GPU stall/.test(t)) return;
-      if (m.type() === 'error' || m.type() === 'warning') this.consola.push({ t: Date.now() - this.t0, tipo: m.type(), msg: t.slice(0, 400) });
+      // Errores, avisos y los «info» que delatan algo raro (operaciones simuladas, bajada de calidad).
+      if (m.type() === 'error' || m.type() === 'warning' || /simulador|calidad \d|\[exploración\] tiempos/.test(t)) this.consola.push({ t: Date.now() - this.t0, tipo: m.type(), msg: t.slice(0, 400) });
     });
     this.pagina.on('pageerror', (e) => this.consola.push({ t: Date.now() - this.t0, tipo: 'pageerror', msg: String(e.message).slice(0, 400) }));
     return this;

@@ -107,3 +107,20 @@ Verificadas llamando a `__mdg.rules(op, {})` con todas las cadenas candidatas de
 3. Los parámetros `turbo`, `calidad`, `escala`, `autocombate`, `autonivel`, `semilla`, `captura-nitida`.
 4. El DOM: `.mg-menu-btn[data-k]`, `.mg-cr-step`, `.mg-cr-nav .mg-btn--primary`, `.mg-cr-body input[type=text]`, `section.mg-dlg`, `button.mg-dlg-opt`, `.mg-dlg-t`, `.mg-dlg-name`, `.mg-layer[data-capa=…]`, `.mg-btn--primary`, `#carga`.
 5. Eventos `dialog:open`, `battle:start`, `battle:end`, `ui:open`.
+
+## 10. Uso del arnés
+
+```bash
+cd publicado && python3 -m http.server 8751 &          # la referencia
+flock /tmp/mdg-pesado.lock node qa/humo.cjs            # < 2 min: menú → creador → Merrowick → combate e1
+flock /tmp/mdg-pesado.lock node qa/humo.cjs --entero   # … y espera a que termine el combate
+flock /tmp/mdg-pesado.lock node qa/flujo.cjs           # capítulo completo (largo)
+node qa/flujo.cjs --hasta=posada                       # solo hasta una etapa
+node qa/flujo.cjs --desde=kesh                         # retoma desde el punto de control de la etapa anterior
+node qa/flujo.cjs --base=http://localhost:8752/        # lo mismo contra web/dist/
+node qa/referencia.cjs                                 # capturas seleccionadas → qa/referencia/*.webp
+```
+
+- Salida en `qa/salida/<prueba>/` (fuera de git): capturas `NN_etapa.png`, `informe.json` (etapas con el estado observable de cada una: escena, nivel, nivel del grupo, PV, oro, inventario, misiones, banderas, errores; consola; eventos del bus; conversaciones con la opción elegida y por qué; combates con semilla y resultado) y `puntos/<etapa>.json` (partida guardada al terminar cada etapa, formato `mdg.partida.*`).
+- `--tiradas=exito` (por defecto) pone `story.debug.rollMode = "success"`: las pruebas de característica de los diálogos salen siempre bien, para que el recorrido no dependa del azar. `--tiradas=real` las deja al dado. Los combates usan `?semilla` y, si se pierden, se repiten con otra semilla.
+- El piloto (`qa/lib/piloto.js`) expone `window.__qa` en la página: `politica` (preferencias de diálogo por id, opciones a evitar, pantallas que cerrar, qué hacer al descansar o perder), `pararEn` (detenerse al aparecer una capa o un diálogo, para capturar), `eventos`, `dialogos`, `combates`, `errores`, `derrotas`.
