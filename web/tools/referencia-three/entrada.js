@@ -2,6 +2,7 @@
 // Los módulos que en el publicado van envueltos en __esm se cargan con import() dinámico;
 // los addons de posprocesado y OrbitControls, que en el publicado van sin envolver, se
 // importan de forma estática. Se exponen todos sus exports para que no se elimine nada.
+// El orden reproduce el del publicado (el que resulta de los imports de GTAOPass, etc.).
 import * as OrbitControls from 'three/addons/controls/OrbitControls.js';
 import * as CopyShader from 'three/addons/shaders/CopyShader.js';
 import * as Pass from 'three/addons/postprocessing/Pass.js';
@@ -12,13 +13,13 @@ import * as RenderPass from 'three/addons/postprocessing/RenderPass.js';
 import * as LuminosityHighPassShader from 'three/addons/shaders/LuminosityHighPassShader.js';
 import * as UnrealBloomPass from 'three/addons/postprocessing/UnrealBloomPass.js';
 import * as GTAOShader from 'three/addons/shaders/GTAOShader.js';
-import * as SimplexNoise from 'three/addons/math/SimplexNoise.js';
 import * as PoissonDenoiseShader from 'three/addons/shaders/PoissonDenoiseShader.js';
+import * as SimplexNoise from 'three/addons/math/SimplexNoise.js';
 import * as GTAOPass from 'three/addons/postprocessing/GTAOPass.js';
 import * as OutputShader from 'three/addons/shaders/OutputShader.js';
 import * as OutputPass from 'three/addons/postprocessing/OutputPass.js';
 globalThis.__ref = [OrbitControls, CopyShader, Pass, ShaderPass, MaskPass, EffectComposer, RenderPass,
-  LuminosityHighPassShader, UnrealBloomPass, GTAOShader, SimplexNoise, PoissonDenoiseShader, GTAOPass,
+  LuminosityHighPassShader, UnrealBloomPass, GTAOShader, PoissonDenoiseShader, SimplexNoise, GTAOPass,
   OutputShader, OutputPass];
 globalThis.__dyn = [
   () => import('three'),

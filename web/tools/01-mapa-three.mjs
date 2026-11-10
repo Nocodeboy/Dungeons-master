@@ -129,8 +129,9 @@ const unidadesTresMin = new Set(); // unidades del minificado reconocidas como t
 const informe = [];
 
 function alinear(etiqueta, sentMin, sentRef) {
-  const uMin = unidades(sentMin, esmMin, initMin);
-  const uRef = unidades(sentRef, esmRef, initRef);
+  // Las llamadas init() no aportan información y provocan empates en la LCS: fuera.
+  const uMin = unidades(sentMin, esmMin, initMin).filter((u) => u.tipo !== 'init');
+  const uRef = unidades(sentRef, esmRef, initRef).filter((u) => u.tipo !== 'init');
   const fMin = uMin.map(firmaUnidad);
   const fRef = uRef.map(firmaUnidad);
   const pares = lcs(fMin, fRef);
@@ -186,8 +187,8 @@ const duplicados = [...inverso.entries()].filter(([, l]) => l.length > 1);
 const sentenciasColaThree = [];
 for (const s of cola.sentencias) {
   const us = uCola.filter((u) => u.sent === s || u.decl && s.declarations?.includes(u.decl));
-  const esInitXe = s.type === 'ExpressionStatement' && s.expression.type === 'CallExpression' && s.expression.callee.name === 'Xe';
-  if (us.length && us.every((u) => unidadesTresMin.has(u))) sentenciasColaThree.push({ start: s.start, end: s.end });
+  const esInitXe = s.type === 'ExpressionStatement' && s.expression.type === 'CallExpression' && initMin.has(s.expression.callee.name);
+  if (us.length && us.every((u) => unidadesTresMin.has(u))) sentenciasColaThree.push({ start: s.start, end: s.end, indice: cuerpo.indexOf(s) });
   else if (us.some((u) => unidadesTresMin.has(u)) && !esInitXe) console.warn('Sentencia mixta en la cola:', codMin.slice(s.start, s.start + 80));
 }
 
@@ -195,6 +196,10 @@ fs.writeFileSync(SALIDA, JSON.stringify({
   informe,
   modulosEnvueltos: modMin.map((m, k) => ({ init: m.init, ruta: RUTAS_ENVUELTAS[k], desde: cuerpo[m.desde].start, hasta: cuerpo[m.hasta].end })),
   ayudantes: { desde: 0, hasta: cuerpo[PRIMERA - 1].end },
+  // Índices de sentencia (estables tras renombrar) de todo lo que es three.
+  indicesThree: [...Array(modMin[modMin.length - 1].hasta - PRIMERA + 1).keys()].map((k) => k + PRIMERA)
+    .concat(sentenciasColaThree.map((x) => x.indice)),
+  initsThree: INITS_THREE,
   sentenciasColaThree,
   conflictos,
   duplicados,
