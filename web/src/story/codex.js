@@ -6,7 +6,7 @@ import historiaSaber from '../datos/historia/saber.json';
 const mS = ['visited', 'met', 'fought', 'killed'];
 const Yv = (o) => (o == null ? [] : Array.isArray(o) ? o : [o]);
 const gI = (o) => String(o).replace('.', ',');
-const xm = class {
+const Codex = class {
   constructor(e, t = historiaSaber) {
     ((this.story = e),
       (this.game = e.game),
@@ -208,4 +208,4 @@ ${n.lines.join(`
   }
 };
 
-export { xm };
+export { Codex };

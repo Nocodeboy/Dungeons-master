@@ -40,7 +40,7 @@ const ND = ['amable', 'sarcastico', 'frio'];
 const _u = { text: 'Continuar', kind: 'continue' };
 const FD = (o, e, t) => Math.max(e, Math.min(t, o));
 const Ln = (o) => (o == null ? [] : Array.isArray(o) ? o : [o]);
-const mm = class {
+const StoryRunner = class {
   constructor(e, t, a = {}) {
     ((this.game = e),
       (this.data = t),
@@ -1282,4 +1282,4 @@ const mm = class {
   }
 };
 
-export { mm };
+export { StoryRunner };

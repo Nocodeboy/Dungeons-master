@@ -16,7 +16,7 @@ function WL(o) {
     foot: [$L[o.cast] || '', ...(o.bits || [])].filter(Boolean).join(' \xB7 '),
   });
 }
-function fc(o, e, t) {
+function buildCreator(o, e, t) {
   let a = o.R,
     n = t.mode || 'create',
     s = n === 'levelup',
@@ -894,4 +894,4 @@ const QT = {
   melee: ['Cuerpo a cuerpo', 't-dano'],
 };
 
-export { fc };
+export { buildCreator };

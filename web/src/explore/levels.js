@@ -1,7 +1,7 @@
 // explore/levels.js
 // Reconstruido de publicado/juego.js (módulo __esm «LS»). Nombres locales aún minificados.
 
-async function zS(o, e = null) {
+async function loadLevel(o, e = null) {
   if (e1.has(o)) return structuredClone(e1.get(o));
   let t = null;
   if (e?.loadLevel)
@@ -21,4 +21,4 @@ async function zS(o, e = null) {
 }
 const e1 = new Map();
 
-export { zS };
+export { loadLevel };

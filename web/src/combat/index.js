@@ -3,7 +3,7 @@
 
 import { Vector3 } from 'three';
 import { createVfx } from '../vfx/index.js';
-import { xc, ds, nt } from '../explore/hex.js';
+import { cellToWorld, planeToCell, HEX_SIZE } from '../explore/hex.js';
 import { Om } from './overlay.js';
 import { Hud } from './hud.js';
 import { Controller } from './controller.js';
@@ -36,7 +36,7 @@ async function runBattle(o, e = {}) {
   let { three: t, world: a = null, actors: n = null, init: s } = e;
   if (!s || !s.state) throw new Error('runBattle: falta init.state');
   let i = o.stage,
-    r = a?.cellToWorld ? (A) => a.cellToWorld(A, new Vector3()) : (A) => xc(A[0], A[1]),
+    r = a?.cellToWorld ? (A) => a.cellToWorld(A, new Vector3()) : (A) => cellToWorld(A[0], A[1]),
     l = a?.pick ? (A) => a.pick(A) : null,
     c = s.state.map || { w: 0, h: 0, rows: [] };
   !c.w && c.rows?.length && ((c.h = c.rows.length), (c.w = c.rows[0].length));
@@ -73,7 +73,7 @@ async function runBattle(o, e = {}) {
         : null,
     _ = await p3(t, s.state.creatures, n, { cellToWorld: r, makeMissing: m });
   if (a?.cellToWorld) {
-    let A = (P, I) => r(ds(P / nt, I / nt)).y;
+    let A = (P, I) => r(planeToCell(P / HEX_SIZE, I / HEX_SIZE)).y;
     for (let P of _.list) P.groundAt = A;
   }
   let b = new Om(t, c, { cellToWorld: r, pick: l });

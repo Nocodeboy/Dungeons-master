@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «ty»). Nombres locales aún minificados.
 
 import { Vector3 } from 'three';
-import { Ut, neighbors, Wt } from './hex.js';
+import { cellKey, neighbors, hexDistance } from './hex.js';
 import { Ck, W1 } from './hud.js';
 import './checks.js';
 import { Uo } from './battle.js';
@@ -10,15 +10,15 @@ import { Uo } from './battle.js';
 async function f0(o, e, { actorId: t = null, adjacent: a = !0 } = {}) {
   let n = o.member(t) || o.lead();
   if (!n) return !1;
-  if ((a && Wt(n.cell, e) <= 1) || (n.cell[0] === e[0] && n.cell[1] === e[1]))
+  if ((a && hexDistance(n.cell, e) <= 1) || (n.cell[0] === e[0] && n.cell[1] === e[1]))
     return (n.moving && o.stopAll(), o.faceTo(n.id, e), !0);
   let s = o.blocked(),
     i = null;
-  if (!a && o.xmap.walkable(e) && !s.has(Ut(e[0], e[1]))) i = e;
+  if (!a && o.xmap.walkable(e) && !s.has(cellKey(e[0], e[1]))) i = e;
   else {
     let l = null;
     for (let c of neighbors(e[0], e[1])) {
-      if (!o.xmap.walkable(c) || s.has(Ut(c[0], c[1]))) continue;
+      if (!o.xmap.walkable(c) || s.has(cellKey(c[0], c[1]))) continue;
       let d = o.xmap.path(n.cell, c, s);
       d.length && (!l || d.length < l.length) && (l = d);
     }
@@ -231,7 +231,7 @@ function Wk(o, e, t) {
 }
 function $k(o, e, t) {
   for (let [a, n] of o.groups)
-    if (!n.hidden && n.enemies.some((s) => !s.dead && Wt(s.cell, e) <= 7)) {
+    if (!n.hidden && n.enemies.some((s) => !s.dead && hexDistance(s.cell, e) <= 7)) {
       (o.toast(t, 'mal'), setTimeout(() => !o.inBattle && o.groups.has(a) && Uo(o, a, {}), 900));
       return;
     }
@@ -595,7 +595,7 @@ function TN(o, e = 14) {
   for (let t of o.groups.values())
     for (let a of t.enemies)
       if (!a.dead) {
-        for (let n of o.members) if (Wt(a.cell, n.cell) <= e) return !0;
+        for (let n of o.members) if (hexDistance(a.cell, n.cell) <= e) return !0;
       }
   return !1;
 }
@@ -621,7 +621,7 @@ async function uy(o, { camp: e = !1, where: t = '' } = {}) {
   for (let [h, p] of o.objects)
     p.type === 'campfire' &&
       o.objectVisible(p) &&
-      Wt(p.cell, o.lead().cell) <= 3 &&
+      hexDistance(p.cell, o.lead().cell) <= 3 &&
       ((s = !0), (t ||= p.name));
   let i = a.short_rests_left ?? 2,
     r = i > 0 && !n,

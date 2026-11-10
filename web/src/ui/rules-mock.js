@@ -1,9 +1,9 @@
 // ui/rules-mock.js
 // Reconstruido de publicado/juego.js (módulo __esm «Ww»). Nombres locales aún minificados.
 
-import { Gw } from './catalog.js';
+import { createSimulator } from './catalog.js';
 
-function $w(o, { mock: e = !0 } = {}) {
+function createRulesBridge(o, { mock: e = !0 } = {}) {
   let t = new Set(),
     a = null,
     n = { core: new Set(), mock: new Set() };
@@ -16,7 +16,7 @@ function $w(o, { mock: e = !0 } = {}) {
       } catch (m) {
         (console.warn(`[interfaz] ${h}:`, m), t.add(h));
       }
-    if (e && ((a ??= Gw()), a[h])) {
+    if (e && ((a ??= createSimulator()), a[h])) {
       (n.mock.has(h) ||
         console.info(`[interfaz] \xAB${h}\xBB con el simulador (el n\xFAcleo a\xFAn no la tiene)`),
         n.mock.add(h));
@@ -94,4 +94,4 @@ function $w(o, { mock: e = !0 } = {}) {
 }
 const sz = /op desconocida|unknown op|sin combate/i;
 
-export { $w };
+export { createRulesBridge };

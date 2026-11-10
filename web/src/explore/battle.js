@@ -2,8 +2,8 @@
 // Reconstruido de publicado/juego.js (módulo __esm «p0»). Nombres locales aún minificados.
 
 import { MathUtils } from 'three';
-import { Wt } from './hex.js';
-import { Tu } from './checks.js';
+import { hexDistance } from './hex.js';
+import { rollDice } from './checks.js';
 
 function Dc(o, e) {
   return new Promise((t) => {
@@ -55,7 +55,7 @@ async function Uk(o, e) {
   if (!a) return;
   let n = a.def.sight ?? 8,
     s = o.members.some((c) =>
-      a.enemies.some((d) => !d.dead && Wt(d.cell, c.cell) <= n && o.xmap.los(d.cell, c.cell)),
+      a.enemies.some((d) => !d.dead && hexDistance(d.cell, c.cell) <= n && o.xmap.los(d.cell, c.cell)),
     ),
     i = o.stealth && (a.roll ? a.roll.success : !s),
     r = await import('./detection.js');
@@ -442,7 +442,7 @@ async function Gk(o, e, { flee: t = !1 } = {}) {
       .map(async (i) => {
         let r = o.xmap
           .freeNear(i.cell, 30, o.blocked(!0), { maxR: 9 })
-          .sort((d, u) => Wt(u, n?.cell || i.cell) - Wt(d, n?.cell || i.cell))[0];
+          .sort((d, u) => hexDistance(u, n?.cell || i.cell) - hexDistance(d, n?.cell || i.cell))[0];
         if (r) {
           let d = o.xmap.path(i.cell, r, o.blocked(!0)).slice(1, 9);
           await qk(o, i.actor, d, { speed: t ? 4.2 : 2.2, anim: t ? 'run' : 'walk' });
@@ -566,7 +566,7 @@ async function mN(o, e, t) {
       (ny(c.actor, d.actor), o.camera.focus(d.actor.root.position));
       let u = c.actor.once('attack_melee', { speed: 1.4 });
       await Yu(300 / (o.turbo || 1));
-      let h = a.d20() + 3 >= 13 ? Tu('1d8', a.rng) + 2 + i : 0;
+      let h = a.d20() + 3 >= 13 ? rollDice('1d8', a.rng) + 2 + i : 0;
       (h
         ? (d.actor.once('hit'),
           o.overlay.float((p) => d.actor.head(p), `${h}`, '', { dur: 1 }),
@@ -580,7 +580,7 @@ async function mN(o, e, t) {
       ny(c.actor, d.actor);
       let u = c.actor.once('attack_melee', { speed: 1.4 });
       if ((await Yu(250 / (o.turbo || 1)), a.d20() + 4 >= 14)) {
-        let h = Tu('1d6', a.rng) + 1;
+        let h = rollDice('1d6', a.rng) + 1;
         r -= h;
         let p = a.state(d.id);
         ((p.hp = Math.max(1, a.hp(d.id).hp - h)),

@@ -1,7 +1,7 @@
 // explore/areas.js
 // Reconstruido de publicado/juego.js (módulo __esm «hk»). Nombres locales aún minificados.
 
-function B1(o) {
+function loadArea(o) {
   return (
     O1.has(o) ||
       O1.set(
@@ -19,7 +19,7 @@ function B1(o) {
   );
 }
 async function uk() {
-  let [o, e, t] = await Promise.all([B1('world'), B1('actors'), B1('combat')]);
+  let [o, e, t] = await Promise.all([loadArea('world'), loadArea('actors'), loadArea('combat')]);
   return {
     world: o?.buildLevel ? o : null,
     actors: e?.makeHero || e?.makeNpc ? e : null,

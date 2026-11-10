@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «y1»). Nombres locales aún minificados.
 
 import { MathUtils, Raycaster, Vector2, Vector3 } from 'three';
-import { wm, ds, Ut, Wt, nt } from '../explore/hex.js';
+import { worldToPlane, planeToCell, cellKey, hexDistance, HEX_SIZE } from '../explore/hex.js';
 import { Um, QS } from './hands.js';
 import { BS } from '../vfx/conditions.js';
 import efectosConjuros from '../datos/efectos/conjuros.json';
@@ -154,9 +154,9 @@ const Controller = class {
     };
   }
   planeToWorld(e) {
-    let t = ds(e[0], e[1]),
+    let t = planeToCell(e[0], e[1]),
       a = this.cellToWorld(t);
-    return new Vector3(e[0] * nt, a.y, e[1] * nt);
+    return new Vector3(e[0] * HEX_SIZE, a.y, e[1] * HEX_SIZE);
   }
   emit(e, t) {
     try {
@@ -433,15 +433,15 @@ const Controller = class {
     let t = this.opts;
     (this.board.clear(), (this.moveMap = new Map()));
     for (let [n, s, i, r, l] of t.move || [])
-      this.moveMap.set(Ut(n, s), { cell: [n, s], ft: i, prev: [r, l], dash: !1 });
+      this.moveMap.set(cellKey(n, s), { cell: [n, s], ft: i, prev: [r, l], dash: !1 });
     this.dashMap = new Map();
     for (let [n, s, i, r, l] of t.dash || [])
-      this.moveMap.has(Ut(n, s)) ||
-        this.dashMap.set(Ut(n, s), { cell: [n, s], ft: i, prev: [r, l], dash: !0 });
-    let a = Ut(...e.cell);
+      this.moveMap.has(cellKey(n, s)) ||
+        this.dashMap.set(cellKey(n, s), { cell: [n, s], ft: i, prev: [r, l], dash: !0 });
+    let a = cellKey(...e.cell);
     (this.board.set(
       'move',
-      [...this.moveMap.values()].filter((n) => Ut(...n.cell) !== a).map((n) => n.cell),
+      [...this.moveMap.values()].filter((n) => cellKey(...n.cell) !== a).map((n) => n.cell),
       5941503,
     ),
       this.board.set(
@@ -451,7 +451,7 @@ const Controller = class {
       ));
   }
   pathTo(e, t) {
-    let a = Ut(...e),
+    let a = cellKey(...e),
       n = this.moveMap?.has(a) ? this.moveMap : this.dashMap?.has(a) ? this.dashMap : null;
     if (!n) return null;
     let s = [],
@@ -459,8 +459,8 @@ const Controller = class {
       r = 0;
     for (; i && r++ < 80 && !(i.cell[0] === t[0] && i.cell[1] === t[1]);) {
       s.unshift(i.cell);
-      let l = Ut(...i.prev);
-      if (l === Ut(...i.cell)) break;
+      let l = cellKey(...i.prev);
+      if (l === cellKey(...i.cell)) break;
       i = n.get(l) || (n === this.dashMap ? this.moveMap.get(l) : null);
     }
     return { path: s, dash: n === this.dashMap, ft: n.get(a).ft };
@@ -562,7 +562,7 @@ const Controller = class {
       let r = this.unit(t.creature.id);
       r && r.ringState === 'idle' && r.setRing('hover');
     }
-    let s = t.cell ? Ut(...t.cell) : '';
+    let s = t.cell ? cellKey(...t.cell) : '';
     if (!n) {
       (this.board.clear('hover'), (this.S.renderer.domElement.style.cursor = 'default'));
       return;
@@ -608,7 +608,7 @@ const Controller = class {
         !this.pending.locked &&
           c - (this.lastAreaHover || 0) > 60 &&
           ((this.lastAreaHover = c),
-          r === 'spell' ? this.previewArea(wm(t.gp), !0) : this.previewFeatureArea(t, !0));
+          r === 'spell' ? this.previewArea(worldToPlane(t.gp), !0) : this.previewFeatureArea(t, !0));
       } else t.creature && (i = 'pointer');
     }
     this.S.renderer.domElement.style.cursor = i;
@@ -871,8 +871,8 @@ const Controller = class {
         t || this.hud.banner(s.reason || 'Fuera de alcance', 'apagado', 700),
         null
       );
-    let i = new Set((s.allies_hit || []).map((r) => Ut(...this.creature(r).cell)));
-    this.board.set('area', s.area || [], (r) => (i.has(Ut(...r)) ? 16728112 : 11566335));
+    let i = new Set((s.allies_hit || []).map((r) => cellKey(...this.creature(r).cell)));
+    this.board.set('area', s.area || [], (r) => (i.has(cellKey(...r)) ? 16728112 : 11566335));
     for (let r of this.units.list) r.ringState === 'target' && r.setRing('idle');
     for (let r of s.area || []) {
       let l = this.state.creatures.find((c) => !c.dead && c.cell[0] === r[0] && c.cell[1] === r[1]);
@@ -893,7 +893,7 @@ const Controller = class {
       n = a.target;
     if (n === 'point' || n === 'direction') {
       if (!t.gp) return;
-      let i = wm(t.gp);
+      let i = worldToPlane(t.gp);
       if (n === 'point' && a.point && Math.hypot(a.point[0] - i.x, a.point[1] - i.y) < 0.6) {
         this.confirmSpell();
         return;
@@ -1125,7 +1125,7 @@ const Controller = class {
       this.board.clear());
     let s = [];
     for (let i = 0; i < this.board.h; i++)
-      for (let r = 0; r < this.board.w; r++) Wt([r, i], e.cell) <= a && s.push([r, i]);
+      for (let r = 0; r < this.board.w; r++) hexDistance([r, i], e.cell) <= a && s.push([r, i]);
     ((this.pending.cells =
       t.target === 'cell'
         ? s.filter(
@@ -1147,10 +1147,10 @@ const Controller = class {
   featureCells(e, t) {
     let a = this.pending;
     if (a.target === 'point') {
-      if (!t.cell || Wt(t.cell, e.cell) > a.range) return null;
+      if (!t.cell || hexDistance(t.cell, e.cell) > a.range) return null;
       let n = [];
       for (let s = 0; s < this.board.h; s++)
-        for (let i = 0; i < this.board.w; i++) Wt([i, s], t.cell) <= a.radius && n.push([i, s]);
+        for (let i = 0; i < this.board.w; i++) hexDistance([i, s], t.cell) <= a.radius && n.push([i, s]);
       return n;
     }
     if (a.target === 'direction' && t.gp) {
@@ -1166,7 +1166,7 @@ const Controller = class {
             u = d.x * s.x + d.z * s.z,
             h = Math.abs(d.x * s.z - d.z * s.x);
           u <= 0.3 ||
-            u > i * nt + 0.2 ||
+            u > i * HEX_SIZE + 0.2 ||
             (a.shape === 'line' ? h > 0.75 : h > u * 0.55 + 0.35) ||
             r.push([c, l]);
         }
@@ -1186,10 +1186,10 @@ const Controller = class {
       let c = this.state.creatures.find((d) => !d.dead && d.cell[0] === l[0] && d.cell[1] === l[1]);
       c && (c.team === a.team ? s : i).push(c);
     }
-    let r = new Set(s.map((l) => Ut(...l.cell)));
+    let r = new Set(s.map((l) => cellKey(...l.cell)));
     if (
       (this.board.set('area', n, (l) =>
-        r.has(Ut(...l)) && this.pending.id.startsWith('breath') ? 16728112 : 11566335,
+        r.has(cellKey(...l)) && this.pending.id.startsWith('breath') ? 16728112 : 11566335,
       ),
       !t)
     ) {
@@ -1237,9 +1237,9 @@ const Controller = class {
     if ((t.zone !== void 0 && t.zone !== null && (a.zone = t.zone), t.target === 'point')) {
       let n = t.at.cell,
         s = this.cellToWorld(n);
-      a.point = [s.x / nt, s.z / nt];
+      a.point = [s.x / HEX_SIZE, s.z / HEX_SIZE];
     } else if (t.target === 'direction') {
-      let n = wm(t.at.gp);
+      let n = worldToPlane(t.at.gp);
       ((a.dir = [n.x, n.y]), (a.point = a.dir));
     } else t.target === 'cell' && (a.cell = t.at.cell);
     this.runAction(e, a);
@@ -2034,7 +2034,7 @@ const Controller = class {
       (this.castReady = u ? { who: e.who, sid: n, used: !1 } : null),
       o1.has(n)
         ? (n === 'breath_weapon' &&
-            (l.shape = Math.max(0, ...r.map((b) => Wt(b, t.cell))) > 3 ? 'line' : 'cone'),
+            (l.shape = Math.max(0, ...r.map((b) => hexDistance(b, t.cell))) > 3 ? 'line' : 'cone'),
           await a.feature(n, l))
         : await a.spell(n, { ...l, phase: 'cast' }),
       !u)

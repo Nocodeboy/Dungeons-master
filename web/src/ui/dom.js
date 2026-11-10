@@ -163,7 +163,7 @@ const sleep = (o) => new Promise((e) => setTimeout(e, o));
 const reducedMotion = () =>
   matchMedia('(prefers-reduced-motion: reduce)').matches ||
   document.documentElement.classList.contains('mg-sin-animaciones');
-const mw = () => matchMedia('(pointer: coarse)').matches;
+const coarsePointer = () => matchMedia('(pointer: coarse)').matches;
 
 export {
   Cn,
@@ -172,6 +172,7 @@ export {
   Qd,
   Xl,
   Yl,
+  coarsePointer,
   elem,
   en,
   escapeHtml,
@@ -180,7 +181,6 @@ export {
   iconHtml,
   loadIcons,
   makeButton,
-  mw,
   reducedMotion,
   richText,
   sleep,

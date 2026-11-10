@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «Qk»). Nombres locales aún minificados.
 
 import { MathUtils, Vector3 } from 'three';
-import { Wt, nt } from './hex.js';
+import { hexDistance, HEX_SIZE } from './hex.js';
 
 const go = (o, e) => o + Math.random() * (e - o);
 const g0 = class {
@@ -26,7 +26,7 @@ const g0 = class {
           actor: i,
           kind: n.kind,
           home: r.clone(),
-          radius: (n.wander ?? 0) * nt,
+          radius: (n.wander ?? 0) * HEX_SIZE,
           state: 'idle',
           timer: go(0.5, 5),
           target: new Vector3(),
@@ -130,7 +130,7 @@ const b0 = class {
         if (a)
           for (let [n, s] of t.npcs) {
             if (s.path.length) continue;
-            let i = Wt(s.cell, a.cell);
+            let i = hexDistance(s.cell, a.cell);
             if (
               i <= 4 &&
               ((s.lookAt = a.actor.root.position.clone()), (s.talkT = 2), i <= 3 && !this.greeted.has(n))

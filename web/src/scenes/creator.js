@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «CM»). Nombres locales aún minificados.
 
 import { mu } from '../actors/outfits.js';
-import { fc } from '../ui/creator.js';
+import { buildCreator } from '../ui/creator.js';
 
 async function crearEscenaCreator(o, e = {}) {
   let t = o.ui,
@@ -40,7 +40,7 @@ async function crearEscenaCreator(o, e = {}) {
       { three: l.scene, dispose: () => l.dispose() }
     );
   let d = !1,
-    u = fc(t, o, {
+    u = buildCreator(t, o, {
       mode: 'create',
       sheet: c.sheet,
       options: c.options,

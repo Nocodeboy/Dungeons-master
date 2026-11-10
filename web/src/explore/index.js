@@ -12,15 +12,15 @@ import {
   Vector2,
   Vector3,
 } from 'three';
-import { uo, Ut, Wt, nt } from './hex.js';
+import { cellToPlane, cellKey, hexDistance, HEX_SIZE } from './hex.js';
 import { Tm } from './terrain.js';
 import { Em } from './checks.js';
-import { ES } from './campaign.js';
-import { zS } from './levels.js';
+import { ensureCampaign } from './campaign.js';
+import { loadLevel } from './levels.js';
 import { uk } from './areas.js';
 import { mk } from './fallback-world.js';
 import { yk } from './actors.js';
-import { s0 } from './input.js';
+import { ExploreInput } from './input.js';
 import { i0 } from './floaters.js';
 import { r0 } from './marks.js';
 import { kk, Rk } from './hud.js';
@@ -40,7 +40,7 @@ const v0 = (o) => new Promise((e) => setTimeout(e, o));
 const Explore = class {
   constructor(e, t) {
     ((this.game = e), (this.params = t));
-    let a = ES(e);
+    let a = ensureCampaign(e);
     ((this.levelId = t.level || a.location?.level || 'merrowick'),
       (this.spawn =
         t.spawn || (a.location?.level === this.levelId && a.location?.cell ? 'saved' : 'default')),
@@ -96,7 +96,7 @@ const Explore = class {
     };
     (t.loading?.('Preparando el camino', 0.02),
       (this.mods = await uk()),
-      (this.level = await zS(this.levelId, this.mods.world)));
+      (this.level = await loadLevel(this.levelId, this.mods.world)));
     let i = this.level;
     (s('nivel', `Llegando a ${i.name || this.levelId}`, 0.05),
       this.ls,
@@ -131,7 +131,7 @@ const Explore = class {
     }
     if (
       (this.loadObjects(),
-      (this.camera = new s0(e.stage, {
+      (this.camera = new ExploreInput(e.stage, {
         bounds: this.world.bounds,
         settings: e.store.settings,
         onTap: (c, d, u) => this.onTap(c, d, u),
@@ -236,7 +236,11 @@ const Explore = class {
   }
   startYaw() {
     let e = this.lead().actor.root.position,
-      a = new Vector3(((this.world.width || 20) * nt) / 2, 0, ((this.world.height || 20) * nt * 0.866) / 2)
+      a = new Vector3(
+        ((this.world.width || 20) * HEX_SIZE) / 2,
+        0,
+        ((this.world.height || 20) * HEX_SIZE * 0.866) / 2,
+      )
         .clone()
         .sub(e);
     return Math.atan2(a.x, a.z) + Math.PI + 0.35;
@@ -254,7 +258,7 @@ const Explore = class {
         O: 2.6,
         P: 4.5,
         S: 3.6,
-        '#': (this.level.wall_height || 2) * nt + 0.5,
+        '#': (this.level.wall_height || 2) * HEX_SIZE + 0.5,
         r: 1.2,
         c: 1.2,
       },
@@ -335,7 +339,11 @@ const Explore = class {
     this.dead = t.party.filter((u) => this.rules.state(u).dead);
     let r = this.xmap.freeNear(n, s.length, this.blocked()),
       l = this.world.cellToWorld(n),
-      c = new Vector3(((this.world.width || 20) * nt) / 2, 0, ((this.world.height || 20) * nt * 0.866) / 2),
+      c = new Vector3(
+        ((this.world.width || 20) * HEX_SIZE) / 2,
+        0,
+        ((this.world.height || 20) * HEX_SIZE * 0.866) / 2,
+      ),
       d = Math.atan2(c.x - l.x, c.z - l.z);
     (s.forEach((u, h) => {
       let p = i[h],
@@ -436,31 +444,32 @@ const Explore = class {
   }
   blocked(e = !1) {
     let t = new Set();
-    for (let a of this.npcs.values()) a.cell && t.add(Ut(a.cell[0], a.cell[1]));
-    for (let a of this.groups.values()) for (let n of a.enemies) n.dead || t.add(Ut(n.cell[0], n.cell[1]));
+    for (let a of this.npcs.values()) a.cell && t.add(cellKey(a.cell[0], a.cell[1]));
+    for (let a of this.groups.values())
+      for (let n of a.enemies) n.dead || t.add(cellKey(n.cell[0], n.cell[1]));
     for (let [a, n] of this.objects)
       (n.type === 'trap' &&
         this.objectVisible(n) &&
         !this.ls.disarmed.includes(a) &&
-        t.add(Ut(n.cell[0], n.cell[1])),
+        t.add(cellKey(n.cell[0], n.cell[1])),
         n.type === 'door' &&
           !n.target &&
           n.cell &&
           this.ls.states[a] !== 'open' &&
           this.flag(n.requires_visible) &&
-          t.add(Ut(n.cell[0], n.cell[1])),
-        n.blocks && this.objectVisible(n) && t.add(Ut(n.cell[0], n.cell[1])));
-    if (e) for (let a of this.members) t.add(Ut(a.cell[0], a.cell[1]));
+          t.add(cellKey(n.cell[0], n.cell[1])),
+        n.blocks && this.objectVisible(n) && t.add(cellKey(n.cell[0], n.cell[1])));
+    if (e) for (let a of this.members) t.add(cellKey(a.cell[0], a.cell[1]));
     return t;
   }
   formation(e, t, a, n) {
     let s = [e],
-      i = new Set([Ut(e[0], e[1])]);
+      i = new Set([cellKey(e[0], e[1])]);
     for (let r = t.length - 2; r >= 0 && s.length < n; r--) {
       let l = t[r],
-        c = Ut(l[0], l[1]);
+        c = cellKey(l[0], l[1]);
       if (!(i.has(c) || a.has(c))) {
-        if (Wt(l, e) > 3) break;
+        if (hexDistance(l, e) > 3) break;
         (s.push(l), i.add(c));
       }
     }
@@ -468,10 +477,13 @@ const Explore = class {
       let r = t[Math.max(0, t.length - 3)] || e,
         l = this.xmap
           .freeNear(e, n + 10, a)
-          .sort((c, d) => Wt(c, e) + 0.6 * Wt(c, r) - (Wt(d, e) + 0.6 * Wt(d, r)));
+          .sort(
+            (c, d) =>
+              hexDistance(c, e) + 0.6 * hexDistance(c, r) - (hexDistance(d, e) + 0.6 * hexDistance(d, r)),
+          );
       for (let c of l) {
         if (s.length >= n) break;
-        let d = Ut(c[0], c[1]);
+        let d = cellKey(c[0], c[1]);
         i.has(d) || (s.push(c), i.add(d));
       }
     }
@@ -540,12 +552,12 @@ const Explore = class {
   pullString(e) {
     if (e.path.length < 2) return;
     let t = e.actor.root.position,
-      a = { x: t.x / nt, y: t.z / nt },
+      a = { x: t.x / HEX_SIZE, y: t.z / HEX_SIZE },
       n = this.blocked(),
       s = 0;
     for (let i = 1; i < Math.min(e.path.length, 6); i++) {
       let r = e.path[i];
-      if (this.xmap.straight(a, uo(r[0], r[1]), n)) s = i;
+      if (this.xmap.straight(a, cellToPlane(r[0], r[1]), n)) s = i;
       else break;
     }
     s > 0 && e.path.splice(0, s);
@@ -1137,7 +1149,7 @@ const Explore = class {
     for (let [_, b] of this.objects)
       if (!(!this.objectVisible(b) || !b.cell)) {
         if (b.cell[0] === p[0] && b.cell[1] === p[1]) return { kind: 'object', id: _, cell: b.cell };
-        if (b.type === 'door' && b.target && Wt(b.target, p) <= (b.foot ?? 2))
+        if (b.type === 'door' && b.target && hexDistance(b.target, p) <= (b.foot ?? 2))
           return { kind: 'object', id: _, cell: b.cell };
       }
     let m = this.exitAt(p);
@@ -1380,7 +1392,7 @@ const Explore = class {
           let r = e.npcs.get(t);
           if (!r) return i(!1);
           let l = e.blocked(!0);
-          l.delete(Ut(r.cell[0], r.cell[1]));
+          l.delete(cellKey(r.cell[0], r.cell[1]));
           let c = e.xmap.path(r.cell, a, l);
           if (c.length < 2) {
             c.length === 1 ? i(!0) : i(!1);

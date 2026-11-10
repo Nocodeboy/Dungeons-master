@@ -9,9 +9,9 @@ import { loadIcons, iconHtml, escapeHtml, Xl, elem, makeButton, Jl, gw } from '.
 import { screenFrame, Tf } from './modal.js';
 import { sa, bw } from './tooltip.js';
 import { yw, Wi, Xi } from './dice.js';
-import { $w } from './rules-mock.js';
-import { Xw } from './dialog.js';
-import { n2 } from './hud.js';
+import { createRulesBridge } from './rules-mock.js';
+import { createDialog } from './dialog.js';
+import { createHud } from './hud.js';
 import { AT } from './portraits.js';
 import { Ib } from './labels.js';
 
@@ -40,7 +40,7 @@ function createUI(o) {
   let t = elem('div.mg-toasts', { role: 'status', 'aria-live': 'polite' });
   e.append(t);
   let a = bw(e),
-    n = $w(o),
+    n = createRulesBridge(o),
     s = new Map(),
     i = new Set(),
     r = new Map(),
@@ -257,8 +257,11 @@ function createUI(o) {
       reset: (v) => r.delete(v.toLowerCase()),
       disabled: !1,
     }));
-  let d = Xw(l, o);
-  ((l.dialog = d.show), (l.dialogClose = d.close), (l.dialogOpen = () => d.isOpen()), (l.hud = n2(l, o)));
+  let d = createDialog(l, o);
+  ((l.dialog = d.show),
+    (l.dialogClose = d.close),
+    (l.dialogOpen = () => d.isOpen()),
+    (l.hud = createHud(l, o)));
   let u = () => !!o.store.cp && (o.scenes?.name === 'explore' || l.keys.always),
     h = !1;
   (o.bus?.on('battle:start', () => (h = !0)), o.bus?.on('battle:end', () => (h = !1)));

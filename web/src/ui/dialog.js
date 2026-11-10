@@ -5,7 +5,7 @@ import { iconHtml, escapeHtml, richText, elem, Cn, en, sleep, reducedMotion } fr
 import { Wi, Xi } from './dice.js';
 import { sa } from './tooltip.js';
 
-function Xw(o, e) {
+function createDialog(o, e) {
   let t = null,
     a = null,
     n = 0,
@@ -263,4 +263,4 @@ const iz = {
   agresivo: ['rage', 'Agresivo'],
 };
 
-export { Xw };
+export { createDialog };

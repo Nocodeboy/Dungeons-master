@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «h0»). Nombres locales aún minificados.
 
 import { Vector3 } from 'three';
-import { Wt } from './hex.js';
+import { hexDistance } from './hex.js';
 import { Wu, Xu } from './interact.js';
 import { Uo } from './battle.js';
 import { wu } from './checks.js';
@@ -15,7 +15,7 @@ function perceive(o, e) {
   for (let [a, n] of o.objects) {
     if (!n.hidden || o.ls.found.includes(a) || !o.flag(n.requires) || !o.flag(n.hidden_until) || !n.cell)
       continue;
-    let s = Wt(e.cell, n.cell);
+    let s = hexDistance(e.cell, n.cell);
     s > rN ||
       (s > 1 && !o.xmap.los(e.cell, n.cell)) ||
       (t >= (n.hidden.dc ?? 15) && Xu(o, a, e.id, `Percepci\xF3n pasiva ${t}`));
@@ -46,14 +46,16 @@ async function search(o) {
       for (let [l, c] of o.objects) {
         if (!c.hidden || o.ls.found.includes(l) || !o.flag(c.requires) || !o.flag(c.hidden_until) || !c.cell)
           continue;
-        let d = Wt(s.cell, c.cell);
+        let d = hexDistance(s.cell, c.cell);
         d > Pk ||
           (d > 1 && !o.xmap.los(s.cell, c.cell)) ||
           (r.total >= (c.hidden.dc ?? 15) && (Xu(o, l, s.id, `${wu[i]} ${r.total}`), (a = !0)));
       }
       for (let [l, c] of o.groups) {
         if (!c.hidden) continue;
-        let d = c.enemies.some((h) => !h.dead && Wt(h.cell, s.cell) <= Pk * 2 && o.xmap.los(h.cell, s.cell)),
+        let d = c.enemies.some(
+            (h) => !h.dead && hexDistance(h.cell, s.cell) <= Pk * 2 && o.xmap.los(h.cell, s.cell),
+          ),
           u = 10 + Math.max(...c.enemies.map((h) => o.rules.monster(h.monster).stealth || 0));
         d &&
           r.total >= u &&
@@ -98,7 +100,7 @@ function detect(o) {
     for (let n of t.enemies)
       if (!n.dead)
         for (let s of o.members) {
-          let i = Wt(n.cell, s.cell);
+          let i = hexDistance(n.cell, s.cell);
           if (!(i > a) && o.xmap.los(n.cell, s.cell)) {
             if (o.stealth && (t.roll || stealthRoll(o, t), t.roll.success)) {
               if ((t.hidden && lN(o, e, s), i <= 1)) {

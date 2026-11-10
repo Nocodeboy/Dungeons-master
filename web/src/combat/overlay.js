@@ -19,7 +19,7 @@ import {
   ShapeGeometry,
   Vector3,
 } from 'three';
-import { xc, ds, Us, nt, fn } from '../explore/hex.js';
+import { cellToWorld, planeToCell, hexShape, HEX_SIZE, HEX_RADIUS } from '../explore/hex.js';
 
 const eH = {
   move: { y: 0.035, fill: 0.1, line: 0.42 },
@@ -50,13 +50,13 @@ const Om = class {
       (this.w = t.w),
       (this.h = t.h),
       (this.rows = t.rows),
-      (this.cellToWorld = a || ((p) => xc(p[0], p[1]))),
+      (this.cellToWorld = a || ((p) => cellToWorld(p[0], p[1]))),
       (this.pickFn = n));
-    let s = fn * nt,
-      i = new ShapeGeometry(Us(s * 0.93));
+    let s = HEX_RADIUS * HEX_SIZE,
+      i = new ShapeGeometry(hexShape(s * 0.93));
     i.rotateX(-Math.PI / 2);
-    let r = Us(s * 0.95);
-    r.holes.push(Us(s * 0.84));
+    let r = hexShape(s * 0.95);
+    r.holes.push(hexShape(s * 0.84));
     let l = new ShapeGeometry(r);
     (l.rotateX(-Math.PI / 2), (this.layers = {}), (this.meshes = []));
     let c = this.w * this.h;
@@ -202,7 +202,7 @@ const Om = class {
     return e.ray.intersectPlane(this.plane, t) ? t : null;
   }
   cellAtWorld(e) {
-    let t = ds(e.x / nt, e.z / nt);
+    let t = planeToCell(e.x / HEX_SIZE, e.z / HEX_SIZE);
     return this.inBounds(t[0], t[1]) ? t : null;
   }
   tile(e, t) {

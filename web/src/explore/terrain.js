@@ -1,7 +1,7 @@
 // explore/terrain.js
 // Reconstruido de publicado/juego.js (módulo __esm «_S»). Nombres locales aún minificados.
 
-import { uo, ds, Ut, neighbors, Wt } from './hex.js';
+import { cellToPlane, planeToCell, cellKey, neighbors, hexDistance } from './hex.js';
 
 const xS = {
   '.': [!0, 1, 0, !1],
@@ -86,7 +86,7 @@ const Tm = class {
   _astar(e, t, a, n) {
     let s = this.w;
     if (!this.inBounds(t) || !this.walkable(t) || !this.inBounds(e)) return [];
-    if (a && a.has(Ut(t[0], t[1]))) return [];
+    if (a && a.has(cellKey(t[0], t[1]))) return [];
     let i = s * this.h,
       r = new Int32Array(i).fill(1 << 29),
       l = new Int32Array(i).fill(-1),
@@ -124,7 +124,7 @@ const Tm = class {
         }
         return f;
       };
-    h(Wt(e, t), c);
+    h(hexDistance(e, t), c);
     let m = 0,
       _ = !1;
     for (; u.length && m++ < n;) {
@@ -138,9 +138,9 @@ const Tm = class {
       for (let [g, y] of neighbors(v, x)) {
         if (g < 0 || y < 0 || g >= s || y >= this.h) continue;
         let w = g + y * s;
-        if (!this.walk[w] || (a && w !== d && a.has(Ut(g, y)))) continue;
+        if (!this.walk[w] || (a && w !== d && a.has(cellKey(g, y)))) continue;
         let k = r[f] + (this.cost[w] > 1 ? 2 : 1);
-        k < r[w] && ((r[w] = k), (l[w] = f), h(k + Wt([g, y], t), w));
+        k < r[w] && ((r[w] = k), (l[w] = f), h(k + hexDistance([g, y], t), w));
       }
     }
     if (!_) return [];
@@ -149,7 +149,7 @@ const Tm = class {
     return b.reverse();
   }
   los(e, t) {
-    if ((e[0] === t[0] && e[1] === t[1]) || Wt(e, t) <= 1) return !0;
+    if ((e[0] === t[0] && e[1] === t[1]) || hexDistance(e, t) <= 1) return !0;
     let a = `${e[0]},${e[1]}|${t[0]},${t[1]}`,
       n = this.losCache.get(a);
     if (n !== void 0) return (this.stats.losHits++, n);
@@ -168,7 +168,7 @@ const Tm = class {
       r = Math.max(1, Math.ceil(i / a));
     for (let l = 0; l <= r; l++) {
       let c = l / r,
-        d = ds(e.x + (t.x - e.x) * c, e.y + (t.y - e.y) * c),
+        d = planeToCell(e.x + (t.x - e.x) * c, e.y + (t.y - e.y) * c),
         u = d[0] * 4096 + d[1];
       s.has(u) || (s.add(u), n.push(d));
     }
@@ -178,8 +178,8 @@ const Tm = class {
     return this.inBounds(e) ? this.cover[e[0] + e[1] * this.w] : 0;
   }
   _coverHex(e, t) {
-    let a = uo(e[0], e[1]),
-      n = uo(t[0], t[1]),
+    let a = cellToPlane(e[0], e[1]),
+      n = cellToPlane(t[0], t[1]),
       s = Math.hypot(n.x - a.x, n.y - a.y) || 1,
       i = { x: (n.x - a.x) / s, y: (n.y - a.y) / s },
       r = { x: -i.y * 0.38, y: i.x * 0.38 },
@@ -202,19 +202,20 @@ const Tm = class {
     return d >= 3 ? 3 : d;
   }
   straight(e, t, a = null) {
-    for (let n of this._segment(e, t, 0.18)) if (!this.walkable(n) || (a && a.has(Ut(n[0], n[1])))) return !1;
+    for (let n of this._segment(e, t, 0.18))
+      if (!this.walkable(n) || (a && a.has(cellKey(n[0], n[1])))) return !1;
     return !0;
   }
   freeNear(e, t, a = null, { maxR: n = 12 } = {}) {
     let s = [],
-      i = new Set([Ut(e[0], e[1])]),
+      i = new Set([cellKey(e[0], e[1])]),
       r = [e];
     for (; r.length && s.length < t;) {
       let l = r.shift();
-      this.walkable(l) && !(a && a.has(Ut(l[0], l[1]))) && s.push(l);
+      this.walkable(l) && !(a && a.has(cellKey(l[0], l[1]))) && s.push(l);
       for (let c of neighbors(l[0], l[1])) {
-        let d = Ut(c[0], c[1]);
-        i.has(d) || !this.inBounds(c) || Wt(c, e) > n || (i.add(d), r.push(c));
+        let d = cellKey(c[0], c[1]);
+        i.has(d) || !this.inBounds(c) || hexDistance(c, e) > n || (i.add(d), r.push(c));
       }
     }
     return s;

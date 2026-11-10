@@ -26,7 +26,7 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three';
-import { uo, ds, Us, nt, _m, fn } from './hex.js';
+import { cellToPlane, planeToCell, hexShape, HEX_SIZE, ROW_STEP, HEX_RADIUS } from './hex.js';
 
 function V9(o) {
   let e = o | 0;
@@ -50,7 +50,7 @@ async function mk(o, e, { quality: t } = {}) {
   let c = new HemisphereLight(i.hemiS, i.hemiG, i.hemiI);
   o.add(c);
   let d = new DirectionalLight(i.sun, i.sunI),
-    u = new Vector3((s * nt) / 2, 0, (n * _m * nt) / 2),
+    u = new Vector3((s * HEX_SIZE) / 2, 0, (n * ROW_STEP * HEX_SIZE) / 2),
     h = new Vector3(...i.dir).normalize();
   (d.position.copy(u).addScaledVector(h, 60),
     d.target.position.copy(u),
@@ -58,7 +58,7 @@ async function mk(o, e, { quality: t } = {}) {
     (d.castShadow = (t?.level ?? 1) > 0));
   let p = (t?.shadowMap || 512) * 2;
   d.shadow.mapSize.set(p, p);
-  let m = Math.max(s, n) * nt * 0.62;
+  let m = Math.max(s, n) * HEX_SIZE * 0.62;
   (Object.assign(d.shadow.camera, { left: -m, right: m, top: m, bottom: -m, near: 1, far: 160 }),
     (d.shadow.bias = -8e-4),
     (d.shadow.normalBias = 0.03));
@@ -67,16 +67,21 @@ async function mk(o, e, { quality: t } = {}) {
     f = [];
   for (let N of e.lights || []) {
     if (!N.energy || _ >= b) continue;
-    let L = new PointLight(new Color(N.color || '#ffb060'), N.energy * 6, (N.range || 3) * nt * 1.6, 1.6),
-      O = uo(N.cell[0], N.cell[1]);
-    (L.position.set(O.x * nt, (N.height || 1) * nt, O.y * nt),
+    let L = new PointLight(
+        new Color(N.color || '#ffb060'),
+        N.energy * 6,
+        (N.range || 3) * HEX_SIZE * 1.6,
+        1.6,
+      ),
+      O = cellToPlane(N.cell[0], N.cell[1]);
+    (L.position.set(O.x * HEX_SIZE, (N.height || 1) * HEX_SIZE, O.y * HEX_SIZE),
       (L.userData.base = L.intensity),
       (L.userData.phase = r() * 10),
       o.add(L),
       f.push(L),
       _++);
   }
-  let v = new CylinderGeometry(fn * nt * 0.995, fn * nt * 1.02, 0.3, 6, 1);
+  let v = new CylinderGeometry(HEX_RADIUS * HEX_SIZE * 0.995, HEX_RADIUS * HEX_SIZE * 1.02, 0.3, 6, 1);
   v.translate(0, -0.15, 0);
   let x = new MeshStandardMaterial({ roughness: 0.95, metalness: 0 }),
     g = 0;
@@ -93,9 +98,9 @@ async function mk(o, e, { quality: t } = {}) {
     for (let L = 0; L < s; L++) {
       let O = a[N][L] ?? ' ';
       if (O === ' ') continue;
-      let B = uo(L, N),
+      let B = cellToPlane(L, N),
         $ = O === 'w' ? -0.22 : (r() - 0.5) * 0.03;
-      (T.set(`${L},${N}`, $), w.makeTranslation(B.x * nt, $, B.y * nt), y.setMatrixAt(E, w));
+      (T.set(`${L},${N}`, $), w.makeTranslation(B.x * HEX_SIZE, $, B.y * HEX_SIZE), y.setMatrixAt(E, w));
       let ee = S.get(`${L},${N}`);
       (k.setHex(ee === 'dirt' ? 8019520 : (pk[O] ?? pk['.'])),
         k.offsetHSL(0, 0, (r() - 0.5) * 0.06),
@@ -107,12 +112,12 @@ async function mk(o, e, { quality: t } = {}) {
   for (let N = 0; N < n; N++)
     for (let L = 0; L < s; L++) {
       let O = a[N][L],
-        B = uo(L, N),
-        $ = new Vector3(B.x * nt, 0, B.y * nt);
+        B = cellToPlane(L, N),
+        $ = new Vector3(B.x * HEX_SIZE, 0, B.y * HEX_SIZE);
       O === 'B' || O === 'H'
         ? z.box.push({ p: $, h: 2.6 + r() * 0.8, w: 1.3, color: 9071178, tall: !0 })
         : O === '#'
-          ? z.box.push({ p: $, h: (e.wall_height || 1.3) * nt, w: 1.32, color: 6117458, tall: !0 })
+          ? z.box.push({ p: $, h: (e.wall_height || 1.3) * HEX_SIZE, w: 1.32, color: 6117458, tall: !0 })
           : O === 'S'
             ? z.box.push({ p: $, h: 2.2, w: 0.9, color: 10131088, tall: !0 })
             : O === 'O'
@@ -207,8 +212,8 @@ async function mk(o, e, { quality: t } = {}) {
     if (N.type === 'npc' || !N.cell) continue;
     let L = new Group();
     L.name = `obj_${N.id}`;
-    let O = uo(N.cell[0], N.cell[1]);
-    L.position.set(O.x * nt, 0, O.y * nt);
+    let O = cellToPlane(N.cell[0], N.cell[1]);
+    L.position.set(O.x * HEX_SIZE, 0, O.y * HEX_SIZE);
     let B = null;
     switch (N.type) {
       case 'chest':
@@ -281,17 +286,24 @@ async function mk(o, e, { quality: t } = {}) {
   }
   let Q = (() => {
       let N = [],
-        L = Us(fn * nt * 0.97).getPoints();
+        L = hexShape(HEX_RADIUS * HEX_SIZE * 0.97).getPoints();
       for (let B = 0; B < n; B++)
         for (let $ = 0; $ < s; $++) {
           let ee = a[B][$];
           if (!'.,:=~bxf'.includes(ee)) continue;
-          let be = uo($, B),
+          let be = cellToPlane($, B),
             Ce = 0.035;
           for (let ze = 0; ze < 6; ze++) {
             let W = L[ze],
               De = L[(ze + 1) % 6];
-            N.push(be.x * nt + W.x, Ce, be.y * nt - W.y, be.x * nt + De.x, Ce, be.y * nt - De.y);
+            N.push(
+              be.x * HEX_SIZE + W.x,
+              Ce,
+              be.y * HEX_SIZE - W.y,
+              be.x * HEX_SIZE + De.x,
+              Ce,
+              be.y * HEX_SIZE - De.y,
+            );
           }
         }
       let O = new BufferGeometry();
@@ -310,20 +322,25 @@ async function mk(o, e, { quality: t } = {}) {
     hemi: c,
     width: s,
     height: n,
-    bounds: { min: new Vector3(-1.5, 0, -1.5), max: new Vector3(s * nt + 1.5, 0, n * _m * nt + 1.5) },
+    bounds: {
+      min: new Vector3(-1.5, 0, -1.5),
+      max: new Vector3(s * HEX_SIZE + 1.5, 0, n * ROW_STEP * HEX_SIZE + 1.5),
+    },
     objects: ve,
     cellToWorld([N, L], O = new Vector3()) {
-      let B = uo(N, L);
-      return O.set(B.x * nt, 0, B.y * nt);
+      let B = cellToPlane(N, L);
+      return O.set(B.x * HEX_SIZE, 0, B.y * HEX_SIZE);
     },
     worldToCell(N) {
-      return ds(N.x / nt, N.z / nt);
+      return planeToCell(N.x / HEX_SIZE, N.z / HEX_SIZE);
     },
     groundHeight() {
       return 0;
     },
     pick(N) {
-      return N.ray.intersectPlane(we, ce) ? { point: ce.clone(), cell: ds(ce.x / nt, ce.z / nt) } : null;
+      return N.ray.intersectPlane(we, ce)
+        ? { point: ce.clone(), cell: planeToCell(ce.x / HEX_SIZE, ce.z / HEX_SIZE) }
+        : null;
     },
     setObjectState(N, L) {
       let O = ve.get(N),

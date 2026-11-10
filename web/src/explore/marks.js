@@ -13,7 +13,7 @@ import {
   ShapeGeometry,
   Vector3,
 } from 'three';
-import { Us, nt, fn } from './hex.js';
+import { hexShape, HEX_SIZE, HEX_RADIUS } from './hex.js';
 
 function $u(o, e, t = 0.8, a = null) {
   let n = new Mesh(
@@ -75,7 +75,7 @@ const r0 = class {
       (this.group = new Group()),
       (this.group.name = 'marcas_exploracion'),
       e.add(this.group));
-    let a = new RingGeometry(fn * nt * 0.62, fn * nt * 0.86, 6, 1);
+    let a = new RingGeometry(HEX_RADIUS * HEX_SIZE * 0.62, HEX_RADIUS * HEX_SIZE * 0.86, 6, 1);
     (a.rotateZ(Math.PI / 6),
       (this.dest = $u(a, 15779936, 0)),
       (this.dest.visible = !1),
@@ -158,7 +158,7 @@ const r0 = class {
   trap(e, t) {
     let a = this.traps.get(e);
     if ((a && (this.group.remove(a), this.traps.delete(e)), !t)) return;
-    let n = Us(fn * nt * 0.9),
+    let n = hexShape(HEX_RADIUS * HEX_SIZE * 0.9),
       s = $u(new ShapeGeometry(n), 16724e3, 0.32);
     (this.world.cellToWorld(t, this.v),
       s.position.set(this.v.x, this.v.y + 0.045, this.v.z),

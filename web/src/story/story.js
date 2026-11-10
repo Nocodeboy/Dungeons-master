@@ -1,12 +1,12 @@
 // story/story.js
 // Reconstruido de publicado/juego.js (módulo __esm «bE»). Nombres locales aún minificados.
 
-import { mm } from './runner.js';
+import { StoryRunner } from './runner.js';
 
 const pn = (o) => (o == null ? [] : Array.isArray(o) ? o : [o]);
 const gE = 6e4;
 const OD = 15e3;
-const gm = class extends mm {
+const Story = class extends StoryRunner {
   constructor(e, t, a) {
     (super(e, t, a),
       (this._lock = Promise.resolve()),
@@ -428,4 +428,4 @@ const gm = class extends mm {
   }
 };
 
-export { gm };
+export { Story };

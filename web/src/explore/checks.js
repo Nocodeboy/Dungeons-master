@@ -1,7 +1,7 @@
 // explore/checks.js
 // Reconstruido de publicado/juego.js (módulo __esm «Mu»). Nombres locales aún minificados.
 
-function Tu(o, e = Math.random) {
+function rollDice(o, e = Math.random) {
   let t = String(o ?? '0').replace(/\s+/g, ''),
     a = /^(\d*)d(\d+)([+-]\d+)?$/.exec(t);
   if (!a) return Number(t) || 0;
@@ -507,7 +507,7 @@ const Em = class {
     let t = [];
     for (let a of this.monster(e).drops || []) {
       if (this.rng() > (a.chance ?? 1)) continue;
-      let n = typeof a.n == 'string' ? Tu(a.n, this.rng) : Number(a.n ?? 1);
+      let n = typeof a.n == 'string' ? rollDice(a.n, this.rng) : Number(a.n ?? 1);
       n > 0 && t.push({ id: a.id, n });
     }
     return t;
@@ -516,8 +516,8 @@ const Em = class {
     return Mm(this.rng);
   }
   roll(e) {
-    return Tu(e, this.rng);
+    return rollDice(e, this.rng);
   }
 };
 
-export { Em, Tu, wu };
+export { Em, rollDice, wu };

@@ -1,7 +1,7 @@
 // explore/campaign.js
 // Reconstruido de publicado/juego.js (módulo __esm «SS»). Nombres locales aún minificados.
 
-function ES(o, { party: e = null, level: t = 1 } = {}) {
+function ensureCampaign(o, { party: e = null, level: t = 1 } = {}) {
   let a = o.store;
   if (a.cp) return a.cp;
   let n = o.params?.get?.('grupo'),
@@ -14,7 +14,7 @@ function ES(o, { party: e = null, level: t = 1 } = {}) {
           : ['brenna']),
     i = null;
   try {
-    let r = o.rules?.('cp_new', { hero: MS, companions: s });
+    let r = o.rules?.('cp_new', { hero: DEFAULT_HERO, companions: s });
     r && !r.error && r.cp && (i = r.cp);
   } catch {}
   if (i) {
@@ -31,7 +31,7 @@ function ES(o, { party: e = null, level: t = 1 } = {}) {
   return (a.start(i), a.cp);
 }
 function TI(o = ['brenna'], e = 1) {
-  let t = { hero: { ...MS } },
+  let t = { hero: { ...DEFAULT_HERO } },
     a = ['hero'];
   for (let s of o) TS[s] && ((t[s] = { id: s, ...TS[s] }), a.push(s));
   let n = {};
@@ -71,7 +71,7 @@ function TI(o = ['brenna'], e = 1) {
     _sustituto: !0,
   };
 }
-const MS = {
+const DEFAULT_HERO = {
   id: 'hero',
   name: 'Aren Vael',
   pronoun: 'm',
@@ -145,4 +145,4 @@ const TS = {
   },
 };
 
-export { ES };
+export { ensureCampaign };

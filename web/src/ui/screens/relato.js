@@ -1,7 +1,7 @@
 // ui/screens/relato.js
 // Reconstruido de publicado/juego.js (módulo __esm «EM»). Nombres locales aún minificados.
 
-import { richText, elem, makeButton, reducedMotion, mw } from '../dom.js';
+import { richText, elem, makeButton, reducedMotion, coarsePointer } from '../dom.js';
 
 function opcionesRelato() {
   return { full: !0, cls: 'mg-relato' };
@@ -24,7 +24,10 @@ function pantallaRelato(o, e, t, a) {
     });
   (c.append(d), l.append(c));
   let h = elem('div.mg-relato-foot'),
-    p = elem('span.mg-relato-hint', mw() ? 'Toca el texto para seguir' : 'Clic, Espacio o Intro para seguir'),
+    p = elem(
+      'span.mg-relato-hint',
+      coarsePointer() ? 'Toca el texto para seguir' : 'Clic, Espacio o Intro para seguir',
+    ),
     m = elem('span.mg-relato-count'),
     _ = makeButton('Saltar', { icon: 'fast', variant: 'ghost', onclick: () => o.close(!0) }),
     b = makeButton(e.button || 'Continuar', {

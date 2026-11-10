@@ -778,7 +778,7 @@ function jw(o, e) {
     !0
   );
 }
-function Gw() {
+function createSimulator() {
   return {
     data: ({ name: e }) => ga(q6[e] ?? {}),
     loc: () => ({}),
@@ -1326,4 +1326,4 @@ const zf = (o) => {
 };
 const tz = (o) => !zf(o) && ez.has($t(o).kind || 'gear');
 
-export { Gw };
+export { createSimulator };

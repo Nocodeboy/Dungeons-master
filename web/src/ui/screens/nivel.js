@@ -4,7 +4,7 @@
 import { iconHtml, escapeHtml, elem, makeButton, Cn } from '../dom.js';
 import { screenFrame } from '../modal.js';
 import { pc } from '../../actors/outfits.js';
-import { fc } from '../creator.js';
+import { buildCreator } from '../creator.js';
 import { ns } from '../labels.js';
 
 function opcionesNivel() {
@@ -31,7 +31,7 @@ function pantallaNivel(o, e, t, a) {
     if (!m || m.error || !m.sheet) return h(null);
     (o.el.classList.add('mg-cr-host'),
       (o.el.innerHTML = ''),
-      (d = fc(t, a, {
+      (d = buildCreator(t, a, {
         mode: 'levelup',
         overlay: !0,
         container: o.el,

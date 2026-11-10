@@ -6,7 +6,7 @@ import { iconHtml, escapeHtml, richText, elem, Cn } from './dom.js';
 import { ou, ns } from './labels.js';
 import { sa } from './tooltip.js';
 
-function n2(o, e) {
+function createHud(o, e) {
   let t = { select: new Set(), action: new Set(), portrait: new Set() },
     a = (P, I) => {
       for (let U of t[P])
@@ -457,4 +457,4 @@ const lz = [
   ['menu', 'Men\xFA', 'menu', 'Esc', 'Pausa: guardar, cargar, ajustes y salir.'],
 ];
 
-export { n2 };
+export { createHud };

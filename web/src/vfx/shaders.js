@@ -22,7 +22,7 @@ import {
   Vector3,
 } from 'three';
 import { km, DS, vi, _c } from './atlas.js';
-import { Us, nt, fn } from '../explore/hex.js';
+import { hexShape, HEX_SIZE, HEX_RADIUS } from '../explore/hex.js';
 import { Am } from './particles.js';
 
 function or(o, e = 1) {
@@ -42,7 +42,10 @@ function sr(o, e, t, { blend: a = 'add', side: n = FrontSide, depthTest: s = !0 
   });
 }
 function IS() {
-  return (Rm || ((Rm = new ShapeGeometry(Us(fn * nt * 0.95))), Rm.rotateX(-Math.PI / 2)), Rm);
+  return (
+    Rm || ((Rm = new ShapeGeometry(hexShape(HEX_RADIUS * HEX_SIZE * 0.95))), Rm.rotateX(-Math.PI / 2)),
+    Rm
+  );
 }
 const Ru = `
 float vh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -409,7 +412,7 @@ const BI = `
 attribute float iDelay;
 varying vec2 vL; varying float vD; varying vec2 vW;
 void main(){
-  vL = position.xz / ${(fn * nt * 0.95).toFixed(4)};
+  vL = position.xz / ${(HEX_RADIUS * HEX_SIZE * 0.95).toFixed(4)};
   vD = iDelay;
   vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0);
   vW = wp.xz;

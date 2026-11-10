@@ -5,7 +5,7 @@ import { MOUSE, MathUtils, TOUCH, Vector3 } from 'three';
 
 const tN = 9;
 const G1 = 550;
-const s0 = class {
+const ExploreInput = class {
   constructor(e, { bounds: t, onTap: a, onLongPress: n, onHover: s, settings: i } = {}) {
     ((this.stage = e),
       (this.camera = e.camera),
@@ -271,4 +271,4 @@ const s0 = class {
   }
 };
 
-export { s0 };
+export { ExploreInput };

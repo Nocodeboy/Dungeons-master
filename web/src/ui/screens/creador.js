@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «bM»). Nombres locales aún minificados.
 
 import { pc } from '../../actors/outfits.js';
-import { fc } from '../creator.js';
+import { buildCreator } from '../creator.js';
 
 function opcionesCreador() {
   return { width: '86rem', height: '52rem', cls: 'mg-cr-host' };
@@ -17,7 +17,7 @@ function pantallaCreador(o, e, t, a) {
     return;
   }
   let i = null,
-    r = fc(t, a, {
+    r = buildCreator(t, a, {
       mode: e.mode === 'heroe' ? 'create' : 'mercenario',
       overlay: !0,
       container: o.el,

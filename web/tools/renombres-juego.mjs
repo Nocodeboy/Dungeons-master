@@ -73,4 +73,35 @@ export const RENOMBRES = {
   Po: 'reducedMotion',
   // ui/modal.js
   Kt: 'screenFrame',
+  // ui/: piezas principales de la interfaz
+  $w: 'createRulesBridge', // envoltorio de reglas con simulador de respaldo
+  Gw: 'createSimulator', // simulador JS de operaciones que el núcleo aún no tiene
+  Xw: 'createDialog',
+  n2: 'createHud',
+  fc: 'buildCreator', // creador de personajes y subida de nivel por pasos
+  mw: 'coarsePointer',
+  // story/: clases de la historia
+  mm: 'StoryRunner',
+  gm: 'Story',
+  bm: 'Narrator',
+  ym: 'Tips',
+  xm: 'Codex',
+  // explore/
+  zS: 'loadLevel',
+  ES: 'ensureCampaign',
+  MS: 'DEFAULT_HERO',
+  B1: 'loadArea',
+  Tu: 'rollDice',
+  s0: 'ExploreInput',
+  // explore/hex.js: rejilla hexagonal odd-r, vértice arriba, K = 1,5 m entre centros
+  uo: 'cellToPlane',
+  xc: 'cellToWorld',
+  wm: 'worldToPlane',
+  ds: 'planeToCell',
+  Ut: 'cellKey',
+  Wt: 'hexDistance',
+  Us: 'hexShape',
+  nt: 'HEX_SIZE',
+  _m: 'ROW_STEP',
+  fn: 'HEX_RADIUS',
 };

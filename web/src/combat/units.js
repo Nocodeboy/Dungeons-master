@@ -21,7 +21,7 @@ import {
 } from 'three';
 import { Fs } from '../actors/character.js';
 import { hc } from '../actors/roster.js';
-import { xc } from '../explore/hex.js';
+import { cellToWorld } from '../explore/hex.js';
 import { t3, a3, jm } from './creatures.js';
 
 function u3() {
@@ -380,7 +380,7 @@ const x1 = class {
       (this.wrapper =
         typeof t.anim == 'function' && typeof t.once == 'function' && typeof t.playOnce != 'function'),
       (this.inner = this.wrapper ? t.ch || null : t),
-      (this.cellToWorld = a || ((r) => xc(r[0], r[1]))),
+      (this.cellToWorld = a || ((r) => cellToWorld(r[0], r[1]))),
       (this.owns = n),
       (this.cell = e.cell.slice()),
       (this.dead = !1),

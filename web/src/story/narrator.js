@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «vE»). Nombres locales aún minificados.
 
 const BD = new Set(['not_granted', 'sampling_disabled', 'invalid_request', 'prompt_too_large']);
-const bm = class {
+const Narrator = class {
   constructor(e) {
     ((this.story = e),
       (this.inflight = new Map()),
@@ -149,4 +149,4 @@ const bm = class {
   }
 };
 
-export { bm };
+export { Narrator };

@@ -11,7 +11,7 @@ const pI = () => {
   }
 };
 const fI = (o) => String(o || '').split(/\s+/)[0];
-const ym = class {
+const Tips = class {
   constructor(e, t = historiaConsejos) {
     ((this.story = e),
       (this.game = e.game),
@@ -272,4 +272,4 @@ const ym = class {
   }
 };
 
-export { ym };
+export { Tips };
