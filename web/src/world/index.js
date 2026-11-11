@@ -12,7 +12,7 @@ import { J3, K3 } from './props.js';
 import { $3 } from './interiors.js';
 import { ok } from './procedural.js';
 import { buildWater, WATER_LEVEL } from './water.js';
-import { n0 } from './crypt.js';
+import { CryptWalls } from './crypt.js';
 import { o0 } from './particles.js';
 import { makeRng, hashString, cellToWorld, worldToCell, HEX_SIZE, TileMap } from './grid.js';
 
@@ -111,7 +111,8 @@ async function buildLevel(
     P = e.rows?.some((L) => L.includes('#'));
   (l
     ? (A = await $3(w))
-    : P && ((A = new n0(w, { height: e.wall_height ?? (r ? 0.85 : 0.8), torches: r })), b.add(A.group)),
+    : P &&
+      ((A = new CryptWalls(w, { height: e.wall_height ?? (r ? 0.85 : 0.8), torches: r })), b.add(A.group)),
     c &&
       h.each((L, O, B) => {
         if (B !== '#') return;
