@@ -6,3 +6,10 @@ arreglado nada**: el comportamiento es el del publicado. Los nombres son los nue
 ## vfx/conditions.js
 
 - `AuraEffects.repin()` no se llama desde ningún sitio (código muerto).
+
+## vfx/spells.js
+
+- `playSpellFx`, fase `burst`: `let burstStyle = style === 'nature' ? 'nature' : style;` siempre vale
+  `style` (ternario redundante; quizá se quería forzar otro estilo).
+- `SPELL_FX.hail_of_thorns` devuelve `null`, así que cae en la coreografía genérica (¿a propósito?).
+- `smiteRider` llama a `getStyle(style)` dentro del bucle de objetivos (inofensivo, siempre igual).

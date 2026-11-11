@@ -18,7 +18,7 @@ import { FRAME } from './atlas.js';
 import { Beam, RingWave, Dome, LightPillar, HexWave, RuneCircle, SlashArc, Decal } from './shaders.js';
 import { getStyle, resolveStyleKey, DAMAGE_STYLE } from './styles.js';
 import efectosConjuros from '../datos/efectos/conjuros.json';
-import { FS, OS } from './spells.js';
+import { playSpellFx, playFeatureFx } from './spells.js';
 import { AuraEffects } from './conditions.js';
 import { ZoneEffects } from './zones.js';
 
@@ -1131,10 +1131,10 @@ function createVfx({
       spell(x, g = {}) {
         let y = efectosConjuros[x] || {},
           w = resolveStyleKey(g.fx ?? y.fx, g.dtype || y.d);
-        return FS(this, x, y, w, g);
+        return playSpellFx(this, x, y, w, g);
       },
       feature(x, g = {}) {
-        return OS(this, x, g);
+        return playFeatureFx(this, x, g);
       },
       update(x) {
         ((x *= this.timeScale), (p += x));
