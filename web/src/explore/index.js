@@ -13,11 +13,11 @@ import {
   Vector3,
 } from 'three';
 import { cellToPlane, cellKey, hexDistance, HEX_SIZE } from './hex.js';
-import { Tm } from './terrain.js';
+import { ExploreMap } from './terrain.js';
 import { Em } from './checks.js';
 import { ensureCampaign } from './campaign.js';
 import { loadLevel } from './levels.js';
-import { uk } from './areas.js';
+import { loadAreaModules } from './areas.js';
 import { mk } from './fallback-world.js';
 import { yk } from './actors.js';
 import { ExploreInput } from './input.js';
@@ -51,7 +51,7 @@ const Explore = class {
         ((this.startCell ??= a.location.cell.slice()), (this.spawn = 'saved')),
       (this.three = new Scene()),
       (this.rules = new Em(e)),
-      (this.xmap = new Tm({ call: (n, s) => this.rules.call(n, s) })),
+      (this.xmap = new ExploreMap({ call: (n, s) => this.rules.call(n, s) })),
       (this.members = []),
       (this.dead = []),
       (this.leader = null),
@@ -95,7 +95,7 @@ const Explore = class {
       ((this.timings[c] = Math.round(h - n)), (n = h), d && t.loading?.(d, u));
     };
     (t.loading?.('Preparando el camino', 0.02),
-      (this.mods = await uk()),
+      (this.mods = await loadAreaModules()),
       (this.level = await loadLevel(this.levelId, this.mods.world)));
     let i = this.level;
     (s('nivel', `Llegando a ${i.name || this.levelId}`, 0.05),

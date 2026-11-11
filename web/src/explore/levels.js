@@ -1,24 +1,27 @@
-// explore/levels.js
-// Reconstruido de publicado/juego.js (módulo __esm «LS»). Nombres locales aún minificados.
+// explore/levels.js — Carga de niveles de exploración: primero `world.loadLevel` (área de escenarios) y,
+// si no hay, el JSON de src/datos/niveles/<id>.json (import() con plantilla). Guarda en caché y
+// devuelve copias. Lo usa explore/index.js.
+// Reconstruido de publicado/juego.js (módulo __esm «LS»).
 
-async function loadLevel(o, e = null) {
-  if (e1.has(o)) return structuredClone(e1.get(o));
-  let t = null;
-  if (e?.loadLevel)
+/** Devuelve una copia del nivel `id`; `world` es el módulo de escenarios (opcional). */
+async function loadLevel(id, world = null) {
+  if (levelCache.has(id)) return structuredClone(levelCache.get(id));
+  let level = null;
+  if (world?.loadLevel)
     try {
-      t = await e.loadLevel(o);
-    } catch (a) {
-      console.warn('[exploraci\xF3n] loadLevel de Escenarios:', a);
+      level = await world.loadLevel(id);
+    } catch (err) {
+      console.warn('[exploraci\xF3n] loadLevel de Escenarios:', err);
     }
-  if (!t)
+  if (!level)
     try {
-      t = (await import(`../datos/niveles/${o}.json`)).default;
+      level = (await import(`../datos/niveles/${id}.json`)).default;
     } catch {
-      t = null;
+      level = null;
     }
-  if (!t) throw new Error(`No existe el nivel \xAB${o}\xBB`);
-  return ((t.id ??= o), e1.set(o, t), structuredClone(t));
+  if (!level) throw new Error(`No existe el nivel \xAB${id}\xBB`);
+  return ((level.id ??= id), levelCache.set(id, level), structuredClone(level));
 }
-const e1 = new Map();
+const levelCache = new Map();
 
 export { loadLevel };
