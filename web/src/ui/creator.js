@@ -5,7 +5,7 @@ import { iconHtml, escapeHtml, richText, elem, makeButton, iconButton, signed } 
 import { setTip } from './tooltip.js';
 import { makeDie, rollDie } from './dice.js';
 import { ABILITY_ICONS, ABILITY_HINTS, SPELL_ROLES, SPECIES_ICONS, BACKGROUND_ICONS } from './labels.js';
-import { om, zv, JT, Pv } from './creator-look.js';
+import { appearanceOptions, completeAppearance, randomAppearance, LOOK_GROUPS } from './creator-look.js';
 
 function WL(o) {
   return () => ({
@@ -652,17 +652,21 @@ function buildCreator(o, e, t) {
     return { lineage: i.lineage, ancestry: i.ancestry };
   }
   function ue(N) {
-    let L = zv(e, i.species, { ...(i.appearance || {}), ...N }, ge());
+    let L = completeAppearance(e, i.species, { ...(i.appearance || {}), ...N }, ge());
     ((i = { ...i, appearance: L }), we({ keepScroll: !0 }), t.onChange?.(i, r));
   }
   function Q() {
-    let N = om(e, i.species, ge());
-    i.appearance || (i.appearance = zv(e, i.species, {}, ge()));
+    let N = appearanceOptions(e, i.species, ge());
+    i.appearance || (i.appearance = completeAppearance(e, i.species, {}, ge()));
     let L = i.appearance,
       O = elem('div.mg-look'),
       B = elem('div.mg-row-flex');
     (B.append(
-      makeButton('Al azar', { icon: 'dice', size: 'sm', onclick: () => ue(JT(e, i.species, ge())) }),
+      makeButton('Al azar', {
+        icon: 'dice',
+        size: 'sm',
+        onclick: () => ue(randomAppearance(e, i.species, ge())),
+      }),
       makeButton('Restablecer', {
         icon: 'undo',
         size: 'sm',
@@ -673,8 +677,8 @@ function buildCreator(o, e, t) {
       O.append(B));
     let $ = new Map(N.fields.map((ze) => [ze.key, ze])),
       ee = new Set(),
-      be = Pv.map(([ze, W]) => [ze, W.filter((De) => $.has(De))]),
-      Ce = N.fields.filter((ze) => !Pv.some(([, W]) => W.includes(ze.key))).map((ze) => ze.key);
+      be = LOOK_GROUPS.map(([ze, W]) => [ze, W.filter((De) => $.has(De))]),
+      Ce = N.fields.filter((ze) => !LOOK_GROUPS.some(([, W]) => W.includes(ze.key))).map((ze) => ze.key);
     Ce.length && be.push(['M\xE1s', Ce]);
     for (let [ze, W] of be)
       if (W.length) {

@@ -1,123 +1,138 @@
 // ui/creator-look.js
 // Reconstruido de publicado/juego.js (módulo __esm «ZT»). Nombres locales aún minificados.
 
-function VL(o, { lineage: e, ancestry: t } = {}) {
-  let a = Av[o] || Av.human;
-  (o === 'elf' && e === 'drow' && (a = Av.drow),
-    o === 'dragonborn' && (a = [LL[t] || '#b33a2c', '#6a4a3a', '#3a3a3a', '#c8b89a']));
-  let n = ['tiefling', 'dragonborn', 'goliath'].includes(o) || e === 'drow',
-    s = [
+function defaultAppearanceOptions(species, { lineage, ancestry } = {}) {
+  let skins = SKIN_TONES[species] || SKIN_TONES.human;
+  (species === 'elf' && lineage === 'drow' && (skins = SKIN_TONES.drow),
+    species === 'dragonborn' &&
+      (skins = [DRAGON_COLORS[ancestry] || '#b33a2c', '#6a4a3a', '#3a3a3a', '#c8b89a']));
+  let exotic = ['tiefling', 'dragonborn', 'goliath'].includes(species) || lineage === 'drow',
+    fields = [
       {
         key: 'body',
         label: 'Cuerpo',
         type: 'choice',
-        options: Os([
+        options: toOptions([
           ['m', 'Masculino'],
           ['f', 'Femenino'],
         ]),
       },
-      { key: 'build', label: 'Complexi\xF3n', type: 'choice', options: Os(OL) },
+      { key: 'build', label: 'Complexi\xF3n', type: 'choice', options: toOptions(BUILDS) },
       { key: 'height', label: 'Altura', type: 'range', min: 0.94, max: 1.06, step: 0.01 },
       {
         key: 'face',
         label: 'Rostro',
         type: 'choice',
-        options: [0, 1, 2, 3].map((r) => ({ id: r, label: `Rostro ${r + 1}` })),
+        options: [0, 1, 2, 3].map((index) => ({ id: index, label: `Rostro ${index + 1}` })),
       },
-      { key: 'skin', label: o === 'dragonborn' ? 'Escamas' : 'Piel', type: 'color', options: a },
-      { key: 'eyes', label: 'Ojos', type: 'color', options: n ? [...Cv, ...IL] : Cv },
+      { key: 'skin', label: species === 'dragonborn' ? 'Escamas' : 'Piel', type: 'color', options: skins },
+      {
+        key: 'eyes',
+        label: 'Ojos',
+        type: 'color',
+        options: exotic ? [...EYE_COLORS, ...EXOTIC_EYE_COLORS] : EYE_COLORS,
+      },
     ];
-  (o !== 'dragonborn' &&
-    (s.push({ key: 'hair', label: 'Peinado', type: 'choice', options: Os(NL) }),
-    s.push({ key: 'hairColor', label: 'Color del pelo', type: 'color', options: n ? [...Rv, ...DL] : Rv }),
-    ['elf'].includes(o) || s.push({ key: 'beard', label: 'Barba', type: 'choice', options: Os(FL) })),
-    ['elf', 'half_elf', 'gnome'].includes(o) &&
-      s.push({ key: 'ears', label: 'Orejas', type: 'choice', options: Os(BL) }),
-    ['tiefling', 'dragonborn'].includes(o) &&
-      (s.push({ key: 'horns', label: 'Cuernos', type: 'choice', options: Os(qL) }),
-      s.push({ key: 'hornColor', label: 'Color de los cuernos', type: 'color', options: KT })),
-    o === 'tiefling' && s.push({ key: 'tail', label: 'Cola', type: 'toggle' }),
-    ['orc', 'half_orc'].includes(o) &&
-      s.push({ key: 'tusks', label: 'Colmillos', type: 'choice', options: Os(UL) }),
-    o === 'goliath' &&
-      (s.push({ key: 'marks', label: 'Marcas', type: 'choice', options: Os(jL) }),
-      s.push({
+  (species !== 'dragonborn' &&
+    (fields.push({ key: 'hair', label: 'Peinado', type: 'choice', options: toOptions(HAIR_STYLES) }),
+    fields.push({
+      key: 'hairColor',
+      label: 'Color del pelo',
+      type: 'color',
+      options: exotic ? [...HAIR_COLORS, ...EXOTIC_HAIR_COLORS] : HAIR_COLORS,
+    }),
+    ['elf'].includes(species) ||
+      fields.push({ key: 'beard', label: 'Barba', type: 'choice', options: toOptions(BEARDS) })),
+    ['elf', 'half_elf', 'gnome'].includes(species) &&
+      fields.push({ key: 'ears', label: 'Orejas', type: 'choice', options: toOptions(EARS) }),
+    ['tiefling', 'dragonborn'].includes(species) &&
+      (fields.push({ key: 'horns', label: 'Cuernos', type: 'choice', options: toOptions(HORNS) }),
+      fields.push({ key: 'hornColor', label: 'Color de los cuernos', type: 'color', options: HORN_COLORS })),
+    species === 'tiefling' && fields.push({ key: 'tail', label: 'Cola', type: 'toggle' }),
+    ['orc', 'half_orc'].includes(species) &&
+      fields.push({ key: 'tusks', label: 'Colmillos', type: 'choice', options: toOptions(TUSKS) }),
+    species === 'goliath' &&
+      (fields.push({ key: 'marks', label: 'Marcas', type: 'choice', options: toOptions(MARKS) }),
+      fields.push({
         key: 'marksColor',
         label: 'Color de las marcas',
         type: 'color',
         options: ['#3a4a5a', '#5a3a2a', '#2a2a2a', '#7a8a9a', '#8a3a2a'],
       })),
-    o === 'dragonborn' && s.push({ key: 'frill', label: 'Cresta', type: 'choice', options: Os(GL) }),
-    s.push({ key: 'cloth1', label: 'Color principal', type: 'color', options: nm }),
-    s.push({ key: 'cloth2', label: 'Color secundario', type: 'color', options: nm }),
-    s.push({ key: 'metal', label: 'Metal', type: 'choice', options: Os(HL) }));
-  let i = {
+    species === 'dragonborn' &&
+      fields.push({ key: 'frill', label: 'Cresta', type: 'choice', options: toOptions(FRILLS) }),
+    fields.push({ key: 'cloth1', label: 'Color principal', type: 'color', options: CLOTH_COLORS }),
+    fields.push({ key: 'cloth2', label: 'Color secundario', type: 'color', options: CLOTH_COLORS }),
+    fields.push({ key: 'metal', label: 'Metal', type: 'choice', options: toOptions(METALS) }));
+  let defaults = {
     body: 'm',
     face: 0,
-    skin: a[1] || a[0],
-    eyes: Cv[0],
-    hair: o === 'dwarf' ? 'rapado' : 'raya',
-    hairColor: Rv[2],
-    beard: o === 'dwarf' ? 'larga' : 'ninguna',
-    cloth1: nm[0],
-    cloth2: nm[7],
+    skin: skins[1] || skins[0],
+    eyes: EYE_COLORS[0],
+    hair: species === 'dwarf' ? 'rapado' : 'raya',
+    hairColor: HAIR_COLORS[2],
+    beard: species === 'dwarf' ? 'larga' : 'ninguna',
+    cloth1: CLOTH_COLORS[0],
+    cloth2: CLOTH_COLORS[7],
     metal: 'acero',
     height: 1,
-    build: o === 'dwarf' || o === 'goliath' ? 'robusta' : 'media',
+    build: species === 'dwarf' || species === 'goliath' ? 'robusta' : 'media',
     ears: 'puntiagudas',
-    horns: o === 'dragonborn' ? 'atras' : 'curvos',
-    hornColor: KT[0],
-    tail: o === 'tiefling',
+    horns: species === 'dragonborn' ? 'atras' : 'curvos',
+    hornColor: HORN_COLORS[0],
+    tail: species === 'tiefling',
     tusks: 'pequenos',
     marks: 'lineas',
     marksColor: '#3a4a5a',
     frill: 'cresta',
   };
-  return { name: o, fields: s, defaults: i };
+  return { name: species, fields, defaults };
 }
-function om(o, e, t) {
+function appearanceOptions(game, species, opts) {
   try {
-    let a = o.actors?.appearanceOptions;
-    if (a) return a(e, t);
-  } catch (a) {
-    console.warn('[interfaz] appearanceOptions', a);
+    let fn = game.actors?.appearanceOptions;
+    if (fn) return fn(species, opts);
+  } catch (err) {
+    console.warn('[interfaz] appearanceOptions', err);
   }
-  return VL(e, t);
+  return defaultAppearanceOptions(species, opts);
 }
-function zv(o, e, t = {}, a) {
+function completeAppearance(game, species, look = {}, opts) {
   try {
-    if (o.actors?.completeAppearance) return o.actors.completeAppearance(t, e, a);
+    if (game.actors?.completeAppearance) return game.actors.completeAppearance(look, species, opts);
   } catch {}
-  let n = om(o, e, a),
-    s = {};
-  for (let i of n.fields) s[i.key] = t[i.key] ?? n.defaults[i.key];
-  for (let i of n.fields)
-    i.type === 'color' &&
-      Array.isArray(i.options) &&
-      !i.options.includes(s[i.key]) &&
-      ['skin'].includes(i.key) &&
-      (s[i.key] = n.defaults[i.key]);
-  return s;
+  let spec = appearanceOptions(game, species, opts),
+    out = {};
+  for (let field of spec.fields) out[field.key] = look[field.key] ?? spec.defaults[field.key];
+  for (let field of spec.fields)
+    field.type === 'color' &&
+      Array.isArray(field.options) &&
+      !field.options.includes(out[field.key]) &&
+      ['skin'].includes(field.key) &&
+      (out[field.key] = spec.defaults[field.key]);
+  return out;
 }
-function JT(o, e, t) {
+function randomAppearance(game, species, opts) {
   try {
-    if (o.actors?.randomAppearance) return o.actors.randomAppearance(e, t);
+    if (game.actors?.randomAppearance) return game.actors.randomAppearance(species, opts);
   } catch {}
-  let a = om(o, e, t),
-    n = (i) => i[Math.floor(Math.random() * i.length)],
-    s = {};
-  for (let i of a.fields)
-    i.type === 'choice'
-      ? (s[i.key] = n(i.options).id)
-      : i.type === 'color'
-        ? (s[i.key] = n(i.options))
-        : i.type === 'range'
-          ? (s[i.key] =
-              Math.round((i.options.min + Math.random() * (i.options.max - i.options.min)) * 100) / 100)
-          : i.type === 'toggle' && (s[i.key] = Math.random() < 0.7);
-  return (s.body === 'f' && s.beard && (s.beard = 'ninguna'), s);
+  let spec = appearanceOptions(game, species, opts),
+    pick = (list) => list[Math.floor(Math.random() * list.length)],
+    out = {};
+  for (let field of spec.fields)
+    field.type === 'choice'
+      ? (out[field.key] = pick(field.options).id)
+      : field.type === 'color'
+        ? (out[field.key] = pick(field.options))
+        : field.type === 'range'
+          ? (out[field.key] =
+              Math.round(
+                (field.options.min + Math.random() * (field.options.max - field.options.min)) * 100,
+              ) / 100)
+          : field.type === 'toggle' && (out[field.key] = Math.random() < 0.7);
+  return (out.body === 'f' && out.beard && (out.beard = 'ninguna'), out);
 }
-const Av = {
+const SKIN_TONES = {
   human: ['#f1c9a5', '#e0ac83', '#c68a5c', '#a0683f', '#7a4a2a', '#4f2f1c'],
   elf: ['#f4d8c0', '#e8c09a', '#c99a72', '#a77a58', '#8d6a8f', '#5d4b6e'],
   drow: ['#5d4b6e', '#4a3f5c', '#3b3550', '#55505e', '#2f2a3a', '#6a5a7a'],
@@ -130,7 +145,7 @@ const Av = {
   half_orc: ['#a9b18f', '#93a07c', '#c4a98a', '#8f8f7a', '#7c8a68', '#b59a7a'],
   tiefling: ['#b84a4a', '#9b3c55', '#7d4e8f', '#c9826b', '#5a3e6e', '#d8a0a0', '#e0ac83'],
 };
-const LL = {
+const DRAGON_COLORS = {
   black: '#2b2b33',
   blue: '#2f5fb3',
   brass: '#c79a3c',
@@ -142,7 +157,7 @@ const LL = {
   silver: '#b9c2cc',
   white: '#e8eef2',
 };
-const Rv = [
+const HAIR_COLORS = [
   '#1e1612',
   '#3b2a1e',
   '#5a3a22',
@@ -154,10 +169,10 @@ const Rv = [
   '#9a948c',
   '#e8e4dc',
 ];
-const DL = ['#c8d0e0', '#3a3a5a', '#5a2a4a', '#2a4a5a', '#8a2a2a'];
-const Cv = ['#5a3a1e', '#3a5a8a', '#4a7a4a', '#7a6a4a', '#5a5a6a', '#2a1a12'];
-const IL = ['#d8a020', '#c03020', '#e8e0c0', '#8040c0', '#20a0a0'];
-const nm = [
+const EXOTIC_HAIR_COLORS = ['#c8d0e0', '#3a3a5a', '#5a2a4a', '#2a4a5a', '#8a2a2a'];
+const EYE_COLORS = ['#5a3a1e', '#3a5a8a', '#4a7a4a', '#7a6a4a', '#5a5a6a', '#2a1a12'];
+const EXOTIC_EYE_COLORS = ['#d8a020', '#c03020', '#e8e0c0', '#8040c0', '#20a0a0'];
+const CLOTH_COLORS = [
   '#3f5f9a',
   '#7a2e2a',
   '#3e6b3a',
@@ -171,7 +186,7 @@ const nm = [
   '#9a7a2a',
   '#4a2e1e',
 ];
-const HL = [
+const METALS = [
   ['acero', 'Acero', '#b8bec6'],
   ['hierro', 'Hierro', '#7d8188'],
   ['bronce', 'Bronce', '#b5803e'],
@@ -179,7 +194,7 @@ const HL = [
   ['oro', 'Oro', '#e0b84a'],
   ['pavonado', 'Pavonado', '#3c4048'],
 ];
-const NL = [
+const HAIR_STYLES = [
   ['raya', 'Con raya'],
   ['largo', 'Largo'],
   ['mono', 'Mo\xF1os'],
@@ -189,7 +204,7 @@ const NL = [
   ['cresta', 'Cresta'],
   ['calvo', 'Calvo'],
 ];
-const FL = [
+const BEARDS = [
   ['ninguna', 'Sin barba'],
   ['barba', 'Barba'],
   ['perilla', 'Perilla'],
@@ -197,42 +212,42 @@ const FL = [
   ['larga', 'Barba larga'],
   ['trenzada', 'Trenzada'],
 ];
-const OL = [
+const BUILDS = [
   ['delgada', 'Delgada'],
   ['media', 'Media'],
   ['robusta', 'Robusta'],
 ];
-const BL = [
+const EARS = [
   ['puntiagudas', 'Puntiagudas'],
   ['largas', 'Largas'],
   ['cortas', 'Cortas'],
 ];
-const qL = [
+const HORNS = [
   ['curvos', 'Curvos'],
   ['carnero', 'De carnero'],
   ['rectos', 'Rectos'],
   ['atras', 'Hacia atr\xE1s'],
   ['ninguno', 'Sin cuernos'],
 ];
-const UL = [
+const TUSKS = [
   ['grandes', 'Grandes'],
   ['pequenos', 'Peque\xF1os'],
   ['ninguno', 'Sin colmillos'],
 ];
-const jL = [
+const MARKS = [
   ['ninguna', 'Ninguna'],
   ['lineas', 'L\xEDneas'],
   ['manchas', 'Manchas'],
   ['runas', 'Runas'],
 ];
-const GL = [
+const FRILLS = [
   ['ninguna', 'Ninguna'],
   ['cresta', 'Cresta'],
   ['gola', 'Gola'],
 ];
-const KT = ['#2a2020', '#4a3a2e', '#7a6a58', '#c8b8a0', '#5a2a2a', '#3a3a4a'];
-const Os = (o) => o.map(([e, t, a]) => ({ id: e, label: t, ...(a ? { swatch: a } : {}) }));
-const Pv = [
+const HORN_COLORS = ['#2a2020', '#4a3a2e', '#7a6a58', '#c8b8a0', '#5a2a2a', '#3a3a4a'];
+const toOptions = (list) => list.map(([id, label, swatch]) => ({ id, label, ...(swatch ? { swatch } : {}) }));
+const LOOK_GROUPS = [
   ['Figura', ['body', 'build', 'height', 'face']],
   ['Piel y ojos', ['skin', 'eyes']],
   ['Pelo', ['hair', 'hairColor', 'beard']],
@@ -240,4 +255,4 @@ const Pv = [
   ['Ropa y metal', ['cloth1', 'cloth2', 'metal', 'helmet', 'hood']],
 ];
 
-export { JT, Pv, om, zv };
+export { randomAppearance, LOOK_GROUPS, appearanceOptions, completeAppearance };
