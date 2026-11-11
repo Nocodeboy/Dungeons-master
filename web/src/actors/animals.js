@@ -15,7 +15,7 @@ import { loadGLTF } from '../assets.js';
 import { Character } from './character.js';
 import { WILD_ANIMAL_CLIPS, FARM_ANIMAL_CLIPS } from './anims.js';
 import { Yn } from './appearance.js';
-import { m2 } from './materials.js';
+import { addRimLight } from './materials.js';
 
 function uu(o) {
   return ANIMAL_DEFS[o] ? o : Qz[o] || null;
@@ -104,7 +104,7 @@ async function gv(o, { index: e = 0, tint: t = null } = {}) {
         /Eye/.test(x.material.name) || x.material.color.multiplyScalar(c),
         (x.material.roughness = 0.85),
         (x.material.metalness = 0),
-        m2(x.material));
+        addRimLight(x.material));
     }),
     !mv.has(a))
   ) {

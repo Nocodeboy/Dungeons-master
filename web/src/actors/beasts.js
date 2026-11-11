@@ -16,7 +16,7 @@ import {
   SphereGeometry,
   Vector3,
 } from 'three';
-import { x2 } from './materials.js';
+import { makeGearMaterial } from './materials.js';
 import { paint, mergeParts, mat } from './geometry.js';
 import { hi } from './sculpt.js';
 import { Character } from './character.js';
@@ -190,7 +190,7 @@ async function cT({ index: o = 0, scale: e = 1 } = {}) {
       u.push(du(fv(n[1], 0.034, 0.024, a, !0), 4 + y * 3)),
       u.push(du(fv(n[2], 0.022, 0.01, a, !1), 5 + y * 3)));
   let h = mergeParts(u),
-    p = x2(),
+    p = makeGearMaterial(),
     m = new SkinnedMesh(h, p),
     _ = new Group();
   (_.add(r), _.add(m), l.position.set(0, 0, 0), _.updateMatrixWorld(!0));

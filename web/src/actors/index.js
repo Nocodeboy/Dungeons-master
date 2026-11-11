@@ -3,7 +3,7 @@
 
 import { buildHumanoid } from './humanoid.js';
 import { heroLook } from './look.js';
-import { sc } from './materials.js';
+import { allTexturesReady } from './materials.js';
 import { MONSTER_DEFS } from './monsters.js';
 import { cT } from './beasts.js';
 import { uu, gv } from './animals.js';
@@ -17,7 +17,7 @@ function setRenderer(o) {
   vT(o);
 }
 function texturesReady() {
-  return sc();
+  return allTexturesReady();
 }
 async function makeHero(o = {}, e = {}) {
   let t = o.id,
@@ -69,11 +69,11 @@ function hasAnimal(o) {
 }
 async function portrait(o, e = {}) {
   return yT(o, e, {
-    makeHero: makeHero,
-    makeNpc: makeNpc,
-    makeMonster: makeMonster,
-    makeCompanion: makeCompanion,
-    makeAnimal: makeAnimal,
+    makeHero,
+    makeNpc,
+    makeMonster,
+    makeCompanion,
+    makeAnimal,
   });
 }
 

@@ -13,7 +13,7 @@ import {
 } from 'three';
 import { heroLook } from './look.js';
 import { buildHumanoid } from './humanoid.js';
-import { sc } from './materials.js';
+import { allTexturesReady } from './materials.js';
 
 function createHeroPreview({ lights: o = !0, pedestal: e = !0 } = {}) {
   let t = new Group();
@@ -60,7 +60,7 @@ function createHeroPreview({ lights: o = !0, pedestal: e = !0 } = {}) {
       r = buildHumanoid(h);
       let _ = await r;
       return (
-        await sc(),
+        await allTexturesReady(),
         m !== l
           ? (_.dispose(), n)
           : (n && n.dispose(), (n = _), (n.userData.sheet = d), a.add(n.root), n.play('idle', 0), n)

@@ -13,7 +13,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { sc, ui } from './materials.js';
+import { allTexturesReady, rimUniforms } from './materials.js';
 import { COMPANIONS, NPC_LOOKS } from './companions.js';
 import { MONSTER_DEFS } from './monsters.js';
 import { uu } from './animals.js';
@@ -188,7 +188,7 @@ function uL(o, e, t, a) {
 async function hL(o, { size: e = 256, background: t } = {}, a) {
   let n = await lL(o, a);
   if (!n) return null;
-  await sc();
+  await allTexturesReady();
   let s = sL();
   (s.add(n.root),
     n.root.position.set(0, 0, 0),
@@ -208,8 +208,8 @@ async function hL(o, { size: e = 256, background: t } = {}, a) {
   r ? gT(n, i) : cL(n, i);
   let l = oL(e);
   (l.setRenderTarget(null), l.setClearColor(0, 0));
-  let c = ui.uRim.value;
-  ((ui.uRim.value = c * 0.4), l.render(s, i));
+  let c = rimUniforms.uRim.value;
+  ((rimUniforms.uRim.value = c * 0.4), l.render(s, i));
   let d = bT(l.domElement);
   if (d < 0.05) {
     (gT(n, i, !r), l.render(s, i));
@@ -222,7 +222,7 @@ async function hL(o, { size: e = 256, background: t } = {}, a) {
     }),
       (d = h));
   }
-  ui.uRim.value = c;
+  rimUniforms.uRim.value = c;
   let u = null;
   return (d >= 0.02 && (u = uL(l.domElement, e, t, n)), s.remove(n.root), n.dispose(), u);
 }

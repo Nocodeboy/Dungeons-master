@@ -13,7 +13,7 @@ import {
   Vector3,
 } from 'three';
 import { c2, d2, Gb, u2, h2, Vb, jb } from './rig.js';
-import { y2 } from './materials.js';
+import { makeCharacterMaterial } from './materials.js';
 import { I2, H2, N2, F2, O2, B2, q2, U2, j2, G2 } from './sculpt.js';
 import {
   paint,
@@ -138,7 +138,7 @@ async function buildHumanoid(o) {
     m = tn(s, 'Head'),
     _ = gearPalette(o),
     b = o.colors || {},
-    f = y2(
+    f = makeCharacterMaterial(
       a,
       {
         skin: b.skin,
