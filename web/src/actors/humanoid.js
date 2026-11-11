@@ -59,8 +59,8 @@ import {
 } from './geometry.js';
 import { Character } from './character.js';
 import { ANIM_CLIPS, GRIP_CLIPS, RACE_CLIPS } from './anims.js';
-import { V2, rc, $2, W2 } from './monster-parts.js';
-import { Y2 } from './poses.js';
+import { loadMonsterPieces, pieceGeometry, skeletonParts, ragsGeometry } from './monster-parts.js';
+import { makeBowClips } from './poses.js';
 
 function tn(o, e) {
   return o.get(e).getWorldPosition(new Vector3());
@@ -135,7 +135,7 @@ function Nz(o) {
 }
 async function buildHumanoid(o) {
   let [e, t] = await Promise.all([loadHumanRig(), loadAnimClips()]);
-  if (!t.has('P_Bow_Shoot')) for (let ie of Y2(e.rootBone.m, t)) t.set(ie.name, ie);
+  if (!t.has('P_Bow_Shoot')) for (let ie of makeBowClips(e.rootBone.m, t)) t.set(ie.name, ie);
   let a = o.body === 'f' ? 'f' : 'm',
     n = e.rootBone[a],
     s = new Map();
@@ -481,21 +481,21 @@ async function oT(o, e, t, a, n) {
     s.push({ geometry: tailGeometry(c, l.tail.color, l.tail), material: a, weights: tailWeights(c.y) });
   }
   if (o.undead || o.gear?.kk) {
-    let c = await V2();
+    let c = await loadMonsterPieces();
     if (o.undead)
-      for (let d of $2(e, { ...o.undead, pieces: c }))
+      for (let d of skeletonParts(e, { ...o.undead, pieces: c }))
         s.push({ geometry: d.geometry, material: a, bone: d.bone });
     for (let d of o.gear?.kk || []) {
       let u;
       if (d.bone === 'Head') {
         let h = (c.headScale || 0.2) * (o.undead?.headScale ?? 1);
-        ((u = rc(c, d.name, {
+        ((u = pieceGeometry(c, d.name, {
           matrix: mat.mul(mat.T(n.x, n.y - 0.055, n.z + 0.005), mat.S(h)),
           metal: d.name === 'kk_casco' ? 0.6 : 0,
         })),
           u && i(u, 'Head'));
       } else if (d.hand) {
-        if (((u = rc(c, d.name, { metal: 0.5 })), !u)) continue;
+        if (((u = pieceGeometry(c, d.name, { metal: 0.5 })), !u)) continue;
         u.computeBoundingBox();
         let h = u.boundingBox,
           p = d.name.includes('escudo'),
@@ -512,7 +512,7 @@ async function oT(o, e, t, a, n) {
   if (o.gear?.rags) {
     let c = tn(e, 'pelvis');
     s.push({
-      geometry: W2(e, o.gear.rags, { y0: c.y + 0.06, y1: c.y - 0.32 }),
+      geometry: ragsGeometry(e, o.gear.rags, { y0: c.y + 0.06, y1: c.y - 0.32 }),
       material: a,
       weights: iT(c.y + 0.06),
     });
