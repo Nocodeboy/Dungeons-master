@@ -8,13 +8,13 @@ import { MONSTER_DEFS } from './monsters.js';
 import { makeGiantSpider } from './beasts.js';
 import { resolveAnimalKind, buildAnimal } from './animals.js';
 import { companionLook, npcLook, COMPANIONS } from './companions.js';
-import { vT, yT } from './portraits.js';
+import { setPortraitRenderer, cachedPortrait } from './portraits.js';
 import './preview.js';
 import './character.js';
 import './appearance.js';
 
 function setRenderer(o) {
-  vT(o);
+  setPortraitRenderer(o);
 }
 function texturesReady() {
   return allTexturesReady();
@@ -68,7 +68,7 @@ function hasAnimal(o) {
   return !!resolveAnimalKind(o);
 }
 async function portrait(o, e = {}) {
-  return yT(o, e, {
+  return cachedPortrait(o, e, {
     makeHero,
     makeNpc,
     makeMonster,
