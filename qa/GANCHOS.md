@@ -35,7 +35,7 @@ Combinación que usa el arnés: `?depurar&turbo=4&calidad=baja&escala=0.5&autoco
 | Objeto | Condición | Contenido |
 |---|---|---|
 | `window.__mdg` | `?depurar` | El contexto `game` (ver §3). |
-| `window.__combate` | `?depurar`, durante un combate | `{ctl, vfx, units, board, hud}`. `ctl.state` es el estado del núcleo (`creatures`, `current`, `round`, `over`); `ctl.turbo`; `ctl.toggleAuto(id)`. |
+| `window.__combate` | `?depurar`, durante un combate | `{ctl, vfx, units, board, hud}`. `ctl.state` es el estado del núcleo (`creatures`, `current`, `round`, `over`); `ctl.turbo` (divide esperas y efectos; `?turbo` lo pone a 5, el piloto a 12); `ctl.setFast(true)` (turnos enemigos rápidos, sin carteles); `ctl.toggleAuto(id)`. Ojo: no se borra al acabar el combate (`ctl.disposed` pasa a `true`). |
 | `window.__sonido` | `?depurar` | Fachada de audio (`names()`, `musicName`, `unlocked`, `credits()`…). |
 | `window.__mdgSinSuelo` | se lee | Si es `true` antes de cargar, no se recolocan las animaciones al suelo (depuración de animaciones). |
 | `window.claude` | lo da el anfitrión de artefactos | `use('db' \| 'user' \| 'downloads' \| 'sample')`. En local no existe: el juego cae a `localStorage` y a narración sin IA. |
@@ -82,7 +82,8 @@ Para empezar en un punto concreto basta con escribir un `mdg.partida.auto` antes
 ## 6. Cómo resolver combates rápido
 
 - `?autocombate` + `?turbo` (+ `?semilla=N` para reproducir). El combate ocurre dentro de la escena de exploración (`explore.inBattle`), termina con `battle:end {won, fled}` y vuelve solo a exploración.
-- Durante el combate, `__combate.ctl.toggleAuto(id)` pasa un personaje a IA en caliente.
+- Durante el combate, `__combate.ctl.toggleAuto(id)` pasa un personaje a IA en caliente, y `ctl.turbo = 12` + `ctl.setFast(true)` acortan esperas y efectos (no los desplazamientos). Aun así, en SwiftShader con 2 CPU un combate dura de 1,5 a 10 min (e1 con 8 criaturas: 629 s).
+- Sin navegador: `qa/simular.mjs` juega el mismo encuentro con el núcleo wasm en Node (cientos de semillas por minuto) para medir dificultad o comparar núcleos.
 - Derrota → pantalla `derrota` con «Cargar la última partida» (ranura `auto`). El piloto cambia `__mdg.params.semilla` y recarga.
 - No hay atajo para ganar un combate al instante (ni «matar a todos»), ni retirada (`retreat` no existe en el núcleo publicado); el único `fled: true` lo produce la recuperación de un error de combate.
 
