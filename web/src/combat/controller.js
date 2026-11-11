@@ -1,5 +1,9 @@
-// combat/controller.js
-// Reconstruido de publicado/juego.js (módulo __esm «y1»). Nombres locales aún minificados.
+// combat/controller.js — Controlador del combate táctico (clase Controller).
+// Lleva los turnos sobre el núcleo de reglas (state, options, move, attack, cast, simple, feature, ai_turn,
+// end_turn…), la entrada del jugador (ratón, toque y teclado) con previsiones y elección de objetivos, la
+// cámara, y convierte cada evento del núcleo ({t: 'attack' | 'damage' | 'cast' | …}) en animaciones de
+// las unidades, efectos (vfx) y avisos del HUD. Emite por el bus «battle:start», «battle:turn»,
+// «battle:event», «battle:fx» y «battle:end». Lo crea combat/index.js (runBattle).
 
 import { MathUtils, Raycaster, Vector2, Vector3 } from 'three';
 import { worldToPlane, planeToCell, cellKey, hexDistance, HEX_SIZE } from '../explore/hex.js';
@@ -12,10 +16,13 @@ import { FRAME } from '../vfx/atlas.js';
 import { makeBeast } from './creatures.js';
 import { conditionName, shortName, formatNumber } from './hud.js';
 
-const v1 = (o) => new Promise((e) => setTimeout(e, o));
-const fH = typeof matchMedia == 'function' && matchMedia('(pointer: coarse)').matches;
-const mH = fH ? 'Toca otra vez a' : 'Haz clic otra vez en';
-const gH = {
+/** Promesa que se cumple tras `ms` milisegundos. */
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/** ¿Pantalla táctil? (cambia el texto de las indicaciones). */
+const TOUCH = typeof matchMedia == 'function' && matchMedia('(pointer: coarse)').matches;
+const TAP_AGAIN = TOUCH ? 'Toca otra vez a' : 'Haz clic otra vez en';
+/** Texto flotante de cada rasgo de clase al usarlo. */
+const FEATURE_NAMES = {
   second_wind: 'Tomar aliento',
   action_surge: '\xA1Oleada de acci\xF3n!',
   rage: '\xA1FURIA!',
@@ -36,7 +43,8 @@ const gH = {
   clouds_jaunt: 'Salto de las nubes',
   adrenaline_rush: '\xA1Adrenalina!',
 };
-const n3 = {
+/** Clase CSS del número de daño por tipo elemental. */
+const DAMAGE_CLASS = {
   fire: 'fuego',
   cold: 'frio',
   lightning: 'rayo',
@@ -48,7 +56,8 @@ const n3 = {
   force: 'fuerza',
   thunder: 'trueno',
 };
-const o3 = {
+/** Nombres de los tipos de daño. */
+const DAMAGE_TYPE_NAMES = {
   slashing: 'cortante',
   piercing: 'perforante',
   bludgeoning: 'contundente',
@@ -63,26 +72,33 @@ const o3 = {
   psychic: 'ps\xEDquico',
   force: 'fuerza',
 };
-const s3 = /skeleton|zombie|wight|ghoul|ghost|specter|wraith|mummy/;
+/** Plantillas de no muertos (sin sangre, muerte con polvo). */
+const UNDEAD_RE = /skeleton|zombie|wight|ghoul|ghost|specter|wraith|mummy/;
+/**
+ * Controlador del combate: bucle de turnos sobre el núcleo de reglas, entrada del jugador, cámara y
+ * reproducción de los eventos del núcleo con animaciones, efectos y HUD.
+ * Modos: «busy» (reproduciendo o turno ajeno), «idle» (turno del jugador) y «target» (eligiendo objetivo).
+ */
 const Controller = class {
-  constructor(e) {
-    ((this.rules = e.rules),
-      (this.S = e.stage),
-      (this.scene = e.scene),
-      (this.hud = e.hud),
-      (this.units = e.units),
-      (this.board = e.board),
-      (this.vfx = e.vfx),
-      (this.bus = e.bus || null),
-      (this.cellToWorld = e.cellToWorld),
-      (this.bounds = e.bounds),
-      (this.standalone = !!e.standalone),
-      (this.shotMode = !!e.shotMode),
-      (this.meta = e.meta || {}),
-      (this.state = e.init.state),
-      (this.encounter = e.init.state.encounter || {}),
-      (this.initEvents = e.init.events || []),
-      (this.surprised = new Set(e.surprised || [])),
+  /** `opts`: rules, stage, scene, hud, units, board, vfx, bus, init (battle_start), cellToWorld, bounds, standalone, shotMode, surprised, meta. */
+  constructor(opts) {
+    ((this.rules = opts.rules),
+      (this.S = opts.stage),
+      (this.scene = opts.scene),
+      (this.hud = opts.hud),
+      (this.units = opts.units),
+      (this.board = opts.board),
+      (this.vfx = opts.vfx),
+      (this.bus = opts.bus || null),
+      (this.cellToWorld = opts.cellToWorld),
+      (this.bounds = opts.bounds),
+      (this.standalone = !!opts.standalone),
+      (this.shotMode = !!opts.shotMode),
+      (this.meta = opts.meta || {}),
+      (this.state = opts.init.state),
+      (this.encounter = opts.init.state.encounter || {}),
+      (this.initEvents = opts.init.events || []),
+      (this.surprised = new Set(opts.surprised || [])),
       (this.mode = 'busy'),
       (this.pending = null),
       (this.opts = null),
@@ -100,188 +116,206 @@ const Controller = class {
       (this.forms = new Map()),
       (this.off = []),
       (this.disposed = !1),
-      (this.vfx.onFx = (t, a) => this.bus?.emit('battle:fx', { ...a, kind: t })),
+      (this.vfx.onFx = (kind, data) => this.bus?.emit('battle:fx', { ...data, kind })),
       (this.vfx.bloodless = !1),
       this.bindInput(),
       this.hud.bind(this),
       this.hud.setup(this.state, this.units, this.encounter),
       this.hud.setSurprised([...this.surprised]));
-    for (let t of this.meta.auto || []) this.hud.setAuto(t, !0);
+    for (let id of this.meta.auto || []) this.hud.setAuto(id, !0);
     this.syncAuras();
   }
-  creature(e) {
-    return this.state.creatures.find((t) => t.id === e);
+  /** Criatura del estado del núcleo por id. */
+  creature(id) {
+    return this.state.creatures.find((c) => c.id === id);
   }
-  unit(e) {
-    return this.units.byId.get(e);
+  /** Unidad (figura) por id. */
+  unit(id) {
+    return this.units.byId.get(id);
   }
+  /** Pide `state` al núcleo y actualiza HUD y auras. */
   refresh() {
-    let e = this.rules('state');
+    let state = this.rules('state');
     return (
-      e && !e.error && (e.encounter || (e.encounter = this.encounter), (this.state = e)),
+      state && !state.error && (state.encounter || (state.encounter = this.encounter), (this.state = state)),
       this.hud.refresh(this.state),
       this.syncAuras(),
       this.state
     );
   }
+  /** Auras de estado de cada unidad y tamaño por Agrandar/Reducir. */
   syncAuras() {
-    for (let e of this.state.creatures) {
-      let t = this.unit(e.id);
-      if (!t) continue;
-      this.vfx.auras.sync(e.id, anchorsOf(t), t.dead ? new Set() : BS(e));
-      let a = new Set((e.effects || []).map((s) => s.kind)),
-        n = a.has('enlarged') ? 1.35 : a.has('reduced') ? 0.7 : 1;
-      (t.sizeK === void 0 && (t.sizeK = 1),
-        t.sizeK !== n && (t.root.scale.multiplyScalar(n / t.sizeK), (t.sizeK = n)));
+    for (let creature of this.state.creatures) {
+      let unit = this.unit(creature.id);
+      if (!unit) continue;
+      this.vfx.auras.sync(creature.id, anchorsOf(unit), unit.dead ? new Set() : BS(creature));
+      let kinds = new Set((creature.effects || []).map((effect) => effect.kind)),
+        size = kinds.has('enlarged') ? 1.35 : kinds.has('reduced') ? 0.7 : 1;
+      (unit.sizeK === void 0 && (unit.sizeK = 1),
+        unit.sizeK !== size && (unit.root.scale.multiplyScalar(size / unit.sizeK), (unit.sizeK = size)));
     }
   }
-  wait(e) {
-    return v1(e / this.speed / this.turbo);
+  /** Espera ajustada a la velocidad (turnos rápidos y ?turbo). */
+  wait(ms) {
+    return sleep(ms / this.speed / this.turbo);
   }
-  who(e) {
-    let t = typeof e == 'string' ? this.unit(e) : e;
-    if (!t) return null;
-    let a = t.root.getWorldPosition(new Vector3()),
-      n = t.targetYaw ?? t.root.rotation.y;
+  /** Datos de anclaje de una unidad para los efectos (pos, pecho, cabeza, mano, frente, aliado). */
+  who(unitOrId) {
+    let unit = typeof unitOrId == 'string' ? this.unit(unitOrId) : unitOrId;
+    if (!unit) return null;
+    let pos = unit.root.getWorldPosition(new Vector3()),
+      yaw = unit.targetYaw ?? unit.root.rotation.y;
     return {
-      id: t.id,
-      pos: a,
-      chest: t.chest(),
-      head: t.headWorld(),
-      hand: handWorld(t),
-      fwd: new Vector3(Math.sin(n), 0, Math.cos(n)),
-      ally: t.team === 0,
+      id: unit.id,
+      pos,
+      chest: unit.chest(),
+      head: unit.headWorld(),
+      hand: handWorld(unit),
+      fwd: new Vector3(Math.sin(yaw), 0, Math.cos(yaw)),
+      ally: unit.team === 0,
     };
   }
-  planeToWorld(e) {
-    let t = planeToCell(e[0], e[1]),
-      a = this.cellToWorld(t);
-    return new Vector3(e[0] * HEX_SIZE, a.y, e[1] * HEX_SIZE);
+  /** Punto del plano hexagonal → mundo (a la altura del suelo de su casilla). */
+  planeToWorld(point) {
+    let cell = planeToCell(point[0], point[1]),
+      ground = this.cellToWorld(cell);
+    return new Vector3(point[0] * HEX_SIZE, ground.y, point[1] * HEX_SIZE);
   }
-  emit(e, t) {
+  /** Emite por el bus sin dejar que un oyente rompa el combate. */
+  emit(name, data) {
     try {
-      this.bus?.emit(e, t);
-    } catch (a) {
-      console.error('[combate] bus', e, a);
+      this.bus?.emit(name, data);
+    } catch (err) {
+      console.error('[combate] bus', name, err);
     }
   }
-  focus(e, t = null, a = !1) {
-    if (!a && this.comfortable(e, t)) return;
-    let n = t ?? this.camGoal?.dist ?? null;
-    this.camGoal = { target: new Vector3(e.x, (e.y || 0) + 0.6, e.z), dist: n };
+  /** Lleva la cámara hacia un punto (si no está ya cómodo en pantalla, salvo `force`). */
+  focus(point, dist = null, force = !1) {
+    if (!force && this.comfortable(point, dist)) return;
+    let goalDist = dist ?? this.camGoal?.dist ?? null;
+    this.camGoal = { target: new Vector3(point.x, (point.y || 0) + 0.6, point.z), dist: goalDist };
   }
-  comfortable(e, t) {
-    let a = new Vector3(e.x, (e.y || 0) + 0.6, e.z).project(this.S.camera);
-    if (a.z > 1) return !1;
-    let n = Math.abs(a.x) < 0.55 && Math.abs(a.y) < 0.5,
-      s = this.camDist(),
-      i = !t || Math.abs(s - t) / t < 0.35;
-    return n && i;
+  /** ¿Se ve bien el punto (cerca del centro) a la distancia pedida? */
+  comfortable(point, dist) {
+    let ndc = new Vector3(point.x, (point.y || 0) + 0.6, point.z).project(this.S.camera);
+    if (ndc.z > 1) return !1;
+    let centered = Math.abs(ndc.x) < 0.55 && Math.abs(ndc.y) < 0.5,
+      current = this.camDist(),
+      distOk = !dist || Math.abs(current - dist) / dist < 0.35;
+    return centered && distOk;
   }
-  focusUnit(e, t = null, a = !1) {
-    e && this.focus(e.root.getWorldPosition(new Vector3()), t, a);
+  focusUnit(unit, dist = null, force = !1) {
+    unit && this.focus(unit.root.getWorldPosition(new Vector3()), dist, force);
   }
-  framePair(e, t, a = !1) {
-    if (!e || !t) return;
-    let n = e.root.getWorldPosition(new Vector3()),
-      s = t.root.getWorldPosition(new Vector3());
-    if (!a && this.comfortable(n, null) && this.comfortable(s, null)) return;
-    let i = n.distanceTo(s);
+  /** Encuadra a dos unidades (atacante y objetivo). */
+  framePair(first, second, force = !1) {
+    if (!first || !second) return;
+    let posA = first.root.getWorldPosition(new Vector3()),
+      posB = second.root.getWorldPosition(new Vector3());
+    if (!force && this.comfortable(posA, null) && this.comfortable(posB, null)) return;
+    let gap = posA.distanceTo(posB);
     this.focus(
-      n.clone().add(s).multiplyScalar(0.5),
-      Math.max(Math.min(this.camDist(), 30), i * 1.25 + 12),
+      posA.clone().add(posB).multiplyScalar(0.5),
+      Math.max(Math.min(this.camDist(), 30), gap * 1.25 + 12),
       !0,
     );
   }
-  frameArea(e) {
-    if (!e || !e.length) return;
-    let t = e.map((s) => this.cellToWorld(s)),
-      a = t.reduce((s, i) => s.add(i), new Vector3()).divideScalar(t.length),
-      n = 0;
-    for (let s of t) n = Math.max(n, s.distanceTo(a));
-    this.focus(a, Math.max(this.camDist(), n * 2.4 + 12));
+  /** Encuadra un área de casillas. */
+  frameArea(cells) {
+    if (!cells || !cells.length) return;
+    let points = cells.map((cell) => this.cellToWorld(cell)),
+      center = points.reduce((sum, p) => sum.add(p), new Vector3()).divideScalar(points.length),
+      radius = 0;
+    for (let point of points) radius = Math.max(radius, point.distanceTo(center));
+    this.focus(center, Math.max(this.camDist(), radius * 2.4 + 12));
   }
+  /** Centra la cámara en quien tiene el turno. */
   centerOnCurrent() {
-    let e = this.unit(this.state.current);
-    e && this.focusUnit(e, 24, !0);
+    let unit = this.unit(this.state.current);
+    unit && this.focusUnit(unit, 24, !0);
   }
   camDist() {
     return this.S.camera.position.distanceTo(this.S.controls.target);
   }
-  update(e) {
-    if ((this.board.update(e), this.camGoal)) {
-      let n = this.S.controls,
-        s = Math.min(1, e * 3.2),
-        i = n.target.clone();
+  /** Fotograma: tablero, cámara hacia su meta, límites del mapa y teclado (WASD/flechas, Q/E). */
+  update(dt) {
+    if ((this.board.update(dt), this.camGoal)) {
+      let controls = this.S.controls,
+        k = Math.min(1, dt * 3.2),
+        prevTarget = controls.target.clone();
       if (
-        (n.target.lerp(this.camGoal.target, s),
-        this.S.camera.position.add(n.target.clone().sub(i)),
+        (controls.target.lerp(this.camGoal.target, k),
+        this.S.camera.position.add(controls.target.clone().sub(prevTarget)),
         this.camGoal.dist)
       ) {
-        let r = this.S.camera.position.clone().sub(n.target),
-          l = r.length();
-        (r.setLength(l + (this.camGoal.dist - l) * s), this.S.camera.position.copy(n.target).add(r));
+        let offset = this.S.camera.position.clone().sub(controls.target),
+          len = offset.length();
+        (offset.setLength(len + (this.camGoal.dist - len) * k), this.S.camera.position.copy(controls.target).add(offset));
       }
-      n.target.distanceTo(this.camGoal.target) < 0.02 &&
+      controls.target.distanceTo(this.camGoal.target) < 0.02 &&
         (!this.camGoal.dist || Math.abs(this.camDist() - this.camGoal.dist) < 0.05) &&
         (this.camGoal = null);
     }
-    let t = this.S.controls.target,
-      a = this.bounds;
-    if (a) {
-      let n = MathUtils.clamp(t.x, a.minX - 6, a.maxX + 6),
-        s = MathUtils.clamp(t.z, a.minZ - 5, a.maxZ + 5);
-      (n !== t.x || s !== t.z) &&
-        ((this.S.camera.position.x += n - t.x), (this.S.camera.position.z += s - t.z), (t.x = n), (t.z = s));
+    let target = this.S.controls.target,
+      bounds = this.bounds;
+    if (bounds) {
+      let x = MathUtils.clamp(target.x, bounds.minX - 6, bounds.maxX + 6),
+        z = MathUtils.clamp(target.z, bounds.minZ - 5, bounds.maxZ + 5);
+      (x !== target.x || z !== target.z) &&
+        ((this.S.camera.position.x += x - target.x), (this.S.camera.position.z += z - target.z), (target.x = x), (target.z = z));
     }
     if (this.keys && this.keys.size) {
-      let n = new Vector3(),
-        s = t.clone().sub(this.S.camera.position).setY(0).normalize(),
-        i = new Vector3(-s.z, 0, s.x);
-      ((this.keys.has('w') || this.keys.has('arrowup')) && n.add(s),
-        (this.keys.has('s') || this.keys.has('arrowdown')) && n.sub(s),
-        (this.keys.has('d') || this.keys.has('arrowright')) && n.add(i),
-        (this.keys.has('a') || this.keys.has('arrowleft')) && n.sub(i),
-        n.lengthSq() && (n.setLength(e * 14), t.add(n), this.S.camera.position.add(n), (this.camGoal = null)),
-        (this.keys.has('q') || this.keys.has('e')) && this.rotate(this.keys.has('q') ? e * 1.6 : -e * 1.6));
+      let move = new Vector3(),
+        fwd = target.clone().sub(this.S.camera.position).setY(0).normalize(),
+        right = new Vector3(-fwd.z, 0, fwd.x);
+      ((this.keys.has('w') || this.keys.has('arrowup')) && move.add(fwd),
+        (this.keys.has('s') || this.keys.has('arrowdown')) && move.sub(fwd),
+        (this.keys.has('d') || this.keys.has('arrowright')) && move.add(right),
+        (this.keys.has('a') || this.keys.has('arrowleft')) && move.sub(right),
+        move.lengthSq() && (move.setLength(dt * 14), target.add(move), this.S.camera.position.add(move), (this.camGoal = null)),
+        (this.keys.has('q') || this.keys.has('e')) && this.rotate(this.keys.has('q') ? dt * 1.6 : -dt * 1.6));
     }
   }
-  rotate(e) {
-    let t = this.S.controls.target,
-      a = this.S.camera.position.clone().sub(t);
-    (a.applyAxisAngle(new Vector3(0, 1, 0), e), this.S.camera.position.copy(t).add(a));
+  /** Gira la cámara alrededor de su objetivo. */
+  rotate(angle) {
+    let target = this.S.controls.target,
+      offset = this.S.camera.position.clone().sub(target);
+    (offset.applyAxisAngle(new Vector3(0, 1, 0), angle), this.S.camera.position.copy(target).add(offset));
   }
-  centroid(e) {
-    let t = this.units.list.filter((a) => a.team === e && !a.dead);
-    return t.length
-      ? t
-          .reduce((a, n) => a.add(n.root.getWorldPosition(new Vector3())), new Vector3())
-          .divideScalar(t.length)
+  /** Centro de las unidades vivas de un equipo. */
+  centroid(team) {
+    let alive = this.units.list.filter((u) => u.team === team && !u.dead);
+    return alive.length
+      ? alive
+          .reduce((sum, u) => sum.add(u.root.getWorldPosition(new Vector3())), new Vector3())
+          .divideScalar(alive.length)
       : null;
   }
+  /** Ejecuta el combate; la promesa da {won, fled, events, rounds}. */
   run() {
-    return new Promise((e) => {
-      ((this.resolveRun = e),
-        this.start().catch((t) => {
-          (console.error('[combate]', t), this.finish());
+    return new Promise((resolve) => {
+      ((this.resolveRun = resolve),
+        this.start().catch((err) => {
+          (console.error('[combate]', err), this.finish());
         }));
     });
   }
+  /** Presentación: cámara, registro, «battle:start», sorpresa/emboscada y eventos iniciales; luego el bucle. */
   async start() {
-    let e = this.S,
-      t = this.centroid(0) || new Vector3(),
-      a = this.centroid(1) || t.clone(),
-      n = t.clone().add(a).multiplyScalar(0.5),
-      s = innerWidth / innerHeight;
+    let stage = this.S,
+      partyCenter = this.centroid(0) || new Vector3(),
+      enemyCenter = this.centroid(1) || partyCenter.clone(),
+      mid = partyCenter.clone().add(enemyCenter).multiplyScalar(0.5),
+      aspect = innerWidth / innerHeight;
     if (this.standalone) {
-      let i = this.bounds,
-        r = i ? new Vector3((i.minX + i.maxX) / 2, 0, (i.minZ + i.maxZ) / 2) : n;
-      e.controls.target.set(r.x, 0.6, r.z);
-      let l = s < 1 ? 50 : s < 1.5 ? 42 : 37,
-        c = 1.02;
-      (e.camera.position.copy(e.controls.target).add(new Vector3(0, Math.sin(c) * l, Math.cos(c) * l)),
-        e.camera.lookAt(e.controls.target));
-    } else this.focus(n, Math.max(this.camDist(), t.distanceTo(a) * 1.1 + 14), !0);
+      let bounds = this.bounds,
+        center = bounds ? new Vector3((bounds.minX + bounds.maxX) / 2, 0, (bounds.minZ + bounds.maxZ) / 2) : mid;
+      stage.controls.target.set(center.x, 0.6, center.z);
+      let dist = aspect < 1 ? 50 : aspect < 1.5 ? 42 : 37,
+        tilt = 1.02;
+      (stage.camera.position.copy(stage.controls.target).add(new Vector3(0, Math.sin(tilt) * dist, Math.cos(tilt) * dist)),
+        stage.camera.lookAt(stage.controls.target));
+    } else this.focus(mid, Math.max(this.camDist(), partyCenter.distanceTo(enemyCenter) * 1.1 + 14), !0);
     if (
       (this.hud.log(
         `<b>${this.encounter.name || 'Combate'}</b>${this.encounter.place ? ` \xB7 ${this.encounter.place}` : ''}`,
@@ -293,25 +327,25 @@ const Controller = class {
           surprise: this.meta.surprise ?? null,
           level: this.meta.level ?? null,
           encounter: this.encounter.id,
-          creatures: this.state.creatures.map((i) => ({ id: i.id, team: i.team, name: i.name })),
+          creatures: this.state.creatures.map((c) => ({ id: c.id, team: c.team, name: c.name })),
         }),
       this.standalone &&
         !this.shotMode &&
         !this.meta.skipIntro &&
-        (this.focus(a, 30, !0), await this.hud.intro(this.encounter)),
-      this.focus(t, s < 1 ? 44 : 35, !0),
+        (this.focus(enemyCenter, 30, !0), await this.hud.intro(this.encounter)),
+      this.focus(partyCenter, aspect < 1 ? 44 : 35, !0),
       this.surprised.size && !this.shotMode)
     ) {
-      let i = [...this.surprised].every((l) => this.creature(l)?.team === 1),
-        r = [...this.surprised].every((l) => this.creature(l)?.team === 0);
-      i
+      let enemiesSurprised = [...this.surprised].every((id) => this.creature(id)?.team === 1),
+        partySurprised = [...this.surprised].every((id) => this.creature(id)?.team === 0);
+      enemiesSurprised
         ? await this.hud.big(
             '\xA1Sorpresa!',
             'Los enemigos no os han visto venir: tiran la iniciativa con desventaja.',
             '',
             1900,
           )
-        : r &&
+        : partySurprised &&
           (await this.hud.big(
             '\xA1Emboscada!',
             'Os han pillado desprevenidos: el grupo tira la iniciativa con desventaja.',
@@ -324,22 +358,23 @@ const Controller = class {
         this.hud.banner('\xA1Combate!', 'oro', 1200, this.encounter.name || '');
     (await this.play(this.initEvents), this.refresh(), await this.loop());
   }
+  /** Bucle de turnos hasta que el núcleo da el combate por terminado. */
   async loop() {
-    let e = 0;
-    for (; !this.state.over && !this.disposed && e++ < 3e3;) {
-      let t = this.creature(this.state.current);
-      if (!t) break;
+    let guard = 0;
+    for (; !this.state.over && !this.disposed && guard++ < 3e3;) {
+      let creature = this.creature(this.state.current);
+      if (!creature) break;
       if (
         (this.hud.refresh(this.state),
         this.emit('battle:turn', {
-          creature: t.id,
-          isPc: t.team === 0,
-          name: t.name,
+          creature: creature.id,
+          isPc: creature.team === 0,
+          name: creature.name,
           round: this.state.round,
         }),
-        t.team === 0 && t.can_act && !this.autoParty && !this.isAuto(t)
-          ? await this.playerTurn(t)
-          : await this.aiTurn(t),
+        creature.team === 0 && creature.can_act && !this.autoParty && !this.isAuto(creature)
+          ? await this.playerTurn(creature)
+          : await this.aiTurn(creature),
         this.disposed)
       )
         return;
@@ -351,120 +386,131 @@ const Controller = class {
     }
     await this.finish();
   }
-  isAuto(e) {
-    return this.meta.auto?.has?.(e.id) || !1;
+  /** ¿Lleva la IA a este miembro del grupo? */
+  isAuto(creature) {
+    return this.meta.auto?.has?.(creature.id) || !1;
   }
-  toggleAuto(e) {
+  /** Activa o quita la IA de un miembro (si es su turno, la IA lo termina). */
+  toggleAuto(id) {
     this.meta.auto instanceof Set || (this.meta.auto = new Set(this.meta.auto || []));
-    let t = !this.meta.auto.has(e);
+    let on = !this.meta.auto.has(id);
     if (
-      (t ? this.meta.auto.add(e) : this.meta.auto.delete(e),
-      this.hud.setAuto(e, t),
-      t && this.turnDone && this.state.current === e && this.mode !== 'busy')
+      (on ? this.meta.auto.add(id) : this.meta.auto.delete(id),
+      this.hud.setAuto(id, on),
+      on && this.turnDone && this.state.current === id && this.mode !== 'busy')
     ) {
-      let a = this.turnDone;
+      let done = this.turnDone;
       ((this.turnDone = null),
         (this.mode = 'busy'),
         this.clearTargeting(),
         this.hud.turnBar(null),
-        this.aiTurn(this.creature(e)).then(a));
+        this.aiTurn(this.creature(id)).then(done));
     }
   }
-  async aiTurn(e) {
+  /** Turno de la IA del núcleo (`ai_turn`) con su reproducción. */
+  async aiTurn(creature) {
     ((this.mode = 'busy'), this.clearTargeting());
-    let t = e.team === 1;
-    ((this.speed = t ? (this.fast ? 2.6 : 1.5) : 1),
-      (this.vfx.timeScale = this.turbo * (t && this.fast ? 1.6 : 1)));
-    let a = this.unit(e.id);
-    if (e.hp > 0 && !e.dead) {
-      (this.setActive(e.id),
-        this.focusUnit(a, null, !this.comfortable(a.root.position, null)),
-        this.hud.thinking(`Turno de ${shortName(e)}\u2026`),
-        t && !this.fast && !this.shotMode && this.hud.banner(shortName(e), 'enemigo', 650),
-        await this.wait(t ? 420 : 260));
-      let n = this.rules('ai_turn');
-      (this.hud.thinking(''), await this.play(n.events || []), await this.wait(t ? 260 : 180));
+    let enemy = creature.team === 1;
+    ((this.speed = enemy ? (this.fast ? 2.6 : 1.5) : 1),
+      (this.vfx.timeScale = this.turbo * (enemy && this.fast ? 1.6 : 1)));
+    let unit = this.unit(creature.id);
+    if (creature.hp > 0 && !creature.dead) {
+      (this.setActive(creature.id),
+        this.focusUnit(unit, null, !this.comfortable(unit.root.position, null)),
+        this.hud.thinking(`Turno de ${shortName(creature)}\u2026`),
+        enemy && !this.fast && !this.shotMode && this.hud.banner(shortName(creature), 'enemigo', 650),
+        await this.wait(enemy ? 420 : 260));
+      let res = this.rules('ai_turn');
+      (this.hud.thinking(''), await this.play(res.events || []), await this.wait(enemy ? 260 : 180));
     }
     ((this.speed = 1), (this.vfx.timeScale = this.turbo));
   }
-  playerTurn(e) {
-    return new Promise((t) => {
-      ((this.turnDone = t),
+  /** Turno del jugador: promesa que se cumple al terminar el turno. */
+  playerTurn(creature) {
+    return new Promise((resolve) => {
+      ((this.turnDone = resolve),
         (this.speed = 1),
         (this.vfx.timeScale = this.turbo),
-        this.focusUnit(this.unit(e.id), null, !1),
-        this.hud.banner(`Turno de ${shortName(e)}`, 'oro', 900),
-        this.enterIdle(e));
+        this.focusUnit(this.unit(creature.id), null, !1),
+        this.hud.banner(`Turno de ${shortName(creature)}`, 'oro', 900),
+        this.enterIdle(creature));
     });
   }
+  /** Termina el turno del jugador. */
   endTurn() {
     if (!this.turnDone) return;
     ((this.mode = 'busy'), this.clearTargeting(), this.hud.turnBar(null));
-    let e = this.turnDone;
-    ((this.turnDone = null), e());
+    let done = this.turnDone;
+    ((this.turnDone = null), done());
   }
-  setActive(e) {
-    for (let t of this.units.list) t.setRing(t.id === e ? 'active' : 'idle');
-    this.hud.setActive(e);
+  /** Marca la unidad activa (anillo y HUD). */
+  setActive(id) {
+    for (let unit of this.units.list) unit.setRing(unit.id === id ? 'active' : 'idle');
+    this.hud.setActive(id);
   }
-  highlight(e, t) {
-    let a = this.unit(e);
-    !a ||
-      a.dead ||
-      (t && a.ringState === 'idle' ? a.setRing('hover') : !t && a.ringState === 'hover' && a.setRing('idle'));
+  /** Resalta una unidad al pasar por su ficha de iniciativa. */
+  highlight(id, on) {
+    let unit = this.unit(id);
+    !unit ||
+      unit.dead ||
+      (on && unit.ringState === 'idle' ? unit.setRing('hover') : !on && unit.ringState === 'hover' && unit.setRing('idle'));
   }
-  enterIdle(e) {
-    ((e = this.creature(e.id) || e),
+  /** Vuelve al modo de turno del jugador: pide `options` y muestra el alcance de movimiento. */
+  enterIdle(creature) {
+    ((creature = this.creature(creature.id) || creature),
       (this.mode = 'idle'),
       (this.pending = null),
       this.hud.hidePreview(),
       this.hud.prompt(''),
       this.hud.closeSheet(),
       (this.opts = this.rules('options') || {}),
-      this.setActive(e.id),
-      this.showMoveRange(e),
-      this.hud.turnBar(e, this.opts),
+      this.setActive(creature.id),
+      this.showMoveRange(creature),
+      this.hud.turnBar(creature, this.opts),
       this.opts.nothing_left &&
         setTimeout(() => {
-          this.mode === 'idle' && this.state.current === e.id && this.endTurn();
+          this.mode === 'idle' && this.state.current === creature.id && this.endTurn();
         }, 700));
   }
-  showMoveRange(e) {
-    let t = this.opts;
+  /** Casillas alcanzables (movimiento y carrera) según `options`. */
+  showMoveRange(creature) {
+    let opts = this.opts;
     (this.board.clear(), (this.moveMap = new Map()));
-    for (let [n, s, i, r, l] of t.move || [])
-      this.moveMap.set(cellKey(n, s), { cell: [n, s], ft: i, prev: [r, l], dash: !1 });
+    for (let [x, y, ft, px, py] of opts.move || [])
+      this.moveMap.set(cellKey(x, y), { cell: [x, y], ft, prev: [px, py], dash: !1 });
     this.dashMap = new Map();
-    for (let [n, s, i, r, l] of t.dash || [])
-      this.moveMap.has(cellKey(n, s)) ||
-        this.dashMap.set(cellKey(n, s), { cell: [n, s], ft: i, prev: [r, l], dash: !0 });
-    let a = cellKey(...e.cell);
+    for (let [x, y, ft, px, py] of opts.dash || [])
+      this.moveMap.has(cellKey(x, y)) ||
+        this.dashMap.set(cellKey(x, y), { cell: [x, y], ft, prev: [px, py], dash: !0 });
+    let here = cellKey(...creature.cell);
     (this.board.set(
       'move',
-      [...this.moveMap.values()].filter((n) => cellKey(...n.cell) !== a).map((n) => n.cell),
+      [...this.moveMap.values()].filter((m) => cellKey(...m.cell) !== here).map((m) => m.cell),
       5941503,
     ),
       this.board.set(
         'dash',
-        [...this.dashMap.values()].map((n) => n.cell),
+        [...this.dashMap.values()].map((m) => m.cell),
         16763989,
       ));
   }
-  pathTo(e, t) {
-    let a = cellKey(...e),
-      n = this.moveMap?.has(a) ? this.moveMap : this.dashMap?.has(a) ? this.dashMap : null;
-    if (!n) return null;
-    let s = [],
-      i = n.get(a),
-      r = 0;
-    for (; i && r++ < 80 && !(i.cell[0] === t[0] && i.cell[1] === t[1]);) {
-      s.unshift(i.cell);
-      let l = cellKey(...i.prev);
-      if (l === cellKey(...i.cell)) break;
-      i = n.get(l) || (n === this.dashMap ? this.moveMap.get(l) : null);
+  /** Camino hasta una casilla siguiendo los «prev» del alcance; {path, dash, ft}. */
+  pathTo(cell, from) {
+    let key = cellKey(...cell),
+      map = this.moveMap?.has(key) ? this.moveMap : this.dashMap?.has(key) ? this.dashMap : null;
+    if (!map) return null;
+    let path = [],
+      node = map.get(key),
+      guard = 0;
+    for (; node && guard++ < 80 && !(node.cell[0] === from[0] && node.cell[1] === from[1]);) {
+      path.unshift(node.cell);
+      let prevKey = cellKey(...node.prev);
+      if (prevKey === cellKey(...node.cell)) break;
+      node = map.get(prevKey) || (map === this.dashMap ? this.moveMap.get(prevKey) : null);
     }
-    return { path: s, dash: n === this.dashMap, ft: n.get(a).ft };
+    return { path, dash: map === this.dashMap, ft: map.get(key).ft };
   }
+  /** Quita resaltados, notas, previsión, indicación y hoja. */
   clearTargeting() {
     (this.board.clear(),
       this.hud.cursorNote(''),
@@ -473,35 +519,38 @@ const Controller = class {
       this.hud.prompt(''),
       this.hud.closeSheet(),
       this.hud.hideTip());
-    for (let e of this.units.list)
-      (e.ringState === 'target' || e.ringState === 'hover' || e.ringState === 'threat') && e.setRing('idle');
+    for (let unit of this.units.list)
+      (unit.ringState === 'target' || unit.ringState === 'hover' || unit.ringState === 'threat') && unit.setRing('idle');
   }
+  /** Cancela la elección de objetivo en curso. */
   cancelPending() {
-    let e = this.creature(this.state.current);
-    this.mode === 'target' && e && this.turnDone ? this.enterIdle(e) : this.hud.hidePreview();
+    let creature = this.creature(this.state.current);
+    this.mode === 'target' && creature && this.turnDone ? this.enterIdle(creature) : this.hud.hidePreview();
   }
-  listen(e, t, a, n) {
-    (e.addEventListener(t, a, n), this.off.push(() => e.removeEventListener(t, a, n)));
+  /** addEventListener que se retira al desmontar. */
+  listen(target, type, fn, opts) {
+    (target.addEventListener(type, fn, opts), this.off.push(() => target.removeEventListener(type, fn, opts)));
   }
+  /** Ratón/toque (clic sin arrastre) y teclado (Esc, espacio, 1–5, Z, C, F, L, cámara). */
   bindInput() {
-    let e = this.S.renderer.domElement,
-      t = null;
-    (this.listen(e, 'pointerdown', (a) => {
-      a.button === 0 && (t = [a.clientX, a.clientY, performance.now()]);
+    let canvas = this.S.renderer.domElement,
+      down = null;
+    (this.listen(canvas, 'pointerdown', (ev) => {
+      ev.button === 0 && (down = [ev.clientX, ev.clientY, performance.now()]);
     }),
-      this.listen(e, 'pointerup', (a) => {
-        if (a.button !== 0 || !t) return;
-        let n = Math.hypot(a.clientX - t[0], a.clientY - t[1]);
-        ((t = null), !(n > 8) && this.onTap(a));
+      this.listen(canvas, 'pointerup', (ev) => {
+        if (ev.button !== 0 || !down) return;
+        let dist = Math.hypot(ev.clientX - down[0], ev.clientY - down[1]);
+        ((down = null), !(dist > 8) && this.onTap(ev));
       }),
-      this.listen(e, 'pointermove', (a) => this.onHover(a)),
-      this.listen(e, 'contextmenu', (a) => a.preventDefault()),
-      this.listen(e, 'pointerleave', () => this.hud.hideTip()),
+      this.listen(canvas, 'pointermove', (ev) => this.onHover(ev)),
+      this.listen(canvas, 'contextmenu', (ev) => ev.preventDefault()),
+      this.listen(canvas, 'pointerleave', () => this.hud.hideTip()),
       (this.keys = new Set()),
-      this.listen(window, 'keydown', (a) => {
-        if (a.target && (a.target.tagName === 'INPUT' || a.target.tagName === 'TEXTAREA')) return;
-        let n = a.key.toLowerCase();
-        if (n === 'escape') {
+      this.listen(window, 'keydown', (ev) => {
+        if (ev.target && (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA')) return;
+        let key = ev.key.toLowerCase();
+        if (key === 'escape') {
           this.hud.sheetOpen()
             ? this.hud.closeSheet()
             : this.mode === 'target' || this.hud.previewOpen()
@@ -509,910 +558,945 @@ const Controller = class {
               : this.meta.ui?.open && this.meta.ui.open('pausa', { combat: !0 });
           return;
         }
-        if (n === ' ' || n === 'enter') {
+        if (key === ' ' || key === 'enter') {
           this.hud.previewOpen() && this.hud.onConfirm
-            ? (a.preventDefault(), this.hud.confirmPreview())
-            : this.mode === 'idle' && this.turnDone && (a.preventDefault(), this.endTurn());
+            ? (ev.preventDefault(), this.hud.confirmPreview())
+            : this.mode === 'idle' && this.turnDone && (ev.preventDefault(), this.endTurn());
           return;
         }
-        let s = { 1: 'attack', 2: 'spells', 3: 'features', 4: 'actions', 5: 'items' }[n];
-        if (s && this.turnDone) {
-          this.menu(s);
+        let menu = { 1: 'attack', 2: 'spells', 3: 'features', 4: 'actions', 5: 'items' }[key];
+        if (menu && this.turnDone) {
+          this.menu(menu);
           return;
         }
-        if (n === 'z' && this.turnDone) return void this.undoMove();
-        if (n === 'c') return void this.centerOnCurrent();
-        if (n === 'f') return void this.hud.toggleFast();
-        if (n === 'l') return void this.hud.toggleLog();
-        this.keys.add(n);
+        if (key === 'z' && this.turnDone) return void this.undoMove();
+        if (key === 'c') return void this.centerOnCurrent();
+        if (key === 'f') return void this.hud.toggleFast();
+        if (key === 'l') return void this.hud.toggleLog();
+        this.keys.add(key);
       }),
-      this.listen(window, 'keyup', (a) => this.keys.delete(a.key.toLowerCase())),
+      this.listen(window, 'keyup', (ev) => this.keys.delete(ev.key.toLowerCase())),
       this.listen(window, 'blur', () => this.keys.clear()));
   }
-  pick(e) {
-    let t = this.S.renderer.domElement.getBoundingClientRect();
-    (this.ptr.set(((e.clientX - t.left) / t.width) * 2 - 1, -((e.clientY - t.top) / t.height) * 2 + 1),
+  /** Qué hay bajo el puntero: {cell, gp (punto del suelo), creature}. */
+  pick(ev) {
+    let rect = this.S.renderer.domElement.getBoundingClientRect();
+    (this.ptr.set(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1),
       this.ray.setFromCamera(this.ptr, this.S.camera));
-    let a = this.ray.intersectObjects(this.units.proxies, !1),
-      n = null;
-    for (let l of a) {
-      let c = this.unit(l.object.userData.unit),
-        d = c && this.creature(c.id);
-      if (d && !d.dead) {
-        n = c;
+    let hits = this.ray.intersectObjects(this.units.proxies, !1),
+      hitUnit = null;
+    for (let hit of hits) {
+      let unit = this.unit(hit.object.userData.unit),
+        creature = unit && this.creature(unit.id);
+      if (creature && !creature.dead) {
+        hitUnit = unit;
         break;
       }
     }
-    let s = this.board.ground(this.ray),
-      i = s ? this.board.cellAtWorld(s) : null;
-    n && (i = n.cell.slice());
-    let r = i ? this.state.creatures.find((l) => !l.dead && l.cell[0] === i[0] && l.cell[1] === i[1]) : null;
-    return { cell: i, gp: s, creature: r || (n ? this.creature(n.id) : null) };
+    let ground = this.board.ground(this.ray),
+      cell = ground ? this.board.cellAtWorld(ground) : null;
+    hitUnit && (cell = hitUnit.cell.slice());
+    let occupant = cell ? this.state.creatures.find((c) => !c.dead && c.cell[0] === cell[0] && c.cell[1] === cell[1]) : null;
+    return { cell, gp: ground, creature: occupant || (hitUnit ? this.creature(hitUnit.id) : null) };
   }
-  onHover(e) {
+  /** Puntero encima: ficha, ruta con coste y amenazas, cursor y previsión de áreas. */
+  onHover(ev) {
     if (this.disposed) return;
-    let t = this.pick(e),
-      a = this.creature(this.state.current),
-      n = this.turnDone && a && a.team === 0;
-    t.creature
-      ? this.hud.tip(t.creature, e.clientX, e.clientY, !1, this.tipExtra(a, t.creature))
+    let hit = this.pick(ev),
+      current = this.creature(this.state.current),
+      myTurn = this.turnDone && current && current.team === 0;
+    hit.creature
+      ? this.hud.tip(hit.creature, ev.clientX, ev.clientY, !1, this.tipExtra(current, hit.creature))
       : this.hud.hideTip();
-    for (let r of this.units.list) r.ringState === 'hover' && r.setRing('idle');
-    if (t.creature && t.creature.id !== this.state.current) {
-      let r = this.unit(t.creature.id);
-      r && r.ringState === 'idle' && r.setRing('hover');
+    for (let unit of this.units.list) unit.ringState === 'hover' && unit.setRing('idle');
+    if (hit.creature && hit.creature.id !== this.state.current) {
+      let unit = this.unit(hit.creature.id);
+      unit && unit.ringState === 'idle' && unit.setRing('hover');
     }
-    let s = t.cell ? cellKey(...t.cell) : '';
-    if (!n) {
+    let key = hit.cell ? cellKey(...hit.cell) : '';
+    if (!myTurn) {
       (this.board.clear('hover'), (this.S.renderer.domElement.style.cursor = 'default'));
       return;
     }
-    let i = 'default';
+    let cursor = 'default';
     if (this.mode === 'idle')
       if (
-        (t.creature && t.creature.team !== 0 && t.creature.hp > 0
-          ? (i = 'crosshair')
-          : t.cell && (this.moveMap?.has(s) || this.dashMap?.has(s)) && (i = 'pointer'),
-        s !== this.hoverKey)
+        (hit.creature && hit.creature.team !== 0 && hit.creature.hp > 0
+          ? (cursor = 'crosshair')
+          : hit.cell && (this.moveMap?.has(key) || this.dashMap?.has(key)) && (cursor = 'pointer'),
+        key !== this.hoverKey)
       ) {
-        ((this.hoverKey = s), this.board.clear('path', 'hover', 'threat'));
-        for (let r of this.units.list) r.ringState === 'threat' && r.setRing('idle');
-        if (t.cell && !t.creature && (this.moveMap.has(s) || this.dashMap.has(s))) {
-          let r = this.pathTo(t.cell, a.cell);
-          if (r) {
-            let l = this.threatsOf(r.path),
-              c = l.length ? 16742992 : r.dash ? 16766842 : 15397631;
-            (this.board.route(a.cell, r.path, c), this.board.set('path', [t.cell], c));
-            for (let d of l) this.unit(d)?.setRing('threat');
+        ((this.hoverKey = key), this.board.clear('path', 'hover', 'threat'));
+        for (let unit of this.units.list) unit.ringState === 'threat' && unit.setRing('idle');
+        if (hit.cell && !hit.creature && (this.moveMap.has(key) || this.dashMap.has(key))) {
+          let route = this.pathTo(hit.cell, current.cell);
+          if (route) {
+            let threats = this.threatsOf(route.path),
+              color = threats.length ? 16742992 : route.dash ? 16766842 : 15397631;
+            (this.board.route(current.cell, route.path, color), this.board.set('path', [hit.cell], color));
+            for (let id of threats) this.unit(id)?.setRing('threat');
             this.hud.cursorNote(
-              `${formatNumber((r.ft / 5) * 1.5)} m${r.dash ? ' \xB7 corriendo' : ''}${l.length ? ' \xB7 \xA1ataque de oportunidad!' : ''}`,
-              e.clientX,
-              e.clientY,
+              `${formatNumber((route.ft / 5) * 1.5)} m${route.dash ? ' \xB7 corriendo' : ''}${threats.length ? ' \xB7 \xA1ataque de oportunidad!' : ''}`,
+              ev.clientX,
+              ev.clientY,
             );
           }
         } else this.hud.cursorNote('');
-        t.creature &&
-          t.creature.team !== 0 &&
-          t.creature.hp > 0 &&
-          this.board.set('hover', [t.cell], 16734778);
-      } else this.hud.cursorNoteVisible() && this.hud.moveCursorNote(e.clientX, e.clientY);
+        hit.creature &&
+          hit.creature.team !== 0 &&
+          hit.creature.hp > 0 &&
+          this.board.set('hover', [hit.cell], 16734778);
+      } else this.hud.cursorNoteVisible() && this.hud.moveCursorNote(ev.clientX, ev.clientY);
     else if (this.mode === 'target' && this.pending) {
-      let r = this.pending.kind;
+      let kind = this.pending.kind;
       if (
-        (r === 'spell' || r === 'feature') &&
+        (kind === 'spell' || kind === 'feature') &&
         (this.pending.target === 'point' || this.pending.target === 'direction') &&
-        t.gp
+        hit.gp
       ) {
-        i = 'crosshair';
-        let c = performance.now();
+        cursor = 'crosshair';
+        let now = performance.now();
         !this.pending.locked &&
-          c - (this.lastAreaHover || 0) > 60 &&
-          ((this.lastAreaHover = c),
-          r === 'spell' ? this.previewArea(worldToPlane(t.gp), !0) : this.previewFeatureArea(t, !0));
-      } else t.creature && (i = 'pointer');
+          now - (this.lastAreaHover || 0) > 60 &&
+          ((this.lastAreaHover = now),
+          kind === 'spell' ? this.previewArea(worldToPlane(hit.gp), !0) : this.previewFeatureArea(hit, !0));
+      } else hit.creature && (cursor = 'pointer');
     }
-    this.S.renderer.domElement.style.cursor = i;
+    this.S.renderer.domElement.style.cursor = cursor;
   }
-  threatsOf(e) {
-    let t = e.map((s) => s.join(',')).join(';');
-    if (this._threatKey === t) return this._threatIds;
-    let a = this.rules('threats', { path: e }) || [],
-      n = [];
-    for (let s of Array.isArray(a) ? a : []) {
-      let i = this.state.creatures.find((r) => r.name === s && r.team !== 0);
-      i && n.push(i.id);
+  /** Ids de los enemigos que harían un ataque de oportunidad en ese camino (cacheado). */
+  threatsOf(path) {
+    let key = path.map((cell) => cell.join(',')).join(';');
+    if (this._threatKey === key) return this._threatIds;
+    let names = this.rules('threats', { path }) || [],
+      ids = [];
+    for (let name of Array.isArray(names) ? names : []) {
+      let creature = this.state.creatures.find((c) => c.name === name && c.team !== 0);
+      creature && ids.push(creature.id);
     }
-    return ((this._threatKey = t), (this._threatIds = n), n);
+    return ((this._threatKey = key), (this._threatIds = ids), ids);
   }
-  tipExtra(e, t) {
-    if (!e || e.team !== 0 || !this.turnDone || t.team === 0 || t.hp <= 0 || this.mode !== 'idle') return '';
-    if (!this._planCache || this._planCache.id !== t.id || this._planCache.turn !== e.id) {
-      let n = this.rules('attack_plan', { target: t.id, key: '' });
-      this._planCache = { id: t.id, turn: e.id, plan: n };
+  /** Probabilidad de impacto del ataque por defecto para la ficha del enemigo. */
+  tipExtra(current, target) {
+    if (!current || current.team !== 0 || !this.turnDone || target.team === 0 || target.hp <= 0 || this.mode !== 'idle') return '';
+    if (!this._planCache || this._planCache.id !== target.id || this._planCache.turn !== current.id) {
+      let fresh = this.rules('attack_plan', { target: target.id, key: '' });
+      this._planCache = { id: target.id, turn: current.id, plan: fresh };
     }
-    let a = this._planCache.plan;
-    return a?.ok
-      ? `<span>${a.name}: ${Math.round(a.p_hit * 100)} % de impacto</span>`
-      : a?.reason
-        ? `<span class="dim">${a.reason}</span>`
+    let plan = this._planCache.plan;
+    return plan?.ok
+      ? `<span>${plan.name}: ${Math.round(plan.p_hit * 100)} % de impacto</span>`
+      : plan?.reason
+        ? `<span class="dim">${plan.reason}</span>`
         : '';
   }
-  onTap(e) {
+  /** Clic o toque en el tablero. */
+  onTap(ev) {
     if (this.mode === 'busy' || this.disposed) return;
     if (this.hud.sheetOpen()) {
       this.hud.closeSheet();
       return;
     }
-    let t = this.creature(this.state.current);
-    if (!t || t.team !== 0 || !this.turnDone) return;
-    let a = this.pick(e);
-    (!a.cell && !a.gp) ||
-      (this.mode === 'idle' ? this.tapIdle(t, a, e) : this.mode === 'target' && this.tapTarget(t, a, e));
+    let creature = this.creature(this.state.current);
+    if (!creature || creature.team !== 0 || !this.turnDone) return;
+    let hit = this.pick(ev);
+    (!hit.cell && !hit.gp) ||
+      (this.mode === 'idle' ? this.tapIdle(creature, hit, ev) : this.mode === 'target' && this.tapTarget(creature, hit, ev));
   }
-  async tapIdle(e, t, a) {
-    let n = t.creature;
-    if (n && n.team !== e.team && n.hp > 0) {
-      this.proposeAttack(e, n, '');
+  /** Clic en modo libre: atacar a un enemigo, ver a un aliado o moverse (avisando de ataques de oportunidad). */
+  async tapIdle(creature, hit, ev) {
+    let other = hit.creature;
+    if (other && other.team !== creature.team && other.hp > 0) {
+      this.proposeAttack(creature, other, '');
       return;
     }
-    if (n) {
-      this.hud.tip(n, a.clientX, a.clientY, !0);
+    if (other) {
+      this.hud.tip(other, ev.clientX, ev.clientY, !0);
       return;
     }
-    if (!t.cell) return;
-    let s = this.pathTo(t.cell, e.cell);
-    if (!s) {
+    if (!hit.cell) return;
+    let route = this.pathTo(hit.cell, creature.cell);
+    if (!route) {
       this.hud.banner('No llegas ah\xED', 'apagado', 700);
       return;
     }
-    let i = this.rules('threats', { path: s.path });
-    if (i.length) {
+    let threats = this.rules('threats', { path: route.path });
+    if (threats.length) {
       ((this.mode = 'target'),
-        (this.pending = { kind: 'move', path: s.path, dash: s.dash, cell: t.cell }),
-        this.board.route(e.cell, s.path, 16742992),
+        (this.pending = { kind: 'move', path: route.path, dash: route.dash, cell: hit.cell }),
+        this.board.route(creature.cell, route.path, 16742992),
         this.hud.preview(
-          this.cellToWorld(t.cell),
+          this.cellToWorld(hit.cell),
           [
             {
               t: 'bad',
-              s: `Cuidado: al alejarte provocar\xE1s un ataque de oportunidad de ${i.join(', ')}.`,
+              s: `Cuidado: al alejarte provocar\xE1s un ataque de oportunidad de ${threats.join(', ')}.`,
             },
             { t: 'dim', s: 'Usa Destrabarse para evitarlo.' },
           ],
           'Moverse igualmente',
-          () => this.doMove(e, s.path, s.dash),
+          () => this.doMove(creature, route.path, route.dash),
         ),
         this.hud.prompt('Movimiento arriesgado', !0));
       return;
     }
-    await this.doMove(e, s.path, s.dash);
+    await this.doMove(creature, route.path, route.dash);
   }
-  async doMove(e, t, a) {
+  /** Mueve por el camino con el núcleo y reproduce los eventos. */
+  async doMove(creature, path, dash) {
     ((this.mode = 'busy'), this.clearTargeting());
-    let n = this.rules('move', { path: t, dash: a });
-    (await this.play(n.events), this.afterAction(e));
+    let res = this.rules('move', { path, dash });
+    (await this.play(res.events), this.afterAction(creature));
   }
-  afterAction(e) {
+  /** Tras una acción: termina el turno si acabó el combate o la criatura ya no puede actuar. */
+  afterAction(creature) {
     if (this.disposed) return;
     if ((this.refresh(), this.state.over)) {
       this.endTurn();
       return;
     }
-    let t = this.creature(e.id);
-    if (this.state.current !== e.id || !t || !t.can_act) {
+    let fresh = this.creature(creature.id);
+    if (this.state.current !== creature.id || !fresh || !fresh.can_act) {
       this.endTurn();
       return;
     }
-    this.enterIdle(t);
+    this.enterIdle(fresh);
   }
-  proposeAttack(e, t, a) {
-    let n = this.rules('attack_plan', { target: t.id, key: a });
-    if (!n.ok) {
-      this.hud.banner(n.reason || 'No puedes', 'apagado', 900);
+  /** Previsión de ataque (`attack_plan`) con armas alternativas; segundo clic o botón para atacar. */
+  proposeAttack(attacker, target, key) {
+    let plan = this.rules('attack_plan', { target: target.id, key });
+    if (!plan.ok) {
+      this.hud.banner(plan.reason || 'No puedes', 'apagado', 900);
       return;
     }
-    ((this.mode = 'target'), (this.pending = { kind: 'attack', plan: n }));
-    let s = this.unit(t.id),
-      i = this.unit(e.id);
+    ((this.mode = 'target'), (this.pending = { kind: 'attack', plan }));
+    let targetUnit = this.unit(target.id),
+      attackerUnit = this.unit(attacker.id);
     (this.board.clear('move', 'dash', 'hover', 'path'),
-      this.board.set('target', [t.cell], 16730672),
-      n.path.length && this.board.route(e.cell, n.path, n.risky ? 16742992 : 15397631),
-      s.setRing('target'),
-      this.framePair(i, s));
-    let r = n.others.map((l) => ({ label: l.name, on: () => this.proposeAttack(e, t, l.key) }));
-    (this.hud.preview(s.headWorld(), n.lines, n.button, () => this.executeAttack(), r, !0, n.p_hit),
-      this.hud.prompt(`${mH} ${t.name} o confirma`, !0));
+      this.board.set('target', [target.cell], 16730672),
+      plan.path.length && this.board.route(attacker.cell, plan.path, plan.risky ? 16742992 : 15397631),
+      targetUnit.setRing('target'),
+      this.framePair(attackerUnit, targetUnit));
+    let others = plan.others.map((other) => ({ label: other.name, on: () => this.proposeAttack(attacker, target, other.key) }));
+    (this.hud.preview(targetUnit.headWorld(), plan.lines, plan.button, () => this.executeAttack(), others, !0, plan.p_hit),
+      this.hud.prompt(`${TAP_AGAIN} ${target.name} o confirma`, !0));
   }
+  /** Ataca con el plan elegido; ofrece la otra mano si se puede. */
   async executeAttack() {
-    let e = this.creature(this.state.current),
-      t = this.pending.plan;
+    let creature = this.creature(this.state.current),
+      plan = this.pending.plan;
     ((this.mode = 'busy'), this.clearTargeting());
-    let a = this.rules('attack', { key: t.key, target: t.target, path: t.path });
-    if ((await this.play(a.events), this.refresh(), a.offhand && !this.state.over)) {
-      this.offerOffhand(e, a.offhand);
+    let res = this.rules('attack', { key: plan.key, target: plan.target, path: plan.path });
+    if ((await this.play(res.events), this.refresh(), res.offhand && !this.state.over)) {
+      this.offerOffhand(creature, res.offhand);
       return;
     }
-    this.afterAction(e);
+    this.afterAction(creature);
   }
-  offerOffhand(e, t) {
-    ((this.mode = 'target'), (this.pending = { kind: 'offhand', off: t }));
-    let a = this.unit(t.target);
-    (a.setRing('target'),
+  /** Ofrece el ataque con la mano torpe. */
+  offerOffhand(creature, off) {
+    ((this.mode = 'target'), (this.pending = { kind: 'offhand', off }));
+    let targetUnit = this.unit(off.target);
+    (targetUnit.setRing('target'),
       this.hud.preview(
-        a.headWorld(),
+        targetUnit.headWorld(),
         [
           { t: 'b', s: 'Ataque con la otra mano' },
           {
             t: '',
-            s: `${t.name} contra ${t.target_name} (acci\xF3n adicional, sin modificador al da\xF1o).`,
+            s: `${off.name} contra ${off.target_name} (acci\xF3n adicional, sin modificador al da\xF1o).`,
           },
         ],
         'Golpear',
         async () => {
           ((this.mode = 'busy'),
             this.clearTargeting(),
-            await this.play(this.rules('offhand', { key: t.key, target: t.target }).events),
-            this.afterAction(e));
+            await this.play(this.rules('offhand', { key: off.key, target: off.target }).events),
+            this.afterAction(creature));
         },
       ),
       this.hud.prompt('\xBFAtacar tambi\xE9n con la otra mano?', !0));
   }
-  startAttackPick(e, t) {
-    ((this.mode = 'target'), (this.pending = { kind: 'attack_pick', key: t }));
-    let a = [];
-    for (let s of this.state.creatures) {
-      if (s.team === e.team || s.dead || s.hp <= 0) continue;
-      this.rules('attack_plan', { target: s.id, key: t }).ok && a.push(s.cell);
+  /** Elegir objetivo para un arma concreta del menú de ataque. */
+  startAttackPick(creature, key) {
+    ((this.mode = 'target'), (this.pending = { kind: 'attack_pick', key }));
+    let cells = [];
+    for (let c of this.state.creatures) {
+      if (c.team === creature.team || c.dead || c.hp <= 0) continue;
+      this.rules('attack_plan', { target: c.id, key }).ok && cells.push(c.cell);
     }
-    (this.board.clear('hover', 'path'), this.board.set('target', a, 16730672));
-    let n = (this.opts.profiles || []).find((s) => s.key === t);
-    this.hud.prompt(a.length ? `Elige objetivo: ${n ? n.name : ''}` : 'Nadie a tu alcance con esa arma', !0);
+    (this.board.clear('hover', 'path'), this.board.set('target', cells, 16730672));
+    let profile = (this.opts.profiles || []).find((p) => p.key === key);
+    this.hud.prompt(cells.length ? `Elige objetivo: ${profile ? profile.name : ''}` : 'Nadie a tu alcance con esa arma', !0);
   }
-  chooseSpell(e, t) {
-    let a = t.slots || [];
-    if (a.length > 1 && t.upcastable) {
+  /** Elegir el nivel del espacio si el conjuro se puede subir. */
+  chooseSpell(creature, spell) {
+    let slots = spell.slots || [];
+    if (slots.length > 1 && spell.upcastable) {
       this.hud.sheet(
         '\xBFA qu\xE9 nivel?',
-        a.map((n) => ({
-          id: String(n),
+        slots.map((lvl) => ({
+          id: String(lvl),
           icon: 'magic',
-          title: `Nivel ${n}`,
-          cost: `${e.slots[n - 1] ?? 0} libres`,
-          desc: `Lanzar ${t.name} con un espacio de nivel ${n}.`,
+          title: `Nivel ${lvl}`,
+          cost: `${creature.slots[lvl - 1] ?? 0} libres`,
+          desc: `Lanzar ${spell.name} con un espacio de nivel ${lvl}.`,
           enabled: !0,
           magic: !0,
         })),
-        (n) => this.startSpell(e, t, Number(n.id)),
+        (entry) => this.startSpell(creature, spell, Number(entry.id)),
       );
       return;
     }
-    this.startSpell(e, t, a.length ? a[0] : 0);
+    this.startSpell(creature, spell, slots.length ? slots[0] : 0);
   }
-  startSpell(e, t, a) {
-    let n = this.rules('spell_begin', { spell: t.id, slot: a });
+  /** Empieza un conjuro (`spell_begin`) y prepara la elección según su tipo de objetivo. */
+  startSpell(creature, spell, slot) {
+    let begin = this.rules('spell_begin', { spell: spell.id, slot });
     ((this.mode = 'target'),
       (this.pending = {
         kind: 'spell',
-        spell: t.id,
-        name: n.name,
-        slot: a,
-        target: n.target,
-        area: n.area,
-        max: n.max,
-        n: n.n,
-        valid: n.valid || [],
-        cells: n.cells || [],
+        spell: spell.id,
+        name: begin.name,
+        slot,
+        target: begin.target,
+        area: begin.area,
+        max: begin.max,
+        n: begin.n,
+        valid: begin.valid || [],
+        cells: begin.cells || [],
         targets: [],
       }),
       this.board.clear());
-    let s = n.target;
-    if (s === 'self') {
-      ((this.pending.targets = [e.id]),
-        n.area
+    let target = begin.target;
+    if (target === 'self') {
+      ((this.pending.targets = [creature.id]),
+        begin.area
           ? ((this.pending.locked = !0),
             this.previewArea(null, !1),
-            this.hud.prompt(`${n.name}: confirma para lanzarlo a tu alrededor`, !0))
+            this.hud.prompt(`${begin.name}: confirma para lanzarlo a tu alrededor`, !0))
           : this.confirmSpell());
       return;
     }
-    if (s === 'point' || s === 'direction') {
-      (s === 'point' && this.board.set('range', n.cells, 11832575),
+    if (target === 'point' || target === 'direction') {
+      (target === 'point' && this.board.set('range', begin.cells, 11832575),
         this.hud.prompt(
-          s === 'point'
-            ? `${n.name}: elige d\xF3nde centrar el \xE1rea`
-            : `${n.name}: elige hacia d\xF3nde lanzarlo`,
+          target === 'point'
+            ? `${begin.name}: elige d\xF3nde centrar el \xE1rea`
+            : `${begin.name}: elige hacia d\xF3nde lanzarlo`,
           !0,
         ));
       return;
     }
-    if (s === 'cell') {
-      (this.board.set('range', n.cells, 11832575), this.hud.prompt(`${n.name}: elige una casilla`, !0));
+    if (target === 'cell') {
+      (this.board.set('range', begin.cells, 11832575), this.hud.prompt(`${begin.name}: elige una casilla`, !0));
       return;
     }
-    if (s === 'darts' || s === 'rays') {
-      (this.highlightSpellTargets(e),
+    if (target === 'darts' || target === 'rays') {
+      (this.highlightSpellTargets(creature),
         this.hud.prompt(
-          n.n === 1
-            ? `${n.name}: elige objetivo`
-            : `${n.name}: reparte ${n.n} ${s === 'darts' ? 'dardos' : 'rayos'} entre los enemigos`,
+          begin.n === 1
+            ? `${begin.name}: elige objetivo`
+            : `${begin.name}: reparte ${begin.n} ${target === 'darts' ? 'dardos' : 'rayos'} entre los enemigos`,
           !0,
         ));
       return;
     }
-    (this.highlightSpellTargets(e),
+    (this.highlightSpellTargets(creature),
       this.pending.valid.length
         ? this.hud.prompt(
-            `${n.name}: elige ${n.max === 1 ? 'objetivo' : `hasta ${n.max} objetivos`}`,
+            `${begin.name}: elige ${begin.max === 1 ? 'objetivo' : `hasta ${begin.max} objetivos`}`,
             !0,
-            n.max > 1
+            begin.max > 1
               ? { label: 'Lanzar', on: () => this.pending.targets.length && this.confirmSpell() }
               : null,
           )
-        : this.hud.prompt(`${n.name}: no hay objetivos v\xE1lidos`, !0));
+        : this.hud.prompt(`${begin.name}: no hay objetivos v\xE1lidos`, !0));
   }
-  highlightSpellTargets(e) {
-    let t = [],
-      a = [];
-    for (let n of this.pending.valid) {
-      let s = this.creature(n);
-      s && (t.push(s.cell), a.push(s.team !== e.team ? 12619007 : 7331978));
+  /** Resalta los objetivos válidos del conjuro. */
+  highlightSpellTargets(creature) {
+    let cells = [],
+      colors = [];
+    for (let id of this.pending.valid) {
+      let c = this.creature(id);
+      c && (cells.push(c.cell), colors.push(c.team !== creature.team ? 12619007 : 7331978));
     }
-    this.board.set('target', t, (n, s) => a[s]);
+    this.board.set('target', cells, (cell, i) => colors[i]);
   }
-  previewArea(e, t) {
-    let a = this.pending,
-      n = { spell: a.spell, slot: a.slot, targets: a.targets };
-    (e && a.target === 'point' && (n.point = [e.x, e.y]),
-      e && a.target === 'direction' && (n.dir = [e.x, e.y]));
-    let s = this.rules('spell_preview', n);
-    if (!s.ok)
+  /** Área del conjuro en un punto o dirección (`spell_preview`) y previsión; `hover` no fija nada. */
+  previewArea(point, hover) {
+    let pending = this.pending,
+      req = { spell: pending.spell, slot: pending.slot, targets: pending.targets };
+    (point && pending.target === 'point' && (req.point = [point.x, point.y]),
+      point && pending.target === 'direction' && (req.dir = [point.x, point.y]));
+    let res = this.rules('spell_preview', req);
+    if (!res.ok)
       return (
         this.board.clear('area'),
-        t || this.hud.banner(s.reason || 'Fuera de alcance', 'apagado', 700),
+        hover || this.hud.banner(res.reason || 'Fuera de alcance', 'apagado', 700),
         null
       );
-    let i = new Set((s.allies_hit || []).map((r) => cellKey(...this.creature(r).cell)));
-    this.board.set('area', s.area || [], (r) => (i.has(cellKey(...r)) ? 16728112 : 11566335));
-    for (let r of this.units.list) r.ringState === 'target' && r.setRing('idle');
-    for (let r of s.area || []) {
-      let l = this.state.creatures.find((c) => !c.dead && c.cell[0] === r[0] && c.cell[1] === r[1]);
-      l && this.unit(l.id)?.setRing('target');
+    let allyCells = new Set((res.allies_hit || []).map((id) => cellKey(...this.creature(id).cell)));
+    this.board.set('area', res.area || [], (cell) => (allyCells.has(cellKey(...cell)) ? 16728112 : 11566335));
+    for (let unit of this.units.list) unit.ringState === 'target' && unit.setRing('idle');
+    for (let cell of res.area || []) {
+      let occupant = this.state.creatures.find((c) => !c.dead && c.cell[0] === cell[0] && c.cell[1] === cell[1]);
+      occupant && this.unit(occupant.id)?.setRing('target');
     }
-    if (!t) {
-      (s.point && (a.point = s.point), n.dir && (a.dir = n.dir), (a.area = s.area || []));
-      let r =
-        s.area && s.area.length
-          ? this.cellToWorld(s.area[Math.floor(s.area.length / 2)])
+    if (!hover) {
+      (res.point && (pending.point = res.point), req.dir && (pending.dir = req.dir), (pending.area = res.area || []));
+      let at =
+        res.area && res.area.length
+          ? this.cellToWorld(res.area[Math.floor(res.area.length / 2)])
           : this.unit(this.state.current).root.position;
-      this.hud.preview(r, s.lines, 'Lanzar', () => this.confirmSpell(), [], s.can !== !1);
+      this.hud.preview(at, res.lines, 'Lanzar', () => this.confirmSpell(), [], res.can !== !1);
     }
-    return s;
+    return res;
   }
-  tapSpell(e, t) {
-    let a = this.pending,
-      n = a.target;
-    if (n === 'point' || n === 'direction') {
-      if (!t.gp) return;
-      let i = worldToPlane(t.gp);
-      if (n === 'point' && a.point && Math.hypot(a.point[0] - i.x, a.point[1] - i.y) < 0.6) {
+  /** Clic al apuntar un conjuro (punto, dirección, casilla, dardos/rayos u objetivos). */
+  tapSpell(creature, hit) {
+    let pending = this.pending,
+      target = pending.target;
+    if (target === 'point' || target === 'direction') {
+      if (!hit.gp) return;
+      let point = worldToPlane(hit.gp);
+      if (target === 'point' && pending.point && Math.hypot(pending.point[0] - point.x, pending.point[1] - point.y) < 0.6) {
         this.confirmSpell();
         return;
       }
       if (
-        n === 'direction' &&
-        a.area &&
-        t.cell &&
-        a.area.some((r) => r[0] === t.cell[0] && r[1] === t.cell[1]) &&
-        a.dir
+        target === 'direction' &&
+        pending.area &&
+        hit.cell &&
+        pending.area.some((c) => c[0] === hit.cell[0] && c[1] === hit.cell[1]) &&
+        pending.dir
       ) {
         this.confirmSpell();
         return;
       }
-      ((a.locked = !1), this.previewArea(i, !1) && (a.locked = !0));
+      ((pending.locked = !1), this.previewArea(point, !1) && (pending.locked = !0));
       return;
     }
-    if (n === 'cell') {
-      if (!t.cell || !a.cells.some((i) => i[0] === t.cell[0] && i[1] === t.cell[1])) {
+    if (target === 'cell') {
+      if (!hit.cell || !pending.cells.some((c) => c[0] === hit.cell[0] && c[1] === hit.cell[1])) {
         this.hud.banner('Casilla no v\xE1lida', 'apagado', 700);
         return;
       }
-      if (a.cell && a.cell[0] === t.cell[0] && a.cell[1] === t.cell[1]) {
+      if (pending.cell && pending.cell[0] === hit.cell[0] && pending.cell[1] === hit.cell[1]) {
         this.confirmSpell();
         return;
       }
-      ((a.cell = t.cell),
-        this.board.set('target', [t.cell], 11832575),
-        this.hud.prompt(`${a.name}: confirma la casilla`, !0, {
+      ((pending.cell = hit.cell),
+        this.board.set('target', [hit.cell], 11832575),
+        this.hud.prompt(`${pending.name}: confirma la casilla`, !0, {
           label: 'Lanzar',
           on: () => this.confirmSpell(),
         }));
       return;
     }
-    let s = t.creature;
-    if (!(!s || !a.valid.includes(s.id))) {
-      if (n === 'darts' || n === 'rays') {
-        (a.targets.push(s.id),
+    let picked = hit.creature;
+    if (!(!picked || !pending.valid.includes(picked.id))) {
+      if (target === 'darts' || target === 'rays') {
+        (pending.targets.push(picked.id),
           this.hud.float(
-            this.unit(s.id).headWorld(),
-            `\xD7${a.targets.filter((i) => i === s.id).length}`,
+            this.unit(picked.id).headWorld(),
+            `\xD7${pending.targets.filter((id) => id === picked.id).length}`,
             'magia',
           ),
-          a.targets.length >= a.n
+          pending.targets.length >= pending.n
             ? this.confirmSpell()
-            : this.hud.prompt(`${a.name}: ${a.targets.length}/${a.n} \xB7 elige m\xE1s objetivos`, !0, {
+            : this.hud.prompt(`${pending.name}: ${pending.targets.length}/${pending.n} \xB7 elige m\xE1s objetivos`, !0, {
                 label: 'Todos al \xFAltimo',
                 on: () => this.confirmSpell(),
               }));
         return;
       }
-      if (a.targets.includes(s.id)) {
-        if (a.max === 1) {
+      if (pending.targets.includes(picked.id)) {
+        if (pending.max === 1) {
           this.confirmSpell();
           return;
         }
-        a.targets = a.targets.filter((i) => i !== s.id);
-      } else a.max === 1 ? (a.targets = [s.id]) : a.targets.length < a.max && a.targets.push(s.id);
-      if (a.max === 1) {
-        this.spellPreview(e);
+        pending.targets = pending.targets.filter((id) => id !== picked.id);
+      } else pending.max === 1 ? (pending.targets = [picked.id]) : pending.targets.length < pending.max && pending.targets.push(picked.id);
+      if (pending.max === 1) {
+        this.spellPreview(creature);
         return;
       }
       (this.board.set(
         'area',
-        a.targets.map((i) => this.creature(i).cell),
+        pending.targets.map((id) => this.creature(id).cell),
         16767050,
       ),
         this.hud.prompt(
-          `${a.name}: ${a.targets.length}/${a.max} elegidos`,
+          `${pending.name}: ${pending.targets.length}/${pending.max} elegidos`,
           !0,
-          a.targets.length ? { label: 'Lanzar', on: () => this.confirmSpell() } : null,
+          pending.targets.length ? { label: 'Lanzar', on: () => this.confirmSpell() } : null,
         ),
-        a.targets.length >= a.max && this.spellPreview(e));
+        pending.targets.length >= pending.max && this.spellPreview(creature));
     }
   }
-  spellPreview(e) {
-    let t = this.pending,
-      a = this.rules('spell_preview', { spell: t.spell, slot: t.slot, targets: t.targets }),
-      n = this.unit(t.targets[0]) || this.unit(e.id);
-    t.targets[0] && t.targets[0] !== e.id && (this.framePair(this.unit(e.id), n), n.setRing('target'));
-    let s = (a.lines || []).map((i) => /(\d+) %/.exec(i.s)).find(Boolean);
+  /** Previsión del conjuro con los objetivos elegidos. */
+  spellPreview(creature) {
+    let pending = this.pending,
+      res = this.rules('spell_preview', { spell: pending.spell, slot: pending.slot, targets: pending.targets }),
+      targetUnit = this.unit(pending.targets[0]) || this.unit(creature.id);
+    pending.targets[0] && pending.targets[0] !== creature.id && (this.framePair(this.unit(creature.id), targetUnit), targetUnit.setRing('target'));
+    let chance = (res.lines || []).map((line) => /(\d+) %/.exec(line.s)).find(Boolean);
     this.hud.preview(
-      n.headWorld(),
-      a.lines || [],
+      targetUnit.headWorld(),
+      res.lines || [],
       'Lanzar',
       () => this.confirmSpell(),
       [],
       !0,
-      s ? Number(s[1]) / 100 : null,
+      chance ? Number(chance[1]) / 100 : null,
     );
   }
+  /** Lanza el conjuro (`cast`) con los objetivos elegidos. */
   async confirmSpell() {
-    let e = this.creature(this.state.current),
-      t = this.pending;
-    if (!t) return;
-    if ((t.target === 'darts' || t.target === 'rays') && t.targets.length && t.targets.length < t.n) {
-      let s = t.targets[t.targets.length - 1];
-      for (; t.targets.length < t.n;) t.targets.push(s);
+    let creature = this.creature(this.state.current),
+      pending = this.pending;
+    if (!pending) return;
+    if ((pending.target === 'darts' || pending.target === 'rays') && pending.targets.length && pending.targets.length < pending.n) {
+      let last = pending.targets[pending.targets.length - 1];
+      for (; pending.targets.length < pending.n;) pending.targets.push(last);
     }
-    if ((t.target === 'point' && !t.point) || (t.target === 'direction' && !t.dir)) return;
-    let a = { spell: t.spell, slot: t.slot, targets: t.targets };
-    (t.point && (a.point = t.point),
-      t.dir && (a.dir = t.dir),
-      t.cell && (a.cell = t.cell),
+    if ((pending.target === 'point' && !pending.point) || (pending.target === 'direction' && !pending.dir)) return;
+    let req = { spell: pending.spell, slot: pending.slot, targets: pending.targets };
+    (pending.point && (req.point = pending.point),
+      pending.dir && (req.dir = pending.dir),
+      pending.cell && (req.cell = pending.cell),
       (this.mode = 'busy'),
       this.clearTargeting());
-    let n = this.rules('cast', a);
-    (n.ok || this.hud.banner('No se puede lanzar as\xED', 'malo', 900),
-      await this.play(n.events || []),
-      this.afterAction(e));
+    let res = this.rules('cast', req);
+    (res.ok || this.hud.banner('No se puede lanzar as\xED', 'malo', 900),
+      await this.play(res.events || []),
+      this.afterAction(creature));
   }
-  menu(e) {
-    let t = this.creature(this.state.current);
-    if (!t || !this.turnDone || this.mode === 'busy') return;
-    this.mode === 'target' && this.enterIdle(t);
-    let a = this.opts;
-    if (e === 'attack') {
-      let n = (a.profiles || []).map((s) => ({
-        id: s.key,
-        icon: s.kind === 'melee' ? 'melee' : s.kind === 'thrown' ? 'thrown' : 'ranged',
-        title: s.name,
-        cost: `${s.bonus >= 0 ? '+' : ''}${s.bonus}`,
-        desc: `${s.damage_text.join(' + ')} \xB7 ${s.kind === 'melee' ? `alcance ${formatNumber(s.reach * 1.5)} m` : `distancia ${formatNumber(s.range[0] * 1.5)}/${formatNumber(s.range[1] * 1.5)} m`}${s.mastery_name ? ` \xB7 ${s.mastery_name}` : ''}${s.ammo_left >= 0 ? ` \xB7 quedan ${s.ammo_left}` : ''}`,
-        enabled: t.turn.action > 0 || t.turn.attack_left > 0,
+  /** Abre la hoja de un menú del turno: attack, spells, features, actions o items. */
+  menu(kind) {
+    let creature = this.creature(this.state.current);
+    if (!creature || !this.turnDone || this.mode === 'busy') return;
+    this.mode === 'target' && this.enterIdle(creature);
+    let opts = this.opts;
+    if (kind === 'attack') {
+      let entries = (opts.profiles || []).map((p) => ({
+        id: p.key,
+        icon: p.kind === 'melee' ? 'melee' : p.kind === 'thrown' ? 'thrown' : 'ranged',
+        title: p.name,
+        cost: `${p.bonus >= 0 ? '+' : ''}${p.bonus}`,
+        desc: `${p.damage_text.join(' + ')} \xB7 ${p.kind === 'melee' ? `alcance ${formatNumber(p.reach * 1.5)} m` : `distancia ${formatNumber(p.range[0] * 1.5)}/${formatNumber(p.range[1] * 1.5)} m`}${p.mastery_name ? ` \xB7 ${p.mastery_name}` : ''}${p.ammo_left >= 0 ? ` \xB7 quedan ${p.ammo_left}` : ''}`,
+        enabled: creature.turn.action > 0 || creature.turn.attack_left > 0,
       }));
-      if (!n.length) return;
-      this.hud.sheet('Atacar con\u2026', n, (s) => this.startAttackPick(t, s.id));
-    } else if (e === 'spells') {
-      let n = (a.spells || []).slice().sort((i, r) => i.level - r.level);
-      if (!n.length) return;
-      let s = n.map((i) => ({
-        id: i.id,
-        icon: i.icon || 'magic',
-        title: i.name,
+      if (!entries.length) return;
+      this.hud.sheet('Atacar con\u2026', entries, (entry) => this.startAttackPick(creature, entry.id));
+    } else if (kind === 'spells') {
+      let spells = (opts.spells || []).slice().sort((x, y) => x.level - y.level);
+      if (!spells.length) return;
+      let entries = spells.map((spell) => ({
+        id: spell.id,
+        icon: spell.icon || 'magic',
+        title: spell.name,
         group:
-          i.level === 0
+          spell.level === 0
             ? 'Trucos'
-            : `Nivel ${i.level}${t.slots_max?.[i.level - 1] ? ` \xB7 ${t.slots?.[i.level - 1] ?? 0}/${t.slots_max[i.level - 1]} espacios` : ''}`,
-        cost: { action: 'Acci\xF3n', bonus: 'Adicional', reaction: 'Reacci\xF3n' }[i.cost] || '',
-        note: i.at_will
+            : `Nivel ${spell.level}${creature.slots_max?.[spell.level - 1] ? ` \xB7 ${creature.slots?.[spell.level - 1] ?? 0}/${creature.slots_max[spell.level - 1]} espacios` : ''}`,
+        cost: { action: 'Acci\xF3n', bonus: 'Adicional', reaction: 'Reacci\xF3n' }[spell.cost] || '',
+        note: spell.at_will
           ? 'a voluntad'
-          : i.free
+          : spell.free
             ? 'gratis 1/d\xEDa'
-            : i.concentration
+            : spell.concentration
               ? 'concentraci\xF3n'
               : '',
-        desc: !i.usable && i.reason ? i.reason : i.desc,
-        enabled: i.usable,
+        desc: !spell.usable && spell.reason ? spell.reason : spell.desc,
+        enabled: spell.usable,
         magic: !0,
-        data: i,
+        data: spell,
       }));
-      this.hud.sheet('Conjuros', s, (i) => this.chooseSpell(t, i.data));
-    } else if (e === 'features') {
-      if (!(a.features || []).length) return;
+      this.hud.sheet('Conjuros', entries, (entry) => this.chooseSpell(creature, entry.data));
+    } else if (kind === 'features') {
+      if (!(opts.features || []).length) return;
       this.hud.sheet(
         'Habilidades',
-        (a.features || []).map((n) => ({ ...n, cost: n.cost })),
-        (n) => this.useFeature(t, n),
+        (opts.features || []).map((f) => ({ ...f, cost: f.cost })),
+        (entry) => this.useFeature(creature, entry),
       );
-    } else if (e === 'actions') this.hud.sheet('Acciones', a.actions || [], (n) => this.basicAction(t, n));
-    else if (e === 'items') {
-      if (!(a.items || []).length) return;
-      this.hud.sheet('Objetos', a.items || [], (n) =>
+    } else if (kind === 'actions') this.hud.sheet('Acciones', opts.actions || [], (entry) => this.basicAction(creature, entry));
+    else if (kind === 'items') {
+      if (!(opts.items || []).length) return;
+      this.hud.sheet('Objetos', opts.items || [], (entry) =>
         this.startSimple(
-          t,
-          n.target,
-          `${n.title.replace(/ ×\d+$/, '')}: elige a qui\xE9n (t\xFA o un aliado adyacente)`,
+          creature,
+          entry.target,
+          `${entry.title.replace(/ ×\d+$/, '')}: elige a qui\xE9n (t\xFA o un aliado adyacente)`,
         ),
       );
     }
   }
-  async runAction(e, t) {
+  /** Ejecuta una operación del núcleo (simple, feature) y reproduce sus eventos. */
+  async runAction(creature, req) {
     ((this.mode = 'busy'), this.clearTargeting());
-    let a = this.rules(t.op, t);
-    (a.ok === !1 && this.hud.banner('No se puede ahora', 'apagado', 800),
-      await this.play(a.events || []),
-      this.afterAction(e));
+    let res = this.rules(req.op, req);
+    (res.ok === !1 && this.hud.banner('No se puede ahora', 'apagado', 800),
+      await this.play(res.events || []),
+      this.afterAction(creature));
   }
-  basicAction(e, t) {
-    t.target === 'none'
-      ? this.runAction(e, { op: 'simple', what: t.id })
+  /** Acción básica (esquivar, ayudar, empujar, estabilizar…). */
+  basicAction(creature, action) {
+    action.target === 'none'
+      ? this.runAction(creature, { op: 'simple', what: action.id })
       : this.startSimple(
-          e,
-          t.target,
+          creature,
+          action.target,
           {
             help: 'Elige un enemigo adyacente al que distraer',
             shove: 'Elige un enemigo adyacente para derribarlo',
             stabilize: 'Elige un aliado ca\xEDdo adyacente',
-          }[t.target] || 'Elige objetivo',
+          }[action.target] || 'Elige objetivo',
         );
   }
-  useFeature(e, t) {
-    let a = t.target || 'none';
-    a === 'none'
-      ? this.runAction(e, { op: 'feature', id: t.id })
-      : a === 'choice'
+  /** Usa un rasgo según su objetivo (ninguno, elección, criatura o área). */
+  useFeature(creature, feature) {
+    let target = feature.target || 'none';
+    target === 'none'
+      ? this.runAction(creature, { op: 'feature', id: feature.id })
+      : target === 'choice'
         ? this.hud.sheet(
-            t.title,
-            (t.options || []).map((n) => ({
-              id: n.id,
-              icon: n.icon || t.icon,
-              title: n.title,
+            feature.title,
+            (feature.options || []).map((option) => ({
+              id: option.id,
+              icon: option.icon || feature.icon,
+              title: option.title,
               cost: '',
-              desc: n.desc || '',
-              enabled: n.enabled !== !1,
+              desc: option.desc || '',
+              enabled: option.enabled !== !1,
             })),
-            (n) => this.runAction(e, { op: 'feature', id: t.id, choice: n.id }),
+            (option) => this.runAction(creature, { op: 'feature', id: feature.id, choice: option.id }),
           )
-        : ['enemy', 'enemy_adjacent', 'ally_other', 'ally_touch', 'creature'].includes(a)
-          ? this.startSimple(e, `feat:${t.id}`, `${t.title}: elige objetivo`)
-          : a === 'point' || a === 'direction' || a === 'cell'
-            ? this.startFeatureArea(e, t)
+        : ['enemy', 'enemy_adjacent', 'ally_other', 'ally_touch', 'creature'].includes(target)
+          ? this.startSimple(creature, `feat:${feature.id}`, `${feature.title}: elige objetivo`)
+          : target === 'point' || target === 'direction' || target === 'cell'
+            ? this.startFeatureArea(creature, feature)
             : this.hud.banner('Esta habilidad a\xFAn no se puede usar aqu\xED', 'apagado', 1200);
   }
-  startFeatureArea(e, t) {
-    let a = t.range ?? (t.target === 'cell' ? 6 : 12);
+  /** Elegir punto, dirección o casilla para un rasgo de área (aliento, etc.). */
+  startFeatureArea(creature, feature) {
+    let range = feature.range ?? (feature.target === 'cell' ? 6 : 12);
     this.mode = 'target';
-    let n = t.radius ?? (t.zone !== void 0 ? 5 : 10);
+    let radiusFt = feature.radius ?? (feature.zone !== void 0 ? 5 : 10);
     ((this.pending = {
       kind: 'feature',
-      id: t.id,
-      name: t.title,
-      target: t.target,
-      range: a,
-      radius: Math.max(1, Math.round(n / 5)),
-      shape: t.shape || (t.id === 'breath_line' ? 'line' : 'cone'),
-      zone: t.zone,
+      id: feature.id,
+      name: feature.title,
+      target: feature.target,
+      range,
+      radius: Math.max(1, Math.round(radiusFt / 5)),
+      shape: feature.shape || (feature.id === 'breath_line' ? 'line' : 'cone'),
+      zone: feature.zone,
     }),
       this.board.clear());
-    let s = [];
-    for (let i = 0; i < this.board.h; i++)
-      for (let r = 0; r < this.board.w; r++) hexDistance([r, i], e.cell) <= a && s.push([r, i]);
+    let cells = [];
+    for (let y = 0; y < this.board.h; y++)
+      for (let x = 0; x < this.board.w; x++) hexDistance([x, y], creature.cell) <= range && cells.push([x, y]);
     ((this.pending.cells =
-      t.target === 'cell'
-        ? s.filter(
-            (i) =>
-              this.board.tile(...i) !== '#' &&
-              !this.state.creatures.some((r) => !r.dead && r.cell[0] === i[0] && r.cell[1] === i[1]),
+      feature.target === 'cell'
+        ? cells.filter(
+            (cell) =>
+              this.board.tile(...cell) !== '#' &&
+              !this.state.creatures.some((c) => !c.dead && c.cell[0] === cell[0] && c.cell[1] === cell[1]),
           )
-        : s),
-      t.target !== 'direction' && this.board.set('range', this.pending.cells, 11832575),
+        : cells),
+      feature.target !== 'direction' && this.board.set('range', this.pending.cells, 11832575),
       this.hud.prompt(
-        t.target === 'direction'
-          ? `${t.title}: elige hacia d\xF3nde`
-          : t.target === 'cell'
-            ? `${t.title}: elige una casilla`
-            : `${t.title}: elige d\xF3nde`,
+        feature.target === 'direction'
+          ? `${feature.title}: elige hacia d\xF3nde`
+          : feature.target === 'cell'
+            ? `${feature.title}: elige una casilla`
+            : `${feature.title}: elige d\xF3nde`,
         !0,
       ));
   }
-  featureCells(e, t) {
-    let a = this.pending;
-    if (a.target === 'point') {
-      if (!t.cell || hexDistance(t.cell, e.cell) > a.range) return null;
-      let n = [];
-      for (let s = 0; s < this.board.h; s++)
-        for (let i = 0; i < this.board.w; i++) hexDistance([i, s], t.cell) <= a.radius && n.push([i, s]);
-      return n;
+  /** Casillas afectadas por el rasgo de área en la posición del puntero. */
+  featureCells(creature, hit) {
+    let pending = this.pending;
+    if (pending.target === 'point') {
+      if (!hit.cell || hexDistance(hit.cell, creature.cell) > pending.range) return null;
+      let cells = [];
+      for (let y = 0; y < this.board.h; y++)
+        for (let x = 0; x < this.board.w; x++) hexDistance([x, y], hit.cell) <= pending.radius && cells.push([x, y]);
+      return cells;
     }
-    if (a.target === 'direction' && t.gp) {
-      let n = this.cellToWorld(e.cell),
-        s = t.gp.clone().sub(n).setY(0);
-      if (s.lengthSq() < 0.01) return null;
-      s.normalize();
-      let i = a.shape === 'line' ? 6 : 3,
-        r = [];
-      for (let l = 0; l < this.board.h; l++)
-        for (let c = 0; c < this.board.w; c++) {
-          let d = this.cellToWorld([c, l]).sub(n),
-            u = d.x * s.x + d.z * s.z,
-            h = Math.abs(d.x * s.z - d.z * s.x);
-          u <= 0.3 ||
-            u > i * HEX_SIZE + 0.2 ||
-            (a.shape === 'line' ? h > 0.75 : h > u * 0.55 + 0.35) ||
-            r.push([c, l]);
+    if (pending.target === 'direction' && hit.gp) {
+      let origin = this.cellToWorld(creature.cell),
+        dir = hit.gp.clone().sub(origin).setY(0);
+      if (dir.lengthSq() < 0.01) return null;
+      dir.normalize();
+      let reach = pending.shape === 'line' ? 6 : 3,
+        cells = [];
+      for (let y = 0; y < this.board.h; y++)
+        for (let x = 0; x < this.board.w; x++) {
+          let offset = this.cellToWorld([x, y]).sub(origin),
+            along = offset.x * dir.x + offset.z * dir.z,
+            across = Math.abs(offset.x * dir.z - offset.z * dir.x);
+          along <= 0.3 ||
+            along > reach * HEX_SIZE + 0.2 ||
+            (pending.shape === 'line' ? across > 0.75 : across > along * 0.55 + 0.35) ||
+            cells.push([x, y]);
         }
-      return r;
+      return cells;
     }
-    return a.target === 'cell' && t.cell && a.cells.some((n) => n[0] === t.cell[0] && n[1] === t.cell[1])
-      ? [t.cell]
+    return pending.target === 'cell' && hit.cell && pending.cells.some((c) => c[0] === hit.cell[0] && c[1] === hit.cell[1])
+      ? [hit.cell]
       : null;
   }
-  previewFeatureArea(e, t) {
-    let a = this.creature(this.state.current),
-      n = this.featureCells(a, e);
-    if (!n) return (this.board.clear('area'), null);
-    let s = [],
-      i = [];
-    for (let l of n) {
-      let c = this.state.creatures.find((d) => !d.dead && d.cell[0] === l[0] && d.cell[1] === l[1]);
-      c && (c.team === a.team ? s : i).push(c);
+  /** Resalta el área del rasgo y su previsión (avisa si alcanza a aliados). */
+  previewFeatureArea(hit, hover) {
+    let creature = this.creature(this.state.current),
+      cells = this.featureCells(creature, hit);
+    if (!cells) return (this.board.clear('area'), null);
+    let allies = [],
+      enemies = [];
+    for (let cell of cells) {
+      let occupant = this.state.creatures.find((c) => !c.dead && c.cell[0] === cell[0] && c.cell[1] === cell[1]);
+      occupant && (occupant.team === creature.team ? allies : enemies).push(occupant);
     }
-    let r = new Set(s.map((l) => cellKey(...l.cell)));
+    let allyCells = new Set(allies.map((c) => cellKey(...c.cell)));
     if (
-      (this.board.set('area', n, (l) =>
-        r.has(cellKey(...l)) && this.pending.id.startsWith('breath') ? 16728112 : 11566335,
+      (this.board.set('area', cells, (cell) =>
+        allyCells.has(cellKey(...cell)) && this.pending.id.startsWith('breath') ? 16728112 : 11566335,
       ),
-      !t)
+      !hover)
     ) {
-      let l = this.pending;
-      ((l.area = n), (l.at = e));
-      let c = [{ t: 'b', s: l.name }];
-      (l.target !== 'cell' && c.push({ t: '', s: `Enemigos en el \xE1rea: ${i.length}` }),
-        s.length &&
-          l.id.startsWith('breath') &&
-          c.push({ t: 'bad', s: `\xA1Cuidado! Alcanza a ${s.length} aliado(s).` }),
-        this.hud.preview(this.cellToWorld(n[Math.floor(n.length / 2)]), c, 'Usar', () =>
+      let pending = this.pending;
+      ((pending.area = cells), (pending.at = hit));
+      let lines = [{ t: 'b', s: pending.name }];
+      (pending.target !== 'cell' && lines.push({ t: '', s: `Enemigos en el \xE1rea: ${enemies.length}` }),
+        allies.length &&
+          pending.id.startsWith('breath') &&
+          lines.push({ t: 'bad', s: `\xA1Cuidado! Alcanza a ${allies.length} aliado(s).` }),
+        this.hud.preview(this.cellToWorld(cells[Math.floor(cells.length / 2)]), lines, 'Usar', () =>
           this.confirmFeatureArea(),
         ));
     }
-    return n;
+    return cells;
   }
-  tapFeature(e, t) {
-    let a = this.pending;
+  /** Clic al apuntar un rasgo de área. */
+  tapFeature(creature, hit) {
+    let pending = this.pending;
     if (
-      a.area &&
-      t.cell &&
-      a.area.some((n) => n[0] === t.cell[0] && n[1] === t.cell[1]) &&
-      a.target !== 'direction'
+      pending.area &&
+      hit.cell &&
+      pending.area.some((c) => c[0] === hit.cell[0] && c[1] === hit.cell[1]) &&
+      pending.target !== 'direction'
     ) {
       this.confirmFeatureArea();
       return;
     }
     if (
-      a.target === 'direction' &&
-      a.area &&
-      t.cell &&
-      a.area.some((n) => n[0] === t.cell[0] && n[1] === t.cell[1])
+      pending.target === 'direction' &&
+      pending.area &&
+      hit.cell &&
+      pending.area.some((c) => c[0] === hit.cell[0] && c[1] === hit.cell[1])
     ) {
       this.confirmFeatureArea();
       return;
     }
-    ((a.locked = !1),
-      this.previewFeatureArea(t, !1) ? (a.locked = !0) : this.hud.banner('Fuera de alcance', 'apagado', 700));
+    ((pending.locked = !1),
+      this.previewFeatureArea(hit, !1) ? (pending.locked = !0) : this.hud.banner('Fuera de alcance', 'apagado', 700));
   }
+  /** Usa el rasgo de área elegido. */
   confirmFeatureArea() {
-    let e = this.creature(this.state.current),
-      t = this.pending;
-    if (!t || !t.at) return;
-    let a = { op: 'feature', id: t.id };
-    if ((t.zone !== void 0 && t.zone !== null && (a.zone = t.zone), t.target === 'point')) {
-      let n = t.at.cell,
-        s = this.cellToWorld(n);
-      a.point = [s.x / HEX_SIZE, s.z / HEX_SIZE];
-    } else if (t.target === 'direction') {
-      let n = worldToPlane(t.at.gp);
-      ((a.dir = [n.x, n.y]), (a.point = a.dir));
-    } else t.target === 'cell' && (a.cell = t.at.cell);
-    this.runAction(e, a);
+    let creature = this.creature(this.state.current),
+      pending = this.pending;
+    if (!pending || !pending.at) return;
+    let req = { op: 'feature', id: pending.id };
+    if ((pending.zone !== void 0 && pending.zone !== null && (req.zone = pending.zone), pending.target === 'point')) {
+      let cell = pending.at.cell,
+        pos = this.cellToWorld(cell);
+      req.point = [pos.x / HEX_SIZE, pos.z / HEX_SIZE];
+    } else if (pending.target === 'direction') {
+      let plane = worldToPlane(pending.at.gp);
+      ((req.dir = [plane.x, plane.y]), (req.point = req.dir));
+    } else pending.target === 'cell' && (req.cell = pending.at.cell);
+    this.runAction(creature, req);
   }
-  startSimple(e, t, a) {
-    let n = this.rules('simple_targets', { what: t });
-    if (!n.length) {
-      (this.hud.banner('No hay objetivos v\xE1lidos', 'apagado', 900), this.enterIdle(e));
+  /** Elegir objetivo de una acción simple u objeto (`simple_targets`). */
+  startSimple(creature, what, promptText) {
+    let valid = this.rules('simple_targets', { what });
+    if (!valid.length) {
+      (this.hud.banner('No hay objetivos v\xE1lidos', 'apagado', 900), this.enterIdle(creature));
       return;
     }
     ((this.mode = 'target'),
-      (this.pending = { kind: 'simple', what: t, valid: n }),
+      (this.pending = { kind: 'simple', what, valid }),
       this.board.clear(),
       this.board.set(
         'target',
-        n.map((s) => this.creature(s).cell),
-        (s) => {
-          let i = this.state.creatures.find((r) => r.cell[0] === s[0] && r.cell[1] === s[1] && !r.dead);
-          return i && i.team === e.team ? 7331978 : 16734784;
+        valid.map((id) => this.creature(id).cell),
+        (cell) => {
+          let occupant = this.state.creatures.find((c) => c.cell[0] === cell[0] && c.cell[1] === cell[1] && !c.dead);
+          return occupant && occupant.team === creature.team ? 7331978 : 16734784;
         },
       ),
-      this.hud.prompt(a, !0));
+      this.hud.prompt(promptText, !0));
   }
-  tapTarget(e, t) {
-    let a = this.pending;
-    if (!a) return;
-    let n = t.creature;
-    switch (a.kind) {
+  /** Clic en modo de elección de objetivo según lo pendiente. */
+  tapTarget(creature, hit) {
+    let pending = this.pending;
+    if (!pending) return;
+    let other = hit.creature;
+    switch (pending.kind) {
       case 'move':
-        t.cell && t.cell[0] === a.cell[0] && t.cell[1] === a.cell[1]
-          ? this.doMove(e, a.path, a.dash)
-          : (this.enterIdle(e), this.tapIdle(e, t, {}));
+        hit.cell && hit.cell[0] === pending.cell[0] && hit.cell[1] === pending.cell[1]
+          ? this.doMove(creature, pending.path, pending.dash)
+          : (this.enterIdle(creature), this.tapIdle(creature, hit, {}));
         break;
       case 'attack':
-        n && n.id === a.plan.target
+        other && other.id === pending.plan.target
           ? this.executeAttack()
-          : n && n.team !== e.team && n.hp > 0
-            ? this.proposeAttack(e, n, a.plan.key)
-            : this.enterIdle(e);
+          : other && other.team !== creature.team && other.hp > 0
+            ? this.proposeAttack(creature, other, pending.plan.key)
+            : this.enterIdle(creature);
         break;
       case 'attack_pick':
-        n && n.team !== e.team && n.hp > 0 && this.proposeAttack(e, n, a.key);
+        other && other.team !== creature.team && other.hp > 0 && this.proposeAttack(creature, other, pending.key);
         break;
       case 'offhand':
-        n && n.id === a.off.target ? this.hud.confirmPreview() : this.afterAction(e);
+        other && other.id === pending.off.target ? this.hud.confirmPreview() : this.afterAction(creature);
         break;
       case 'spell':
-        this.tapSpell(e, t);
+        this.tapSpell(creature, hit);
         break;
       case 'feature':
-        this.tapFeature(e, t);
+        this.tapFeature(creature, hit);
         break;
       case 'simple':
-        n && a.valid.includes(n.id) && this.runAction(e, { op: 'simple', what: a.what, target: n.id });
+        other && pending.valid.includes(other.id) && this.runAction(creature, { op: 'simple', what: pending.what, target: other.id });
         break;
       default:
         break;
     }
   }
+  /** Deshace el último movimiento (`undo_move`). */
   async undoMove() {
-    let e = this.creature(this.state.current);
-    if (!e || this.mode === 'busy' || !this.opts?.can_undo) return;
+    let creature = this.creature(this.state.current);
+    if (!creature || this.mode === 'busy' || !this.opts?.can_undo) return;
     ((this.mode = 'busy'), this.clearTargeting());
-    let t = this.rules('undo_move'),
-      a = this.unit(e.id);
-    (await this.play(t.events), this.refresh());
-    let n = this.creature(e.id);
-    (n &&
-      (n.cell[0] !== a.cell[0] ||
-        n.cell[1] !== a.cell[1] ||
-        a.root.position.distanceTo(this.cellToWorld(n.cell)) > 0.1) &&
-      a.place(n.cell),
-      this.afterAction(e));
+    let res = this.rules('undo_move'),
+      unit = this.unit(creature.id);
+    (await this.play(res.events), this.refresh());
+    let fresh = this.creature(creature.id);
+    (fresh &&
+      (fresh.cell[0] !== unit.cell[0] ||
+        fresh.cell[1] !== unit.cell[1] ||
+        unit.root.position.distanceTo(this.cellToWorld(fresh.cell)) > 0.1) &&
+      unit.place(fresh.cell),
+      this.afterAction(creature));
   }
-  markMerges(e) {
-    let t = e || [];
-    for (let a = 0; a < t.length; a++) {
-      let n = t[a];
-      if (n.t === 'save' && !n.success && n.who)
-        for (let s = a + 1; s < Math.min(t.length, a + 8); s++) {
-          let i = t[s];
-          if (i.who === n.who) {
-            if ((i.t === 'condition' || i.t === 'effect') && i.on) {
-              ((n._merged = !0), (i._saveNote = `salvaci\xF3n ${n.total} vs CD ${n.dc}`));
+  /** Une salvaciones fallidas y efectos con el estado que causan para mostrar un solo texto. */
+  markMerges(events) {
+    let list = events || [];
+    for (let k = 0; k < list.length; k++) {
+      let ev = list[k];
+      if (ev.t === 'save' && !ev.success && ev.who)
+        for (let j = k + 1; j < Math.min(list.length, k + 8); j++) {
+          let next = list[j];
+          if (next.who === ev.who) {
+            if ((next.t === 'condition' || next.t === 'effect') && next.on) {
+              ((ev._merged = !0), (next._saveNote = `salvaci\xF3n ${ev.total} vs CD ${ev.dc}`));
               break;
             }
-            if (i.t === 'damage' || i.t === 'save') break;
+            if (next.t === 'damage' || next.t === 'save') break;
           }
         }
-      if (n.t === 'effect' && n.on && n.who)
-        for (let s = a + 1; s < Math.min(t.length, a + 4); s++) {
-          let i = t[s];
-          if (i.who === n.who && i.t === 'condition' && i.on) {
-            ((n._quiet = !0), (i._saveNote = i._saveNote || n._saveNote || ''), (i._from = n.name));
+      if (ev.t === 'effect' && ev.on && ev.who)
+        for (let j = k + 1; j < Math.min(list.length, k + 4); j++) {
+          let next = list[j];
+          if (next.who === ev.who && next.t === 'condition' && next.on) {
+            ((ev._quiet = !0), (next._saveNote = next._saveNote || ev._saveNote || ''), (next._from = ev.name));
             break;
           }
         }
     }
   }
-  async play(e) {
-    this.markMerges(e);
-    for (let t of e || []) {
+  /** Reproduce una lista de eventos del núcleo en orden (emite «battle:event»). */
+  async play(events) {
+    this.markMerges(events);
+    for (let ev of events || []) {
       if (this.disposed) return;
-      (this.allEvents.push(t), t.t !== 'log' && this.emit('battle:event', { ev: t }));
+      (this.allEvents.push(ev), ev.t !== 'log' && this.emit('battle:event', { ev }));
       try {
-        await this.playOne(t);
-      } catch (a) {
-        console.error('[combate] evento', t.t, a);
+        await this.playOne(ev);
+      } catch (err) {
+        console.error('[combate] evento', ev.t, err);
       }
     }
   }
-  markImpact(e) {
-    this.recentImpact.set(e, performance.now());
+  /** Apunta que una unidad acaba de recibir un impacto visual (evita duplicar golpes). */
+  markImpact(id) {
+    this.recentImpact.set(id, performance.now());
   }
-  impactedRecently(e) {
-    let t = this.recentImpact.get(e);
-    return t && performance.now() - t < 900 / this.turbo;
+  impactedRecently(id) {
+    let at = this.recentImpact.get(id);
+    return at && performance.now() - at < 900 / this.turbo;
   }
-  async playOne(e) {
-    let t = this.hud,
-      a = this.vfx,
-      n = e.who ? this.unit(e.who) : null;
-    switch (e.t) {
+  /** Reproduce un evento del núcleo (move, attack, damage, cast, condition, death, zone…). */
+  async playOne(ev) {
+    let hud = this.hud,
+      vfx = this.vfx,
+      unit = ev.who ? this.unit(ev.who) : null;
+    switch (ev.t) {
       case 'log':
-        t.log(e.text);
+        hud.log(ev.text);
         break;
       case 'round':
-        (t.round(e.n), e.n > 1 && t.banner(`Ronda ${e.n}`, 'oro', 700));
+        (hud.round(ev.n), ev.n > 1 && hud.banner(`Ronda ${ev.n}`, 'oro', 700));
         break;
       case 'turn':
-        this.setActive(e.who);
+        this.setActive(ev.who);
         break;
       case 'initiative':
-        (t.setInitiative(e.who, e.roll),
-          n && !this.shotMode && t.float(n.headWorld(), `Iniciativa ${e.roll}`, 'tirada', 0.9));
+        (hud.setInitiative(ev.who, ev.roll),
+          unit && !this.shotMode && hud.float(unit.headWorld(), `Iniciativa ${ev.roll}`, 'tirada', 0.9));
         break;
       case 'move': {
-        if (!n) break;
-        let s = (e.path || []).filter((i, r) => r > 0 || i[0] !== n.cell[0] || i[1] !== n.cell[1]);
-        (n.team === 1 && this.focusUnit(n),
-          this.emit('battle:fx', { kind: 'step', who: e.who, run: !!e.dash, at: n.root.position.toArray() }),
-          await n.walk(s, { run: !!e.dash }));
+        if (!unit) break;
+        let path = (ev.path || []).filter((cell, k) => k > 0 || cell[0] !== unit.cell[0] || cell[1] !== unit.cell[1]);
+        (unit.team === 1 && this.focusUnit(unit),
+          this.emit('battle:fx', { kind: 'step', who: ev.who, run: !!ev.dash, at: unit.root.position.toArray() }),
+          await unit.walk(path, { run: !!ev.dash }));
         break;
       }
       case 'dash':
-        n && t.float(n.headWorld(), '\xA1Corre!', 'apagado');
+        unit && hud.float(unit.headWorld(), '\xA1Corre!', 'apagado');
         break;
       case 'disengage':
-        n &&
-          (t.float(n.headWorld(), 'Se destraba', 'apagado'),
-          a.feature('step_of_wind', { caster: this.who(n) }));
+        unit &&
+          (hud.float(unit.headWorld(), 'Se destraba', 'apagado'),
+          vfx.feature('step_of_wind', { caster: this.who(unit) }));
         break;
       case 'stand':
-        n && (n.idle(0.3), t.float(n.headWorld(), 'Se levanta', 'apagado'));
+        unit && (unit.idle(0.3), hud.float(unit.headWorld(), 'Se levanta', 'apagado'));
         break;
       case 'attack':
-        await this.playAttack(e);
+        await this.playAttack(ev);
         break;
       case 'damage':
-        await this.playDamage(e, n);
+        await this.playDamage(ev, unit);
         break;
       case 'heal':
-        n &&
-          e.amount > 0 &&
-          (a.heal(n.root.getWorldPosition(new Vector3()), e.amount),
-          t.float(n.chest(), `+${e.amount}`, 'cura', 1.15),
-          t.setHp(e.who, e.hp, e.max),
+        unit &&
+          ev.amount > 0 &&
+          (vfx.heal(unit.root.getWorldPosition(new Vector3()), ev.amount),
+          hud.float(unit.chest(), `+${ev.amount}`, 'cura', 1.15),
+          hud.setHp(ev.who, ev.hp, ev.max),
           await this.wait(300));
         break;
       case 'temp_hp':
-        n &&
-          (t.float(n.chest(), `+${e.amount ?? ''} temporales`, 'bueno', 0.9),
-          a.burst(n.chest(), {
+        unit &&
+          (hud.float(unit.chest(), `+${ev.amount ?? ''} temporales`, 'bueno', 0.9),
+          vfx.burst(unit.chest(), {
             n: 12,
             col: 10471679,
             speed: 1,
@@ -1423,17 +1507,17 @@ const Controller = class {
           }));
         break;
       case 'save':
-        (n &&
-          (e._merged ||
-            t.float(
-              n.headWorld(),
-              `Salvaci\xF3n ${e.success ? 'superada' : 'fallada'}`,
-              e.success ? 'apagado' : 'malo',
+        (unit &&
+          (ev._merged ||
+            hud.float(
+              unit.headWorld(),
+              `Salvaci\xF3n ${ev.success ? 'superada' : 'fallada'}`,
+              ev.success ? 'apagado' : 'malo',
               0.85,
-              `${e.total} vs CD ${e.dc}`,
+              `${ev.total} vs CD ${ev.dc}`,
             ),
-          a.ring(n.root.position, {
-            color: e.success ? 9429152 : 16736320,
+          vfx.ring(unit.root.position, {
+            color: ev.success ? 9429152 : 16736320,
             radius: 0.7,
             life: 0.4,
             thick: 0.25,
@@ -1441,19 +1525,19 @@ const Controller = class {
           await this.wait(220));
         break;
       case 'condition':
-        n &&
-          ((e.cond !== 'unconscious' || !n.down) &&
-            t.float(
-              n.headWorld(),
-              `${e.on ? '' : 'Ya no: '}${conditionName(e.cond)}`,
-              e.on ? 'malo' : 'apagado',
+        unit &&
+          ((ev.cond !== 'unconscious' || !unit.down) &&
+            hud.float(
+              unit.headWorld(),
+              `${ev.on ? '' : 'Ya no: '}${conditionName(ev.cond)}`,
+              ev.on ? 'malo' : 'apagado',
               0.9,
-              [e._from, e._saveNote].filter(Boolean).join(' \xB7 '),
+              [ev._from, ev._saveNote].filter(Boolean).join(' \xB7 '),
             ),
-          e.cond === 'prone' &&
-            (n.prone(e.on),
-            e.on &&
-              a.burst(n.root.position.clone().setY(n.root.position.y + 0.2), {
+          ev.cond === 'prone' &&
+            (unit.prone(ev.on),
+            ev.on &&
+              vfx.burst(unit.root.position.clone().setY(unit.root.position.y + 0.2), {
                 n: 10,
                 col: 11049608,
                 speed: 1.6,
@@ -1465,78 +1549,78 @@ const Controller = class {
                 a: 0.45,
                 flat: !0,
               })),
-          e.cond === 'unconscious' && e.on && !n.down && n.fall(),
+          ev.cond === 'unconscious' && ev.on && !unit.down && unit.fall(),
           this.syncAuras());
         break;
       case 'effect':
-        (n &&
-          e.name &&
-          !e._quiet &&
+        (unit &&
+          ev.name &&
+          !ev._quiet &&
           !(
-            e.on &&
-            e.positive &&
+            ev.on &&
+            ev.positive &&
             this.lastCast &&
-            this.lastCast.name === e.name &&
+            this.lastCast.name === ev.name &&
             performance.now() - this.lastCast.t < 4e3
           ) &&
-          t.float(
-            n.headWorld(),
-            `${e.on ? '' : 'Fin: '}${e.name}`,
-            e.positive ? 'bueno' : 'malo',
+          hud.float(
+            unit.headWorld(),
+            `${ev.on ? '' : 'Fin: '}${ev.name}`,
+            ev.positive ? 'bueno' : 'malo',
             0.85,
-            e._saveNote || '',
+            ev._saveNote || '',
           ),
           this.refresh());
         break;
       case 'downed':
-        n &&
-          (n.fall(),
-          n.team === 0 && a.death(n.root.position.clone(), { pc: !0 }),
-          t.float(n.headWorld(), '\xA1Cae!', 'malo', 1.2),
+        unit &&
+          (unit.fall(),
+          unit.team === 0 && vfx.death(unit.root.position.clone(), { pc: !0 }),
+          hud.float(unit.headWorld(), '\xA1Cae!', 'malo', 1.2),
           this.refresh(),
           await this.wait(500));
         break;
       case 'death':
-        if (n) {
-          let s = this.creature(e.who);
-          (a.death(n.root.position.clone(), {
-            undead: s3.test(s?.template || '') || s?.ctype === 'undead',
-            pc: n.team === 0,
+        if (unit) {
+          let creature = this.creature(ev.who);
+          (vfx.death(unit.root.position.clone(), {
+            undead: UNDEAD_RE.test(creature?.template || '') || creature?.ctype === 'undead',
+            pc: unit.team === 0,
           }),
-            n.die(),
-            this.vfx.auras.clear(e.who),
-            n.team === 0 ? t.float(n.headWorld(), 'Muere', 'malo', 1.3) : this.standalone && n.sink(2.6),
+            unit.die(),
+            this.vfx.auras.clear(ev.who),
+            unit.team === 0 ? hud.float(unit.headWorld(), 'Muere', 'malo', 1.3) : this.standalone && unit.sink(2.6),
             this.refresh(),
             await this.wait(450));
         }
         break;
       case 'death_save':
-        (n &&
-          e.roll > 0 &&
-          (t.float(
-            n.headWorld(),
-            `Salvaci\xF3n de muerte: ${e.roll}`,
-            e.roll >= 10 ? 'bueno' : 'malo',
+        (unit &&
+          ev.roll > 0 &&
+          (hud.float(
+            unit.headWorld(),
+            `Salvaci\xF3n de muerte: ${ev.roll}`,
+            ev.roll >= 10 ? 'bueno' : 'malo',
             0.9,
-            `${e.successes}\u2713 ${e.failures}\u2717`,
+            `${ev.successes}\u2713 ${ev.failures}\u2717`,
           ),
           await this.wait(500)),
           this.refresh());
         break;
       case 'stable':
-        n && t.float(n.headWorld(), 'Estable', 'bueno');
+        unit && hud.float(unit.headWorld(), 'Estable', 'bueno');
         break;
       case 'revive':
-        n &&
-          (n.revive(),
-          a.heal(n.root.position.clone(), 6),
-          t.float(n.headWorld(), '\xA1Vuelve en s\xED!', 'bueno', 1.1),
+        unit &&
+          (unit.revive(),
+          vfx.heal(unit.root.position.clone(), 6),
+          hud.float(unit.headWorld(), '\xA1Vuelve en s\xED!', 'bueno', 1.1),
           this.refresh());
         break;
       case 'push':
-        n &&
-          e.to &&
-          (a.burst(n.root.position.clone().setY(n.root.position.y + 0.2), {
+        unit &&
+          ev.to &&
+          (vfx.burst(unit.root.position.clone().setY(unit.root.position.y + 0.2), {
             n: 10,
             col: 11049608,
             speed: 2,
@@ -1548,16 +1632,16 @@ const Controller = class {
             a: 0.45,
             flat: !0,
           }),
-          await n.walk([e.to], { run: !0 }));
+          await unit.walk([ev.to], { run: !0 }));
         break;
       case 'teleport':
-        if (n && e.to) {
-          let s = n.root.position.clone(),
-            i = this.cellToWorld(e.to);
-          (a.spell('misty_step', { phase: 'teleport', caster: this.who(n), cell: e.to }),
+        if (unit && ev.to) {
+          let from = unit.root.position.clone(),
+            to = this.cellToWorld(ev.to);
+          (vfx.spell('misty_step', { phase: 'teleport', caster: this.who(unit), cell: ev.to }),
             await this.wait(180),
-            n.place(e.to),
-            a.burst(i.clone().setY(i.y + 0.8), {
+            unit.place(ev.to),
+            vfx.burst(to.clone().setY(to.y + 0.8), {
               n: 14,
               col: 14674175,
               speed: 1.2,
@@ -1571,47 +1655,47 @@ const Controller = class {
         }
         break;
       case 'swap': {
-        let s = this.unit(e.a),
-          i = this.unit(e.b);
-        (s && e.a_cell && s.walk([e.a_cell], { run: !0 }),
-          i && e.b_cell && (await i.walk([e.b_cell], { run: !0 })));
+        let unitA = this.unit(ev.a),
+          unitB = this.unit(ev.b);
+        (unitA && ev.a_cell && unitA.walk([ev.a_cell], { run: !0 }),
+          unitB && ev.b_cell && (await unitB.walk([ev.b_cell], { run: !0 })));
         break;
       }
       case 'cast':
-        await this.playCast(e);
+        await this.playCast(ev);
         break;
       case 'missile': {
-        let s = this.unit(e.who),
-          i = this.unit(e.target);
-        s &&
-          i &&
-          (await a.spell('magic_missile', { phase: 'dart', caster: this.who(s), targets: [this.who(i)] }),
-          this.markImpact(e.target));
+        let source = this.unit(ev.who),
+          target = this.unit(ev.target);
+        source &&
+          target &&
+          (await vfx.spell('magic_missile', { phase: 'dart', caster: this.who(source), targets: [this.who(target)] }),
+          this.markImpact(ev.target));
         break;
       }
       case 'reaction':
-        await this.playReaction(e, n);
+        await this.playReaction(ev, unit);
         break;
       case 'sneak':
-        if (n) {
-          let s = this.unit(e.target);
-          (t.float((s || n).headWorld(), `Ataque furtivo +${e.amount}`, 'oro', 1),
-            s && a.slash(s.chest(), { color: 10119935, size: 1.3, life: 0.3, glow: 2.4 }));
+        if (unit) {
+          let target = this.unit(ev.target);
+          (hud.float((target || unit).headWorld(), `Ataque furtivo +${ev.amount}`, 'oro', 1),
+            target && vfx.slash(target.chest(), { color: 10119935, size: 1.3, life: 0.3, glow: 2.4 }));
         }
         break;
       case 'feature':
-        if (n) {
-          (t.float(
-            n.headWorld(),
-            e.name ||
-              gH[e.feature] ||
-              (this.opts?.features || []).find((l) => l.id === e.feature)?.title ||
+        if (unit) {
+          (hud.float(
+            unit.headWorld(),
+            ev.name ||
+              FEATURE_NAMES[ev.feature] ||
+              (this.opts?.features || []).find((f) => f.id === ev.feature)?.title ||
               'Habilidad',
-            ['rage', 'reckless', 'frenzy'].includes(e.feature) ? 'malo' : 'oro',
+            ['rage', 'reckless', 'frenzy'].includes(ev.feature) ? 'malo' : 'oro',
             1,
           ),
-            ['rage', 'reckless'].includes(e.feature)
-              ? n.once('taunt', { speed: 1.1 })
+            ['rage', 'reckless'].includes(ev.feature)
+              ? unit.once('taunt', { speed: 1.1 })
               : [
                   'frenzy',
                   'fires_burn',
@@ -1620,18 +1704,18 @@ const Controller = class {
                   'flurry',
                   'uncanny_metabolism',
                   'relentless_endurance',
-                ].includes(e.feature) || n.once('cast_buff', { speed: 1.2 }));
-          let s = ['fires_burn', 'frosts_chill', 'hills_tumble', 'frenzy'].includes(e.feature),
-            i = e.target || (s && this.lastTarget?.id) || null,
-            r = i ? this.who(i) : null;
-          await a.feature(e.feature, { caster: this.who(n), targets: r ? [r] : [] });
+                ].includes(ev.feature) || unit.once('cast_buff', { speed: 1.2 }));
+          let chains = ['fires_burn', 'frosts_chill', 'hills_tumble', 'frenzy'].includes(ev.feature),
+            targetId = ev.target || (chains && this.lastTarget?.id) || null,
+            targetWho = targetId ? this.who(targetId) : null;
+          await vfx.feature(ev.feature, { caster: this.who(unit), targets: targetWho ? [targetWho] : [] });
         }
         break;
       case 'item':
-        n &&
-          (t.float(n.headWorld(), e.item && e.item.includes('potion') ? 'Poci\xF3n' : 'Objeto', 'cura'),
-          n.once('use', { speed: 1.2 }),
-          a.burst(handWorld(n), {
+        unit &&
+          (hud.float(unit.headWorld(), ev.item && ev.item.includes('potion') ? 'Poci\xF3n' : 'Objeto', 'cura'),
+          unit.once('use', { speed: 1.2 }),
+          vfx.burst(handWorld(unit), {
             n: 10,
             col: 16738954,
             speed: 1,
@@ -1644,10 +1728,10 @@ const Controller = class {
           await this.wait(300));
         break;
       case 'hide':
-        n &&
-          (t.float(n.headWorld(), e.success === !1 ? 'No logra esconderse' : 'Se esconde', 'apagado'),
-          e.success !== !1 && n.anim('crouch_walk', 0.3),
-          a.burst(n.root.position.clone().setY(n.root.position.y + 0.5), {
+        unit &&
+          (hud.float(unit.headWorld(), ev.success === !1 ? 'No logra esconderse' : 'Se esconde', 'apagado'),
+          ev.success !== !1 && unit.anim('crouch_walk', 0.3),
+          vfx.burst(unit.root.position.clone().setY(unit.root.position.y + 0.5), {
             n: 8,
             col: 3814448,
             speed: 0.6,
@@ -1661,76 +1745,76 @@ const Controller = class {
           this.refresh());
         break;
       case 'reveal':
-        n && (t.float(n.headWorld(), '\xA1Descubierto!', 'apagado'), n.idle(0.3), this.refresh());
+        unit && (hud.float(unit.headWorld(), '\xA1Descubierto!', 'apagado'), unit.idle(0.3), this.refresh());
         break;
       case 'shove': {
-        let s = this.unit(e.target);
-        n &&
-          s &&
-          (n.faceUnit(s),
-          n.attack('unarmed'),
+        let target = this.unit(ev.target);
+        unit &&
+          target &&
+          (unit.faceUnit(target),
+          unit.attack('unarmed'),
           await this.wait(260),
-          e.success ? (s.hurt(), a.hit('bludgeoning', s.chest(), { small: !0 })) : a.miss(s.chest()),
-          t.float(n.headWorld(), e.success === !1 ? 'Empuj\xF3n fallido' : 'Empuj\xF3n', 'apagado'));
+          ev.success ? (target.hurt(), vfx.hit('bludgeoning', target.chest(), { small: !0 })) : vfx.miss(target.chest()),
+          hud.float(unit.headWorld(), ev.success === !1 ? 'Empuj\xF3n fallido' : 'Empuj\xF3n', 'apagado'));
         break;
       }
       case 'blocked':
-        if (n) {
-          t.float(n.headWorld(), 'No se atreve\u2026', 'apagado');
-          let s = this.unit(e.target);
-          s && a.dome(s.root.position, { color: 16052479, radius: 1, life: 0.6, alpha: 0.6 });
+        if (unit) {
+          hud.float(unit.headWorld(), 'No se atreve\u2026', 'apagado');
+          let target = this.unit(ev.target);
+          target && vfx.dome(target.root.position, { color: 16052479, radius: 1, life: 0.6, alpha: 0.6 });
         }
         break;
       case 'immune':
-        n && t.float(n.headWorld(), 'Inmune', 'apagado');
+        unit && hud.float(unit.headWorld(), 'Inmune', 'apagado');
         break;
       case 'concentration':
-        (n && !e.on && t.float(n.headWorld(), 'Pierde la concentraci\xF3n', 'malo', 0.85), this.refresh());
+        (unit && !ev.on && hud.float(unit.headWorld(), 'Pierde la concentraci\xF3n', 'malo', 0.85), this.refresh());
         break;
       case 'zone':
-        e.on
-          ? (this.zoneKinds.set(e.id, e.kind),
-            a.zone(e.id, e.kind, e.cells || [], e.color),
-            e.moved || (await this.wait(200)))
-          : (a.zoneOff(e.id), this.zoneKinds.delete(e.id));
+        ev.on
+          ? (this.zoneKinds.set(ev.id, ev.kind),
+            vfx.zone(ev.id, ev.kind, ev.cells || [], ev.color),
+            ev.moved || (await this.wait(200)))
+          : (vfx.zoneOff(ev.id), this.zoneKinds.delete(ev.id));
         break;
       case 'zone_hit':
-        if (n) {
-          let s = e.token
+        if (unit) {
+          let element = ev.token
             ? 'fire'
-            : { moonbeam: 'radiant', spike: 'piercing', web: 'force' }[this.zoneKinds.get(e.id)] || 'force';
-          (s === 'piercing'
-            ? a.hit('piercing', n.chest(), { small: !0 })
-            : a.element(s, n.chest(), { k: 0.7 }),
-            e.token && (await a.tokenStrike(e.token, n.chest())),
-            this.markImpact(e.who));
+            : { moonbeam: 'radiant', spike: 'piercing', web: 'force' }[this.zoneKinds.get(ev.id)] || 'force';
+          (element === 'piercing'
+            ? vfx.hit('piercing', unit.chest(), { small: !0 })
+            : vfx.element(element, unit.chest(), { k: 0.7 }),
+            ev.token && (await vfx.tokenStrike(ev.token, unit.chest())),
+            this.markImpact(ev.who));
         }
         break;
       case 'burst':
-        await a.spell('', {
+        await vfx.spell('', {
           phase: 'burst',
-          cells: e.cells || [],
-          fx: e.fx || 'arcane',
-          caster: n ? this.who(n) : null,
+          cells: ev.cells || [],
+          fx: ev.fx || 'arcane',
+          caster: unit ? this.who(unit) : null,
         });
         break;
       case 'summon': {
-        let s = this.cellToWorld(e.cell);
-        (a.token(e.id, e.kind, s), await this.wait(250));
+        let pos = this.cellToWorld(ev.cell);
+        (vfx.token(ev.id, ev.kind, pos), await this.wait(250));
         break;
       }
       case 'summon_move':
-        await a.tokenMove(e.id, this.cellToWorld(e.to));
+        await vfx.tokenMove(ev.id, this.cellToWorld(ev.to));
         break;
       case 'unsummon':
-        a.tokenOff(e.id);
+        vfx.tokenOff(ev.id);
         break;
       case 'shape':
-        n && (await this.wildShape(n, e.form));
+        unit && (await this.wildShape(unit, ev.form));
         break;
       case 'resize':
-        n &&
-          (a.burst(n.chest(), {
+        unit &&
+          (vfx.burst(unit.chest(), {
             n: 20,
             col: 12624127,
             speed: 1.6,
@@ -1742,19 +1826,19 @@ const Controller = class {
           this.refresh());
         break;
       case 'escape':
-        n &&
-          t.float(
-            n.headWorld(),
-            e.success ? '\xA1Libre!' : 'Sigue apresado',
-            e.success ? 'bueno' : 'apagado',
+        unit &&
+          hud.float(
+            unit.headWorld(),
+            ev.success ? '\xA1Libre!' : 'Sigue apresado',
+            ev.success ? 'bueno' : 'apagado',
             0.9,
           );
         break;
       case 'mirror':
-        n &&
-          (a.auras.popGhost(e.who),
-          t.float(n.headWorld(), '\xA1Era una imagen!', 'magia', 0.9),
-          a.burst(n.chest(), {
+        unit &&
+          (vfx.auras.popGhost(ev.who),
+          hud.float(unit.headWorld(), '\xA1Era una imagen!', 'magia', 0.9),
+          vfx.burst(unit.chest(), {
             n: 20,
             col: 12628223,
             speed: 2,
@@ -1765,14 +1849,14 @@ const Controller = class {
           }));
         break;
       case 'inspiration':
-        n &&
-          (t.float(
-            n.headWorld(),
-            e.kind === 'bardic' ? `\xA1Inspirado! +${e.amount}` : 'Inspiraci\xF3n heroica',
+        unit &&
+          (hud.float(
+            unit.headWorld(),
+            ev.kind === 'bardic' ? `\xA1Inspirado! +${ev.amount}` : 'Inspiraci\xF3n heroica',
             'oro',
             0.9,
           ),
-          a.burst(n.chest(), {
+          vfx.burst(unit.chest(), {
             n: 12,
             col: 16769162,
             speed: 1.4,
@@ -1784,28 +1868,28 @@ const Controller = class {
           }));
         break;
       case 'special': {
-        let s = this.unit(e.target);
-        n &&
-          s &&
-          (n.faceUnit(s),
-          n.attack('melee'),
+        let target = this.unit(ev.target);
+        unit &&
+          target &&
+          (unit.faceUnit(target),
+          unit.attack('melee'),
           await this.wait(250),
-          a.beam(s.chest(), n.chest(), { col: 6961824, width: 0.1, life: 0.6, glow: 2 }),
-          t.float(n.headWorld(), e.name || 'Drenar vida', 'malo', 0.9),
+          vfx.beam(target.chest(), unit.chest(), { col: 6961824, width: 0.1, life: 0.6, glow: 2 }),
+          hud.float(unit.headWorld(), ev.name || 'Drenar vida', 'malo', 0.9),
           await this.wait(300));
         break;
       }
       case 'buff':
-        n && (await a.feature('innate_sorcery', { caster: this.who(n) }));
+        unit && (await vfx.feature('innate_sorcery', { caster: this.who(unit) }));
         break;
       case 'max_hp':
         this.refresh();
         break;
       case 'recharge':
-        n &&
-          e.ok &&
-          (t.float(n.headWorld(), `\xA1${e.name || 'Recargado'} listo!`, 'malo', 0.9),
-          a.burst(n.headWorld(), {
+        unit &&
+          ev.ok &&
+          (hud.float(unit.headWorld(), `\xA1${ev.name || 'Recargado'} listo!`, 'malo', 0.9),
+          vfx.burst(unit.headWorld(), {
             n: 10,
             col: 16777215,
             speed: 1,
@@ -1820,144 +1904,147 @@ const Controller = class {
         break;
     }
   }
-  async playDamage(e, t) {
-    if (!t) return;
-    let a = this.hud,
-      n = !!e.crit,
-      s = e.type || '';
-    if (e.amount > 0) {
-      t.hurt();
-      let r = this.impactedRecently(e.who),
-        l = s === 'slashing' || s === 'piercing' || s === 'bludgeoning' || !s,
-        c = this.creature(e.who),
-        d = s3.test(c?.template || '') || c?.ctype === 'undead';
-      (!r || l
-        ? this.vfx.hit(s || 'bludgeoning', t.chest(), {
-            crit: n,
+  /** Daño: golpe, sangre, destello en pantalla si es del grupo, número flotante y pausa en críticos. */
+  async playDamage(ev, unit) {
+    if (!unit) return;
+    let hud = this.hud,
+      crit = !!ev.crit,
+      type = ev.type || '';
+    if (ev.amount > 0) {
+      unit.hurt();
+      let recent = this.impactedRecently(ev.who),
+        physical = type === 'slashing' || type === 'piercing' || type === 'bludgeoning' || !type,
+        creature = this.creature(ev.who),
+        undead = UNDEAD_RE.test(creature?.template || '') || creature?.ctype === 'undead';
+      (!recent || physical
+        ? this.vfx.hit(type || 'bludgeoning', unit.chest(), {
+            crit,
             dir: this.lastAttackDir,
-            small: r,
-            blood: !d && c?.ctype !== 'construct',
+            small: recent,
+            blood: !undead && creature?.ctype !== 'construct',
           })
-        : n && this.vfx.crit(t.chest()),
-        t.team === 0 && this.vfx.flash(n ? 0.55 : 0.32));
+        : crit && this.vfx.crit(unit.chest()),
+        unit.team === 0 && this.vfx.flash(crit ? 0.55 : 0.32));
     }
-    let i =
-      e.amount <= 0 ? 'apagado' : n ? 'critico' : t.team === 0 ? 'dano-pj' : n3[s] ? `dano ${n3[s]}` : 'dano';
-    (a.float(
-      t.chest(),
-      e.amount > 0 ? `${e.amount}` : 'Sin da\xF1o',
-      i,
-      n ? 1.5 : 1.15,
-      n ? '\xA1Cr\xEDtico!' : e.amount > 0 && o3[s] ? o3[s] : '',
+    let cls =
+      ev.amount <= 0 ? 'apagado' : crit ? 'critico' : unit.team === 0 ? 'dano-pj' : DAMAGE_CLASS[type] ? `dano ${DAMAGE_CLASS[type]}` : 'dano';
+    (hud.float(
+      unit.chest(),
+      ev.amount > 0 ? `${ev.amount}` : 'Sin da\xF1o',
+      cls,
+      crit ? 1.5 : 1.15,
+      crit ? '\xA1Cr\xEDtico!' : ev.amount > 0 && DAMAGE_TYPE_NAMES[type] ? DAMAGE_TYPE_NAMES[type] : '',
     ),
-      a.setHp(e.who, e.hp, e.max),
-      n && (await this.hitStop([t, this.lastAttacker].filter(Boolean))),
-      await this.wait(n ? 380 : 240));
+      hud.setHp(ev.who, ev.hp, ev.max),
+      crit && (await this.hitStop([unit, this.lastAttacker].filter(Boolean))),
+      await this.wait(crit ? 380 : 240));
   }
-  async hitStop(e) {
-    let t = e.map((a) => a.mixer).filter(Boolean);
-    for (let a of t) a.timeScale = 0.05;
-    await v1(110 / this.turbo);
-    for (let a of t) a.timeScale = 1;
+  /** Congela un instante las animaciones (crítico). */
+  async hitStop(units) {
+    let mixers = units.map((u) => u.mixer).filter(Boolean);
+    for (let m of mixers) m.timeScale = 0.05;
+    await sleep(110 / this.turbo);
+    for (let m of mixers) m.timeScale = 1;
   }
-  async playAttack(e) {
-    let t = this.unit(e.who),
-      a = this.unit(e.target);
-    if (!t || !a) return;
-    ((this.lastAttacker = t),
-      (this.lastTarget = a),
-      (this.lastAttackDir = a.root.position.clone().sub(t.root.position).setY(0).normalize()),
-      e.token || t.faceUnit(a),
-      (t.team === 1 || this.autoParty) && this.framePair(t, a));
-    let n = this.hud,
-      s = this.vfx;
-    e.oa && n.float(t.headWorld(), 'Ataque de oportunidad', 'oro', 0.85);
-    let i = `${e.natural}${e.rolls && e.rolls.length > 1 ? ` (${e.rolls.join('/')})` : ''} + ${e.bonus}${e.bless ? ` + ${e.bless}` : ''} = ${e.total} vs CA ${e.ac}`;
+  /** Ataque: tirada, animación, proyectil o tajo, impacto o fallo. */
+  async playAttack(ev) {
+    let attacker = this.unit(ev.who),
+      target = this.unit(ev.target);
+    if (!attacker || !target) return;
+    ((this.lastAttacker = attacker),
+      (this.lastTarget = target),
+      (this.lastAttackDir = target.root.position.clone().sub(attacker.root.position).setY(0).normalize()),
+      ev.token || attacker.faceUnit(target),
+      (attacker.team === 1 || this.autoParty) && this.framePair(attacker, target));
+    let hud = this.hud,
+      vfx = this.vfx;
+    ev.oa && hud.float(attacker.headWorld(), 'Ataque de oportunidad', 'oro', 0.85);
+    let rollText = `${ev.natural}${ev.rolls && ev.rolls.length > 1 ? ` (${ev.rolls.join('/')})` : ''} + ${ev.bonus}${ev.bless ? ` + ${ev.bless}` : ''} = ${ev.total} vs CA ${ev.ac}`;
     if (
-      (n.log(`<span class="tirada">${e.name}: ${i}</span>`),
+      (hud.log(`<span class="tirada">${ev.name}: ${rollText}</span>`),
       !this.fast &&
         !this.shotMode &&
-        n.float(
-          t.headWorld(),
-          `${e.mode > 0 ? '\u25B2 ' : e.mode < 0 ? '\u25BC ' : ''}${e.natural} \u2192 ${e.total} vs ${e.ac}`,
+        hud.float(
+          attacker.headWorld(),
+          `${ev.mode > 0 ? '\u25B2 ' : ev.mode < 0 ? '\u25BC ' : ''}${ev.natural} \u2192 ${ev.total} vs ${ev.ac}`,
           'tirada',
           0.8,
         ),
-      e.token)
+      ev.token)
     ) {
-      (await s.tokenStrike(e.token, a.chest()),
-        e.hit
-          ? (s.element('force', a.chest(), { k: e.crit ? 1.3 : 0.8 }), this.markImpact(e.target))
-          : s.miss(a.chest()),
-        e.crit && n.float(a.headWorld(), '\xA1Cr\xEDtico!', 'critico', 1.2),
+      (await vfx.tokenStrike(ev.token, target.chest()),
+        ev.hit
+          ? (vfx.element('force', target.chest(), { k: ev.crit ? 1.3 : 0.8 }), this.markImpact(ev.target))
+          : vfx.miss(target.chest()),
+        ev.crit && hud.float(target.headWorld(), '\xA1Cr\xEDtico!', 'critico', 1.2),
         await this.wait(80));
       return;
     }
-    if (e.spell) {
-      let l = String(e.kind || '').startsWith('melee');
-      (this.castReady && this.castReady.who === e.who && this.castReady.sid === e.sid && !this.castReady.used
+    if (ev.spell) {
+      let melee = String(ev.kind || '').startsWith('melee');
+      (this.castReady && this.castReady.who === ev.who && this.castReady.sid === ev.sid && !this.castReady.used
         ? (this.castReady.used = !0)
-        : (t.once(l ? 'attack_melee' : 'cast', { speed: 1.4 }),
-          await this.wait(t.hitTime(l ? 'melee' : 'spell') * 520)),
-        await s.spell(e.sid || '', {
+        : (attacker.once(melee ? 'attack_melee' : 'cast', { speed: 1.4 }),
+          await this.wait(attacker.hitTime(melee ? 'melee' : 'spell') * 520)),
+        await vfx.spell(ev.sid || '', {
           phase: 'attack',
-          caster: this.who(t),
-          targets: [this.who(a)],
-          hit: !!e.hit,
-          crit: !!e.crit,
-          dtype: e.dtype,
-          fx: e.fx,
+          caster: this.who(attacker),
+          targets: [this.who(target)],
+          hit: !!ev.hit,
+          crit: !!ev.crit,
+          dtype: ev.dtype,
+          fx: ev.fx,
         }),
-        e.hit
-          ? this.markImpact(e.target)
-          : (n.float(a.headWorld(), e.natural === 1 ? 'Pifia' : 'Falla', 'apagado', 1),
-            a.once('dodge', { speed: 1.6 })),
-        await this.wait(e.hit ? 60 : 260));
+        ev.hit
+          ? this.markImpact(ev.target)
+          : (hud.float(target.headWorld(), ev.natural === 1 ? 'Pifia' : 'Falla', 'apagado', 1),
+            target.once('dodge', { speed: 1.6 })),
+        await this.wait(ev.hit ? 60 : 260));
       return;
     }
-    let r =
-      e.kind === 'melee' ? (e.unarmed ? 'unarmed' : 'melee') : e.kind === 'thrown' ? 'thrown' : 'ranged';
+    let kind =
+      ev.kind === 'melee' ? (ev.unarmed ? 'unarmed' : 'melee') : ev.kind === 'thrown' ? 'thrown' : 'ranged';
     if (
       (this.emit('battle:fx', {
-        kind: r === 'melee' || r === 'unarmed' ? 'swing' : 'shoot',
-        weapon: e.weapon,
-        who: e.who,
-        target: e.target,
-        at: t.root.position.toArray(),
+        kind: kind === 'melee' || kind === 'unarmed' ? 'swing' : 'shoot',
+        weapon: ev.weapon,
+        who: ev.who,
+        target: ev.target,
+        at: attacker.root.position.toArray(),
       }),
-      t.attack(r),
-      await this.wait(t.hitTime(r === 'unarmed' ? 'melee' : r) * 1e3),
-      r === 'ranged' || r === 'thrown')
+      attacker.attack(kind),
+      await this.wait(attacker.hitTime(kind === 'unarmed' ? 'melee' : kind) * 1e3),
+      kind === 'ranged' || kind === 'thrown')
     ) {
-      let l = String(e.weapon || ''),
-        c = l.includes('crossbow')
+      let weapon = String(ev.weapon || ''),
+        missile = weapon.includes('crossbow')
           ? 'bolt'
-          : l.includes('dagger')
+          : weapon.includes('dagger')
             ? 'dagger'
-            : l.includes('javelin') || l.includes('spear')
+            : weapon.includes('javelin') || weapon.includes('spear')
               ? 'javelin'
-              : l.includes('sling')
+              : weapon.includes('sling')
                 ? 'orb'
                 : 'arrow';
-      await s.projectile('physical', t.chest().add(new Vector3(0, 0.15, 0)), a.chest(), {
-        kind: c === 'orb' ? 'orb' : c,
+      await vfx.projectile('physical', attacker.chest().add(new Vector3(0, 0.15, 0)), target.chest(), {
+        kind: missile === 'orb' ? 'orb' : missile,
         speed: 26 / Math.min(this.speed, 1.6),
-        miss: !e.hit,
+        miss: !ev.hit,
         size: 0.3,
       });
     } else
-      e.hit &&
-        s.slash(a.chest().lerp(t.chest(), 0.25), {
-          color: e.crit ? 16765056 : 16051420,
+      ev.hit &&
+        vfx.slash(target.chest().lerp(attacker.chest(), 0.25), {
+          color: ev.crit ? 16765056 : 16051420,
           size: 1,
           life: 0.22,
-          glow: e.crit ? 3 : 1.6,
+          glow: ev.crit ? 3 : 1.6,
           alpha: 0.75,
         });
-    (e.hit
-      ? (e.crit && n.float(a.headWorld(), '\xA1Cr\xEDtico!', 'critico', 1.2),
-        e.flurry &&
-          s.burst(a.chest(), {
+    (ev.hit
+      ? (ev.crit && hud.float(target.headWorld(), '\xA1Cr\xEDtico!', 'critico', 1.2),
+        ev.flurry &&
+          vfx.burst(target.chest(), {
             n: 10,
             col: 12574975,
             speed: 3,
@@ -1966,111 +2053,113 @@ const Controller = class {
             stretch: 0.08,
             glow: 2,
           }))
-      : (n.float(a.headWorld(), e.natural === 1 ? 'Pifia' : 'Falla', 'apagado', 1),
-        (r === 'melee' || r === 'unarmed') && s.miss(a.chest()),
-        a.once('dodge', { speed: 1.6 })),
-      await this.wait(e.hit ? 60 : 320));
+      : (hud.float(target.headWorld(), ev.natural === 1 ? 'Pifia' : 'Falla', 'apagado', 1),
+        (kind === 'melee' || kind === 'unarmed') && vfx.miss(target.chest()),
+        target.once('dodge', { speed: 1.6 })),
+      await this.wait(ev.hit ? 60 : 320));
   }
-  async playCast(e) {
-    let t = this.unit(e.who);
-    if (!t) return;
-    let a = this.vfx,
-      n = e.spell || '',
-      s = efectosConjuros[n] || {},
-      i = (e.targets || []).map((b) => this.who(b)).filter(Boolean),
-      r = e.cells || [];
-    (this.hud.float(t.headWorld(), e.name || s.n || 'Conjuro', 'magia', 1),
-      (this.lastCast = { name: e.name || s.n, t: performance.now() }));
-    let l = {
-      caster: this.who(t),
-      targets: i,
-      cells: r,
-      dtype: e.dtype,
-      fx: e.fx,
-      slot: e.slot,
-      cell: e.cell,
+  /** Lanzamiento de conjuro o rasgo con su coreografía de vfx/spells.js. */
+  async playCast(ev) {
+    let caster = this.unit(ev.who);
+    if (!caster) return;
+    let vfx = this.vfx,
+      spell = ev.spell || '',
+      def = efectosConjuros[spell] || {},
+      targets = (ev.targets || []).map((id) => this.who(id)).filter(Boolean),
+      cells = ev.cells || [];
+    (this.hud.float(caster.headWorld(), ev.name || def.n || 'Conjuro', 'magia', 1),
+      (this.lastCast = { name: ev.name || def.n, t: performance.now() }));
+    let params = {
+      caster: this.who(caster),
+      targets,
+      cells,
+      dtype: ev.dtype,
+      fx: ev.fx,
+      slot: ev.slot,
+      cell: ev.cell,
     };
     if (
-      (e.point && (l.center = this.planeToWorld(e.point)),
-      e.dir && !e.point && (l.dir = this.planeToWorld(e.dir).sub(l.caster.pos).setY(0).normalize()),
-      r.length &&
-        !l.center &&
-        (l.center = r
-          .map((b) => this.cellToWorld(b))
-          .reduce((b, f) => b.add(f), new Vector3())
-          .divideScalar(r.length)),
-      e.rider)
+      (ev.point && (params.center = this.planeToWorld(ev.point)),
+      ev.dir && !ev.point && (params.dir = this.planeToWorld(ev.dir).sub(params.caster.pos).setY(0).normalize()),
+      cells.length &&
+        !params.center &&
+        (params.center = cells
+          .map((cell) => this.cellToWorld(cell))
+          .reduce((sum, p) => sum.add(p), new Vector3())
+          .divideScalar(cells.length)),
+      ev.rider)
     ) {
-      await a.spell(n, { ...l, phase: 'rider' });
-      for (let b of i) this.markImpact(b.id);
+      await vfx.spell(spell, { ...params, phase: 'rider' });
+      for (let target of targets) this.markImpact(target.id);
       return;
     }
-    let c = i.find((b) => b.id !== t.id);
-    (c ? t.faceUnit(this.unit(c.id)) : l.center && t.face(l.center.x, l.center.z),
-      (t.team === 1 || this.autoParty) &&
-        (r.length ? this.frameArea(r) : c && this.framePair(t, this.unit(c.id))));
-    let d =
-        s.h ||
-        ['buff', 'heal', 'wind', 'nature'].includes(s.fx) ||
-        ['bardic_inspiration', 'lay_on_hands', 'preserve_life', 'turn_undead'].includes(n),
-      u = !!s.a,
-      h = e.fx || s.fx,
-      p =
-        n === 'breath_weapon'
-          ? DAMAGE_STYLE[e.dtype] || 'fire'
-          : h === 'fire_cone'
+    let firstOther = targets.find((w) => w.id !== caster.id);
+    (firstOther ? caster.faceUnit(this.unit(firstOther.id)) : params.center && caster.face(params.center.x, params.center.z),
+      (caster.team === 1 || this.autoParty) &&
+        (cells.length ? this.frameArea(cells) : firstOther && this.framePair(caster, this.unit(firstOther.id))));
+    let support =
+        def.h ||
+        ['buff', 'heal', 'wind', 'nature'].includes(def.fx) ||
+        ['bardic_inspiration', 'lay_on_hands', 'preserve_life', 'turn_undead'].includes(spell),
+      spellAttack = !!def.a,
+      fxName = ev.fx || def.fx,
+      castStyle =
+        spell === 'breath_weapon'
+          ? DAMAGE_STYLE[ev.dtype] || 'fire'
+          : fxName === 'fire_cone'
             ? 'fire'
-            : h || (o1.has(n) ? 'buff' : 'arcane'),
-      m = d ? 'buff' : s.a === 'melee' ? 'melee' : 'spell';
-    t.attack(m);
-    let _ = a.castStart(p, l.caster.pos, l.caster.hand, {
-      big: (s.l || 0) >= 1,
-      radius: (s.l || 0) >= 1 ? 0.9 : 0.7,
+            : fxName || (o1.has(spell) ? 'buff' : 'arcane'),
+      anim = support ? 'buff' : def.a === 'melee' ? 'melee' : 'spell';
+    caster.attack(anim);
+    let charge = vfx.castStart(castStyle, params.caster.pos, params.caster.hand, {
+      big: (def.l || 0) >= 1,
+      radius: (def.l || 0) >= 1 ? 0.9 : 0.7,
     });
     if (
-      (await this.wait(t.hitTime(m) * 1e3),
-      _.release(),
-      (l.caster = this.who(t)),
-      (this.castReady = u ? { who: e.who, sid: n, used: !1 } : null),
-      o1.has(n)
-        ? (n === 'breath_weapon' &&
-            (l.shape = Math.max(0, ...r.map((b) => hexDistance(b, t.cell))) > 3 ? 'line' : 'cone'),
-          await a.feature(n, l))
-        : await a.spell(n, { ...l, phase: 'cast' }),
-      !u)
+      (await this.wait(caster.hitTime(anim) * 1e3),
+      charge.release(),
+      (params.caster = this.who(caster)),
+      (this.castReady = spellAttack ? { who: ev.who, sid: spell, used: !1 } : null),
+      o1.has(spell)
+        ? (spell === 'breath_weapon' &&
+            (params.shape = Math.max(0, ...cells.map((cell) => hexDistance(cell, caster.cell))) > 3 ? 'line' : 'cone'),
+          await vfx.feature(spell, params))
+        : await vfx.spell(spell, { ...params, phase: 'cast' }),
+      !spellAttack)
     )
-      for (let b of i) this.markImpact(b.id);
-    if (r.length)
-      for (let b of this.state.creatures)
-        r.some((f) => f[0] === b.cell[0] && f[1] === b.cell[1]) && this.markImpact(b.id);
+      for (let target of targets) this.markImpact(target.id);
+    if (cells.length)
+      for (let creature of this.state.creatures)
+        cells.some((cell) => cell[0] === creature.cell[0] && cell[1] === creature.cell[1]) && this.markImpact(creature.id);
     await this.wait(100);
   }
-  async playReaction(e, t) {
-    if (!t) return;
-    let a = this.hud,
-      n = this.vfx;
-    a.float(t.headWorld(), `\xA1${e.name}!`, 'magia', 1.1);
-    let s = e.target ? this.unit(e.target) : null;
-    (e.spell === 'shield'
-      ? await n.spell('shield', { caster: this.who(t) })
-      : e.spell === 'hellish_rebuke' && s
-        ? (t.once('cast', { speed: 1.4 }),
-          await n.spell('hellish_rebuke', { caster: this.who(t), targets: [this.who(s)] }),
-          this.markImpact(s.id))
-        : /Trueno/.test(e.name) && s
-          ? (n.beam(t.chest(), s.chest(), {
+  /** Reacciones (Escudo, Reprensión infernal, Desviar proyectiles, Aguante…). */
+  async playReaction(ev, unit) {
+    if (!unit) return;
+    let hud = this.hud,
+      vfx = this.vfx;
+    hud.float(unit.headWorld(), `\xA1${ev.name}!`, 'magia', 1.1);
+    let target = ev.target ? this.unit(ev.target) : null;
+    (ev.spell === 'shield'
+      ? await vfx.spell('shield', { caster: this.who(unit) })
+      : ev.spell === 'hellish_rebuke' && target
+        ? (unit.once('cast', { speed: 1.4 }),
+          await vfx.spell('hellish_rebuke', { caster: this.who(unit), targets: [this.who(target)] }),
+          this.markImpact(target.id))
+        : /Trueno/.test(ev.name) && target
+          ? (vfx.beam(unit.chest(), target.chest(), {
               col: 12103935,
               width: 0.12,
               life: 0.35,
               mode: 'bolt',
               glow: 2.4,
             }),
-            n.element('thunder', s.chest(), { k: 0.6 }),
-            this.markImpact(s.id))
-          : /Palabras/.test(e.name) && s
-            ? await n.spell('vicious_mockery', { caster: this.who(t), targets: [this.who(s)] })
-            : /Desviar/.test(e.name)
-              ? (n.burst(t.chest(), {
+            vfx.element('thunder', target.chest(), { k: 0.6 }),
+            this.markImpact(target.id))
+          : /Palabras/.test(ev.name) && target
+            ? await vfx.spell('vicious_mockery', { caster: this.who(unit), targets: [this.who(target)] })
+            : /Desviar/.test(ev.name)
+              ? (vfx.burst(unit.chest(), {
                   n: 16,
                   col: 16773328,
                   speed: 4,
@@ -2079,16 +2168,16 @@ const Controller = class {
                   stretch: 0.1,
                   glow: 2.4,
                 }),
-                n.ring(t.chest(), {
+                vfx.ring(unit.chest(), {
                   color: 12574975,
                   radius: 0.8,
                   life: 0.3,
                   thick: 0.25,
-                  vertical: this.S.camera.position.clone().sub(t.chest()),
+                  vertical: this.S.camera.position.clone().sub(unit.chest()),
                   y: 0,
                 }))
-              : /Aguante/.test(e.name)
-                ? n.burst(t.chest(), {
+              : /Aguante/.test(ev.name)
+                ? vfx.burst(unit.chest(), {
                     n: 16,
                     col: 11575440,
                     speed: 1.6,
@@ -2099,7 +2188,7 @@ const Controller = class {
                     blend: 'alpha',
                     a: 0.5,
                   })
-                : n.burst(t.root.position.clone().setY(t.root.position.y + 0.9), {
+                : vfx.burst(unit.root.position.clone().setY(unit.root.position.y + 0.9), {
                     n: 18,
                     col: 10471679,
                     speed: 1.4,
@@ -2110,10 +2199,11 @@ const Controller = class {
                   }),
       await this.wait(300));
   }
-  async wildShape(e, t) {
-    let a = this.vfx;
+  /** Forma salvaje: cambia la figura por la bestia (o la devuelve). */
+  async wildShape(unit, form) {
+    let vfx = this.vfx;
     if (
-      (a.burst(e.chest(), {
+      (vfx.burst(unit.chest(), {
         n: 26,
         col: 6982218,
         speed: 1.6,
@@ -2124,7 +2214,7 @@ const Controller = class {
         blend: 'alpha',
         a: 0.6,
       }),
-      a.burst(e.chest(), {
+      vfx.burst(unit.chest(), {
         n: 20,
         col: 9424992,
         speed: 2.2,
@@ -2136,11 +2226,11 @@ const Controller = class {
         grav: -2,
         spin: 5,
       }),
-      t)
+      form)
     ) {
-      let i = e.headWorld();
-      a.p({
-        p: i.setY(i.y + 0.5),
+      let head = unit.headWorld();
+      vfx.p({
+        p: head.setY(head.y + 0.5),
         v: [0, 0.5, 0],
         life: 1,
         size: 0.5,
@@ -2151,35 +2241,36 @@ const Controller = class {
         rot: 0,
       });
     }
-    (this.emit('battle:fx', { kind: 'shape', who: e.id, form: t }), await this.wait(250));
-    let n = this.meta.makeForm,
-      s = this.forms.get(e.id);
-    if (t) {
-      let i = null;
+    (this.emit('battle:fx', { kind: 'shape', who: unit.id, form }), await this.wait(250));
+    let makeForm = this.meta.makeForm,
+      current = this.forms.get(unit.id);
+    if (form) {
+      let beast = null;
       try {
-        i = n ? await n(t, e.id) : null;
-      } catch (l) {
-        console.warn('[combate] forma salvaje: sin modelo de', t, l);
+        beast = makeForm ? await makeForm(form, unit.id) : null;
+      } catch (err) {
+        console.warn('[combate] forma salvaje: sin modelo de', form, err);
       }
-      if ((i || (i = makeBeast(t, e.id)), !i)) return;
-      let r = s ? s.orig : { ch: e.ch, root: e.root, owns: e.owns };
-      (s && this.scene.remove(s.beast.root),
-        i.root.position.copy(e.root.position),
-        (i.root.rotation.y = e.root.rotation.y),
-        this.scene.add(i.root),
-        (r.root.visible = !1),
-        this.forms.set(e.id, { orig: r, beast: i }),
-        e.setCharacter(i, !0));
+      if ((beast || (beast = makeBeast(form, unit.id)), !beast)) return;
+      let orig = current ? current.orig : { ch: unit.ch, root: unit.root, owns: unit.owns };
+      (current && this.scene.remove(current.beast.root),
+        beast.root.position.copy(unit.root.position),
+        (beast.root.rotation.y = unit.root.rotation.y),
+        this.scene.add(beast.root),
+        (orig.root.visible = !1),
+        this.forms.set(unit.id, { orig, beast }),
+        unit.setCharacter(beast, !0));
     } else
-      s &&
-        (s.orig.root.position.copy(e.root.position),
-        (s.orig.root.rotation.y = e.root.rotation.y),
-        (s.orig.root.visible = !0),
-        this.scene.remove(s.beast.root),
-        e.setCharacter(s.orig.ch, s.orig.owns),
-        this.forms.delete(e.id));
+      current &&
+        (current.orig.root.position.copy(unit.root.position),
+        (current.orig.root.rotation.y = unit.root.rotation.y),
+        (current.orig.root.visible = !0),
+        this.scene.remove(current.beast.root),
+        unit.setCharacter(current.orig.ch, current.orig.owns),
+        this.forms.delete(unit.id));
     this.refresh();
   }
+  /** Fin del combate: celebración, «battle:end», cartel y resolución de `run`. */
   async finish() {
     if (this.finished) return;
     ((this.finished = !0),
@@ -2187,48 +2278,50 @@ const Controller = class {
       this.clearTargeting(),
       this.hud.turnBar(null),
       this.hud.thinking(''));
-    let e = this.state.winner === 0;
-    await v1(600 / this.turbo);
-    let t = this.units.list.filter((n) => n.team === 0 && !n.dead);
-    if ((t.length && this.focus(this.centroid(0), 18, !0), e))
-      for (let n of t) n.down || n.once('cheer', { speed: 0.9 });
+    let won = this.state.winner === 0;
+    await sleep(600 / this.turbo);
+    let alive = this.units.list.filter((u) => u.team === 0 && !u.dead);
+    if ((alive.length && this.focus(this.centroid(0), 18, !0), won))
+      for (let unit of alive) unit.down || unit.once('cheer', { speed: 0.9 });
     (this.meta.emitStartEnd &&
       this.emit('battle:end', {
         group: this.meta.group ?? null,
         groups: this.meta.groups ?? null,
-        won: e,
+        won,
         fled: !1,
         level: this.meta.level ?? null,
         rounds: this.state.round,
       }),
       this.shotMode ||
         (await this.hud.big(
-          e ? '\xA1Victoria!' : 'Derrota',
-          e ? this.encounter.name || '' : 'El grupo ha ca\xEDdo',
-          e ? '' : 'malo',
+          won ? '\xA1Victoria!' : 'Derrota',
+          won ? this.encounter.name || '' : 'El grupo ha ca\xEDdo',
+          won ? '' : 'malo',
           2e3,
         )));
-    let a = this.state.creatures.filter((n) => n.team === 0);
+    let party = this.state.creatures.filter((c) => c.team === 0);
     (this.standalone &&
-      this.hud.finish({ won: e, rounds: this.state.round, encounter: this.encounter, party: a }),
-      this.resolveRun?.({ won: e, fled: !1, events: this.allEvents, rounds: this.state.round }));
+      this.hud.finish({ won, rounds: this.state.round, encounter: this.encounter, party }),
+      this.resolveRun?.({ won, fled: !1, events: this.allEvents, rounds: this.state.round }));
   }
-  setFast(e) {
-    this.fast = e;
+  /** Turnos enemigos rápidos. */
+  setFast(on) {
+    this.fast = on;
   }
+  /** Desmonta oyentes, cierra el turno pendiente y devuelve las figuras originales. */
   dispose() {
     this.disposed = !0;
-    for (let e of this.off.splice(0)) e();
+    for (let unbind of this.off.splice(0)) unbind();
     if (this.turnDone) {
-      let e = this.turnDone;
-      ((this.turnDone = null), e());
+      let done = this.turnDone;
+      ((this.turnDone = null), done());
     }
-    for (let [e, t] of this.forms) {
-      let a = this.unit(e);
-      ((t.orig.root.visible = !0),
-        a && t.orig.root.position.copy(a.root.position),
-        this.scene.remove(t.beast.root),
-        a && a.setCharacter(t.orig.ch, t.orig.owns));
+    for (let [id, form] of this.forms) {
+      let unit = this.unit(id);
+      ((form.orig.root.visible = !0),
+        unit && form.orig.root.position.copy(unit.root.position),
+        this.scene.remove(form.beast.root),
+        unit && unit.setCharacter(form.orig.ch, form.orig.owns));
     }
     (this.forms.clear(), (this.S.renderer.domElement.style.cursor = 'default'));
   }
