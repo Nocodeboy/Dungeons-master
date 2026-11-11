@@ -11,7 +11,7 @@ import { TIMES, Sky } from './times.js';
 import { LAYER, Ground } from './ground.js';
 import { buildVegetation } from './vegetation.js';
 import { buildBuildings } from './buildings.js';
-import { J3, K3 } from './props.js';
+import { buildProps, propPiece } from './props.js';
 import { $3 } from './interiors.js';
 import { ok } from './procedural.js';
 import { buildWater, WATER_LEVEL } from './water.js';
@@ -39,7 +39,7 @@ async function buildLevel(
     rnd = makeRng(seed),
     map = new TileMap(level),
     chars = new Set((level.rows || []).join('')),
-    propPieces = [...(level.props || []), ...(level.decor || [])].map((prop) => K3(prop.key)),
+    propPieces = [...(level.props || []), ...(level.decor || [])].map((prop) => propPiece(prop.key)),
     kitNames = ['atrezo'];
   ((!indoor || ['B', 'H', 'f'].some((ch) => chars.has(ch))) && kitNames.push('aldea'),
     (!indoor || ['T', 'r', 'b'].some((ch) => chars.has(ch))) && kitNames.push('naturaleza'),
@@ -71,7 +71,7 @@ async function buildLevel(
   ctx.merger = merger;
   let buildings = indoor ? [] : buildBuildings(ctx);
   ((ctx.static = merger.view({ bld: 0, contactH: 0.7, contactMin: 0.5 })), (ctx.buildings = buildings));
-  let props = await J3(ctx),
+  let props = await buildProps(ctx),
     lanterns = new Map();
   for (let prop of level.props || [])
     prop.key === 'lantern' && lanterns.set(`${prop.cell[0]},${prop.cell[1]}`, prop);

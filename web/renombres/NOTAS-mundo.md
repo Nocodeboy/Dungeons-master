@@ -20,6 +20,11 @@ en el código y queda para decidir más adelante.
 - `index.js`, `DEFAULT_TIME`: es la identidad para todos los ambientes que tiene; solo sirve para caer en
   `'dusk'` con uno desconocido.
 
+- `props.js`, `buildFences`: el mapa `degree` (vecinos por casilla) se rellena pero nunca se lee, y el
+  `map` desestructurado no se usa.
+- `props.js`: parámetros sin uso en `decorSpecial` (`queue`), `smallProp` (`queue`) y `brokenColumn`
+  (`place`).
+
 ## Duplicados
 
 - `grid.js` repite las fórmulas de rejilla de `explore/hex.js` (`cellToWorld`, `worldToCell` ≈
