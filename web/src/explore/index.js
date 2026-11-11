@@ -19,7 +19,7 @@ import { ensureCampaign } from './campaign.js';
 import { loadLevel } from './levels.js';
 import { loadAreaModules } from './areas.js';
 import { mk } from './fallback-world.js';
-import { yk } from './actors.js';
+import { createActorFactory } from './actors.js';
 import { ExploreInput } from './input.js';
 import { Floaters } from './floaters.js';
 import { ExploreMarks } from './marks.js';
@@ -100,7 +100,7 @@ const Explore = class {
     let i = this.level;
     (s('nivel', `Llegando a ${i.name || this.levelId}`, 0.05),
       this.ls,
-      (this.factory = yk(e, this.mods.actors)));
+      (this.factory = createActorFactory(e, this.mods.actors)));
     let r = this.makePartyActors();
     if (((this.world = null), this.mods.world))
       try {

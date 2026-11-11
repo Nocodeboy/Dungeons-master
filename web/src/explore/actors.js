@@ -1,5 +1,9 @@
-// explore/actors.js
-// Reconstruido de publicado/juego.js (módulo __esm «xk»). Nombres locales aún minificados.
+// explore/actors.js — Fábrica de actores de la exploración: crea miembros del grupo, PNJ, monstruos y
+// animales con el área actors/ (makeHero, makeNpc, makeMonster, makeAnimal, portrait) y, si falta o
+// tarda, con sustitutos (personaje genérico de actors/character.js, animal de cajas, retrato de
+// iniciales). Cada uno se envuelve en un ExploreActor con animaciones por nombre lógico.
+// Lo usa explore/index.js (`this.factory`).
+// Reconstruido de publicado/juego.js (módulo __esm «xk»).
 
 import {
   BoxGeometry,
@@ -15,251 +19,294 @@ import {
 import { Fs } from '../actors/character.js';
 import { hc } from '../actors/roster.js';
 
-function q1(o, e = 1.4) {
-  o.traverse((t) => {
-    if (!t.isMesh || !t.geometry) return;
-    let a = t.geometry;
-    (a.userData.mdgSphere ||
-      (a.boundingSphere || a.computeBoundingSphere(),
-      (a.boundingSphere.radius = Math.max(a.boundingSphere.radius, e)),
-      (a.userData.mdgSphere = !0)),
-      (t.frustumCulled = !0));
+/** Asegura un radio mínimo en las esferas de recorte de las mallas (evita que desaparezcan al animar). */
+function ensureCullRadius(root, minRadius = 1.4) {
+  root.traverse((obj) => {
+    if (!obj.isMesh || !obj.geometry) return;
+    let geo = obj.geometry;
+    (geo.userData.mdgSphere ||
+      (geo.boundingSphere || geo.computeBoundingSphere(),
+      (geo.boundingSphere.radius = Math.max(geo.boundingSphere.radius, minRadius)),
+      (geo.userData.mdgSphere = !0)),
+      (obj.frustumCulled = !0));
   });
 }
-function Y9(o) {
-  let e = new Color(o),
-    t = {};
-  return (e.getHSL(t), t);
+/** Color CSS o numérico → {h, s, l}. */
+function colorToHsl(value) {
+  let color = new Color(value),
+    hsl = {};
+  return (color.getHSL(hsl), hsl);
 }
-function vk(o, e = {}, t = 'm') {
-  let a = t === 'f',
-    n = /rogue|ranger|barbarian|knight/.test(e.model || ''),
-    s = `${a ? 'Female' : 'Male'}_${n ? 'Ranger' : 'Peasant'}`,
-    i = e.species || 'human',
-    r = a ? ['Hair_Long'] : ['Hair_SimpleParted'];
-  (i === 'dwarf' && !a && (r = ['Hair_Beard', 'Hair_Buzzed']),
-    a && /mage|cleric/.test(e.model || '') && (r = ['Hair_Buns']));
-  let l = {
-    id: o,
-    outfit: s,
-    hair: r,
-    hairColor: e.hair ? new Color(e.hair).getHex() : 4861984,
-    skin: e.skin ? new Color(e.skin).getHex() : 15780008,
-    scale: X9[i] ?? 1,
+/** Definición de personaje genérico (atuendo, pelo, piel, escala por especie, tinte de la ropa). */
+function simpleCharacterDef(id, visual = {}, pronoun = 'm') {
+  let female = pronoun === 'f',
+    rugged = /rogue|ranger|barbarian|knight/.test(visual.model || ''),
+    outfit = `${female ? 'Female' : 'Male'}_${rugged ? 'Ranger' : 'Peasant'}`,
+    species = visual.species || 'human',
+    hair = female ? ['Hair_Long'] : ['Hair_SimpleParted'];
+  (species === 'dwarf' && !female && (hair = ['Hair_Beard', 'Hair_Buzzed']),
+    female && /mage|cleric/.test(visual.model || '') && (hair = ['Hair_Buns']));
+  let def = {
+    id,
+    outfit,
+    hair,
+    hairColor: visual.hair ? new Color(visual.hair).getHex() : 4861984,
+    skin: visual.skin ? new Color(visual.skin).getHex() : 15780008,
+    scale: SPECIES_SCALE[species] ?? 1,
     anim: 'Idle_Loop',
-    hideParts: n ? ['Hood'] : [],
+    hideParts: rugged ? ['Hood'] : [],
   };
-  if (e.cloth) {
-    let c = n ? 0.33 : 0.08,
-      d = Y9(e.cloth);
-    l.recolor = { from: c, width: 0.16, shift: d.h - c, sat: Math.max(0.3, d.s * 1.4), val: 0.6 + d.l };
+  if (visual.cloth) {
+    let hue = rugged ? 0.33 : 0.08,
+      hsl = colorToHsl(visual.cloth);
+    def.recolor = {
+      from: hue,
+      width: 0.16,
+      shift: hsl.h - hue,
+      sat: Math.max(0.3, hsl.s * 1.4),
+      val: 0.6 + hsl.l,
+    };
   }
-  return l;
+  return def;
 }
-function J9(o) {
-  return (e) => {
-    let t = e.getObjectByName('Head');
-    if (!t) return;
-    let a = new MeshStandardMaterial({ color: o, roughness: 0.7 }),
-      n = t.getWorldPosition(new Vector3()),
-      s = new Matrix4().copy(t.matrixWorld).invert(),
-      i = t.getWorldQuaternion(new Quaternion());
-    for (let r of [-1, 1]) {
-      let l = new Mesh(new ConeGeometry(0.045, 0.3, 6), a);
-      l.scale.set(1, 1, 0.42);
-      let c = n.clone().add(new Vector3(r * 0.08, 0.1, -0.01)),
-        d = new Vector3(r, 0.5, -0.22).normalize(),
-        u = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), d);
-      (l.position.copy(c.clone().applyMatrix4(s)),
-        l.quaternion.copy(i.clone().invert().multiply(u)),
-        l.translateY(0.12),
-        t.add(l));
+/** Devuelve un «extras» que añade orejas puntiagudas a la cabeza del modelo. */
+function goblinEars(color) {
+  return (root) => {
+    let head = root.getObjectByName('Head');
+    if (!head) return;
+    let mat = new MeshStandardMaterial({ color, roughness: 0.7 }),
+      headPos = head.getWorldPosition(new Vector3()),
+      toHead = new Matrix4().copy(head.matrixWorld).invert(),
+      headQuat = head.getWorldQuaternion(new Quaternion());
+    for (let side of [-1, 1]) {
+      let ear = new Mesh(new ConeGeometry(0.045, 0.3, 6), mat);
+      ear.scale.set(1, 1, 0.42);
+      let pos = headPos.clone().add(new Vector3(side * 0.08, 0.1, -0.01)),
+        dir = new Vector3(side, 0.5, -0.22).normalize(),
+        q = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dir);
+      (ear.position.copy(pos.clone().applyMatrix4(toHead)),
+        ear.quaternion.copy(headQuat.clone().invert().multiply(q)),
+        ear.translateY(0.12),
+        head.add(ear));
     }
   };
 }
-function Z9(o, e) {
-  if (e.startsWith('goblin')) {
-    let t = K9[e] ?? 8033864,
-      a = e === 'goblin_warrior' || e === 'goblin_boss';
+/** Definición de personaje para trasgos y no muertos sustitutos; null para el resto. */
+function monsterCharacterDef(id, kind) {
+  if (kind.startsWith('goblin')) {
+    let skin = GOBLIN_SKIN[kind] ?? 8033864,
+      armed = kind === 'goblin_warrior' || kind === 'goblin_boss';
     return {
-      id: o,
-      skin: t,
+      id,
+      skin,
       skinLum: !0,
-      extras: J9(t),
-      outfit: a || e === 'goblin_archer' ? 'Male_Ranger' : 'Male_Peasant',
-      variant: a ? 'T_Ranger_3_BaseColor' : e === 'goblin_archer' ? void 0 : 'T_Peasant_2_BaseColor',
-      hideParts: a ? ['Hood'] : [],
-      recolor: a
+      extras: goblinEars(skin),
+      outfit: armed || kind === 'goblin_archer' ? 'Male_Ranger' : 'Male_Peasant',
+      variant: armed ? 'T_Ranger_3_BaseColor' : kind === 'goblin_archer' ? void 0 : 'T_Peasant_2_BaseColor',
+      hideParts: armed ? ['Hood'] : [],
+      recolor: armed
         ? { from: 0.33, width: 0.2, shift: -0.27, sat: 0.55, val: 0.8 }
         : { from: 0.08, width: 0.16, shift: -0.02, sat: 0.75, val: 0.75 },
       anim: 'Sword_Idle',
-      attach: a
+      attach: armed
         ? [{ prop: 'antique_estoc', bone: 'hand_r', scale: 0.48, pos: [0, 0.07, 0.03], rot: [0, 0, -90] }]
         : [{ prop: 'q_Sword_Bronze', bone: 'hand_r', scale: 0.42, pos: [0, 0.05, 0.02], rot: [0, 0, -90] }],
-      scale: e === 'goblin_boss' ? 0.72 : 0.62,
+      scale: kind === 'goblin_boss' ? 0.72 : 0.62,
     };
   }
-  return e.startsWith('skeleton') || e === 'zombie' || e === 'wight'
+  return kind.startsWith('skeleton') || kind === 'zombie' || kind === 'wight'
     ? {
-        id: o,
-        skin: e === 'zombie' ? 8227942 : e === 'wight' ? 12105928 : 14735552,
+        id,
+        skin: kind === 'zombie' ? 8227942 : kind === 'wight' ? 12105928 : 14735552,
         skinLum: !0,
-        outfit: e === 'wight' ? 'Male_Ranger' : 'Male_Peasant',
-        variant: e === 'wight' ? 'T_Ranger_3_BaseColor' : 'T_Peasant_2_BaseColor',
-        hideParts: e === 'wight' ? [] : [],
-        recolor: { from: 0.08, width: 0.3, shift: 0, sat: 0.1, val: e === 'wight' ? 0.45 : 0.7 },
+        outfit: kind === 'wight' ? 'Male_Ranger' : 'Male_Peasant',
+        variant: kind === 'wight' ? 'T_Ranger_3_BaseColor' : 'T_Peasant_2_BaseColor',
+        hideParts: kind === 'wight' ? [] : [],
+        recolor: { from: 0.08, width: 0.3, shift: 0, sat: 0.1, val: kind === 'wight' ? 0.45 : 0.7 },
         anim: 'Sword_Idle',
-        scale: e === 'wight' ? 1.08 : 0.98,
+        scale: kind === 'wight' ? 1.08 : 0.98,
         attach: [
           { prop: 'antique_estoc', bone: 'hand_r', scale: 0.6, pos: [0, 0.07, 0.03], rot: [0, 0, -90] },
         ],
       }
     : null;
 }
-function Q9(o, e = '#7d6334') {
-  let t = `${o}|${e}`;
-  if (U1.has(t)) return U1.get(t);
-  let a = document.createElement('canvas');
-  a.width = a.height = 128;
-  let n = a.getContext('2d'),
-    s = n.createRadialGradient(64, 50, 10, 64, 64, 80);
-  (s.addColorStop(0, e),
-    s.addColorStop(1, '#1e150f'),
-    (n.fillStyle = s),
-    n.fillRect(0, 0, 128, 128),
-    (n.fillStyle = '#ecdfc4'),
-    (n.font = '600 54px Cinzel, Georgia, serif'),
-    (n.textAlign = 'center'),
-    (n.textBaseline = 'middle'));
-  let i = o
+/** Retrato de sustituto: iniciales sobre un degradado (PNG en data:, con caché). */
+function initialsPortrait(name, color = '#7d6334') {
+  let key = `${name}|${color}`;
+  if (portraitCache.has(key)) return portraitCache.get(key);
+  let canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  let ctx = canvas.getContext('2d'),
+    grad = ctx.createRadialGradient(64, 50, 10, 64, 64, 80);
+  (grad.addColorStop(0, color),
+    grad.addColorStop(1, '#1e150f'),
+    (ctx.fillStyle = grad),
+    ctx.fillRect(0, 0, 128, 128),
+    (ctx.fillStyle = '#ecdfc4'),
+    (ctx.font = '600 54px Cinzel, Georgia, serif'),
+    (ctx.textAlign = 'center'),
+    (ctx.textBaseline = 'middle'));
+  let initials = name
     .split(/\s+/)
-    .filter((l) => l && l[0] === l[0].toUpperCase())
+    .filter((w) => w && w[0] === w[0].toUpperCase())
     .slice(0, 2)
-    .map((l) => l[0])
+    .map((w) => w[0])
     .join('');
-  n.fillText(i || '?', 64, 68);
-  let r = a.toDataURL('image/png');
-  return (U1.set(t, r), r);
+  ctx.fillText(initials || '?', 64, 68);
+  let url = canvas.toDataURL('image/png');
+  return (portraitCache.set(key, url), url);
 }
-function Gu(o, e, t) {
-  let a;
+/** Rechaza si la promesa no se cumple en `ms` milisegundos. */
+function withTimeout(promise, ms, label) {
+  let timer;
   return Promise.race([
-    Promise.resolve(o).finally(() => clearTimeout(a)),
-    new Promise((n, s) => (a = setTimeout(() => s(new Error(`${t}: no ha llegado en ${e / 1e3} s`)), e))),
+    Promise.resolve(promise).finally(() => clearTimeout(timer)),
+    new Promise(
+      (resolve, reject) =>
+        (timer = setTimeout(() => reject(new Error(`${label}: no ha llegado en ${ms / 1e3} s`)), ms)),
+    ),
   ]);
 }
-function yk(o, e = null) {
-  let t = (s) => 1.75 * s,
-    a = () => o.quality?.level ?? 1,
-    n = (s, i) => {
-      typeof s?.setShadows == 'function' &&
-        (i === 'animal'
-          ? s.setShadows(a() >= 2 ? 'cuerpo' : 'ninguna')
-          : i !== 'member' && s.setShadows(a() >= 2 ? 'todas' : a() === 1 ? 'cuerpo' : 'ninguna'));
+/**
+ * Fábrica de actores. `mod` es el módulo actors/ (o null para usar solo sustitutos).
+ * Devuelve {real, member, npc, monster, animal, portrait}; todo es asíncrono.
+ */
+function createActorFactory(game, mod = null) {
+  let heightFor = (scale) => 1.75 * scale,
+    qualityLevel = () => game.quality?.level ?? 1,
+    applyShadows = (ch, kind) => {
+      typeof ch?.setShadows == 'function' &&
+        (kind === 'animal'
+          ? ch.setShadows(qualityLevel() >= 2 ? 'cuerpo' : 'ninguna')
+          : kind !== 'member' &&
+            ch.setShadows(qualityLevel() >= 2 ? 'todas' : qualityLevel() === 1 ? 'cuerpo' : 'ninguna'));
     };
   return {
-    real: !!e,
-    async member(s, i = {}) {
-      let r = null;
-      if (e?.makeHero)
+    real: !!mod,
+    /** Actor de un miembro del grupo a partir de su ficha. */
+    async member(id, sheet = {}) {
+      let ch = null;
+      if (mod?.makeHero)
         try {
-          r = await Gu(e.makeHero({ ...i, id: s }, { prefer: 'melee' }), 45e3, `makeHero ${s}`);
-        } catch (c) {
-          console.warn('[exploraci\xF3n] makeHero:', c);
+          ch = await withTimeout(mod.makeHero({ ...sheet, id }, { prefer: 'melee' }), 45e3, `makeHero ${id}`);
+        } catch (err) {
+          console.warn('[exploraci\xF3n] makeHero:', err);
         }
-      if (!r) {
-        let c = hc.find((u) => u.id === s),
-          d;
-        if (c) ((d = { ...c, ...W9[s] }), delete d.pos, delete d.lookAt);
+      if (!ch) {
+        let preset = hc.find((p) => p.id === id),
+          def;
+        if (preset) ((def = { ...preset, ...COMPANION_PRESETS[id] }), delete def.pos, delete def.lookAt);
         else {
-          let u = i.appearance || {};
-          d = vk(
-            s,
+          let look = sheet.appearance || {};
+          def = simpleCharacterDef(
+            id,
             {
-              model: i.class === 'rogue' || i.class === 'ranger' ? 'ranger' : 'peasant',
-              species: i.species,
-              skin: u.skin,
-              hair: u.hair,
-              cloth: u.cloth || '#3a5a4a',
+              model: sheet.class === 'rogue' || sheet.class === 'ranger' ? 'ranger' : 'peasant',
+              species: sheet.species,
+              skin: look.skin,
+              hair: look.hair,
+              cloth: look.cloth || '#3a5a4a',
             },
-            i.pronoun,
+            sheet.pronoun,
           );
         }
-        ((d.anim = 'Idle_Loop'), (r = await Fs({ ...d, id: s })), q1(r.root));
+        ((def.anim = 'Idle_Loop'), (ch = await Fs({ ...def, id })), ensureCullRadius(ch.root));
       }
-      let l = r.root.scale.x || 1;
-      return new zc(r, { id: s, kind: 'member', height: r.height || t(l), name: i.name || s });
+      let scale = ch.root.scale.x || 1;
+      return new ExploreActor(ch, {
+        id,
+        kind: 'member',
+        height: ch.height || heightFor(scale),
+        name: sheet.name || id,
+      });
     },
-    async npc(s) {
-      let i = null;
-      if (e?.makeNpc)
+    /** Actor de un PNJ del nivel ({id, name, visual, pronoun}). */
+    async npc(def) {
+      let ch = null;
+      if (mod?.makeNpc)
         try {
-          i = await Gu(e.makeNpc(s), 3e4, `makeNpc ${s.id}`);
-        } catch (r) {
-          console.warn('[exploraci\xF3n] makeNpc:', r);
+          ch = await withTimeout(mod.makeNpc(def), 3e4, `makeNpc ${def.id}`);
+        } catch (err) {
+          console.warn('[exploraci\xF3n] makeNpc:', err);
         }
       return (
-        i || ((i = await Fs(vk(`npc_${s.id}`, s.visual, s.pronoun))), q1(i.root)),
-        n(i, 'npc'),
-        new zc(i, { id: s.id, kind: 'npc', height: i.height || t(i.root.scale.x || 1), name: s.name })
-      );
-    },
-    async monster(s, i, r = 1) {
-      let l = null;
-      if (e?.makeMonster)
-        try {
-          l = await Gu(e.makeMonster(s, { index: Math.max(0, r - 1) }), 3e4, `makeMonster ${s}`);
-        } catch (c) {
-          console.warn('[exploraci\xF3n] makeMonster:', c);
-        }
-      if (!l) {
-        let c = Z9(i, s);
-        if (c)
-          try {
-            ((l = await Gu(Fs(c), 15e3, `makeCharacter ${s}`)), q1(l.root));
-          } catch (d) {
-            console.warn('[exploraci\xF3n] sustituto de monstruo:', d);
-          }
-        l || (l = new Vu(j1[s] ? s : 'wolf'));
-      }
-      return (
-        n(l, 'enemy'),
-        new zc(l, {
-          id: i,
-          kind: 'enemy',
-          height: l.height || (l instanceof Vu ? 0.9 : t(l.root.scale.x || 1)),
-          name: s,
+        ch ||
+          ((ch = await Fs(simpleCharacterDef(`npc_${def.id}`, def.visual, def.pronoun))),
+          ensureCullRadius(ch.root)),
+        applyShadows(ch, 'npc'),
+        new ExploreActor(ch, {
+          id: def.id,
+          kind: 'npc',
+          height: ch.height || heightFor(ch.root.scale.x || 1),
+          name: def.name,
         })
       );
     },
-    async animal(s) {
-      let i = null;
-      if (e?.makeAnimal)
+    /** Actor de un monstruo; `index` distingue varios del mismo tipo. */
+    async monster(kind, id, index = 1) {
+      let ch = null;
+      if (mod?.makeMonster)
         try {
-          i = await Gu(e.makeAnimal(s), 3e4, `makeAnimal ${s}`);
-        } catch (r) {
-          console.warn('[exploraci\xF3n] makeAnimal:', r);
+          ch = await withTimeout(
+            mod.makeMonster(kind, { index: Math.max(0, index - 1) }),
+            3e4,
+            `makeMonster ${kind}`,
+          );
+        } catch (err) {
+          console.warn('[exploraci\xF3n] makeMonster:', err);
         }
+      if (!ch) {
+        let def = monsterCharacterDef(id, kind);
+        if (def)
+          try {
+            ((ch = await withTimeout(Fs(def), 15e3, `makeCharacter ${kind}`)), ensureCullRadius(ch.root));
+          } catch (err) {
+            console.warn('[exploraci\xF3n] sustituto de monstruo:', err);
+          }
+        ch || (ch = new BoxBeast(BEAST_SHAPES[kind] ? kind : 'wolf'));
+      }
       return (
-        i || (i = new Vu(s)),
-        n(i, 'animal'),
-        new zc(i, { id: s, kind: 'animal', height: i.height || 0.9 })
+        applyShadows(ch, 'enemy'),
+        new ExploreActor(ch, {
+          id,
+          kind: 'enemy',
+          height: ch.height || (ch instanceof BoxBeast ? 0.9 : heightFor(ch.root.scale.x || 1)),
+          name: kind,
+        })
       );
     },
-    async portrait(s, i = {}) {
-      if (e?.portrait)
+    /** Actor de un animal de ambiente. */
+    async animal(kind) {
+      let ch = null;
+      if (mod?.makeAnimal)
         try {
-          let r = i.id && i.id !== 'hero' ? i.id : s?.ch || i,
-            l = await e.portrait(r, { size: 128 });
-          if (l) return l;
-        } catch (r) {
-          console.warn('[exploraci\xF3n] portrait:', r);
+          ch = await withTimeout(mod.makeAnimal(kind), 3e4, `makeAnimal ${kind}`);
+        } catch (err) {
+          console.warn('[exploraci\xF3n] makeAnimal:', err);
         }
-      return Q9(i.name || s?.name || '?', eN[i.class] || '#7d6334');
+      return (
+        ch || (ch = new BoxBeast(kind)),
+        applyShadows(ch, 'animal'),
+        new ExploreActor(ch, { id: kind, kind: 'animal', height: ch.height || 0.9 })
+      );
+    },
+    /** URL del retrato de un actor o ficha (o uno de iniciales). */
+    async portrait(actor, info = {}) {
+      if (mod?.portrait)
+        try {
+          let who = info.id && info.id !== 'hero' ? info.id : actor?.ch || info,
+            url = await mod.portrait(who, { size: 128 });
+          if (url) return url;
+        } catch (err) {
+          console.warn('[exploraci\xF3n] portrait:', err);
+        }
+      return initialsPortrait(info.name || actor?.name || '?', CLASS_COLORS[info.class] || '#7d6334');
     },
   };
 }
-const $9 = {
+/** Nombre lógico → clip de animación del esqueleto UAL (personajes sin capa lógica). */
+const UAL_CLIPS = {
   walk: 'Walk_Loop',
   run: 'Jog_Fwd_Loop',
   sprint: 'Sprint_Loop',
@@ -281,91 +328,101 @@ const $9 = {
   dance: 'Dance_Loop',
   torch: 'Idle_Torch_Loop',
 };
-const zc = class {
-  constructor(e, { id: t, kind: a, height: n = 1.7, name: s = '' } = {}) {
-    ((this.ch = e),
-      (this.root = e.root),
-      (this.id = t),
-      (this.kind = a),
-      (this.name = s),
-      (this.height = n),
+/**
+ * Envoltorio común de los actores: raíz, altura, animaciones por nombre lógico (idle, walk, run,
+ * sneak…), animaciones de una vez, posición de la cabeza y sombreado (oculto en sigilo).
+ */
+const ExploreActor = class {
+  constructor(ch, { id, kind, height = 1.7, name = '' } = {}) {
+    ((this.ch = ch),
+      (this.root = ch.root),
+      (this.id = id),
+      (this.kind = kind),
+      (this.name = name),
+      (this.height = height),
       (this.cur = null),
       (this.speedScale = 1),
       (this._shadow = null),
-      (this.logical = typeof e.has == 'function'),
-      (this.ualMode = !this.logical && e.actions instanceof Map && !e.actions.has('idle')),
-      (this.gait = e.gait || { walk: 1.35, run: 3.1, sprint: 5, crouch_walk: 1, sneak: 1 }));
+      (this.logical = typeof ch.has == 'function'),
+      (this.ualMode = !this.logical && ch.actions instanceof Map && !ch.actions.has('idle')),
+      (this.gait = ch.gait || { walk: 1.35, run: 3.1, sprint: 5, crouch_walk: 1, sneak: 1 }));
   }
-  _clip(e) {
+  _clip(name) {
     return this.logical
-      ? bk[e] || e
+      ? LOGICAL_ANIMS[name] || name
       : this.ualMode
-        ? e === 'idle'
+        ? name === 'idle'
           ? this.ch.idle || this.ch.def?.anim || 'Idle_Loop'
-          : this.ch.actions.has(e)
-            ? e
-            : $9[e] || null
-        : e;
+          : this.ch.actions.has(name)
+            ? name
+            : UAL_CLIPS[name] || null
+        : name;
   }
-  anim(e, { fade: t = 0.2, speed: a = 1, mps: n = null } = {}) {
-    if (n != null) {
-      let i = this.gait[bk[e] || e] || this.gait[e];
-      i && (a = Math.min(1.9, Math.max(0.55, n / (i * (this.root.scale?.x || 1)))));
+  /** Pone una animación en bucle; con `mps` ajusta la velocidad al paso real (m/s). */
+  anim(name, { fade = 0.2, speed = 1, mps = null } = {}) {
+    if (mps != null) {
+      let gaitSpeed = this.gait[LOGICAL_ANIMS[name] || name] || this.gait[name];
+      gaitSpeed && (speed = Math.min(1.9, Math.max(0.55, mps / (gaitSpeed * (this.root.scale?.x || 1)))));
     }
-    if (this.cur === e && Math.abs(this.speedScale - a) < 0.02) return;
-    let s = this._clip(e);
-    if (((this.cur = e), (this.speedScale = a), !!s)) {
+    if (this.cur === name && Math.abs(this.speedScale - speed) < 0.02) return;
+    let clip = this._clip(name);
+    if (((this.cur = name), (this.speedScale = speed), !!clip)) {
       if (this.logical) {
-        this.ch.play(s, t, { speed: a });
+        this.ch.play(clip, fade, { speed });
         return;
       }
       if (this.ualMode) {
-        let i = this.ch.actions.get(s);
-        (i && (i.timeScale = a), this.ch.play(s, t));
-      } else (this.ch.play(s, t), this.ch.setSpeed && this.ch.setSpeed(a));
+        let action = this.ch.actions.get(clip);
+        (action && (action.timeScale = speed), this.ch.play(clip, fade));
+      } else (this.ch.play(clip, fade), this.ch.setSpeed && this.ch.setSpeed(speed));
     }
   }
-  async once(e, { speed: t = 1, hold: a = !1 } = {}) {
-    let n = this._clip(e);
-    if (!n || !this.ch.playOnce) return;
-    let s = this.cur;
+  /** Reproduce una animación una vez y vuelve a la anterior (salvo `hold`). */
+  async once(name, { speed = 1, hold = !1 } = {}) {
+    let clip = this._clip(name);
+    if (!clip || !this.ch.playOnce) return;
+    let prev = this.cur;
     ((this.cur = null),
-      await this.ch.playOnce(n, { speed: t, hold: a }),
-      !a && s && !this.cur && this.anim(s));
+      await this.ch.playOnce(clip, { speed, hold }),
+      !hold && prev && !this.cur && this.anim(prev));
   }
-  update(e) {
-    this.ch.update?.(e);
+  update(dt) {
+    this.ch.update?.(dt);
   }
-  head(e = new Vector3()) {
+  /** Posición de mundo de la cabeza (o la raíz más la altura). */
+  head(out = new Vector3()) {
     return (
-      (this.ch.headWorld && (this.ch.headWorld(e), e.y > 0.2)) ||
-        (this.root.getWorldPosition(e), (e.y += this.height * (this.root.scale?.y || 1))),
-      e
+      (this.ch.headWorld && (this.ch.headWorld(out), out.y > 0.2)) ||
+        (this.root.getWorldPosition(out), (out.y += this.height * (this.root.scale?.y || 1))),
+      out
     );
   }
-  setShadowed(e) {
+  /** Oscurece el actor (escondido) o lo devuelve a su color. */
+  setShadowed(on) {
     if (this.logical && typeof this.ch.setTint == 'function') {
-      this.ch.setTint(e ? 5921400 : null);
+      this.ch.setTint(on ? 5921400 : null);
       return;
     }
     if (!this._shadow) {
-      if (!e) return;
+      if (!on) return;
       ((this._shadow = []),
-        this.root.traverse((t) => {
-          !t.isMesh ||
-            !t.material?.color ||
-            ((t.material = t.material.clone()),
-            this._shadow.push({ m: t.material, c: t.material.color.clone() }));
+        this.root.traverse((obj) => {
+          !obj.isMesh ||
+            !obj.material?.color ||
+            ((obj.material = obj.material.clone()),
+            this._shadow.push({ m: obj.material, c: obj.material.color.clone() }));
         }));
     }
-    for (let t of this._shadow) t.m.color.copy(t.c).multiplyScalar(e ? 0.5 : 1);
+    for (let entry of this._shadow) entry.m.color.copy(entry.c).multiplyScalar(on ? 0.5 : 1);
   }
   dispose() {
     (this.root.parent?.remove(this.root), this.logical && this.ch.dispose?.());
   }
 };
-const bk = { sneak: 'crouch_walk', crouch: 'crouch_idle' };
-const W9 = {
+/** Alias de animación para los personajes con capa lógica. */
+const LOGICAL_ANIMS = { sneak: 'crouch_walk', crouch: 'crouch_idle' };
+/** Ajustes de los compañeros cuando se construyen con el sustituto. */
+const COMPANION_PRESETS = {
   brenna: {
     anim: 'Idle_Loop',
     attach: [{ prop: 'antique_estoc', bone: 'hand_r', scale: 0.62, pos: [0, 0.07, 0.03], rot: [0, 0, -90] }],
@@ -374,15 +431,16 @@ const W9 = {
   ilyra: { anim: 'Idle_Loop', attach: [] },
   odvar: { anim: 'Idle_Loop' },
 };
-const X9 = { dwarf: 0.82, halfling: 0.72, gnome: 0.7, goliath: 1.1, orc: 1.04 };
-const K9 = {
+const SPECIES_SCALE = { dwarf: 0.82, halfling: 0.72, gnome: 0.7, goliath: 1.1, orc: 1.04 };
+const GOBLIN_SKIN = {
   goblin_minion: 9421398,
   goblin_warrior: 8040008,
   goblin_archer: 10274914,
   goblin_boss: 6986302,
   goblin_shaman: 8696410,
 };
-const j1 = {
+/** Proporciones y colores de los animales hechos de cajas. */
+const BEAST_SHAPES = {
   wolf: {
     body: [0.95, 0.38, 0.32],
     leg: 0.42,
@@ -442,88 +500,93 @@ const j1 = {
   },
   chicken: { body: [0.3, 0.26, 0.24], leg: 0.14, head: 0.12, color: 15788248, belly: 14733496 },
 };
-const Vu = class {
-  constructor(e) {
-    let t = j1[e] || j1.sheep;
-    ((this.def = t), (this.root = new Group()));
-    let a = new MeshStandardMaterial({ color: t.color, roughness: 0.9, flatShading: !0 }),
-      n = new MeshStandardMaterial({ color: t.belly, roughness: 0.9, flatShading: !0 }),
-      [s, i, r] = t.body,
-      l = new Mesh(new BoxGeometry(r, i, s), a);
-    ((l.position.y = t.leg + i / 2), this.root.add(l), (this.body = l));
-    let c = new Mesh(
-      new BoxGeometry(t.head, t.head, t.head * 1.3),
-      t.headColor ? new MeshStandardMaterial({ color: t.headColor, roughness: 0.9 }) : a,
+/** Animal de sustituto hecho de cajas, con patas que se mueven al andar y cabeza que pace. */
+const BoxBeast = class {
+  constructor(kind) {
+    let def = BEAST_SHAPES[kind] || BEAST_SHAPES.sheep;
+    ((this.def = def), (this.root = new Group()));
+    let mat = new MeshStandardMaterial({ color: def.color, roughness: 0.9, flatShading: !0 }),
+      bellyMat = new MeshStandardMaterial({ color: def.belly, roughness: 0.9, flatShading: !0 }),
+      [len, tall, wide] = def.body,
+      body = new Mesh(new BoxGeometry(wide, tall, len), mat);
+    ((body.position.y = def.leg + tall / 2), this.root.add(body), (this.body = body));
+    let head = new Mesh(
+      new BoxGeometry(def.head, def.head, def.head * 1.3),
+      def.headColor ? new MeshStandardMaterial({ color: def.headColor, roughness: 0.9 }) : mat,
     );
     if (
-      (c.position.set(0, t.leg + i * (t.neck ? 1.35 : 0.9), s / 2 + t.head * 0.45),
-      this.root.add(c),
-      (this.headM = c),
-      t.snout)
+      (head.position.set(0, def.leg + tall * (def.neck ? 1.35 : 0.9), len / 2 + def.head * 0.45),
+      this.root.add(head),
+      (this.headM = head),
+      def.snout)
     ) {
-      let h = new Mesh(new BoxGeometry(t.head * 0.5, t.head * 0.45, t.head * 0.6), n);
-      (h.position.set(0, -t.head * 0.15, t.head * 0.8), c.add(h));
+      let snout = new Mesh(new BoxGeometry(def.head * 0.5, def.head * 0.45, def.head * 0.6), bellyMat);
+      (snout.position.set(0, -def.head * 0.15, def.head * 0.8), head.add(snout));
     }
     this.legs = [];
-    let d = t.legs || 4,
-      u = new BoxGeometry(0.07, t.leg, 0.07).translate(0, -t.leg / 2, 0);
-    for (let h = 0; h < d; h++) {
-      let p = new Mesh(u, n),
-        m = h % 2 ? 1 : -1,
-        _ = Math.floor(h / 2) / Math.max(1, d / 2 - 1);
-      (p.position.set(m * (r / 2 - 0.03) * (t.legs ? 1.5 : 1), t.leg, (0.5 - _) * s * 0.8),
-        t.legs && (p.rotation.z = m * 0.7),
-        this.root.add(p),
-        this.legs.push(p));
+    let legCount = def.legs || 4,
+      legGeo = new BoxGeometry(0.07, def.leg, 0.07).translate(0, -def.leg / 2, 0);
+    for (let k = 0; k < legCount; k++) {
+      let leg = new Mesh(legGeo, bellyMat),
+        side = k % 2 ? 1 : -1,
+        row = Math.floor(k / 2) / Math.max(1, legCount / 2 - 1);
+      (leg.position.set(side * (wide / 2 - 0.03) * (def.legs ? 1.5 : 1), def.leg, (0.5 - row) * len * 0.8),
+        def.legs && (leg.rotation.z = side * 0.7),
+        this.root.add(leg),
+        this.legs.push(leg));
     }
-    if (t.tail) {
-      let h = new Mesh(new BoxGeometry(0.06, 0.06, 0.35).translate(0, 0, -0.17), a);
-      (h.position.set(0, t.leg + i * 0.8, -s / 2), (h.rotation.x = 0.6), this.root.add(h));
+    if (def.tail) {
+      let tail = new Mesh(new BoxGeometry(0.06, 0.06, 0.35).translate(0, 0, -0.17), mat);
+      (tail.position.set(0, def.leg + tall * 0.8, -len / 2), (tail.rotation.x = 0.6), this.root.add(tail));
     }
-    (this.root.traverse((h) => {
-      h.isMesh && ((h.castShadow = !0), (h.receiveShadow = !0));
+    (this.root.traverse((obj) => {
+      obj.isMesh && ((obj.castShadow = !0), (obj.receiveShadow = !0));
     }),
       (this.t = Math.random() * 10),
       (this.mode = 'idle'),
       (this.rate = 1),
       (this.onceP = null));
   }
-  play(e) {
-    this.mode = e;
+  play(mode) {
+    this.mode = mode;
   }
-  async playOnce(e, { hold: t = !1 } = {}) {
-    if (((this.mode = e), e === 'die' || e === 'Death01')) {
-      let a = this.root;
-      for (let n = 0; n <= 10; n++)
-        ((a.rotation.z = (n / 10) * 1.5), await new Promise((s) => setTimeout(s, 30)));
+  /** Animación de una vez (la de muerte lo tumba de lado). */
+  async playOnce(name, { hold = !1 } = {}) {
+    if (((this.mode = name), name === 'die' || name === 'Death01')) {
+      let root = this.root;
+      for (let i = 0; i <= 10; i++)
+        ((root.rotation.z = (i / 10) * 1.5), await new Promise((resolve) => setTimeout(resolve, 30)));
       return;
     }
-    (await new Promise((a) => setTimeout(a, 450)), t || (this.mode = 'idle'));
+    (await new Promise((resolve) => setTimeout(resolve, 450)), hold || (this.mode = 'idle'));
   }
-  setSpeed(e) {
-    this.rate = e;
+  setSpeed(rate) {
+    this.rate = rate;
   }
-  update(e) {
-    this.t += e * this.rate;
-    let t = ['walk', 'run', 'sneak', 'sprint', 'crouch_walk'].includes(this.mode),
-      a = this.mode === 'run' || this.mode === 'sprint' ? 11 : 6;
-    (this.legs.forEach((n, s) => {
-      n.rotation.x = t ? Math.sin(this.t * a + (s % 2 ? 0 : Math.PI) + (s > 1 ? Math.PI : 0)) * 0.5 : 0;
+  update(dt) {
+    this.t += dt * this.rate;
+    let moving = ['walk', 'run', 'sneak', 'sprint', 'crouch_walk'].includes(this.mode),
+      freq = this.mode === 'run' || this.mode === 'sprint' ? 11 : 6;
+    (this.legs.forEach((leg, i) => {
+      leg.rotation.x = moving
+        ? Math.sin(this.t * freq + (i % 2 ? 0 : Math.PI) + (i > 1 ? Math.PI : 0)) * 0.5
+        : 0;
     }),
       (this.body.position.y =
         this.def.leg +
         this.def.body[1] / 2 +
-        (t ? Math.abs(Math.sin(this.t * a)) * 0.03 : Math.sin(this.t * 1.5) * 0.008)),
+        (moving ? Math.abs(Math.sin(this.t * freq)) * 0.03 : Math.sin(this.t * 1.5) * 0.008)),
       this.mode === 'idle' || this.mode === 'graze'
         ? (this.headM.rotation.x = Math.max(0, Math.sin(this.t * 0.4)) * 0.6)
         : (this.headM.rotation.x = 0));
   }
-  headWorld(e) {
-    return this.headM.getWorldPosition(e);
+  headWorld(out) {
+    return this.headM.getWorldPosition(out);
   }
 };
-const U1 = new Map();
-const eN = {
+const portraitCache = new Map();
+/** Color de fondo del retrato de iniciales por clase. */
+const CLASS_COLORS = {
   fighter: '#8a5a3a',
   rogue: '#4a6a3a',
   cleric: '#a89048',
@@ -538,4 +601,4 @@ const eN = {
   warlock: '#4a2a6a',
 };
 
-export { yk };
+export { createActorFactory };
