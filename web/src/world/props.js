@@ -35,7 +35,7 @@ import { standardMaterial } from './materials.js';
 import { worldTexture, LAYER } from './ground.js';
 import { cellToWorld, neighbors, HEX_SIZE, cellKey, degToRad } from './grid.js';
 import { loadGLTF, loadProp, pbrMaterial } from '../assets.js';
-import { D1 } from './interiors.js';
+import { INTERIOR_DECOR } from './interiors.js';
 
 /** Pieza del kit y escala de una clave de atrezo ([pieza, escala]), según `PROP_PIECES`. */
 function resolvePiece(key) {
@@ -101,7 +101,7 @@ async function buildProps(ctx) {
         }
       continue;
     }
-    if (D1.has(item.key) || decorSpecial(ctx, item, px, pz, ry, queue)) continue;
+    if (INTERIOR_DECOR.has(item.key) || decorSpecial(ctx, item, px, pz, ry, queue)) continue;
     if (item.key.startsWith('ph:')) {
       try {
         let model = fixGlass(await loadProp(item.key.slice(3)));

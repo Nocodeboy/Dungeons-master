@@ -27,7 +27,13 @@ en el código y queda para decidir más adelante.
 
 - `procedural.js`, `buildObjects`: `tickFn` es un alias de `tick` que solo usa `update`; sobra la indirección.
 
+- `interiors.js`: `tmpMatrix` (un `Matrix4` del módulo) no se usa nunca, y el parámetro `item` de
+  `buildBar` tampoco.
+
 ## Duplicados
 
 - `grid.js` repite las fórmulas de rejilla de `explore/hex.js` (`cellToWorld`, `worldToCell` ≈
   `planeToCell`, `neighbors`, `cellKey`, `HEX_SIZE`/`ROW_STEP`/`HEX_RADIUS`). Unificarlos cambiaría el bundle.
+- `interiors.js` `blockGeometry` es idéntica a la de `props.js`, y `xform` hace lo mismo que
+  `composeMatrix` de `kit.js` (con escala solo uniforme).
+- `kit.js` `MeshMerger.addGeometry` y `bakeGeometry` invierten el orden de los triángulos con el mismo bucle.

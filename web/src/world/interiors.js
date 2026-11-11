@@ -1,5 +1,9 @@
-// world/interiors.js
-// Reconstruido de publicado/juego.js (módulo __esm «I1»). Nombres locales aún minificados.
+// world/interiors.js — interior de la posada (ambiente «inn»): calcula la sala a partir del suelo del
+// mapa, levanta los cuatro muros con huecos de puertas (las salidas) y ventanas, vigas y zócalos, en
+// versión completa y recortada (`updateCutaway` muestra la recortada en los muros que miran a la
+// cámara), y monta los decorados propios: chimenea con hogar, barra, estantes de botellas, escalera,
+// lámpara de araña, faroles de pared, alfombras y leña.
+// Reconstruido de publicado/juego.js (módulo __esm «I1»). Lo usan index.js y props.js (`INTERIOR_DECOR`).
 
 import {
   BoxGeometry,
@@ -23,123 +27,131 @@ import { fixGlass, MeshMerger } from './kit.js';
 import { LAYER } from './ground.js';
 import { cellToWorld, HEX_SIZE, HEX_RADIUS, cellKey, degToRad } from './grid.js';
 
-function V3() {
-  if (Qm) return Qm;
-  let o = (t, a) => ((t.name = a), t),
-    e = (t, a, n = {}) => o(new MeshStandardMaterial({ color: t, roughness: 0.85, ...n }), a);
+/** Materiales del interior (revoco, vigas, tablas, piedra, pizarra, barra, vidrio…). */
+function interiorMats() {
+  if (interiorMatsCache) return interiorMatsCache;
+  let named = (mat, name) => ((mat.name = name), mat),
+    plain = (color, name, extra = {}) =>
+      named(new MeshStandardMaterial({ color, roughness: 0.85, ...extra }), name);
   return (
-    (Qm = {
-      plaster: o(pbrMaterial('plastered_stone_wall', { tint: 15260356, ao: !1 }), 'revoco'),
-      timber: o(pbrMaterial('medieval_wood', { tint: 7231041, ao: !1 }), 'viga'),
-      panel: o(pbrMaterial('rough_wood', { tint: 8413247, ao: !1 }), 'tablas'),
-      stone: o(pbrMaterial('castle_wall_varriation', { tint: 13616050, ao: !1 }), 'piedra_hogar'),
-      slate: o(pbrMaterial('slate_floor', { tint: 9210510, ao: !1 }), 'pizarra'),
-      barWood: o(pbrMaterial('rough_wood', { tint: 6177065, ao: !1 }), 'barra'),
-      barTop: o(pbrMaterial('medieval_wood', { tint: 8017976, ao: !1 }), 'tablero'),
-      soot: e(1314057, 'hollin', { roughness: 1 }),
-      iron: e(2894118, 'hierro', { metalness: 0.7, roughness: 0.5 }),
-      bark: e(4863526, 'corteza', { roughness: 0.95 }),
-      logEnd: e(11569759, 'tocon'),
-      green: e(2048038, 'vidrio_verde', { roughness: 0.25 }),
-      amber: e(6960144, 'vidrio_ambar', { roughness: 0.25 }),
-      clay: e(10115642, 'barro_cocido'),
+    (interiorMatsCache = {
+      plaster: named(pbrMaterial('plastered_stone_wall', { tint: 15260356, ao: !1 }), 'revoco'),
+      timber: named(pbrMaterial('medieval_wood', { tint: 7231041, ao: !1 }), 'viga'),
+      panel: named(pbrMaterial('rough_wood', { tint: 8413247, ao: !1 }), 'tablas'),
+      stone: named(pbrMaterial('castle_wall_varriation', { tint: 13616050, ao: !1 }), 'piedra_hogar'),
+      slate: named(pbrMaterial('slate_floor', { tint: 9210510, ao: !1 }), 'pizarra'),
+      barWood: named(pbrMaterial('rough_wood', { tint: 6177065, ao: !1 }), 'barra'),
+      barTop: named(pbrMaterial('medieval_wood', { tint: 8017976, ao: !1 }), 'tablero'),
+      soot: plain(1314057, 'hollin', { roughness: 1 }),
+      iron: plain(2894118, 'hierro', { metalness: 0.7, roughness: 0.5 }),
+      bark: plain(4863526, 'corteza', { roughness: 0.95 }),
+      logEnd: plain(11569759, 'tocon'),
+      green: plain(2048038, 'vidrio_verde', { roughness: 0.25 }),
+      amber: plain(6960144, 'vidrio_ambar', { roughness: 0.25 }),
+      clay: plain(10115642, 'barro_cocido'),
     }),
-    Qm
+    interiorMatsCache
   );
 }
-function L1(o, e, t, a = 1) {
-  let n = new BoxGeometry(o, e, t),
-    s = n.getAttribute('uv'),
-    i = [
-      [t, e],
-      [t, e],
-      [o, t],
-      [o, t],
-      [o, e],
-      [o, e],
+/** Caja con UV proporcionales al tamaño de cada cara (copia de la de props.js). */
+function blockGeometry(w, h, d, texel = 1) {
+  let geo = new BoxGeometry(w, h, d),
+    uv = geo.getAttribute('uv'),
+    faceSizes = [
+      [d, h],
+      [d, h],
+      [w, d],
+      [w, d],
+      [w, h],
+      [w, h],
     ];
-  for (let r = 0; r < 6; r++)
-    for (let l = 0; l < 4; l++) {
-      let c = r * 4 + l;
-      s.setXY(c, (s.getX(c) * i[r][0]) / a, (s.getY(c) * i[r][1]) / a);
+  for (let face = 0; face < 6; face++)
+    for (let k = 0; k < 4; k++) {
+      let idx = face * 4 + k;
+      uv.setXY(idx, (uv.getX(idx) * faceSizes[face][0]) / texel, (uv.getY(idx) * faceSizes[face][1]) / texel);
     }
-  return n;
+  return geo;
 }
-function Ft(o, e, t, a, n, s, i, r, l = 0, c = 1) {
-  o.addGeometry(L1(t, a, n, c).translate(0, a / 2, 0), e, qo(s, i, r, l));
+/** Añade al `merger` una caja w×h×d apoyada en (x, y, z) y girada `ry`. */
+function addBlock(merger, mat, w, h, d, x, y, z, ry = 0, texel = 1) {
+  merger.addGeometry(blockGeometry(w, h, d, texel).translate(0, h / 2, 0), mat, xform(x, y, z, ry));
 }
-function n9(o = ['#6b2a1f', '#c9a25e', '#2f3a52']) {
-  let e = document.createElement('canvas');
-  ((e.width = 256), (e.height = 384));
-  let t = e.getContext('2d'),
-    [a, n, s] = o;
-  ((t.fillStyle = a),
-    t.fillRect(0, 0, 256, 384),
-    (t.strokeStyle = n),
-    (t.lineWidth = 6),
-    t.strokeRect(14, 14, 228, 356),
-    (t.lineWidth = 2),
-    t.strokeRect(26, 26, 204, 332),
-    (t.fillStyle = s));
-  for (let l = 0; l < 4; l++) {
-    let c = 70 + l * 82;
-    (t.beginPath(),
-      t.moveTo(128, c - 34),
-      t.lineTo(178, c),
-      t.lineTo(128, c + 34),
-      t.lineTo(78, c),
-      t.closePath(),
-      t.fill(),
-      (t.strokeStyle = n),
-      t.stroke());
+/** Textura de alfombra con rombos y flecos, dibujada en un lienzo. */
+function rugTexture(colors = ['#6b2a1f', '#c9a25e', '#2f3a52']) {
+  let canvas = document.createElement('canvas');
+  ((canvas.width = 256), (canvas.height = 384));
+  let g2d = canvas.getContext('2d'),
+    [bg, line, fill] = colors;
+  ((g2d.fillStyle = bg),
+    g2d.fillRect(0, 0, 256, 384),
+    (g2d.strokeStyle = line),
+    (g2d.lineWidth = 6),
+    g2d.strokeRect(14, 14, 228, 356),
+    (g2d.lineWidth = 2),
+    g2d.strokeRect(26, 26, 204, 332),
+    (g2d.fillStyle = fill));
+  for (let k = 0; k < 4; k++) {
+    let cy = 70 + k * 82;
+    (g2d.beginPath(),
+      g2d.moveTo(128, cy - 34),
+      g2d.lineTo(178, cy),
+      g2d.lineTo(128, cy + 34),
+      g2d.lineTo(78, cy),
+      g2d.closePath(),
+      g2d.fill(),
+      (g2d.strokeStyle = line),
+      g2d.stroke());
   }
-  let i = t.getImageData(0, 0, 256, 384);
-  for (let l = 0; l < i.data.length; l += 4) {
-    let c = Math.floor(l / 4 / 256),
-      d = (Math.random() - 0.5) * 22 + (c % 3 === 0 ? -8 : 0);
-    for (let u = 0; u < 3; u++) i.data[l + u] = Math.max(0, Math.min(255, i.data[l + u] + d));
+  let img = g2d.getImageData(0, 0, 256, 384);
+  for (let p = 0; p < img.data.length; p += 4) {
+    let row = Math.floor(p / 4 / 256),
+      noise = (Math.random() - 0.5) * 22 + (row % 3 === 0 ? -8 : 0);
+    for (let ch = 0; ch < 3; ch++) img.data[p + ch] = Math.max(0, Math.min(255, img.data[p + ch] + noise));
   }
-  (t.putImageData(i, 0, 0), (t.strokeStyle = '#d8cbb0'), (t.lineWidth = 1));
-  for (let l = 16; l < 240; l += 4)
-    (t.beginPath(),
-      t.moveTo(l, 0),
-      t.lineTo(l + (Math.random() - 0.5) * 2, 10),
-      t.moveTo(l, 384),
-      t.lineTo(l + (Math.random() - 0.5) * 2, 374),
-      t.stroke());
-  let r = new CanvasTexture(e);
-  return ((r.colorSpace = SRGBColorSpace), (r.anisotropy = 4), r);
+  (g2d.putImageData(img, 0, 0), (g2d.strokeStyle = '#d8cbb0'), (g2d.lineWidth = 1));
+  for (let x = 16; x < 240; x += 4)
+    (g2d.beginPath(),
+      g2d.moveTo(x, 0),
+      g2d.lineTo(x + (Math.random() - 0.5) * 2, 10),
+      g2d.moveTo(x, 384),
+      g2d.lineTo(x + (Math.random() - 0.5) * 2, 374),
+      g2d.stroke());
+  let tex = new CanvasTexture(canvas);
+  return ((tex.colorSpace = SRGBColorSpace), (tex.anisotropy = 4), tex);
 }
-function o9() {
-  if (e0) return e0;
-  let o = document.createElement('canvas');
-  ((o.width = 64), (o.height = 96));
-  let e = o.getContext('2d'),
-    t = e.createLinearGradient(0, 0, 0, 96);
-  (t.addColorStop(0, '#d8e8f4'),
-    t.addColorStop(1, '#8fb0c8'),
-    (e.fillStyle = t),
-    e.fillRect(0, 0, 64, 96),
-    (e.strokeStyle = '#2a2622'),
-    (e.lineWidth = 2));
-  for (let n = 0; n <= 64; n += 16) (e.beginPath(), e.moveTo(n, 0), e.lineTo(n + 0.01, 96), e.stroke());
-  for (let n = 0; n <= 96; n += 16) (e.beginPath(), e.moveTo(0, n), e.lineTo(64, n), e.stroke());
-  let a = new CanvasTexture(o);
+/** Material emisivo de ventana de día (cielo con cuarterones). */
+function daylightWindowMat() {
+  if (windowMatCache) return windowMatCache;
+  let canvas = document.createElement('canvas');
+  ((canvas.width = 64), (canvas.height = 96));
+  let g2d = canvas.getContext('2d'),
+    grad = g2d.createLinearGradient(0, 0, 0, 96);
+  (grad.addColorStop(0, '#d8e8f4'),
+    grad.addColorStop(1, '#8fb0c8'),
+    (g2d.fillStyle = grad),
+    g2d.fillRect(0, 0, 64, 96),
+    (g2d.strokeStyle = '#2a2622'),
+    (g2d.lineWidth = 2));
+  for (let p = 0; p <= 64; p += 16)
+    (g2d.beginPath(), g2d.moveTo(p, 0), g2d.lineTo(p + 0.01, 96), g2d.stroke());
+  for (let p = 0; p <= 96; p += 16) (g2d.beginPath(), g2d.moveTo(0, p), g2d.lineTo(64, p), g2d.stroke());
+  let tex = new CanvasTexture(canvas);
   return (
-    (a.colorSpace = SRGBColorSpace),
-    (e0 = new MeshStandardMaterial({
-      map: a,
+    (tex.colorSpace = SRGBColorSpace),
+    (windowMatCache = new MeshStandardMaterial({
+      map: tex,
       emissive: 16777215,
-      emissiveMap: a,
+      emissiveMap: tex,
       emissiveIntensity: 0.55,
       roughness: 0.2,
       name: 'ventana_dia',
     })),
-    e0
+    windowMatCache
   );
 }
-function s9(o = 0.3) {
-  let e = [
+/** Botella por revolución, de la altura dada. */
+function bottleGeometry(height = 0.3) {
+  let profile = [
     [0, 0],
     [0.045, 0],
     [0.05, 0.01],
@@ -150,173 +162,253 @@ function s9(o = 0.3) {
     [0.02, 0.97],
     [0.014, 1],
     [0, 1],
-  ].map(([t, a]) => new Vector2(t * o * 2.2, a * o));
-  return new LatheGeometry(e, 8);
+  ].map(([r, y]) => new Vector2(r * height * 2.2, y * height));
+  return new LatheGeometry(profile, 8);
 }
-async function $3(o) {
-  let { scene: e, map: t, level: a, ground: n, fx: s } = o,
-    i = o.static,
-    r = V3(),
-    l = a.interior?.height ?? 3.4,
-    c = o.rnd,
-    d = new Group();
-  ((d.name = 'interior'), e.add(d));
-  let u = new Vector3(),
-    h = new Set();
-  for (let E of a.exits || []) for (let S of E.cells) h.add(cellKey(S[0], S[1]));
-  let p = 1 / 0,
-    m = -1 / 0,
-    _ = 1 / 0,
-    b = -1 / 0;
-  t.each((E, S, z) => {
-    z === '#' ||
-      z === ' ' ||
-      h.has(cellKey(E, S)) ||
-      (cellToWorld(E, S, u),
-      (p = Math.min(p, u.x - HEX_SIZE / 2)),
-      (m = Math.max(m, u.x + HEX_SIZE / 2)),
-      (_ = Math.min(_, u.z - HEX_RADIUS * HEX_SIZE)),
-      (b = Math.max(b, u.z + HEX_RADIUS * HEX_SIZE)));
+/**
+ * Construye el interior del nivel sobre `ctx` (scene, map, level, ground, fx, static, rnd).
+ * Devuelve `{group, room: {x0, x1, z0, z1}, updateCutaway(dirección de la cámara)}`.
+ */
+async function buildInterior(ctx) {
+  let { scene, map, level, ground, fx } = ctx,
+    merger = ctx.static,
+    mats = interiorMats(),
+    height = level.interior?.height ?? 3.4,
+    rnd = ctx.rnd,
+    group = new Group();
+  ((group.name = 'interior'), scene.add(group));
+  let tmp = new Vector3(),
+    exitCells = new Set();
+  for (let exit of level.exits || []) for (let cell of exit.cells) exitCells.add(cellKey(cell[0], cell[1]));
+  let minX = 1 / 0,
+    maxX = -1 / 0,
+    minZ = 1 / 0,
+    maxZ = -1 / 0;
+  map.each((col, row, ch) => {
+    ch === '#' ||
+      ch === ' ' ||
+      exitCells.has(cellKey(col, row)) ||
+      (cellToWorld(col, row, tmp),
+      (minX = Math.min(minX, tmp.x - HEX_SIZE / 2)),
+      (maxX = Math.max(maxX, tmp.x + HEX_SIZE / 2)),
+      (minZ = Math.min(minZ, tmp.z - HEX_RADIUS * HEX_SIZE)),
+      (maxZ = Math.max(maxZ, tmp.z + HEX_RADIUS * HEX_SIZE)));
   });
-  let f = { x0: p, x1: m, z0: _, z1: b },
-    v = a.decor || [],
-    x = (E) => {
-      let S = cellToWorld(E.cell[0], E.cell[1]);
-      return (E.offset && ((S.x += E.offset[0] * HEX_SIZE), (S.z += E.offset[1] * HEX_SIZE)), S);
+  let room = { x0: minX, x1: maxX, z0: minZ, z1: maxZ },
+    decor = level.decor || [],
+    posOf = (item) => {
+      let p = cellToWorld(item.cell[0], item.cell[1]);
+      return (item.offset && ((p.x += item.offset[0] * HEX_SIZE), (p.z += item.offset[1] * HEX_SIZE)), p);
     },
-    g = {
-      n: { n: new Vector3(0, 0, -1), u0: p, u1: m, fixed: _, along: 'x' },
-      s: { n: new Vector3(0, 0, 1), u0: p, u1: m, fixed: b, along: 'x' },
-      w: { n: new Vector3(-1, 0, 0), u0: _, u1: b, fixed: p, along: 'z' },
-      e: { n: new Vector3(1, 0, 0), u0: _, u1: b, fixed: m, along: 'z' },
+    walls = {
+      n: { n: new Vector3(0, 0, -1), u0: minX, u1: maxX, fixed: minZ, along: 'x' },
+      s: { n: new Vector3(0, 0, 1), u0: minX, u1: maxX, fixed: maxZ, along: 'x' },
+      w: { n: new Vector3(-1, 0, 0), u0: minZ, u1: maxZ, fixed: minX, along: 'z' },
+      e: { n: new Vector3(1, 0, 0), u0: minZ, u1: maxZ, fixed: maxX, along: 'z' },
     },
-    y = (E, S, z = 0) =>
-      E.along === 'x' ? new Vector3(S, 0, E.fixed + E.n.z * z) : new Vector3(E.fixed + E.n.x * z, 0, S),
-    w = (E) => (E.along === 'x' ? 0 : Math.PI / 2);
-  for (let E of Object.values(g)) E.open = [];
-  for (let E of a.exits || [])
-    for (let S of E.cells) {
-      cellToWorld(S[0], S[1], u);
-      let z = { n: Math.abs(u.z - _), s: Math.abs(u.z - b), w: Math.abs(u.x - p), e: Math.abs(u.x - m) },
-        D = Object.keys(z).sort((A, P) => z[A] - z[P])[0],
-        M = g[D],
-        R = M.along === 'x' ? u.x : u.z;
-      M.open.push({ a: R - 0.68, b: R + 0.68, v0: 0, v1: 2.25, door: !0 });
+    wallPoint = (wall, u, inset = 0) =>
+      wall.along === 'x'
+        ? new Vector3(u, 0, wall.fixed + wall.n.z * inset)
+        : new Vector3(wall.fixed + wall.n.x * inset, 0, u),
+    wallRot = (wall) => (wall.along === 'x' ? 0 : Math.PI / 2);
+  for (let wall of Object.values(walls)) wall.open = [];
+  for (let exit of level.exits || [])
+    for (let cell of exit.cells) {
+      cellToWorld(cell[0], cell[1], tmp);
+      let dists = {
+          n: Math.abs(tmp.z - minZ),
+          s: Math.abs(tmp.z - maxZ),
+          w: Math.abs(tmp.x - minX),
+          e: Math.abs(tmp.x - maxX),
+        },
+        side = Object.keys(dists).sort((sa, sb) => dists[sa] - dists[sb])[0],
+        wall = walls[side],
+        along = wall.along === 'x' ? tmp.x : tmp.z;
+      wall.open.push({ a: along - 0.68, b: along + 0.68, v0: 0, v1: 2.25, door: !0 });
     }
-  for (let E of v.filter((S) => S.key === 'window')) {
-    let S = g[E.side || 'n'],
-      z = x(E),
-      D = S.along === 'x' ? z.x : z.z;
-    S.open.push({ a: D - 0.55, b: D + 0.55, v0: 1, v1: 2.25, window: !0 });
+  for (let win of decor.filter((item) => item.key === 'window')) {
+    let wall = walls[win.side || 'n'],
+      wp = posOf(win),
+      along = wall.along === 'x' ? wp.x : wp.z;
+    wall.open.push({ a: along - 0.55, b: along + 0.55, v0: 1, v1: 2.25, window: !0 });
   }
-  let k = {};
-  for (let [E, S] of Object.entries(g)) {
-    let z = new MeshMerger({ contactH: 0.8, contactMin: 0.72, groundAt: () => 0, finish: { wind: 0 } }),
-      D = new MeshMerger({ contactH: 0.5, contactMin: 0.7, groundAt: () => 0, finish: { wind: 0 } }),
-      M = w(S),
-      R = S.u0 - Ba,
-      A = S.u1 + Ba,
-      P = S.open.sort((K, ve) => K.a - ve.a),
-      I = [R, A];
-    for (let K of P) I.push(K.a, K.b);
-    I.sort((K, ve) => K - ve);
-    for (let K = 0; K < I.length - 1; K++) {
-      let ve = I[K],
-        ge = I[K + 1];
-      if (ge - ve < 0.01) continue;
-      let ue = (ve + ge) / 2,
-        Q = P.find((ce) => ue > ce.a && ue < ce.b),
-        oe = y(S, ue, Ba / 2),
-        ie = ge - ve,
-        we = (ce, ke, Qe) => Ft(ce, r.plaster, ie, Qe - ke, Ba, oe.x, ke, oe.z, M, 2.4);
+  let sides = {};
+  for (let [side, wall] of Object.entries(walls)) {
+    let full = new MeshMerger({ contactH: 0.8, contactMin: 0.72, groundAt: () => 0, finish: { wind: 0 } }),
+      cut = new MeshMerger({ contactH: 0.5, contactMin: 0.7, groundAt: () => 0, finish: { wind: 0 } }),
+      rot = wallRot(wall),
+      start = wall.u0 - WALL_THICK,
+      end = wall.u1 + WALL_THICK,
+      opens = wall.open.sort((oa, ob) => oa.a - ob.a),
+      stops = [start, end];
+    for (let op of opens) stops.push(op.a, op.b);
+    stops.sort((na, nb) => na - nb);
+    for (let seg = 0; seg < stops.length - 1; seg++) {
+      let u0 = stops[seg],
+        u1 = stops[seg + 1];
+      if (u1 - u0 < 0.01) continue;
+      let mid = (u0 + u1) / 2,
+        opening = opens.find((op) => mid > op.a && mid < op.b),
+        wpos = wallPoint(wall, mid, WALL_THICK / 2),
+        len = u1 - u0,
+        wallPiece = (mg, y0, y1) =>
+          addBlock(mg, mats.plaster, len, y1 - y0, WALL_THICK, wpos.x, y0, wpos.z, rot, 2.4);
       if (
-        (Q
-          ? (Q.v0 > 0 && (we(z, 0, Q.v0), we(D, 0, Math.min(z1, Q.v0))), we(z, Q.v1, l))
-          : (we(z, 0, l), we(D, 0, z1)),
-        !Q?.door)
+        (opening
+          ? (opening.v0 > 0 &&
+              (wallPiece(full, 0, opening.v0), wallPiece(cut, 0, Math.min(CUT_HEIGHT, opening.v0))),
+            wallPiece(full, opening.v1, height))
+          : (wallPiece(full, 0, height), wallPiece(cut, 0, CUT_HEIGHT)),
+        !opening?.door)
       ) {
-        let ce = y(S, ue, -0.02);
-        Ft(z, r.panel, ie, 1, 0.04, ce.x, 0, ce.z, M, 1.2);
-        let ke = y(S, ue, -0.045);
-        Ft(z, r.timber, ie, 0.07, 0.09, ke.x, 1, ke.z, M, 1.5);
+        let panelPos = wallPoint(wall, mid, -0.02);
+        addBlock(full, mats.panel, len, 1, 0.04, panelPos.x, 0, panelPos.z, rot, 1.2);
+        let beamPos = wallPoint(wall, mid, -0.045);
+        addBlock(full, mats.timber, len, 0.07, 0.09, beamPos.x, 1, beamPos.z, rot, 1.5);
       }
     }
-    let U = y(S, (R + A) / 2, Ba / 2 - 0.04);
-    Ft(z, r.timber, A - R, 0.24, Ba + 0.08, U.x, l - 0.02, U.z, M, 1.5);
-    let j = [S.u0 + 0.12, S.u1 - 0.12];
-    for (let K = S.u0 + 3.2; K < S.u1 - 1.5; K += 3.3)
-      P.some((ve) => K > ve.a - 0.3 && K < ve.b + 0.3) || j.push(K);
-    for (let K of j) {
-      let ve = y(S, K, -0.07);
-      Ft(z, r.timber, 0.24, l, 0.14, ve.x, 0, ve.z, M, 1.2);
+    let topPos = wallPoint(wall, (start + end) / 2, WALL_THICK / 2 - 0.04);
+    addBlock(
+      full,
+      mats.timber,
+      end - start,
+      0.24,
+      WALL_THICK + 0.08,
+      topPos.x,
+      height - 0.02,
+      topPos.z,
+      rot,
+      1.5,
+    );
+    let posts = [wall.u0 + 0.12, wall.u1 - 0.12];
+    for (let pu = wall.u0 + 3.2; pu < wall.u1 - 1.5; pu += 3.3)
+      opens.some((op) => pu > op.a - 0.3 && pu < op.b + 0.3) || posts.push(pu);
+    for (let pu of posts) {
+      let postPos = wallPoint(wall, pu, -0.07);
+      addBlock(full, mats.timber, 0.24, height, 0.14, postPos.x, 0, postPos.z, rot, 1.2);
     }
-    for (let K of P) {
-      let ve = (K.a + K.b) / 2,
-        ge = K.b - K.a;
-      if (K.door) {
-        for (let Q of [K.a - 0.07, K.b + 0.07]) {
-          let oe = y(S, Q, Ba / 2);
-          (Ft(z, r.timber, 0.16, K.v1 + 0.1, Ba + 0.1, oe.x, 0, oe.z, M, 1.2),
-            Ft(D, r.timber, 0.16, z1 + 0.18, Ba + 0.1, oe.x, 0, oe.z, M, 1.2));
+    for (let op of opens) {
+      let mid = (op.a + op.b) / 2,
+        width = op.b - op.a;
+      if (op.door) {
+        for (let pu of [op.a - 0.07, op.b + 0.07]) {
+          let jamb = wallPoint(wall, pu, WALL_THICK / 2);
+          (addBlock(full, mats.timber, 0.16, op.v1 + 0.1, WALL_THICK + 0.1, jamb.x, 0, jamb.z, rot, 1.2),
+            addBlock(
+              cut,
+              mats.timber,
+              0.16,
+              CUT_HEIGHT + 0.18,
+              WALL_THICK + 0.1,
+              jamb.x,
+              0,
+              jamb.z,
+              rot,
+              1.2,
+            ));
         }
-        let ue = y(S, ve, Ba / 2);
-        (Ft(z, r.timber, ge + 0.3, 0.18, Ba + 0.12, ue.x, K.v1, ue.z, M, 1.2),
-          Ft(z, r.slate, ge, 0.05, Ba + 0.12, ue.x, 0, ue.z, M, 1),
-          Ft(D, r.slate, ge, 0.05, Ba + 0.12, ue.x, 0, ue.z, M, 1),
-          n.blob(LAYER.ao, ue.x, ue.z, 1, 0.35));
+        let lintel = wallPoint(wall, mid, WALL_THICK / 2);
+        (addBlock(
+          full,
+          mats.timber,
+          width + 0.3,
+          0.18,
+          WALL_THICK + 0.12,
+          lintel.x,
+          op.v1,
+          lintel.z,
+          rot,
+          1.2,
+        ),
+          addBlock(full, mats.slate, width, 0.05, WALL_THICK + 0.12, lintel.x, 0, lintel.z, rot, 1),
+          addBlock(cut, mats.slate, width, 0.05, WALL_THICK + 0.12, lintel.x, 0, lintel.z, rot, 1),
+          ground.blob(LAYER.ao, lintel.x, lintel.z, 1, 0.35));
       } else {
-        let ue = y(S, ve, Ba / 2);
-        (Ft(z, r.timber, ge + 0.16, 0.1, Ba + 0.06, ue.x, K.v1, ue.z, M, 1.2),
-          Ft(z, r.timber, ge + 0.28, 0.08, Ba + 0.2, ue.x, K.v0 - 0.08, ue.z, M, 1.2));
-        for (let Q of [K.a - 0.05, K.b + 0.05]) {
-          let oe = y(S, Q, Ba / 2);
-          Ft(z, r.timber, 0.1, K.v1 - K.v0 + 0.1, Ba + 0.06, oe.x, K.v0 - 0.05, oe.z, M, 1.2);
+        let lintel = wallPoint(wall, mid, WALL_THICK / 2);
+        (addBlock(
+          full,
+          mats.timber,
+          width + 0.16,
+          0.1,
+          WALL_THICK + 0.06,
+          lintel.x,
+          op.v1,
+          lintel.z,
+          rot,
+          1.2,
+        ),
+          addBlock(
+            full,
+            mats.timber,
+            width + 0.28,
+            0.08,
+            WALL_THICK + 0.2,
+            lintel.x,
+            op.v0 - 0.08,
+            lintel.z,
+            rot,
+            1.2,
+          ));
+        for (let pu of [op.a - 0.05, op.b + 0.05]) {
+          let jamb = wallPoint(wall, pu, WALL_THICK / 2);
+          addBlock(
+            full,
+            mats.timber,
+            0.1,
+            op.v1 - op.v0 + 0.1,
+            WALL_THICK + 0.06,
+            jamb.x,
+            op.v0 - 0.05,
+            jamb.z,
+            rot,
+            1.2,
+          );
         }
       }
     }
-    let X = z.build(`muro_${E}`),
-      J = D.build(`muro_${E}_cortado`);
-    for (let K of P.filter((ve) => ve.window)) {
-      let ve = new Mesh(new PlaneGeometry(K.b - K.a, K.v1 - K.v0), o9()),
-        ge = y(S, (K.a + K.b) / 2, Ba * 0.5);
-      (ve.position.set(ge.x, (K.v0 + K.v1) / 2, ge.z),
-        (ve.rotation.y =
-          S.along === 'x' ? (S.n.z > 0 ? Math.PI : 0) : S.n.x > 0 ? -Math.PI / 2 : Math.PI / 2),
-        X.add(ve));
-      let ue = y(S, (K.a + K.b) / 2, -1.4);
-      n.blob(LAYER.light, ue.x, ue.z, 1.2, 0.35);
+    let fullGroup = full.build(`muro_${side}`),
+      cutGroup = cut.build(`muro_${side}_cortado`);
+    for (let op of opens.filter((cand) => cand.window)) {
+      let glass = new Mesh(new PlaneGeometry(op.b - op.a, op.v1 - op.v0), daylightWindowMat()),
+        gpos = wallPoint(wall, (op.a + op.b) / 2, WALL_THICK * 0.5);
+      (glass.position.set(gpos.x, (op.v0 + op.v1) / 2, gpos.z),
+        (glass.rotation.y =
+          wall.along === 'x' ? (wall.n.z > 0 ? Math.PI : 0) : wall.n.x > 0 ? -Math.PI / 2 : Math.PI / 2),
+        fullGroup.add(glass));
+      let lightPos = wallPoint(wall, (op.a + op.b) / 2, -1.4);
+      ground.blob(LAYER.light, lightPos.x, lightPos.z, 1.2, 0.35);
     }
-    for (let K of J.children) K.castShadow = !1;
-    (d.add(X, J), (J.visible = !1));
-    let Z = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
-    k[E] = { s: S, full: X, cut: J, lamps: [], extra: Z };
+    for (let child of cutGroup.children) child.castShadow = !1;
+    (group.add(fullGroup, cutGroup), (cutGroup.visible = !1));
+    let extra = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
+    sides[side] = { s: wall, full: fullGroup, cut: cutGroup, lamps: [], extra };
   }
-  for (let E of v) {
-    if (!D1.has(E.key)) continue;
-    let S = x(E);
-    switch (E.key) {
+  for (let item of decor) {
+    if (!INTERIOR_DECOR.has(item.key)) continue;
+    let pos = posOf(item);
+    switch (item.key) {
       case 'hearth':
-        await i9(o, r, k.n, S, l, f);
+        await buildHearth(ctx, mats, sides.n, pos, height, room);
         break;
       case 'bar':
-        r9(o, r, E, S, x({ cell: E.to }));
+        buildBar(ctx, mats, item, pos, posOf({ cell: item.to }));
         break;
       case 'bar_shelves':
-        l9(o, r, k.w, S, x({ cell: E.to }), f);
+        buildBarShelves(ctx, mats, sides.w, pos, posOf({ cell: item.to }), room);
         break;
       case 'stairs_up':
-        c9(o, r, k.e, S, x({ cell: E.to }), f, l);
+        buildStairs(ctx, mats, sides.e, pos, posOf({ cell: item.to }), room, height);
         break;
       case 'chandelier':
-        await d9(o, r, S, f, l);
+        await buildChandelier(ctx, mats, pos, room, height);
         break;
       case 'wall_lantern': {
-        let z = k[E.side || 'n'],
-          D = z.s.along === 'x' ? S.x : S.z,
-          M = y(z.s, D, -0.36);
-        z.extra.add('q_lantern', qo(M.x, 1.5, M.z, Math.atan2(-z.s.n.x, -z.s.n.z)));
-        let R = s.addLamp({
-          pos: M.clone().setY(1.85),
+        let side = sides[item.side || 'n'],
+          along = side.s.along === 'x' ? pos.x : pos.z,
+          lpos = wallPoint(side.s, along, -0.36);
+        side.extra.add('q_lantern', xform(lpos.x, 1.5, lpos.z, Math.atan2(-side.s.n.x, -side.s.n.z)));
+        let lamp = fx.addLamp({
+          pos: lpos.clone().setY(1.85),
           color: 16753226,
           range: 5.5,
           energy: 0.9,
@@ -324,96 +416,103 @@ async function $3(o) {
           haloSize: 1.1,
           haloAlpha: 0.45,
         });
-        (z.lamps.push(R || M.clone().setY(1.85)),
-          o.ground.blob(LAYER.light, M.x - z.s.n.x * 1.2, M.z - z.s.n.z * 1.2, 2.2, 0.7));
+        (side.lamps.push(lamp || lpos.clone().setY(1.85)),
+          ctx.ground.blob(LAYER.light, lpos.x - side.s.n.x * 1.2, lpos.z - side.s.n.z * 1.2, 2.2, 0.7));
         break;
       }
       case 'rug': {
-        let [z, D] = E.size || [1.4, 2.4],
-          M = new Mesh(
-            new PlaneGeometry(z, D),
-            new MeshStandardMaterial({ map: n9(E.colors), roughness: 0.95, name: 'alfombra' }),
+        let [rw, rd] = item.size || [1.4, 2.4],
+          rug = new Mesh(
+            new PlaneGeometry(rw, rd),
+            new MeshStandardMaterial({ map: rugTexture(item.colors), roughness: 0.95, name: 'alfombra' }),
           );
-        (M.rotation.set(-Math.PI / 2, 0, degToRad(E.rot || 0)),
-          M.position.set(S.x, 0.008, S.z),
-          (M.receiveShadow = !0),
-          d.add(M));
+        (rug.rotation.set(-Math.PI / 2, 0, degToRad(item.rot || 0)),
+          rug.position.set(pos.x, 0.008, pos.z),
+          (rug.receiveShadow = !0),
+          group.add(rug));
         break;
       }
       case 'woodpile': {
-        let z = [];
-        for (let D = 0; D < 3; D++)
-          for (let M = 0; M < 4 - D; M++) {
-            let R = new CylinderGeometry(0.065, 0.068, 0.6, 8).rotateZ(Math.PI / 2);
-            (R.translate(0, 0.066 + D * 0.115, (M - (3 - D) / 2) * 0.135), z.push(R));
+        let logs = [];
+        for (let layer = 0; layer < 3; layer++)
+          for (let slot = 0; slot < 4 - layer; slot++) {
+            let log = new CylinderGeometry(0.065, 0.068, 0.6, 8).rotateZ(Math.PI / 2);
+            (log.translate(0, 0.066 + layer * 0.115, (slot - (3 - layer) / 2) * 0.135), logs.push(log));
           }
-        (i.addGeometry(mergeGeometries(z), r.bark, qo(S.x, 0, S.z - 0.3, Math.PI / 2 + (c() - 0.5) * 0.2)),
-          n.blob(LAYER.ao, S.x, S.z - 0.3, 0.6, 0.45));
+        (merger.addGeometry(
+          mergeGeometries(logs),
+          mats.bark,
+          xform(pos.x, 0, pos.z - 0.3, Math.PI / 2 + (rnd() - 0.5) * 0.2),
+        ),
+          ground.blob(LAYER.ao, pos.x, pos.z - 0.3, 0.6, 0.45));
         break;
       }
       default:
     }
   }
-  for (let E of Object.values(k)) {
-    let S = E.extra.build('colgado');
-    for (let z of S.children) z.castShadow = !1;
-    E.full.add(S);
+  for (let side of Object.values(sides)) {
+    let hung = side.extra.build('colgado');
+    for (let child of hung.children) child.castShadow = !1;
+    side.full.add(hung);
   }
-  for (let E of Object.values(k))
-    E.lampSrc = E.lamps.map((S) => (S.isVector3 ? s.lampSources.find((z) => z.pos.distanceTo(S) < 0.3) : S));
-  for (let E of Object.values(g))
-    for (let S = E.u0; S <= E.u1; S += 0.8) {
-      let z = y(E, S, -0.2);
-      n.blob(LAYER.ao, z.x, z.z, 0.7, 0.4);
+  for (let side of Object.values(sides))
+    side.lampSrc = side.lamps.map((lamp) =>
+      lamp.isVector3 ? fx.lampSources.find((src) => src.pos.distanceTo(lamp) < 0.3) : lamp,
+    );
+  for (let wall of Object.values(walls))
+    for (let pu = wall.u0; pu <= wall.u1; pu += 0.8) {
+      let aoPos = wallPoint(wall, pu, -0.2);
+      ground.blob(LAYER.ao, aoPos.x, aoPos.z, 0.7, 0.4);
     }
-  let T = '';
+  let cutKey = '';
   return {
-    group: d,
-    room: f,
-    updateCutaway(E) {
-      let S = Object.values(k)
-        .map((z) => (z.s.n.dot(E) < -0.18 ? 1 : 0))
+    group,
+    room,
+    updateCutaway(dir) {
+      let key = Object.values(sides)
+        .map((side) => (side.s.n.dot(dir) < -0.18 ? 1 : 0))
         .join('');
-      S !== T &&
-        ((T = S),
-        Object.values(k).forEach((z, D) => {
-          let M = S[D] === '1';
-          ((z.full.visible = !M), (z.cut.visible = M));
-          for (let R of z.lampSrc || []) R && (R.on = !M);
+      key !== cutKey &&
+        ((cutKey = key),
+        Object.values(sides).forEach((side, idx) => {
+          let cut = key[idx] === '1';
+          ((side.full.visible = !cut), (side.cut.visible = cut));
+          for (let lamp of side.lampSrc || []) lamp && (lamp.on = !cut);
         }));
     },
   };
 }
-async function i9(o, e, t, a, n, s) {
-  let i = o.static,
-    { ground: r, fx: l } = o,
-    c = s.z0,
-    d = a.x,
-    u = new MeshMerger({ contactH: 0.6, contactMin: 0.8, groundAt: () => 0, finish: { wind: 0 } });
-  for (let m of [-1.05, 1.05]) Ft(i, e.stone, 0.5, 1.2, 0.62, d + m, 0, c + 0.31, 0, 1.4);
-  (Ft(i, e.soot, 1.62, 1.2, 0.04, d, 0, c + 0.02),
-    Ft(i, e.slate, 1.6, 0.06, 0.6, d, 0, c + 0.3, 0, 1),
-    Ft(i, e.slate, 3.1, 0.07, 0.85, d, 0, c + 1.04, 0, 1),
-    Ft(u, e.stone, 2.6, 0.42, 0.66, d, 1.2, c + 0.33, 0, 1.4),
-    Ft(u, e.stone, 2.36, n - 1.62, 0.5, d, 1.62, c + 0.25, 0, 1.4),
-    Ft(u, e.timber, 2.95, 0.14, 0.36, d, 1.62, c + 0.66, 0, 1.2),
-    t.full.add(u.build('chimenea')));
-  let h = [];
-  for (let [m, _, b, f] of [
+/** Chimenea con hogar encendido, cabeza de toro, velas, escudo y caldero. */
+async function buildHearth(ctx, mats, side, pos, height, room) {
+  let merger = ctx.static,
+    { ground, fx } = ctx,
+    z0 = room.z0,
+    cx = pos.x,
+    chimney = new MeshMerger({ contactH: 0.6, contactMin: 0.8, groundAt: () => 0, finish: { wind: 0 } });
+  for (let dx of [-1.05, 1.05]) addBlock(merger, mats.stone, 0.5, 1.2, 0.62, cx + dx, 0, z0 + 0.31, 0, 1.4);
+  (addBlock(merger, mats.soot, 1.62, 1.2, 0.04, cx, 0, z0 + 0.02),
+    addBlock(merger, mats.slate, 1.6, 0.06, 0.6, cx, 0, z0 + 0.3, 0, 1),
+    addBlock(merger, mats.slate, 3.1, 0.07, 0.85, cx, 0, z0 + 1.04, 0, 1),
+    addBlock(chimney, mats.stone, 2.6, 0.42, 0.66, cx, 1.2, z0 + 0.33, 0, 1.4),
+    addBlock(chimney, mats.stone, 2.36, height - 1.62, 0.5, cx, 1.62, z0 + 0.25, 0, 1.4),
+    addBlock(chimney, mats.timber, 2.95, 0.14, 0.36, cx, 1.62, z0 + 0.66, 0, 1.2),
+    side.full.add(chimney.build('chimenea')));
+  let logs = [];
+  for (let [lx, lz, ry, rz] of [
     [-0.18, 0.02, 0.2, 1.45],
     [0.2, -0.04, -0.3, 1.5],
     [0, 0.08, 1.2, 1.57],
   ]) {
-    let v = new CylinderGeometry(0.06, 0.063, 0.7, 8);
-    (v.applyMatrix4(new Matrix4().makeRotationFromEuler(new Euler(0, b, f))),
-      v.translate(m, 0.13, _),
-      h.push(v));
+    let log = new CylinderGeometry(0.06, 0.063, 0.7, 8);
+    (log.applyMatrix4(new Matrix4().makeRotationFromEuler(new Euler(0, ry, rz))),
+      log.translate(lx, 0.13, lz),
+      logs.push(log));
   }
-  i.addGeometry(mergeGeometries(h), e.bark, qo(d, 0, c + 0.34));
-  let p = new Vector3(d, 0.12, c + 0.36);
-  (l.flames.push({ pos: p, scale: 1.7 }),
-    l.addLamp({
-      pos: p.clone().add(new Vector3(0, 0.55, 0.35)),
+  merger.addGeometry(mergeGeometries(logs), mats.bark, xform(cx, 0, z0 + 0.34));
+  let firePos = new Vector3(cx, 0.12, z0 + 0.36);
+  (fx.flames.push({ pos: firePos, scale: 1.7 }),
+    fx.addLamp({
+      pos: firePos.clone().add(new Vector3(0, 0.55, 0.35)),
       color: 16747060,
       range: 10,
       energy: 2.4,
@@ -421,21 +520,21 @@ async function i9(o, e, t, a, n, s) {
       haloSize: 2.4,
       haloAlpha: 0.5,
     }),
-    r.blob(LAYER.light, d, c + 1.6, 3.4, 1),
-    r.blob(LAYER.ao, d, c + 0.3, 1.2, 0.5));
+    ground.blob(LAYER.light, cx, z0 + 1.6, 3.4, 1),
+    ground.blob(LAYER.ao, cx, z0 + 0.3, 1.2, 0.5));
   try {
-    let m = fixGlass(await loadProp('bull_head'));
-    (m.scale.setScalar(1.55),
-      m.position.set(d, 2.05, c + 0.52),
-      m.traverse((_) => {
-        _.isMesh && (_.castShadow = !1);
+    let head = fixGlass(await loadProp('bull_head'));
+    (head.scale.setScalar(1.55),
+      head.position.set(cx, 2.05, z0 + 0.52),
+      head.traverse((node) => {
+        node.isMesh && (node.castShadow = !1);
       }),
-      t.full.add(m));
+      side.full.add(head));
   } catch {}
-  for (let m of [-1.15, 1.15]) t.extra.add('q_candles3', qo(d + m, 1.76, c + 0.66));
-  for (let m of [-1.15, 1.15])
-    l.addLamp({
-      pos: new Vector3(d + m, 2.15, c + 0.7),
+  for (let dx of [-1.15, 1.15]) side.extra.add('q_candles3', xform(cx + dx, 1.76, z0 + 0.66));
+  for (let dx of [-1.15, 1.15])
+    fx.addLamp({
+      pos: new Vector3(cx + dx, 2.15, z0 + 0.7),
       color: 16756832,
       range: 3,
       energy: 0.6,
@@ -443,37 +542,39 @@ async function i9(o, e, t, a, n, s) {
       haloSize: 0.8,
       haloAlpha: 0.4,
     });
-  (t.extra.add('q_shield', qo(d + 2.25, 1.55, c + 0.11, 0, 1.25)),
-    i.add('q_cauldron', qo(d - 1.75, 0, c + 0.75, 0.6)),
-    o.ground.blob(LAYER.ao, d - 1.75, c + 0.75, 0.6, 0.4));
+  (side.extra.add('q_shield', xform(cx + 2.25, 1.55, z0 + 0.11, 0, 1.25)),
+    merger.add('q_cauldron', xform(cx - 1.75, 0, z0 + 0.75, 0.6)),
+    ctx.ground.blob(LAYER.ao, cx - 1.75, z0 + 0.75, 0.6, 0.4));
 }
-function r9(o, e, t, a, n) {
-  let s = o.static,
-    i = (a.x + n.x) / 2 + 0.25,
-    r = Math.min(a.z, n.z) - 0.45,
-    l = Math.max(a.z, n.z) + 0.45,
-    c = l - r,
-    d = (r + l) / 2;
-  (Ft(s, e.barWood, 0.55, 1, c, i, 0, d, 0, 1),
-    Ft(s, e.barTop, 0.8, 0.08, c + 0.2, i, 1, d, 0, 1.4),
-    Ft(s, e.soot, 0.6, 0.12, c, i + 0.02, 0, d));
-  for (let m = r + 0.25; m < l; m += 0.48) Ft(s, e.timber, 0.04, 0.82, 0.09, i + 0.29, 0.1, m, 0, 1);
-  let u = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
-  for (let [m, _] of [
+/** Barra de la posada entre `from` y `to`, con jarras, velas y farol. */
+function buildBar(ctx, mats, item, from, to) {
+  let merger = ctx.static,
+    bx = (from.x + to.x) / 2 + 0.25,
+    z0 = Math.min(from.z, to.z) - 0.45,
+    z1 = Math.max(from.z, to.z) + 0.45,
+    len = z1 - z0,
+    cz = (z0 + z1) / 2;
+  (addBlock(merger, mats.barWood, 0.55, 1, len, bx, 0, cz, 0, 1),
+    addBlock(merger, mats.barTop, 0.8, 0.08, len + 0.2, bx, 1, cz, 0, 1.4),
+    addBlock(merger, mats.soot, 0.6, 0.12, len, bx + 0.02, 0, cz));
+  for (let pz = z0 + 0.25; pz < z1; pz += 0.48)
+    addBlock(merger, mats.timber, 0.04, 0.82, 0.09, bx + 0.29, 0.1, pz, 0, 1);
+  let items = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
+  for (let [dz, ry] of [
     [0.3, 0.3],
     [0.5, -0.6],
     [1.6, 2.1],
     [2.9, 1],
   ])
-    u.add('q_mug', qo(i + 0.05, 1.08, r + m, _));
-  u.add('q_candles3', qo(i - 0.05, 1.08, r + 0.95, 0.4));
-  let h = (r + l) / 2 + 0.6;
-  u.add('lantern', qo(i - 0.05, 1.08, h, 0.3, 0.3));
-  let p = u.build('barra_cosas');
-  for (let m of p.children) m.castShadow = !1;
-  (o.scene.add(p),
-    o.fx.addLamp({
-      pos: new Vector3(i - 0.05, 1.32, h),
+    items.add('q_mug', xform(bx + 0.05, 1.08, z0 + dz, ry));
+  items.add('q_candles3', xform(bx - 0.05, 1.08, z0 + 0.95, 0.4));
+  let lampZ = (z0 + z1) / 2 + 0.6;
+  items.add('lantern', xform(bx - 0.05, 1.08, lampZ, 0.3, 0.3));
+  let itemsGroup = items.build('barra_cosas');
+  for (let child of itemsGroup.children) child.castShadow = !1;
+  (ctx.scene.add(itemsGroup),
+    ctx.fx.addLamp({
+      pos: new Vector3(bx - 0.05, 1.32, lampZ),
       color: 16753226,
       range: 5.5,
       energy: 1,
@@ -481,98 +582,119 @@ function r9(o, e, t, a, n) {
       haloSize: 1,
       haloAlpha: 0.45,
     }),
-    o.ground.blob(LAYER.light, i + 0.6, h, 2, 0.7),
-    o.ground.blob(LAYER.ao, i, d, 1, 0.45));
-  for (let m = r; m <= l; m += 0.6) o.ground.blob(LAYER.ao, i, m, 0.7, 0.3);
+    ctx.ground.blob(LAYER.light, bx + 0.6, lampZ, 2, 0.7),
+    ctx.ground.blob(LAYER.ao, bx, cz, 1, 0.45));
+  for (let pz = z0; pz <= z1; pz += 0.6) ctx.ground.blob(LAYER.ao, bx, pz, 0.7, 0.3);
 }
-function l9(o, e, t, a, n, s) {
-  let i = o.static,
-    r = Math.min(a.z, n.z) - 0.3,
-    l = Math.max(a.z, n.z) + 0.3,
-    c = l - r,
-    d = (r + l) / 2,
-    u = s.x0;
-  (Ft(i, e.barWood, 0.42, 0.9, c, u + 0.21, 0, d, 0, 1),
-    Ft(i, e.barTop, 0.48, 0.05, c + 0.06, u + 0.24, 0.9, d, 0, 1.4));
-  let h = [],
-    p = [];
-  for (let _ = 0; _ < Math.floor(c / 0.19); _++) {
-    let b = s9(0.26 + (_ % 3) * 0.04).translate(u + 0.2 + (_ % 2) * 0.08, 0.95, r + 0.15 + _ * 0.19);
-    (_ % 3 === 1 ? p : h).push(b);
+/** Estantes de botellas, jarras y platos tras la barra, en el muro oeste. */
+function buildBarShelves(ctx, mats, side, from, to, room) {
+  let merger = ctx.static,
+    z0 = Math.min(from.z, to.z) - 0.3,
+    z1 = Math.max(from.z, to.z) + 0.3,
+    len = z1 - z0,
+    cz = (z0 + z1) / 2,
+    x0 = room.x0;
+  (addBlock(merger, mats.barWood, 0.42, 0.9, len, x0 + 0.21, 0, cz, 0, 1),
+    addBlock(merger, mats.barTop, 0.48, 0.05, len + 0.06, x0 + 0.24, 0.9, cz, 0, 1.4));
+  let green = [],
+    amber = [];
+  for (let k = 0; k < Math.floor(len / 0.19); k++) {
+    let bottle = bottleGeometry(0.26 + (k % 3) * 0.04).translate(
+      x0 + 0.2 + (k % 2) * 0.08,
+      0.95,
+      z0 + 0.15 + k * 0.19,
+    );
+    (k % 3 === 1 ? amber : green).push(bottle);
   }
-  (h.length && i.addGeometry(mergeGeometries(h), e.green, new Matrix4()),
-    p.length && i.addGeometry(mergeGeometries(p), e.amber, new Matrix4()));
-  let m = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
-  for (let _ of [1.48, 2.06]) {
-    Ft(m, e.barTop, 0.32, 0.05, c, u + 0.18, _, d, 0, 1.4);
-    for (let b of [r + 0.3, d, l - 0.3]) Ft(m, e.iron, 0.05, 0.16, 0.05, u + 0.06, _ - 0.16, b);
+  (green.length && merger.addGeometry(mergeGeometries(green), mats.green, new Matrix4()),
+    amber.length && merger.addGeometry(mergeGeometries(amber), mats.amber, new Matrix4()));
+  let shelves = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
+  for (let sy of [1.48, 2.06]) {
+    addBlock(shelves, mats.barTop, 0.32, 0.05, len, x0 + 0.18, sy, cz, 0, 1.4);
+    for (let bz of [z0 + 0.3, cz, z1 - 0.3])
+      addBlock(shelves, mats.iron, 0.05, 0.16, 0.05, x0 + 0.06, sy - 0.16, bz);
   }
-  for (let _ = 0; _ < Math.floor(c / 0.32); _++)
-    m.add('q_mug', qo(u + 0.18, 1.505, r + 0.2 + _ * 0.32, Math.PI));
-  for (let _ = 0; _ < Math.floor(c / 0.4); _++) {
-    let b = new CylinderGeometry(0.11, 0.11, 0.02, 14).rotateZ(Math.PI / 2 - 0.25);
-    m.addGeometry(b, e.clay, qo(u + 0.12, 2.2, r + 0.25 + _ * 0.4));
+  for (let k = 0; k < Math.floor(len / 0.32); k++)
+    shelves.add('q_mug', xform(x0 + 0.18, 1.505, z0 + 0.2 + k * 0.32, Math.PI));
+  for (let k = 0; k < Math.floor(len / 0.4); k++) {
+    let plate = new CylinderGeometry(0.11, 0.11, 0.02, 14).rotateZ(Math.PI / 2 - 0.25);
+    shelves.addGeometry(plate, mats.clay, xform(x0 + 0.12, 2.2, z0 + 0.25 + k * 0.4));
   }
-  t.full.add(m.build('estantes'));
+  side.full.add(shelves.build('estantes'));
 }
-function c9(o, e, t, a, n, s, i) {
-  let r = o.static,
-    l = 1.1,
-    c = s.x1 - l / 2,
-    d = a.z + 0.5,
-    u = Math.max(s.z0 + 0.5, n.z - 0.4),
-    h = Math.min(i - 0.8, 2.6),
-    p = d - u,
-    m = Math.max(6, Math.round(h / 0.2)),
-    _ = p / m,
-    b = h / m;
-  for (let w = 0; w < m; w++) {
-    let k = b * (w + 1),
-      T = d - _ * (w + 0.5);
-    (Ft(r, e.panel, l, 0.05, _ + 0.04, c, k - 0.05, T, 0, 1),
-      Ft(r, e.barWood, l, b, 0.03, c, k - b, T + _ / 2, 0, 1));
+/** Escalera hacia el piso de arriba con barandilla y puerta de las habitaciones. */
+function buildStairs(ctx, mats, side, from, to, room, height) {
+  let merger = ctx.static,
+    width = 1.1,
+    sx = room.x1 - width / 2,
+    zStart = from.z + 0.5,
+    zEnd = Math.max(room.z0 + 0.5, to.z - 0.4),
+    rise = Math.min(height - 0.8, 2.6),
+    run = zStart - zEnd,
+    steps = Math.max(6, Math.round(rise / 0.2)),
+    stepRun = run / steps,
+    stepRise = rise / steps;
+  for (let j = 0; j < steps; j++) {
+    let sy = stepRise * (j + 1),
+      sz = zStart - stepRun * (j + 0.5);
+    (addBlock(merger, mats.panel, width, 0.05, stepRun + 0.04, sx, sy - 0.05, sz, 0, 1),
+      addBlock(merger, mats.barWood, width, stepRise, 0.03, sx, sy - stepRise, sz + stepRun / 2, 0, 1));
   }
-  let f = Math.hypot(p, h),
-    v = L1(0.08, 0.26, f, 1.2);
-  (v.rotateX(Math.atan2(h, p)),
-    v.translate(c - l / 2 - 0.04, h / 2 - 0.05, (d + u) / 2),
-    r.addGeometry(v, e.timber, new Matrix4()),
-    Ft(r, e.panel, l, 0.08, u - s.z0, c, h - 0.08, (u + s.z0) / 2, 0, 1),
-    Ft(r, e.timber, 0.14, h, 0.14, c - l / 2 + 0.07, 0, u, 0, 1),
-    Ft(r, e.timber, 0.14, h, 0.14, c - l / 2 + 0.07, 0, s.z0 + 0.07, 0, 1));
-  for (let w = 0; w <= m; w += 3) {
-    let k = b * w,
-      T = d - _ * w;
-    Ft(r, e.timber, 0.06, 0.9, 0.06, c - l / 2 + 0.05, k, T, 0, 1);
+  let slope = Math.hypot(run, rise),
+    stringer = blockGeometry(0.08, 0.26, slope, 1.2);
+  (stringer.rotateX(Math.atan2(rise, run)),
+    stringer.translate(sx - width / 2 - 0.04, rise / 2 - 0.05, (zStart + zEnd) / 2),
+    merger.addGeometry(stringer, mats.timber, new Matrix4()),
+    addBlock(merger, mats.panel, width, 0.08, zEnd - room.z0, sx, rise - 0.08, (zEnd + room.z0) / 2, 0, 1),
+    addBlock(merger, mats.timber, 0.14, rise, 0.14, sx - width / 2 + 0.07, 0, zEnd, 0, 1),
+    addBlock(merger, mats.timber, 0.14, rise, 0.14, sx - width / 2 + 0.07, 0, room.z0 + 0.07, 0, 1));
+  for (let j = 0; j <= steps; j += 3) {
+    let py = stepRise * j,
+      pz = zStart - stepRun * j;
+    addBlock(merger, mats.timber, 0.06, 0.9, 0.06, sx - width / 2 + 0.05, py, pz, 0, 1);
   }
-  let x = L1(0.07, 0.07, f, 1.2);
-  (x.rotateX(Math.atan2(h, p)),
-    x.translate(c - l / 2 + 0.05, h / 2 + 0.9, (d + u) / 2),
-    r.addGeometry(x, e.timber, new Matrix4()));
-  let g = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } }),
-    y = (u + s.z0) / 2;
-  (Ft(g, e.soot, 0.04, 2, 0.9, s.x1 - 0.02, h, y),
-    Ft(g, e.timber, 0.12, 0.14, 1.15, s.x1 - 0.05, h + 2, y, 0, 1));
-  for (let w of [-0.52, 0.52]) Ft(g, e.timber, 0.12, 2, 0.12, s.x1 - 0.05, h, y + w, 0, 1);
-  (t.full.add(g.build('puerta_habitaciones')), o.ground.blob(LAYER.ao, c, (d + u) / 2, 1.2, 0.4));
+  let rail = blockGeometry(0.07, 0.07, slope, 1.2);
+  (rail.rotateX(Math.atan2(rise, run)),
+    rail.translate(sx - width / 2 + 0.05, rise / 2 + 0.9, (zStart + zEnd) / 2),
+    merger.addGeometry(rail, mats.timber, new Matrix4()));
+  let door = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } }),
+    doorZ = (zEnd + room.z0) / 2;
+  (addBlock(door, mats.soot, 0.04, 2, 0.9, room.x1 - 0.02, rise, doorZ),
+    addBlock(door, mats.timber, 0.12, 0.14, 1.15, room.x1 - 0.05, rise + 2, doorZ, 0, 1));
+  for (let dz of [-0.52, 0.52])
+    addBlock(door, mats.timber, 0.12, 2, 0.12, room.x1 - 0.05, rise, doorZ + dz, 0, 1);
+  (side.full.add(door.build('puerta_habitaciones')),
+    ctx.ground.blob(LAYER.ao, sx, (zStart + zEnd) / 2, 1.2, 0.4));
 }
-async function d9(o, e, t, a, n) {
-  let s = o.static;
-  Ft(s, e.timber, a.x1 - a.x0 + 2 * Ba, 0.26, 0.24, (a.x0 + a.x1) / 2, n - 0.36, t.z, 0, 1.5);
+/** Viga y lámpara de araña colgada del techo. */
+async function buildChandelier(ctx, mats, pos, room, height) {
+  let merger = ctx.static;
+  addBlock(
+    merger,
+    mats.timber,
+    room.x1 - room.x0 + 2 * WALL_THICK,
+    0.26,
+    0.24,
+    (room.x0 + room.x1) / 2,
+    height - 0.36,
+    pos.z,
+    0,
+    1.5,
+  );
   try {
-    let r = fixGlass(await loadProp('lantern_chandelier_01'));
-    (r.scale.setScalar(1.15),
-      r.position.set(t.x, n - 0.48, t.z),
-      r.traverse((l) => {
-        l.isMesh && (l.castShadow = !1);
+    let lamp = fixGlass(await loadProp('lantern_chandelier_01'));
+    (lamp.scale.setScalar(1.15),
+      lamp.position.set(pos.x, height - 0.48, pos.z),
+      lamp.traverse((node) => {
+        node.isMesh && (node.castShadow = !1);
       }),
-      o.scene.add(r));
+      ctx.scene.add(lamp));
   } catch {}
-  let i = new Mesh(new BoxGeometry(0.03, 0.14, 0.03), V3().iron);
-  (i.position.set(t.x, n - 0.44, t.z),
-    o.scene.add(i),
-    o.fx.addLamp({
-      pos: new Vector3(t.x, n - 1.1, t.z),
+  let hook = new Mesh(new BoxGeometry(0.03, 0.14, 0.03), interiorMats().iron);
+  (hook.position.set(pos.x, height - 0.44, pos.z),
+    ctx.scene.add(hook),
+    ctx.fx.addLamp({
+      pos: new Vector3(pos.x, height - 1.1, pos.z),
       color: 16756838,
       range: 10,
       energy: 1.6,
@@ -580,9 +702,10 @@ async function d9(o, e, t, a, n) {
       haloSize: 1.6,
       haloAlpha: 0.45,
     }),
-    o.ground.blob(LAYER.light, t.x, t.z, 3.5, 0.75));
+    ctx.ground.blob(LAYER.light, pos.x, pos.z, 3.5, 0.75));
 }
-const D1 = new Set([
+/** Claves de `level.decor` que construye este módulo (props.js las salta). */
+const INTERIOR_DECOR = new Set([
   'hearth',
   'window',
   'bar',
@@ -593,16 +716,18 @@ const D1 = new Set([
   'rug',
   'woodpile',
 ]);
-const Ba = 0.3;
-const z1 = 0.45;
-let Qm = null;
-const xW = new Matrix4();
-const qo = (o, e, t, a = 0, n = 1) =>
+/** Grosor de los muros (m) y altura de los muros recortados (m). */
+const WALL_THICK = 0.3;
+const CUT_HEIGHT = 0.45;
+let interiorMatsCache = null;
+const tmpMatrix = new Matrix4();
+/** Matriz de posición, giro en Y y escala uniforme. */
+const xform = (x, y, z, ry = 0, scale = 1) =>
   new Matrix4().compose(
-    new Vector3(o, e, t),
-    new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), a),
-    new Vector3(n, n, n),
+    new Vector3(x, y, z),
+    new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), ry),
+    new Vector3(scale, scale, scale),
   );
-let e0 = null;
+let windowMatCache = null;
 
-export { $3, D1 };
+export { buildInterior, INTERIOR_DECOR };

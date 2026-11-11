@@ -12,7 +12,7 @@ import { LAYER, Ground } from './ground.js';
 import { buildVegetation } from './vegetation.js';
 import { buildBuildings } from './buildings.js';
 import { buildProps, propPiece } from './props.js';
-import { $3 } from './interiors.js';
+import { buildInterior } from './interiors.js';
 import { buildObjects } from './procedural.js';
 import { buildWater, WATER_LEVEL } from './water.js';
 import { CryptWalls } from './crypt.js';
@@ -135,7 +135,7 @@ async function buildLevel(
   let walls = null,
     hasWalls = level.rows?.some((line) => line.includes('#'));
   (isInn
-    ? (walls = await $3(ctx))
+    ? (walls = await buildInterior(ctx))
     : hasWalls &&
       ((walls = new CryptWalls(ctx, {
         height: level.wall_height ?? (isCrypt ? 0.85 : 0.8),
