@@ -1,5 +1,10 @@
-// combat/units.js
-// Reconstruido de publicado/juego.js (módulo __esm «f3»). Nombres locales aún minificados.
+// combat/units.js — Unidades del combate: la figura de cada criatura con su anillo y su cilindro de selección.
+// `createUnits` reutiliza las figuras de la exploración (grupo y enemigos ya colocados) y crea las que faltan:
+// héroe y compañeros con el aspecto de su clase o de roster.js, trasgos con orejas, no muertos y bandidos
+// (creatures.js) y bestias procedurales. La clase Unit unifica dos tipos de figura: Character de actors/ y
+// los envoltorios con `anim`/`once` de la exploración, y añade caminar por casillas, encararse, animaciones
+// de ataque/golpe/caída, el anillo de estado y el hundimiento de los muertos. Lo usan combat/index.js y
+// combat/controller.js.
 
 import {
   CanvasTexture,
@@ -24,73 +29,77 @@ import { hc } from '../actors/roster.js';
 import { cellToWorld } from '../explore/hex.js';
 import { humanoidMonsterLook, isBeast, makeBeast } from './creatures.js';
 
-function u3() {
-  let o = new Group(),
-    e = new MeshStandardMaterial({ color: 5913118, roughness: 0.75 }),
-    t = new QuadraticBezierCurve3(new Vector3(0, -0.48, 0), new Vector3(0, 0, 0.2), new Vector3(0, 0.48, 0));
-  (o.add(new Mesh(new TubeGeometry(t, 18, 0.013, 6), e)),
-    o.add(
+/** Arco con cuerda y empuñadura (arqueros trasgo y exploradores). */
+function makeBowProp() {
+  let bow = new Group(),
+    mat = new MeshStandardMaterial({ color: 5913118, roughness: 0.75 }),
+    curve = new QuadraticBezierCurve3(new Vector3(0, -0.48, 0), new Vector3(0, 0, 0.2), new Vector3(0, 0.48, 0));
+  (bow.add(new Mesh(new TubeGeometry(curve, 18, 0.013, 6), mat)),
+    bow.add(
       new Mesh(new CylinderGeometry(0.0025, 0.0025, 0.96, 4), new MeshBasicMaterial({ color: 14209208 })),
     ));
-  let a = new Mesh(
+  let grip = new Mesh(
     new CylinderGeometry(0.02, 0.02, 0.12, 6),
     new MeshStandardMaterial({ color: 2759184, roughness: 0.9 }),
   );
   return (
-    (a.position.z = 0.15),
-    o.add(a),
-    o.traverse((n) => {
-      n.isMesh && (n.castShadow = !0);
+    (grip.position.z = 0.15),
+    bow.add(grip),
+    bow.traverse((obj) => {
+      obj.isMesh && (obj.castShadow = !0);
     }),
-    o
+    bow
   );
 }
-function h3() {
-  let o = new Group(),
-    e = new MeshStandardMaterial({ color: 5978914, roughness: 0.8 }),
-    t = new Mesh(new CylinderGeometry(0.018, 0.022, 1.55, 8), e);
-  ((t.position.y = 0.35), o.add(t));
-  let a = new Mesh(
+/** Bastón con gema brillante (magos, druidas, Odvar). */
+function makeStaff() {
+  let staff = new Group(),
+    mat = new MeshStandardMaterial({ color: 5978914, roughness: 0.8 }),
+    shaft = new Mesh(new CylinderGeometry(0.018, 0.022, 1.55, 8), mat);
+  ((shaft.position.y = 0.35), staff.add(shaft));
+  let gem = new Mesh(
     new OctahedronGeometry(0.035),
     new MeshStandardMaterial({ color: 10475775, emissive: 3837904, emissiveIntensity: 2.2, roughness: 0.2 }),
   );
   return (
-    (a.position.y = 1.18),
-    o.add(a),
-    o.traverse((n) => {
-      n.isMesh && (n.castShadow = !0);
+    (gem.position.y = 1.18),
+    staff.add(gem),
+    staff.traverse((obj) => {
+      obj.isMesh && (obj.castShadow = !0);
     }),
-    o
+    staff
   );
 }
-function vH(o) {
-  return (e) => {
-    let t = e.getObjectByName('Head');
-    if (!t) return;
-    let a = new MeshStandardMaterial({ color: o, roughness: 0.7 }),
-      n = t.getWorldPosition(new Vector3()),
-      s = new Matrix4().copy(t.matrixWorld).invert(),
-      i = t.getWorldQuaternion(new Quaternion());
-    for (let r of [-1, 1]) {
-      let l = new Mesh(new ConeGeometry(0.045, 0.3, 6), a);
-      l.scale.set(1, 1, 0.42);
-      let c = n.clone().add(new Vector3(r * 0.08, 0.1, -0.01)),
-        d = new Vector3(r * 1, 0.5, -0.22).normalize(),
-        u = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), d);
-      (l.position.copy(c.clone().applyMatrix4(s)),
-        l.quaternion.copy(i.clone().invert().multiply(u)),
-        l.translateY(0.12),
-        (l.castShadow = !0),
-        t.add(l));
+/** Extra que añade dos orejas puntiagudas al hueso «Head». */
+function goblinEars(color) {
+  return (root) => {
+    let head = root.getObjectByName('Head');
+    if (!head) return;
+    let mat = new MeshStandardMaterial({ color, roughness: 0.7 }),
+      headPos = head.getWorldPosition(new Vector3()),
+      inverse = new Matrix4().copy(head.matrixWorld).invert(),
+      headQuat = head.getWorldQuaternion(new Quaternion());
+    for (let side of [-1, 1]) {
+      let ear = new Mesh(new ConeGeometry(0.045, 0.3, 6), mat);
+      ear.scale.set(1, 1, 0.42);
+      let pos = headPos.clone().add(new Vector3(side * 0.08, 0.1, -0.01)),
+        dir = new Vector3(side * 1, 0.5, -0.22).normalize(),
+        quat = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dir);
+      (ear.position.copy(pos.clone().applyMatrix4(inverse)),
+        ear.quaternion.copy(headQuat.clone().invert().multiply(quat)),
+        ear.translateY(0.12),
+        (ear.castShadow = !0),
+        head.add(ear));
     }
   };
 }
-function _H(o) {
-  let e = xH[o.template] ?? 8033864,
-    t = { id: o.id, skin: e, skinLum: !0, scale: 0.64, extras: vH(e), walk: 'Jog_Fwd_Loop' };
-  return o.template === 'goblin_warrior' || o.template === 'goblin_boss'
+/** Aspecto de un trasgo según su plantilla (esbirro, guerrero, arquero, jefe). */
+function goblinLook(creature) {
+  let skin = GOBLIN_SKINS[creature.template] ?? 8033864,
+    base = { id: creature.id, skin, skinLum: !0, scale: 0.64, extras: goblinEars(skin), walk: 'Jog_Fwd_Loop' };
+  return creature.template === 'goblin_warrior' || creature.template === 'goblin_boss'
     ? {
-        ...t,
+        ...base,
         outfit: 'Male_Ranger',
         variant: 'T_Ranger_3_BaseColor',
         hideParts: ['Hood'],
@@ -106,19 +115,19 @@ function _H(o) {
             rot: [0, 90, 0],
           },
         ],
-        scale: o.template === 'goblin_boss' ? 0.72 : 0.66,
+        scale: creature.template === 'goblin_boss' ? 0.72 : 0.66,
       }
-    : o.template === 'goblin_archer'
+    : creature.template === 'goblin_archer'
       ? {
-          ...t,
+          ...base,
           outfit: 'Male_Ranger',
           recolor: { from: 0.33, width: 0.2, shift: 0.02, sat: 0.6, val: 0.7 },
           extras: null,
           anim: 'Idle_Loop',
-          attach: [{ make: u3, bone: 'hand_l', scale: 1, pos: [0, 0.08, 0], rot: [0, 0, 90] }],
+          attach: [{ make: makeBowProp, bone: 'hand_l', scale: 1, pos: [0, 0.08, 0], rot: [0, 0, 90] }],
         }
       : {
-          ...t,
+          ...base,
           outfit: 'Male_Peasant',
           variant: 'T_Peasant_2_BaseColor',
           recolor: { from: 0.08, width: 0.16, shift: -0.02, sat: 0.75, val: 0.75 },
@@ -129,109 +138,120 @@ function _H(o) {
           scale: 0.6,
         };
 }
-function wH(o, e = 0) {
-  let t = l3[o.cls] || l3.fighter,
-    a = t.outfit.startsWith('Female'),
-    n = {
-      id: o.id,
-      outfit: t.outfit,
-      variant: t.variant,
-      hideParts: t.hideParts,
-      recolor: t.recolor,
-      anim: t.anim,
-      skin: c3[e % c3.length],
-      hair: a ? ['Hair_Long'] : e % 2 ? ['Hair_Beard', 'Hair_Buzzed'] : ['Hair_SimpleParted'],
-      hairColor: d3[e % d3.length],
+/** Aspecto genérico de un miembro del grupo por su clase (piel y pelo según `index`). */
+function classLook(creature, index = 0) {
+  let look = CLASS_LOOKS[creature.cls] || CLASS_LOOKS.fighter,
+    female = look.outfit.startsWith('Female'),
+    def = {
+      id: creature.id,
+      outfit: look.outfit,
+      variant: look.variant,
+      hideParts: look.hideParts,
+      recolor: look.recolor,
+      anim: look.anim,
+      skin: SKIN_TONES[index % SKIN_TONES.length],
+      hair: female ? ['Hair_Long'] : index % 2 ? ['Hair_Beard', 'Hair_Buzzed'] : ['Hair_SimpleParted'],
+      hairColor: HAIR_COLORS[index % HAIR_COLORS.length],
       walk: 'Jog_Fwd_Loop',
       attach: [],
     };
   return (
-    t.weapon &&
-      n.attach.push({ prop: t.weapon, bone: 'hand_r', scale: 0.6, pos: [0, 0.07, 0.03], rot: [0, 0, -90] }),
-    t.shield &&
-      n.attach.push({
+    look.weapon &&
+      def.attach.push({ prop: look.weapon, bone: 'hand_r', scale: 0.6, pos: [0, 0.07, 0.03], rot: [0, 0, -90] }),
+    look.shield &&
+      def.attach.push({
         prop: 'q_Shield_Wooden',
         bone: 'lowerarm_l',
         scale: 0.85,
         pos: [0.06, 0.13, -0.05],
         rot: [0, 90, 0],
       }),
-    t.staff && n.attach.push({ make: h3, bone: 'hand_r', scale: 1, pos: [0, 0.06, 0.02], rot: [0, 0, -90] }),
-    t.bow && n.attach.push({ make: u3, bone: 'hand_l', scale: 1, pos: [0, 0.08, 0], rot: [0, 0, 90] }),
-    (o.species === 'dwarf' || o.species === 'halfling' || o.species === 'gnome') && (n.scale = 0.8),
-    n
+    look.staff && def.attach.push({ make: makeStaff, bone: 'hand_r', scale: 1, pos: [0, 0.06, 0.02], rot: [0, 0, -90] }),
+    look.bow && def.attach.push({ make: makeBowProp, bone: 'hand_l', scale: 1, pos: [0, 0.08, 0], rot: [0, 0, 90] }),
+    (creature.species === 'dwarf' || creature.species === 'halfling' || creature.species === 'gnome') && (def.scale = 0.8),
+    def
   );
 }
-function TH(o, e) {
-  let t = hc.find((n) => n.id === o.id);
-  if (!t) return wH(o, e);
-  let a = { ...t, ...yH[o.id] };
-  return (delete a.pos, delete a.lookAt, (a.walk = 'Jog_Fwd_Loop'), a);
+/** Aspecto de un miembro: el de roster.js con sus ajustes de combate, o el de su clase. */
+function partyLook(creature, index) {
+  let preset = hc.find((p) => p.id === creature.id);
+  if (!preset) return classLook(creature, index);
+  let def = { ...preset, ...COMPANION_OVERRIDES[creature.id] };
+  return (delete def.pos, delete def.lookAt, (def.walk = 'Jog_Fwd_Loop'), def);
 }
-function MH() {
-  if (Iu) return Iu;
-  let o = document.createElement('canvas');
-  o.width = o.height = 128;
-  let e = o.getContext('2d');
+/** Textura del anillo bajo las unidades (círculo y trazo interior), creada una vez. */
+function ringTexture() {
+  if (ringTextureCache) return ringTextureCache;
+  let canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  let ctx = canvas.getContext('2d');
   return (
-    (e.strokeStyle = '#fff'),
-    (e.lineWidth = 8),
-    e.beginPath(),
-    e.arc(64, 64, 52, 0, Math.PI * 2),
-    e.stroke(),
-    (e.globalAlpha = 0.35),
-    (e.lineWidth = 3),
-    e.setLineDash([8, 8]),
-    e.beginPath(),
-    e.arc(64, 64, 41, 0, Math.PI * 2),
-    e.stroke(),
-    (Iu = new CanvasTexture(o)),
-    (Iu.colorSpace = SRGBColorSpace),
-    Iu
+    (ctx.strokeStyle = '#fff'),
+    (ctx.lineWidth = 8),
+    ctx.beginPath(),
+    ctx.arc(64, 64, 52, 0, Math.PI * 2),
+    ctx.stroke(),
+    (ctx.globalAlpha = 0.35),
+    (ctx.lineWidth = 3),
+    ctx.setLineDash([8, 8]),
+    ctx.beginPath(),
+    ctx.arc(64, 64, 41, 0, Math.PI * 2),
+    ctx.stroke(),
+    (ringTextureCache = new CanvasTexture(canvas)),
+    (ringTextureCache.colorSpace = SRGBColorSpace),
+    ringTextureCache
   );
 }
-function EH(o) {
-  let e = new Map();
-  for (let t of o) t && e.set(t.id, t);
+/** Lista de unidades con índice por id, cilindros de selección (`proxies`), `add` y `update`. */
+function makeUnitList(units) {
+  let byId = new Map();
+  for (let unit of units) unit && byId.set(unit.id, unit);
   return {
-    byId: e,
-    list: [...e.values()],
-    proxies: [...e.values()].map((t) => t.proxy),
-    add(t) {
-      (e.set(t.id, t), (this.list = [...e.values()]), (this.proxies = this.list.map((a) => a.proxy)));
+    byId,
+    list: [...byId.values()],
+    proxies: [...byId.values()].map((unit) => unit.proxy),
+    add(unit) {
+      (byId.set(unit.id, unit), (this.list = [...byId.values()]), (this.proxies = this.list.map((u) => u.proxy)));
     },
-    update(t) {
-      for (let a of e.values()) a.update(t);
+    update(dt) {
+      for (let unit of byId.values()) unit.update(dt);
     },
   };
 }
-async function SH(o, e = 0) {
-  if (isBeast(o.template)) return makeBeast(o.template, o.id);
-  let t;
+/** Crea la figura de una criatura que no viene de la exploración. */
+async function makeFigure(creature, index = 0) {
+  if (isBeast(creature.template)) return makeBeast(creature.template, creature.id);
+  let look;
   return (
-    o.team === 0 ? (t = TH(o, e)) : (o.template || '').startsWith('goblin') ? (t = _H(o)) : (t = humanoidMonsterLook(o)),
-    Fs({ ...t, id: o.id })
+    creature.team === 0 ? (look = partyLook(creature, index)) : (creature.template || '').startsWith('goblin') ? (look = goblinLook(creature)) : (look = humanoidMonsterLook(creature)),
+    Fs({ ...look, id: creature.id })
   );
 }
-async function p3(o, e, t, { cellToWorld: a, makeMissing: n = null } = {}) {
-  let s = [],
-    i = 0;
-  for (let r of e) {
-    let l = t?.get?.(r.id) || null,
-      c = !1;
-    if (!l) {
-      if (((l = n ? await n(r) : await SH(r, r.team === 0 ? i++ : 0)), !l)) continue;
-      ((c = !0), o.add(l.root));
+/**
+ * Unidades del combate para las criaturas del estado inicial.
+ * @param {Map} actors figuras existentes por id (se reutilizan; no son «propias»)
+ * @param {object} opts cellToWorld, makeMissing (crea la figura de una criatura sin figura)
+ */
+async function createUnits(scene, creatures, actors, { cellToWorld: toWorld, makeMissing = null } = {}) {
+  let units = [],
+    partyIndex = 0;
+  for (let creature of creatures) {
+    let figure = actors?.get?.(creature.id) || null,
+      owns = !1;
+    if (!figure) {
+      if (((figure = makeMissing ? await makeMissing(creature) : await makeFigure(creature, creature.team === 0 ? partyIndex++ : 0)), !figure)) continue;
+      ((owns = !0), scene.add(figure.root));
     }
-    let d = new x1(r, l, { cellToWorld: a, owns: c });
-    (o.add(d.ring, d.proxy),
-      c ? (d.place(r.cell), (d.root.rotation.y = r.team === 0 ? i3(90) : i3(-90))) : d.syncHelpers(),
-      s.push(d));
+    let unit = new Unit(creature, figure, { cellToWorld: toWorld, owns });
+    (scene.add(unit.ring, unit.proxy),
+      owns ? (unit.place(creature.cell), (unit.root.rotation.y = creature.team === 0 ? degToRad(90) : degToRad(-90))) : unit.syncHelpers(),
+      units.push(unit));
   }
-  return EH(s);
+  return makeUnitList(units);
 }
-const i3 = MathUtils.degToRad;
-const r3 = {
+const degToRad = MathUtils.degToRad;
+/** Clips de animación alternativos por acción para las figuras Character. */
+const CLIP_FALLBACKS = {
   idle: ['Idle_Loop'],
   walk: ['Walk_Loop', 'Jog_Fwd_Loop'],
   run: ['Sprint_Loop', 'Jog_Fwd_Loop'],
@@ -255,7 +275,8 @@ const r3 = {
   use: ['Interact', 'PickUp_Table'],
   block: ['Hit_Head'],
 };
-const bH = {
+/** Acción equivalente para las figuras envoltorio que no tienen la pedida. */
+const WRAPPER_CLIP_ALIASES = {
   jog: 'run',
   attack_thrown: 'attack_ranged',
   attack_unarmed: 'attack_melee',
@@ -267,7 +288,8 @@ const bH = {
   block: 'hit',
   crouch_walk: 'crouch',
 };
-const yH = {
+/** Ajustes de combate de los compañeros sobre su aspecto de roster.js (pose y armas). */
+const COMPANION_OVERRIDES = {
   brenna: { anim: 'Sword_Idle' },
   pip: {
     anim: 'Idle_Loop',
@@ -282,11 +304,13 @@ const yH = {
   },
   odvar: {
     anim: 'Spell_Simple_Idle_Loop',
-    attach: [{ make: h3, bone: 'hand_r', scale: 1, pos: [0, 0.06, 0.02], rot: [0, 0, -90] }],
+    attach: [{ make: makeStaff, bone: 'hand_r', scale: 1, pos: [0, 0.06, 0.02], rot: [0, 0, -90] }],
   },
 };
-const xH = { goblin_minion: 9421398, goblin_warrior: 8040008, goblin_archer: 10274914, goblin_boss: 6986302 };
-const l3 = {
+/** Piel de cada tipo de trasgo. */
+const GOBLIN_SKINS = { goblin_minion: 9421398, goblin_warrior: 8040008, goblin_archer: 10274914, goblin_boss: 6986302 };
+/** Ropa, pose y armas por clase. */
+const CLASS_LOOKS = {
   fighter: {
     outfit: 'Male_Ranger',
     hideParts: ['Hood'],
@@ -357,10 +381,11 @@ const l3 = {
     recolor: { from: 0.33, width: 0.2, shift: 0.62, sat: 0.9, val: 1 },
   },
 };
-const c3 = [16770774, 15780008, 14264189, 11565650, 9067066];
-const d3 = [2825492, 4858900, 11892794, 14731408, 1710618, 9058842];
-let Iu = null;
-const Jr = {
+const SKIN_TONES = [16770774, 15780008, 14264189, 11565650, 9067066];
+const HAIR_COLORS = [2825492, 4858900, 11892794, 14731408, 1710618, 9058842];
+let ringTextureCache = null;
+/** Colores del anillo por estado. */
+const RING_COLORS = {
   party: 7328122,
   enemy: 14701375,
   active: 16765802,
@@ -368,32 +393,33 @@ const Jr = {
   ally: 9433248,
   down: 7829367,
 };
-const x1 = class {
-  constructor(e, t, { cellToWorld: a = null, owns: n = !0 } = {}) {
-    ((this.id = e.id),
-      (this.team = e.team),
-      (this.name = e.name),
-      (this.template = e.template),
-      (this.cls = e.cls),
-      (this.ch = t),
-      (this.root = t.root),
+/** Unidad de combate: figura, casilla, anillo de estado y cilindro de selección. */
+const Unit = class {
+  constructor(creature, figure, { cellToWorld: toWorld = null, owns = !0 } = {}) {
+    ((this.id = creature.id),
+      (this.team = creature.team),
+      (this.name = creature.name),
+      (this.template = creature.template),
+      (this.cls = creature.cls),
+      (this.ch = figure),
+      (this.root = figure.root),
       (this.wrapper =
-        typeof t.anim == 'function' && typeof t.once == 'function' && typeof t.playOnce != 'function'),
-      (this.inner = this.wrapper ? t.ch || null : t),
-      (this.cellToWorld = a || ((r) => cellToWorld(r[0], r[1]))),
-      (this.owns = n),
-      (this.cell = e.cell.slice()),
+        typeof figure.anim == 'function' && typeof figure.once == 'function' && typeof figure.playOnce != 'function'),
+      (this.inner = this.wrapper ? figure.ch || null : figure),
+      (this.cellToWorld = toWorld || ((cell) => cellToWorld(cell[0], cell[1]))),
+      (this.owns = owns),
+      (this.cell = creature.cell.slice()),
       (this.dead = !1),
       (this.down = !1));
-    let s = this.inner || t;
+    let inner = this.inner || figure;
     ((this.scale =
-      s.def?.scale ?? (typeof s.scale == 'number' ? s.scale : null) ?? (this.root.scale?.x || 1)),
-      !this.wrapper && t.def && (t.idle = t.idle || t.def.anim || 'Idle_Loop'),
+      inner.def?.scale ?? (typeof inner.scale == 'number' ? inner.scale : null) ?? (this.root.scale?.x || 1)),
+      !this.wrapper && figure.def && (figure.idle = figure.idle || figure.def.anim || 'Idle_Loop'),
       (this.ring = new Mesh(
         new PlaneGeometry(1.15, 1.15),
         new MeshBasicMaterial({
-          map: MH(),
-          color: e.team === 0 ? Jr.party : Jr.enemy,
+          map: ringTexture(),
+          color: creature.team === 0 ? RING_COLORS.party : RING_COLORS.enemy,
           transparent: !0,
           opacity: 0.7,
           depthWrite: !1,
@@ -403,232 +429,255 @@ const x1 = class {
       (this.ring.rotation.x = -Math.PI / 2),
       (this.ring.renderOrder = 2),
       (this.ringState = 'idle'));
-    let i = 1.8 * Math.max(this.scale, 0.75);
-    ((this.proxy = new Mesh(new CylinderGeometry(0.42, 0.42, i, 8), new MeshBasicMaterial({ visible: !1 }))),
-      (this.proxyH = i / 2),
+    let height = 1.8 * Math.max(this.scale, 0.75);
+    ((this.proxy = new Mesh(new CylinderGeometry(0.42, 0.42, height, 8), new MeshBasicMaterial({ visible: !1 }))),
+      (this.proxyH = height / 2),
       (this.proxy.userData.unit = this.id),
       (this.t = Math.random() * 10),
       (this.walking = !1));
   }
-  knows(e) {
-    let t = this.inner;
-    return t
-      ? typeof t.has == 'function'
-        ? t.has(e)
-        : t.actions && typeof t.actions.has == 'function'
-          ? t.actions.has(e)
-          : Array.isArray(t.anims)
-            ? t.anims.includes(e)
+  /** ¿Tiene la figura ese clip de animación? */
+  knows(clip) {
+    let inner = this.inner;
+    return inner
+      ? typeof inner.has == 'function'
+        ? inner.has(clip)
+        : inner.actions && typeof inner.actions.has == 'function'
+          ? inner.actions.has(clip)
+          : Array.isArray(inner.anims)
+            ? inner.anims.includes(clip)
             : !1
       : !1;
   }
-  clip(e) {
+  /** Clip real para una acción (o null si la figura no tiene ninguno equivalente). */
+  clip(name) {
     if (this.wrapper)
-      return this.inner && typeof this.inner.has == 'function' && this.inner.has(e)
-        ? e
-        : e === 'dodge'
+      return this.inner && typeof this.inner.has == 'function' && this.inner.has(name)
+        ? name
+        : name === 'dodge'
           ? null
-          : bH[e] || e;
-    if (e === 'idle' && this.ch.idle && this.knows(this.ch.idle)) return this.ch.idle;
-    if (this.knows(e)) return e;
-    for (let t of r3[e] || []) if (this.knows(t)) return t;
-    return this.ch.actions ? null : e;
+          : WRAPPER_CLIP_ALIASES[name] || name;
+    if (name === 'idle' && this.ch.idle && this.knows(this.ch.idle)) return this.ch.idle;
+    if (this.knows(name)) return name;
+    for (let alt of CLIP_FALLBACKS[name] || []) if (this.knows(alt)) return alt;
+    return this.ch.actions ? null : name;
   }
-  anim(e, t = 0.25) {
-    let a = this.clip(e);
-    a && (this.wrapper ? this.ch.anim(a, { fade: t }) : this.ch.play(a, t));
+  /** Pone una animación en bucle. */
+  anim(name, fade = 0.25) {
+    let clip = this.clip(name);
+    clip && (this.wrapper ? this.ch.anim(clip, { fade }) : this.ch.play(clip, fade));
   }
-  once(e, t = {}) {
-    let a = this.clip(e);
-    return a
+  /** Reproduce una animación una vez; la promesa se cumple al terminar. */
+  once(name, opts = {}) {
+    let clip = this.clip(name);
+    return clip
       ? this.wrapper
-        ? Promise.resolve(this.ch.once(a, t)).catch(() => {})
-        : (this.ch.playOnce && this.ch.playOnce(a, t)) || Promise.resolve()
+        ? Promise.resolve(this.ch.once(clip, opts)).catch(() => {})
+        : (this.ch.playOnce && this.ch.playOnce(clip, opts)) || Promise.resolve()
       : Promise.resolve();
   }
-  length(e, t = 1) {
-    let a = this.clip(e),
-      n = this.inner,
-      s = 0;
-    if (a && n?.clipLength && ((s = n.clipLength(a)), !(s > 0) && this.wrapper))
-      for (let i of r3[e] || []) s > 0 || (s = n.clipLength(i));
-    return s > 0 ? s : t;
+  /** Duración del clip de una acción (o `fallback`). */
+  length(name, fallback = 1) {
+    let clip = this.clip(name),
+      inner = this.inner,
+      len = 0;
+    if (clip && inner?.clipLength && ((len = inner.clipLength(clip)), !(len > 0) && this.wrapper))
+      for (let alt of CLIP_FALLBACKS[name] || []) len > 0 || (len = inner.clipLength(alt));
+    return len > 0 ? len : fallback;
   }
-  setCharacter(e, t) {
-    ((this.ch = e),
-      (this.root = e.root),
-      (this.owns = t),
+  /** Cambia la figura (p. ej. Forma salvaje). */
+  setCharacter(figure, owns) {
+    ((this.ch = figure),
+      (this.root = figure.root),
+      (this.owns = owns),
       (this.wrapper =
-        typeof e.anim == 'function' && typeof e.once == 'function' && typeof e.playOnce != 'function'),
-      (this.inner = this.wrapper ? e.ch || null : e),
+        typeof figure.anim == 'function' && typeof figure.once == 'function' && typeof figure.playOnce != 'function'),
+      (this.inner = this.wrapper ? figure.ch || null : figure),
       (this._hand = void 0));
   }
   get mixer() {
     return this.inner?.mixer || null;
   }
-  markDown(e = !0) {
-    let t = this.inner || this.ch;
-    (t && (t._mdgDown = e), (this.ch._mdgDown = e));
+  /** Marca la figura como caída (lo leen otras partes de la animación). */
+  markDown(down = !0) {
+    let inner = this.inner || this.ch;
+    (inner && (inner._mdgDown = down), (this.ch._mdgDown = down));
   }
-  idle(e = 0.3) {
-    this.dead || this.down || this.anim('idle', e);
+  idle(fade = 0.3) {
+    this.dead || this.down || this.anim('idle', fade);
   }
-  place(e) {
-    this.cell = e.slice();
-    let t = this.cellToWorld(e);
-    (this.root.position.set(t.x, t.y, t.z), this.syncHelpers());
+  /** Coloca la unidad en una casilla sin animación. */
+  place(cell) {
+    this.cell = cell.slice();
+    let pos = this.cellToWorld(cell);
+    (this.root.position.set(pos.x, pos.y, pos.z), this.syncHelpers());
   }
+  /** Lleva el anillo y el cilindro de selección a la posición de la figura. */
   syncHelpers() {
-    let e = this.root.position;
-    (this.ring.position.set(e.x, e.y + 0.03, e.z), this.proxy.position.set(e.x, e.y + this.proxyH, e.z));
+    let pos = this.root.position;
+    (this.ring.position.set(pos.x, pos.y + 0.03, pos.z), this.proxy.position.set(pos.x, pos.y + this.proxyH, pos.z));
   }
-  face(e, t) {
-    let a = this.root.position;
-    Math.abs(e - a.x) + Math.abs(t - a.z) < 0.001 || (this.targetYaw = Math.atan2(e - a.x, t - a.z));
+  /** Gira poco a poco hacia un punto del plano. */
+  face(x, z) {
+    let pos = this.root.position;
+    Math.abs(x - pos.x) + Math.abs(z - pos.z) < 0.001 || (this.targetYaw = Math.atan2(x - pos.x, z - pos.z));
   }
-  faceUnit(e) {
-    this.face(e.root.position.x, e.root.position.z);
+  faceUnit(unit) {
+    this.face(unit.root.position.x, unit.root.position.z);
   }
-  faceCell(e) {
-    let t = this.cellToWorld(e);
-    this.face(t.x, t.z);
+  faceCell(cell) {
+    let pos = this.cellToWorld(cell);
+    this.face(pos.x, pos.z);
   }
-  walk(e, { run: t = !1 } = {}) {
-    if (!e.length) return Promise.resolve();
-    let a = e.map((n) => this.cellToWorld(n));
+  /** Camina por las casillas (con el walkTo de la figura o el propio); promesa al llegar. */
+  walk(cells, { run = !1 } = {}) {
+    if (!cells.length) return Promise.resolve();
+    let points = cells.map((cell) => this.cellToWorld(cell));
     return (
-      (this.cell = e[e.length - 1].slice()),
+      (this.cell = cells[cells.length - 1].slice()),
       this.wrapper || typeof this.ch.walkTo != 'function'
-        ? this.ownWalk(a, t)
-        : ('speed' in this.ch && (this.ch.speed = t ? 4.6 : 3.2),
+        ? this.ownWalk(points, run)
+        : ('speed' in this.ch && (this.ch.speed = run ? 4.6 : 3.2),
           (this.walking = !0),
-          new Promise((n) => {
-            let s = !1,
-              i = () => {
-                s || ((s = !0), (this.walking = !1), (this.root.position.y = a[a.length - 1].y), n());
+          new Promise((resolve) => {
+            let done = !1,
+              finish = () => {
+                done || ((done = !0), (this.walking = !1), (this.root.position.y = points[points.length - 1].y), resolve());
               },
-              r = this.ch.walkTo(a, i, { run: t });
-            r && typeof r.then == 'function' && r.then(i);
-            let l = this.clip(t ? 'run' : 'jog');
-            (l && this.ch.actions && this.ch.play(this.ch.def?.walk && !t ? this.ch.def.walk : l, 0.15),
-              setTimeout(i, 4e3 + e.length * 2500));
+              res = this.ch.walkTo(points, finish, { run });
+            res && typeof res.then == 'function' && res.then(finish);
+            let clip = this.clip(run ? 'run' : 'jog');
+            (clip && this.ch.actions && this.ch.play(this.ch.def?.walk && !run ? this.ch.def.walk : clip, 0.15),
+              setTimeout(finish, 4e3 + cells.length * 2500));
           }))
     );
   }
-  ownWalk(e, t) {
+  /** Caminar propio para figuras sin walkTo (ver stepRoute). */
+  ownWalk(points, run) {
     return (
       (this.walking = !0),
-      this.anim(t ? 'run' : 'walk', 0.15),
-      new Promise((a) => {
-        this.route = { pts: e.slice(), speed: t ? 4.6 : 3.2, resolve: a };
+      this.anim(run ? 'run' : 'walk', 0.15),
+      new Promise((resolve) => {
+        this.route = { pts: points.slice(), speed: run ? 4.6 : 3.2, resolve };
       })
     );
   }
-  stepRoute(e) {
-    let t = this.route,
-      a = this.root.position,
-      n = t.speed * e;
-    for (; n > 0 && t.pts.length;) {
-      let s = t.pts[0],
-        i = s.x - a.x,
-        r = s.z - a.z,
-        l = Math.hypot(i, r);
-      if (l > 1e-4) {
-        let c = Math.atan2(i, r) - this.root.rotation.y;
-        ((c = Math.atan2(Math.sin(c), Math.cos(c))), (this.root.rotation.y += c * Math.min(1, e * 12)));
+  /** Avanza el caminar propio un fotograma. */
+  stepRoute(dt) {
+    let route = this.route,
+      pos = this.root.position,
+      budget = route.speed * dt;
+    for (; budget > 0 && route.pts.length;) {
+      let target = route.pts[0],
+        dx = target.x - pos.x,
+        dz = target.z - pos.z,
+        dist = Math.hypot(dx, dz);
+      if (dist > 1e-4) {
+        let turn = Math.atan2(dx, dz) - this.root.rotation.y;
+        ((turn = Math.atan2(Math.sin(turn), Math.cos(turn))), (this.root.rotation.y += turn * Math.min(1, dt * 12)));
       }
-      l <= n
-        ? (a.set(s.x, s.y, s.z), t.pts.shift(), (n -= l))
-        : ((a.x += (i / l) * n),
-          (a.z += (r / l) * n),
-          (a.y += (s.y - a.y) * Math.min(1, n / Math.max(l, 0.001))),
-          (n = 0));
+      dist <= budget
+        ? (pos.set(target.x, target.y, target.z), route.pts.shift(), (budget -= dist))
+        : ((pos.x += (dx / dist) * budget),
+          (pos.z += (dz / dist) * budget),
+          (pos.y += (target.y - pos.y) * Math.min(1, budget / Math.max(dist, 0.001))),
+          (budget = 0));
     }
-    t.pts.length || ((this.route = null), (this.walking = !1), this.idle(0.3), t.resolve());
+    route.pts.length || ((this.route = null), (this.walking = !1), this.idle(0.3), route.resolve());
   }
-  setRing(e) {
-    this.ringState = e;
-    let t =
-      e === 'active'
-        ? Jr.active
-        : e === 'target'
-          ? Jr.target
-          : e === 'hover'
+  /** Estado del anillo: idle, active (late), target, hover. */
+  setRing(state) {
+    this.ringState = state;
+    let color =
+      state === 'active'
+        ? RING_COLORS.active
+        : state === 'target'
+          ? RING_COLORS.target
+          : state === 'hover'
             ? 16777215
             : this.down || this.dead
-              ? Jr.down
+              ? RING_COLORS.down
               : this.team === 0
-                ? Jr.party
-                : Jr.enemy;
-    (this.ring.material.color.setHex(t),
-      (this.ring.material.opacity = e === 'idle' ? (this.dead ? 0 : 0.55) : 0.95));
+                ? RING_COLORS.party
+                : RING_COLORS.enemy;
+    (this.ring.material.color.setHex(color),
+      (this.ring.material.opacity = state === 'idle' ? (this.dead ? 0 : 0.55) : 0.95));
   }
-  update(e) {
-    (this.owns && this.ch.update(e), this.route && this.stepRoute(e));
-    let t = this.root.position;
+  /** Fotograma: figura propia, caminar, giro, latido del anillo y hundimiento. */
+  update(dt) {
+    (this.owns && this.ch.update(dt), this.route && this.stepRoute(dt));
+    let pos = this.root.position;
     if (
-      (this.walking && !this.route && this.groundAt && (t.y = this.groundAt(t.x, t.z)),
+      (this.walking && !this.route && this.groundAt && (pos.y = this.groundAt(pos.x, pos.z)),
       this.syncHelpers(),
       this.targetYaw !== void 0 && !(this.ch.path && this.ch.path.length) && !this.walking)
     ) {
-      let a = this.targetYaw - this.root.rotation.y;
-      ((a = Math.atan2(Math.sin(a), Math.cos(a))),
-        (this.root.rotation.y += a * Math.min(1, e * 9)),
-        Math.abs(a) < 0.01 && (this.targetYaw = void 0));
+      let turn = this.targetYaw - this.root.rotation.y;
+      ((turn = Math.atan2(Math.sin(turn), Math.cos(turn))),
+        (this.root.rotation.y += turn * Math.min(1, dt * 9)),
+        Math.abs(turn) < 0.01 && (this.targetYaw = void 0));
     }
     if (this.ringState === 'active') {
-      this.t += e;
-      let a = 1 + Math.sin(this.t * 4) * 0.06;
-      this.ring.scale.set(a, a, 1);
+      this.t += dt;
+      let pulse = 1 + Math.sin(this.t * 4) * 0.06;
+      this.ring.scale.set(pulse, pulse, 1);
     } else this.ring.scale.set(1, 1, 1);
     this.fade !== void 0 &&
       this.root.visible &&
-      ((this.fade = Math.max(0, this.fade - e * 0.35)),
+      ((this.fade = Math.max(0, this.fade - dt * 0.35)),
       (this.root.position.y = this.baseY - (1 - this.fade) * 1.3),
       this.fade <= 0 && (this.root.visible = !1));
   }
-  headWorld(e = new Vector3()) {
+  /** Posición de la cabeza en el mundo. */
+  headWorld(out = new Vector3()) {
     return this.wrapper && this.ch.head
-      ? this.ch.head(e)
+      ? this.ch.head(out)
       : this.ch.headWorld
-        ? this.ch.headWorld(e)
-        : (this.root.getWorldPosition(e), (e.y += 1.6 * this.scale), e);
+        ? this.ch.headWorld(out)
+        : (this.root.getWorldPosition(out), (out.y += 1.6 * this.scale), out);
   }
-  chest(e = new Vector3()) {
-    return (this.headWorld(e), (e.y -= 0.35 * this.scale), e);
+  chest(out = new Vector3()) {
+    return (this.headWorld(out), (out.y -= 0.35 * this.scale), out);
   }
-  attackAnim(e) {
-    return e === 'melee'
+  /** Acción de animación de un tipo de ataque (melee, ranged, thrown, spell, buff, unarmed). */
+  attackAnim(kind) {
+    return kind === 'melee'
       ? 'attack_melee'
-      : e === 'thrown'
+      : kind === 'thrown'
         ? 'attack_thrown'
-        : e === 'spell'
+        : kind === 'spell'
           ? 'cast'
-          : e === 'buff'
+          : kind === 'buff'
             ? 'cast_buff'
-            : e === 'unarmed'
+            : kind === 'unarmed'
               ? 'attack_unarmed'
               : 'attack_ranged';
   }
-  attack(e) {
-    return this.once(this.attackAnim(e), { speed: e === 'melee' ? 1.25 : 1.1 });
+  /** Animación de ataque. */
+  attack(kind) {
+    return this.once(this.attackAnim(kind), { speed: kind === 'melee' ? 1.25 : 1.1 });
   }
-  hitTime(e) {
-    let t = e === 'melee' ? 0.42 : e === 'spell' || e === 'buff' ? 0.45 : 0.4;
-    return (this.length(this.attackAnim(e), 1.1) / 1.2) * t;
+  /** Segundos desde el inicio del ataque hasta el impacto. */
+  hitTime(kind) {
+    let frac = kind === 'melee' ? 0.42 : kind === 'spell' || kind === 'buff' ? 0.45 : 0.4;
+    return (this.length(this.attackAnim(kind), 1.1) / 1.2) * frac;
   }
+  /** Animación de recibir un golpe. */
   hurt() {
     this.dead || this.down || this.once(Math.random() < 0.5 ? 'hit' : 'hit_head', { speed: 1.2 });
   }
-  prone(e) {
-    this.dead || this.down || (e ? this.anim('prone', 0.25) : this.idle(0.3));
+  /** Derribado (o de pie otra vez). */
+  prone(on) {
+    this.dead || this.down || (on ? this.anim('prone', 0.25) : this.idle(0.3));
   }
+  /** Cae a 0 PG (inconsciente). */
   fall() {
     ((this.down = !0),
       this.markDown(!0),
       this.once('die', { hold: !0, speed: 1.1 }),
       this.setRing(this.ringState));
   }
+  /** Muere. */
   die() {
     (this.down || this.once('die', { hold: !0, speed: 1.1 }),
       (this.down = !0),
@@ -636,11 +685,13 @@ const x1 = class {
       this.markDown(!0),
       this.setRing('idle'));
   }
-  sink(e = 2.5) {
+  /** Tras `delay` s, la figura se hunde en el suelo y desaparece. */
+  sink(delay = 2.5) {
     setTimeout(() => {
       ((this.baseY = this.root.position.y), (this.fade = 1));
-    }, e * 1e3);
+    }, delay * 1e3);
   }
+  /** Vuelve a estar en pie. */
   revive() {
     ((this.down = !1),
       this.markDown(!1),
@@ -648,6 +699,7 @@ const x1 = class {
       this.idle(0.4),
       this.setRing(this.ringState));
   }
+  /** Quita y libera el anillo y el cilindro. */
   detach() {
     (this.ring.parent?.remove(this.ring),
       this.proxy.parent?.remove(this.proxy),
@@ -657,4 +709,4 @@ const x1 = class {
   }
 };
 
-export { p3 };
+export { createUnits };

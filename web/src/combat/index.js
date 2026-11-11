@@ -11,7 +11,7 @@ import { cellToWorld, planeToCell, HEX_SIZE } from '../explore/hex.js';
 import { Overlay } from './overlay.js';
 import { Hud } from './hud.js';
 import { Controller } from './controller.js';
-import { p3 } from './units.js';
+import { createUnits } from './units.js';
 
 /** Rectángulo en el mundo (minX, maxX, minZ, maxZ) que ocupan las esquinas del mapa. */
 function boardBounds(map, toWorld) {
@@ -84,7 +84,7 @@ async function runBattle(game, opts = {}) {
             return form;
           }
         : null,
-    units = await p3(scene, init.state.creatures, actors, { cellToWorld: toWorld, makeMissing });
+    units = await createUnits(scene, init.state.creatures, actors, { cellToWorld: toWorld, makeMissing });
   if (world?.cellToWorld) {
     let groundAt = (x, z) => toWorld(planeToCell(x / HEX_SIZE, z / HEX_SIZE)).y;
     for (let unit of units.list) unit.groundAt = groundAt;
