@@ -3,7 +3,7 @@
 
 import { QuadraticBezierCurve3, Vector3 } from 'three';
 import { FRAME } from './atlas.js';
-import { Jn, DAMAGE_STYLE } from './styles.js';
+import { getStyle, DAMAGE_STYLE } from './styles.js';
 
 function hs(o) {
   let e, t, a;
@@ -55,7 +55,7 @@ async function ir(o, e, t, a = {}) {
 async function Dm(o, e, t, a = {}) {
   let n = t.targets?.[0];
   if (!n) return;
-  let s = Jn(e),
+  let s = getStyle(e),
     i = Sa(t),
     r = Mt(n);
   if (t.hit === !1) {
@@ -113,7 +113,7 @@ async function n1(o, e, t) {
   if (!a) return;
   let n = Mt(a),
     s = Sa(t),
-    i = Jn(e);
+    i = getStyle(e);
   if (
     (o.beam(s, n, { col: i.c, width: 0.08, life: 0.2, mode: e === 'lightning' ? 'bolt' : 'beam', glow: 3 }),
     await o.wait(0.05),
@@ -125,7 +125,7 @@ async function n1(o, e, t) {
   o.element(e, n, { k: t.crit ? 1.4 : 1 });
 }
 async function VI(o, e, t, a = {}) {
-  let n = Jn(e);
+  let n = getStyle(e);
   for (let s of t.targets || []) {
     let i = Mt(s);
     (o.ring(s.pos, { color: n.c, radius: a.radius ?? 0.8, life: 0.5, thick: 0.2, fill: 0.4 }),
@@ -134,7 +134,7 @@ async function VI(o, e, t, a = {}) {
   await o.wait(0.12);
 }
 async function wc(o, e, t, a = {}) {
-  let n = Jn(e),
+  let n = getStyle(e),
     s = nn(o, t),
     i = t.cells || [];
   (o.hexwave(i, {
@@ -156,7 +156,7 @@ async function wc(o, e, t, a = {}) {
     await o.wait(0.15));
 }
 async function Lu(o, e, t, a = {}) {
-  let n = Jn(e),
+  let n = getStyle(e),
     s = Sa(t),
     i = t.cells || [],
     r = nn(o, t),
@@ -222,7 +222,7 @@ async function Lu(o, e, t, a = {}) {
   for (let h of lr(o, i, 6)) o.after(Rt(0, 0.2), () => o.element(e, h.clone().setY(h.y + 0.5), { k: 0.45 }));
 }
 async function Ra(o, e, t, a = {}) {
-  let n = Jn(e),
+  let n = getStyle(e),
     s = t.targets?.length ? t.targets : t.caster ? [t.caster] : [];
   for (let i of s) {
     let r = i.pos.clone().setY(i.pos.y + 2.6);
@@ -249,7 +249,7 @@ async function Ra(o, e, t, a = {}) {
     await o.wait(0.35));
 }
 async function us(o, e, t, a, n = {}) {
-  let s = Jn(e);
+  let s = getStyle(e);
   for (let i of t.targets || []) {
     let r = (i.head || Mt(i)).clone().setY((i.head || Mt(i)).y + 0.4);
     (o.p({
@@ -305,7 +305,7 @@ async function NS(o, e, t, a = 14674175) {
 }
 async function XI(o, e, t) {
   for (let a of t.targets || []) {
-    let n = Jn(e);
+    let n = getStyle(e);
     (e === 'radiant' && o.pillar(a.pos, { color: 16769162, radius: 0.7, height: 6, life: 0.6, drop: 0.12 }),
       e === 'thunder' && o.ring(a.pos, { color: n.c, radius: 2.4, life: 0.45, thick: 0.15, fill: 0.6 }),
       e === 'nature' &&
@@ -1492,7 +1492,7 @@ const YI = {
         s = nn(o, e).clone().sub(a.pos).setY(0).normalize().multiplyScalar(9).add(a.pos).setY(1.2);
       return (
         o.beam(Sa(e), s, {
-          col: Jn(t).c,
+          col: getStyle(t).c,
           width: 0.6,
           life: 0.6,
           mode: t === 'lightning' ? 'bolt' : 'beam',

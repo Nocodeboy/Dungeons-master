@@ -23,10 +23,10 @@ import {
 } from 'three';
 import { getParticleAtlas, getMagicCircleTexture, ATLAS_COLS, ATLAS_ROWS } from './atlas.js';
 import { hexShape, HEX_SIZE, HEX_RADIUS } from '../explore/hex.js';
-import { Am } from './particles.js';
+import { toColor } from './particles.js';
 
 function or(o, e = 1) {
-  let t = Am(o).clone();
+  let t = toColor(o).clone();
   return new Vector3(t.r * e, t.g * e, t.b * e);
 }
 function sr(o, e, t, { blend: a = 'add', side: n = FrontSide, depthTest: s = !0 } = {}) {

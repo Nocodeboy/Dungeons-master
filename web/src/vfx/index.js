@@ -13,10 +13,10 @@ import {
   PointLight,
   Vector3,
 } from 'three';
-import { Su } from './particles.js';
+import { ParticleSystem } from './particles.js';
 import { FRAME } from './atlas.js';
 import { tr, ku, Xr, Yr, ar, nr, Au, xi } from './shaders.js';
-import { Jn, HS, DAMAGE_STYLE } from './styles.js';
+import { getStyle, resolveStyleKey, DAMAGE_STYLE } from './styles.js';
 import efectosConjuros from '../datos/efectos/conjuros.json';
 import { FS, OS } from './spells.js';
 import { Nm } from './conditions.js';
@@ -88,8 +88,8 @@ function createVfx({
     i = [0.45, 0.75, 1][s] ?? 0.75,
     r = new Group();
   ((r.name = 'vfx'), o.add(r));
-  let l = new Su(s === 0 ? 1400 : s === 1 ? 2600 : 4e3, 'add'),
-    c = new Su(s === 0 ? 500 : s === 1 ? 900 : 1400, 'alpha');
+  let l = new ParticleSystem(s === 0 ? 1400 : s === 1 ? 2600 : 4e3, 'add'),
+    c = new ParticleSystem(s === 0 ? 500 : s === 1 ? 900 : 1400, 'alpha');
   r.add(c.mesh, l.mesh);
   let d = new u1(r, s === 0 ? 1 : s === 1 ? 2 : 4),
     u = [],
@@ -293,7 +293,7 @@ function createVfx({
         (f && (x *= 0.4), (b = Math.max(b, x)));
       },
       castStart(x, g, y, { radius: w = 0.9, big: k = !1 } = {}) {
-        let T = Jn(x),
+        let T = getStyle(x),
           E = this.runes(g, { color: T.c, radius: k ? w * 1.5 : w, life: 0, spin: 1.2, alpha: 0.85 }),
           S = (D) => {
             if (!y) return;
@@ -353,7 +353,7 @@ function createVfx({
           light: M = !0,
         } = {},
       ) {
-        let R = Jn(x),
+        let R = getStyle(x),
           A = y.clone();
         if (E) {
           let oe = y.clone().sub(g).setY(0).normalize(),
@@ -599,7 +599,7 @@ function createVfx({
           });
       },
       element(x, g, { k: y = 1, dir: w = null } = {}) {
-        let k = Jn(x);
+        let k = getStyle(x);
         switch (x) {
           case 'fire':
             (this.glow(g, 16752704, 1.4 * y, 0.22, 3),
@@ -1130,7 +1130,7 @@ function createVfx({
       },
       spell(x, g = {}) {
         let y = efectosConjuros[x] || {},
-          w = HS(g.fx ?? y.fx, g.dtype || y.d);
+          w = resolveStyleKey(g.fx ?? y.fx, g.dtype || y.d);
         return FS(this, x, y, w, g);
       },
       feature(x, g = {}) {
