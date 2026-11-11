@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «zM»). Nombres locales aún minificados.
 
 import { iconHtml, escapeHtml, elem, makeButton, sleep, reducedMotion } from '../ui/dom.js';
-import { im } from '../ui/travel-map.js';
+import { createTravelMap as im } from '../ui/travel-map.js';
 
 async function crearEscenaTravel(o, e = {}) {
   let t = o.ui;

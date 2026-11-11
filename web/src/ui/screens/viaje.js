@@ -3,7 +3,7 @@
 
 import { escapeHtml, elem, makeButton } from '../dom.js';
 import { screenFrame } from '../modal.js';
-import { im } from '../travel-map.js';
+import { createTravelMap } from '../travel-map.js';
 
 function opcionesViaje() {
   return { width: '86rem', height: '54rem' };
@@ -20,7 +20,7 @@ function pantallaViaje(screen, params, ui, game) {
     travelButton = makeButton('Viajar', { icon: 'treasure_map', variant: 'primary', disabled: !0 });
   (info.append(infoText), params.consult || info.append(travelButton));
   let choice = null,
-    map = im(ui, game, wrap, {
+    map = createTravelMap(ui, game, wrap, {
       from: params.from,
       onSelect(place, route) {
         choice = null;

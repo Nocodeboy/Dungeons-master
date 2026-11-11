@@ -4,45 +4,47 @@
 import datosMapaViaje from '../datos/mapa-viaje.json';
 import { iconSvg, escapeHtml, elem } from './dom.js';
 
-function JL(o) {
-  let e = o?.R?.data?.('world');
-  return e && e.places?.length ? e : datosMapaViaje;
+function worldData(ui) {
+  let world = ui?.R?.data?.('world');
+  return world && world.places?.length ? world : datosMapaViaje;
 }
-function lM(o, e) {
-  let t = e?.flags || {};
-  return t[`place_${o.id}`]
+function placeAccess(place, cp) {
+  let flags = cp?.flags || {};
+  return flags[`place_${place.id}`]
     ? { open: !0 }
-    : o.locked
-      ? { open: !1, why: o.locked }
-      : o.requires && !t[o.requires]
-        ? { open: !1, why: o.why || 'Todav\xEDa no hay motivo para ir all\xED.' }
+    : place.locked
+      ? { open: !1, why: place.locked }
+      : place.requires && !flags[place.requires]
+        ? { open: !1, why: place.why || 'Todav\xEDa no hay motivo para ir all\xED.' }
         : { open: !0 };
 }
-function ZL(o, e, t) {
-  for (let a of o.roads || [])
-    if ((a[0] === e && a[1] === t) || (a[0] === t && a[1] === e)) return Number(a[2]);
+function roadHours(world, from, to) {
+  for (let road of world.roads || [])
+    if ((road[0] === from && road[1] === to) || (road[0] === to && road[1] === from)) return Number(road[2]);
   return null;
 }
-function QL(o, e) {
-  let t = e?.location?.level;
-  if (!t) return null;
-  let a = o.places.find((n) => (n.level || n.id) === t || n.id === t);
-  return a ? a.id : t === 'tumulo' ? 'merrowick' : null;
+function currentPlace(world, cp) {
+  let level = cp?.location?.level;
+  if (!level) return null;
+  let place = world.places.find(
+    (candidate) => (candidate.level || candidate.id) === level || candidate.id === level,
+  );
+  return place ? place.id : level === 'tumulo' ? 'merrowick' : null;
 }
-function eD(o) {
-  let e = o;
-  return () => (e = (e * 16807) % 2147483647) / 2147483647;
+function seededRandom(seed) {
+  let state = seed;
+  return () => (state = (state * 16807) % 2147483647) / 2147483647;
 }
-function tD() {
-  let o = eD(11),
-    e = '#4a2e16',
-    t = `<defs><radialGradient id="mg-borde" cx="50%" cy="50%" r="72%"><stop offset="62%" stop-color="#5a3a1a" stop-opacity="0"/><stop offset="92%" stop-color="#5a3a1a" stop-opacity=".35"/><stop offset="100%" stop-color="#3a2210" stop-opacity=".7"/></radialGradient>
+function mapDecorSvg() {
+  let rand = seededRandom(11),
+    ink = '#4a2e16',
+    svg = `<defs><radialGradient id="mg-borde" cx="50%" cy="50%" r="72%"><stop offset="62%" stop-color="#5a3a1a" stop-opacity="0"/><stop offset="92%" stop-color="#5a3a1a" stop-opacity=".35"/><stop offset="100%" stop-color="#3a2210" stop-opacity=".7"/></radialGradient>
     <filter id="mg-quemado" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" seed="4"/><feDisplacementMap in="SourceGraphic" scale="26"/></filter></defs>`;
-  ((t += `<rect x="0" y="0" width="${Do}" height="${ls}" fill="url(#mg-borde)"/>`),
-    (t += `<rect x="6" y="6" width="${Do - 12}" height="${ls - 12}" fill="none" stroke="#2a1608" stroke-width="22" opacity=".55" filter="url(#mg-quemado)"/>`),
-    (t += `<rect x="18" y="18" width="${Do - 36}" height="${ls - 36}" fill="none" stroke="${e}" stroke-width="3" opacity=".55"/>`),
-    (t += `<rect x="30" y="30" width="${Do - 60}" height="${ls - 60}" fill="none" stroke="${e}" stroke-width="1.2" opacity=".45"/>`));
-  let a = [
+  ((svg += `<rect x="0" y="0" width="${MAP_W}" height="${MAP_H}" fill="url(#mg-borde)"/>`),
+    (svg += `<rect x="6" y="6" width="${MAP_W - 12}" height="${MAP_H - 12}" fill="none" stroke="#2a1608" stroke-width="22" opacity=".55" filter="url(#mg-quemado)"/>`),
+    (svg += `<rect x="18" y="18" width="${MAP_W - 36}" height="${MAP_H - 36}" fill="none" stroke="${ink}" stroke-width="3" opacity=".55"/>`),
+    (svg += `<rect x="30" y="30" width="${MAP_W - 60}" height="${MAP_H - 60}" fill="none" stroke="${ink}" stroke-width="1.2" opacity=".45"/>`));
+  let river = [
       [1480, 30],
       [1390, 230],
       [1330, 420],
@@ -50,77 +52,79 @@ function tD() {
       [1050, 800],
       [900, 970],
     ],
-    n = `M${a[0][0]},${a[0][1]}`;
-  for (let l = 1; l < a.length; l++) {
-    let [c, d] = a[l - 1],
-      [u, h] = a[l];
-    n += ` Q${c + (u - c) * 0.5 + (l % 2 ? 60 : -60)},${d + (h - d) * 0.5} ${u},${h}`;
+    riverPath = `M${river[0][0]},${river[0][1]}`;
+  for (let i = 1; i < river.length; i++) {
+    let [x0, y0] = river[i - 1],
+      [x1, y1] = river[i];
+    riverPath += ` Q${x0 + (x1 - x0) * 0.5 + (i % 2 ? 60 : -60)},${y0 + (y1 - y0) * 0.5} ${x1},${y1}`;
   }
-  ((t += `<path d="${n}" fill="none" stroke="#3f6a8a" stroke-width="16" stroke-linecap="round" opacity=".35"/>`),
-    (t += `<path d="${n}" fill="none" stroke="#2f5674" stroke-width="5" stroke-linecap="round" opacity=".8"/>`),
-    (t += '<text x="1355" y="520" transform="rotate(-72 1355 520)" class="rio">R\xEDo Kesh</text>'));
-  let s = (l, c, d) =>
-    `<path d="M${l},${c - 18 * d} L${l - 9 * d},${c + 4 * d} L${l + 9 * d},${c + 4 * d} Z" fill="#3e5a2a" opacity=".72"/><path d="M${l},${c + 4 * d} v${6 * d}" stroke="${e}" stroke-width="2" opacity=".6"/>`;
-  for (let l = 0; l < 110; l++) t += s(800 + o() * 440, 170 + o() * 300, 0.8 + o() * 0.5);
-  for (let l = 0; l < 40; l++) t += s(140 + o() * 330, 180 + o() * 220, 0.7 + o() * 0.4);
-  for (let l = 0; l < 18; l++) {
-    let c = 220 + o() * 640,
-      d = 760 + o() * 150;
-    t += `<path d="M${c - 34},${d} Q${c},${d - 34} ${c + 34},${d}" fill="none" stroke="${e}" stroke-width="2.5" opacity=".5"/>`;
+  ((svg += `<path d="${riverPath}" fill="none" stroke="#3f6a8a" stroke-width="16" stroke-linecap="round" opacity=".35"/>`),
+    (svg += `<path d="${riverPath}" fill="none" stroke="#2f5674" stroke-width="5" stroke-linecap="round" opacity=".8"/>`),
+    (svg += '<text x="1355" y="520" transform="rotate(-72 1355 520)" class="rio">R\xEDo Kesh</text>'));
+  let tree = (x, y, scale) =>
+    `<path d="M${x},${y - 18 * scale} L${x - 9 * scale},${y + 4 * scale} L${x + 9 * scale},${y + 4 * scale} Z" fill="#3e5a2a" opacity=".72"/><path d="M${x},${y + 4 * scale} v${6 * scale}" stroke="${ink}" stroke-width="2" opacity=".6"/>`;
+  for (let i = 0; i < 110; i++) svg += tree(800 + rand() * 440, 170 + rand() * 300, 0.8 + rand() * 0.5);
+  for (let i = 0; i < 40; i++) svg += tree(140 + rand() * 330, 180 + rand() * 220, 0.7 + rand() * 0.4);
+  for (let i = 0; i < 18; i++) {
+    let x = 220 + rand() * 640,
+      y = 760 + rand() * 150;
+    svg += `<path d="M${x - 34},${y} Q${x},${y - 34} ${x + 34},${y}" fill="none" stroke="${ink}" stroke-width="2.5" opacity=".5"/>`;
   }
-  for (let l = 0; l < 11; l++) {
-    let c = 1120 + o() * 400,
-      d = 90 + o() * 120,
-      u = 0.8 + o() * 0.6;
-    t += `<path d="M${c - 46 * u},${d + 26 * u} L${c},${d - 46 * u} L${c + 46 * u},${d + 26 * u}" fill="#d8c49a" stroke="${e}" stroke-width="3" opacity=".8"/><path d="M${c},${d - 46 * u} L${c + 12 * u},${d + 10 * u}" stroke="${e}" stroke-width="2" opacity=".5"/>`;
+  for (let i = 0; i < 11; i++) {
+    let x = 1120 + rand() * 400,
+      y = 90 + rand() * 120,
+      scale = 0.8 + rand() * 0.6;
+    svg += `<path d="M${x - 46 * scale},${y + 26 * scale} L${x},${y - 46 * scale} L${x + 46 * scale},${y + 26 * scale}" fill="#d8c49a" stroke="${ink}" stroke-width="3" opacity=".8"/><path d="M${x},${y - 46 * scale} L${x + 12 * scale},${y + 10 * scale}" stroke="${ink}" stroke-width="2" opacity=".5"/>`;
   }
-  let i = 1430,
-    r = 800;
-  t += `<g opacity=".8"><circle cx="${i}" cy="${r}" r="58" fill="none" stroke="${e}" stroke-width="1.5"/><circle cx="${i}" cy="${r}" r="48" fill="none" stroke="${e}" stroke-width="1"/>`;
-  for (let l = 0; l < 8; l++) {
-    let c = (l * Math.PI) / 4 - Math.PI / 2,
-      d = l % 2 ? 40 : 74,
-      u = (h, p) => `${i + Math.cos(h) * p},${r + Math.sin(h) * p}`;
-    t += `<path d="M${i},${r} L${u(c - 0.18, 14)} L${u(c, d)} Z" fill="${l % 2 ? '#8a6a44' : e}"/><path d="M${i},${r} L${u(c + 0.18, 14)} L${u(c, d)} Z" fill="${l % 2 ? '#c8ad7e' : '#8a5a2e'}"/>`;
+  let roseX = 1430,
+    roseY = 800;
+  svg += `<g opacity=".8"><circle cx="${roseX}" cy="${roseY}" r="58" fill="none" stroke="${ink}" stroke-width="1.5"/><circle cx="${roseX}" cy="${roseY}" r="48" fill="none" stroke="${ink}" stroke-width="1"/>`;
+  for (let i = 0; i < 8; i++) {
+    let angle = (i * Math.PI) / 4 - Math.PI / 2,
+      length = i % 2 ? 40 : 74,
+      point = (dir, dist) => `${roseX + Math.cos(dir) * dist},${roseY + Math.sin(dir) * dist}`;
+    svg += `<path d="M${roseX},${roseY} L${point(angle - 0.18, 14)} L${point(angle, length)} Z" fill="${i % 2 ? '#8a6a44' : ink}"/><path d="M${roseX},${roseY} L${point(angle + 0.18, 14)} L${point(angle, length)} Z" fill="${i % 2 ? '#c8ad7e' : '#8a5a2e'}"/>`;
   }
   return (
-    (t += `<text x="${i}" y="${r - 84}" class="norte">N</text></g>`),
-    (t += `<g opacity=".75"><path d="M90,930 h200 M90,922 v16 M190,926 v8 M290,922 v16" stroke="${e}" stroke-width="3"/><text x="190" y="912" class="escala">Un d\xEDa de camino</text></g>`),
-    (t += '<text x="1500" y="955" class="nota">Aqu\xED hay trasgos</text>'),
-    t
+    (svg += `<text x="${roseX}" y="${roseY - 84}" class="norte">N</text></g>`),
+    (svg += `<g opacity=".75"><path d="M90,930 h200 M90,922 v16 M190,926 v8 M290,922 v16" stroke="${ink}" stroke-width="3"/><text x="190" y="912" class="escala">Un d\xEDa de camino</text></g>`),
+    (svg += '<text x="1500" y="955" class="nota">Aqu\xED hay trasgos</text>'),
+    svg
   );
 }
-function im(o, e, t, { from: a, selectable: n = !0, onSelect: s, onActivate: i } = {}) {
-  let r = JL(o),
-    l = e.store.cp,
-    c = a || QL(r, l),
-    d = null,
-    u = elem('div.mg-map'),
-    h = elem('div.mg-map-scroll', { style: 'position:absolute;inset:0;overflow:auto;scrollbar-width:none' }),
-    p = elem('div.mg-map-inner.mg-parchment', { style: 'position:relative;width:100%;height:100%' });
-  (h.append(p), u.append(h));
-  let _ = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  (_.setAttribute('class', 'mapa'),
-    _.setAttribute('viewBox', `0 0 ${Do} ${ls}`),
-    _.setAttribute('preserveAspectRatio', 'xMidYMid meet'),
-    _.setAttribute('role', 'img'),
-    _.setAttribute('aria-label', r.title || 'Mapa'),
-    p.append(_));
-  let b = (z) => [z.pos[0] * Do, z.pos[1] * ls],
-    f = Object.fromEntries(r.places.map((z) => [z.id, z])),
-    v = (z, D) => {
-      let [M, R] = b(z),
-        [A, P] = b(D),
-        I = (M + A) / 2,
-        U = (R + P) / 2,
-        j = -(P - R),
-        X = A - M,
-        J = Math.hypot(j, X) || 1,
-        Z = 0.12 * Math.hypot(A - M, P - R);
-      return { x0: M, y0: R, x1: A, y1: P, cx: I + (j / J) * Z, cy: U + (X / J) * Z };
+function createTravelMap(ui, game, container, { from, selectable = !0, onSelect, onActivate } = {}) {
+  let world = worldData(ui),
+    cp = game.store.cp,
+    here = from || currentPlace(world, cp),
+    selected = null,
+    root = elem('div.mg-map'),
+    scroller = elem('div.mg-map-scroll', {
+      style: 'position:absolute;inset:0;overflow:auto;scrollbar-width:none',
+    }),
+    inner = elem('div.mg-map-inner.mg-parchment', { style: 'position:relative;width:100%;height:100%' });
+  (scroller.append(inner), root.append(scroller));
+  let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  (svg.setAttribute('class', 'mapa'),
+    svg.setAttribute('viewBox', `0 0 ${MAP_W} ${MAP_H}`),
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet'),
+    svg.setAttribute('role', 'img'),
+    svg.setAttribute('aria-label', world.title || 'Mapa'),
+    inner.append(svg));
+  let toXY = (place) => [place.pos[0] * MAP_W, place.pos[1] * MAP_H],
+    byId = Object.fromEntries(world.places.map((place) => [place.id, place])),
+    curve = (from, to) => {
+      let [x0, y0] = toXY(from),
+        [x1, y1] = toXY(to),
+        midX = (x0 + x1) / 2,
+        midY = (y0 + y1) / 2,
+        normX = -(y1 - y0),
+        normY = x1 - x0,
+        normLen = Math.hypot(normX, normY) || 1,
+        bend = 0.12 * Math.hypot(x1 - x0, y1 - y0);
+      return { x0, y0, x1, y1, cx: midX + (normX / normLen) * bend, cy: midY + (normY / normLen) * bend };
     };
-  function x() {
-    let z = `<style>
+  function draw() {
+    let markup = `<style>
       .rio{font:italic 600 30px Alegreya,Georgia,serif;fill:#2f5674;opacity:.75}
       .norte{font:700 34px Cinzel,Georgia,serif;fill:#4a2e16;text-anchor:middle}
       .escala{font:500 24px 'Alegreya SC',Georgia,serif;fill:#4a2e16;text-anchor:middle}
@@ -134,118 +138,134 @@ function im(o, e, t, { from: a, selectable: n = !0, onSelect: s, onActivate: i }
       .pin:hover .halo,.pin:focus-visible .halo,.pin.sel .halo{opacity:.85}
       .pin:focus-visible .halo{stroke:#8a2316;stroke-width:4}
     </style>`;
-    z += tD();
-    for (let D of r.roads || []) {
-      let M = f[D[0]],
-        R = f[D[1]];
-      if (!M || !R) continue;
-      let A = v(M, R),
-        P = d && c && ((D[0] === c && D[1] === d) || (D[1] === c && D[0] === d));
-      ((z += `<path d="M${A.x0},${A.y0} Q${A.cx},${A.cy} ${A.x1},${A.y1}" fill="none" stroke="${P ? '#8a2316' : '#5a3a1e'}" stroke-width="${P ? 7 : 4}" stroke-dasharray="${P ? '18 10' : '14 12'}" stroke-linecap="round" opacity="${P ? 0.95 : 0.6}"/>`),
-        P &&
-          (z += `<text x="${(A.x0 + 2 * A.cx + A.x1) / 4}" y="${(A.y0 + 2 * A.cy + A.y1) / 4 - 14}" class="horas">${D[2]} ${D[2] === 1 ? 'hora' : 'horas'}</text>`));
+    markup += mapDecorSvg();
+    for (let road of world.roads || []) {
+      let start = byId[road[0]],
+        end = byId[road[1]];
+      if (!start || !end) continue;
+      let path = curve(start, end),
+        active =
+          selected &&
+          here &&
+          ((road[0] === here && road[1] === selected) || (road[1] === here && road[0] === selected));
+      ((markup += `<path d="M${path.x0},${path.y0} Q${path.cx},${path.cy} ${path.x1},${path.y1}" fill="none" stroke="${active ? '#8a2316' : '#5a3a1e'}" stroke-width="${active ? 7 : 4}" stroke-dasharray="${active ? '18 10' : '14 12'}" stroke-linecap="round" opacity="${active ? 0.95 : 0.6}"/>`),
+        active &&
+          (markup += `<text x="${(path.x0 + 2 * path.cx + path.x1) / 4}" y="${(path.y0 + 2 * path.cy + path.y1) / 4 - 14}" class="horas">${road[2]} ${road[2] === 1 ? 'hora' : 'horas'}</text>`));
     }
-    for (let D of r.places) {
-      let [M, R] = b(D),
-        A = lM(D, l),
-        P = iconSvg(D.icon || 'map')
+    for (let place of world.places) {
+      let [x, y] = toXY(place),
+        access = placeAccess(place, cp),
+        icon = iconSvg(place.icon || 'map')
           .replace('<svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">', '')
           .replace(/<\/svg>$/, '');
-      z += `<g class="pin${D.id === d ? ' sel' : ''}" data-id="${escapeHtml(D.id)}" tabindex="0" role="button" aria-label="${escapeHtml(D.name)}${A.open ? '' : ' (cerrado)'}">
-        <circle class="halo" cx="${M}" cy="${R}" r="62"/>
-        <svg x="${M - 46}" y="${R - 50}" width="92" height="92" viewBox="0 0 512 512" style="color:${A.open ? (D.id === d ? '#8a2316' : '#3a2210') : '#8a7656'}">${P}</svg>
-        <text x="${M}" y="${R + 80}" class="lugar${A.open ? '' : ' bloq'}">${escapeHtml(D.name)}</text>
-        ${D.id === c ? `<text x="${M}" y="${R - 62}" class="aqui">Est\xE1is aqu\xED</text>` : ''}
+      markup += `<g class="pin${place.id === selected ? ' sel' : ''}" data-id="${escapeHtml(place.id)}" tabindex="0" role="button" aria-label="${escapeHtml(place.name)}${access.open ? '' : ' (cerrado)'}">
+        <circle class="halo" cx="${x}" cy="${y}" r="62"/>
+        <svg x="${x - 46}" y="${y - 50}" width="92" height="92" viewBox="0 0 512 512" style="color:${access.open ? (place.id === selected ? '#8a2316' : '#3a2210') : '#8a7656'}">${icon}</svg>
+        <text x="${x}" y="${y + 80}" class="lugar${access.open ? '' : ' bloq'}">${escapeHtml(place.name)}</text>
+        ${place.id === here ? `<text x="${x}" y="${y - 62}" class="aqui">Est\xE1is aqu\xED</text>` : ''}
       </g>`;
     }
-    _.innerHTML = z;
-    for (let D of _.querySelectorAll('.pin')) {
-      let M = D.dataset.id;
-      (D.addEventListener('click', () => g(M, !0)),
-        D.addEventListener('dblclick', () => i?.(f[M])),
-        D.addEventListener('keydown', (R) => {
-          (R.key === 'Enter' || R.key === ' ') && (R.preventDefault(), d === M ? i?.(f[M]) : g(M, 'teclado'));
+    svg.innerHTML = markup;
+    for (let pin of svg.querySelectorAll('.pin')) {
+      let id = pin.dataset.id;
+      (pin.addEventListener('click', () => select(id, !0)),
+        pin.addEventListener('dblclick', () => onActivate?.(byId[id])),
+        pin.addEventListener('keydown', (ev) => {
+          (ev.key === 'Enter' || ev.key === ' ') &&
+            (ev.preventDefault(), selected === id ? onActivate?.(byId[id]) : select(id, 'teclado'));
         }));
     }
-    u.style.setProperty('--fondo', '');
+    root.style.setProperty('--fondo', '');
   }
-  function g(z, D) {
-    let M = f[z];
-    if (M) {
-      if (!n && D) {
-        ((d = z), x(), s?.(M, y(M)));
+  function select(id, how) {
+    let place = byId[id];
+    if (place) {
+      if (!selectable && how) {
+        ((selected = id), draw(), onSelect?.(place, info(place)));
         return;
       }
-      ((d = z),
-        x(),
-        D === 'teclado' && _.querySelector(`.pin[data-id="${CSS.escape(z)}"]`)?.focus({ preventScroll: !0 }),
-        s?.(M, y(M)));
+      ((selected = id),
+        draw(),
+        how === 'teclado' &&
+          svg.querySelector(`.pin[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: !0 }),
+        onSelect?.(place, info(place)));
     }
   }
-  function y(z) {
-    let D = lM(z, l),
-      M = c && c !== z.id ? ZL(r, c, z.id) : null;
-    return { ...D, here: z.id === c, hours: M, level: z.level || z.id, spawn: z.spawn || 'entry' };
+  function info(place) {
+    let access = placeAccess(place, cp),
+      hours = here && here !== place.id ? roadHours(world, here, place.id) : null;
+    return {
+      ...access,
+      here: place.id === here,
+      hours,
+      level: place.level || place.id,
+      spawn: place.spawn || 'entry',
+    };
   }
-  function w(z) {
-    let D = f[c],
-      M = f[d];
-    if (!D || !M) return null;
-    let R = v(D, M),
-      A = 1 - z;
-    return [A * A * R.x0 + 2 * A * z * R.cx + z * z * R.x1, A * A * R.y0 + 2 * A * z * R.cy + z * z * R.y1];
+  function routePoint(t) {
+    let start = byId[here],
+      end = byId[selected];
+    if (!start || !end) return null;
+    let path = curve(start, end),
+      u = 1 - t;
+    return [
+      u * u * path.x0 + 2 * u * t * path.cx + t * t * path.x1,
+      u * u * path.y0 + 2 * u * t * path.cy + t * t * path.y1,
+    ];
   }
-  function k([z, D]) {
-    let M = _.getBoundingClientRect(),
-      R = u.getBoundingClientRect(),
-      A = Math.min(M.width / Do, M.height / ls),
-      P = M.left - R.left + (M.width - Do * A) / 2,
-      I = M.top - R.top + (M.height - ls * A) / 2;
-    return [P + z * A, I + D * A];
+  function toPx([x, y]) {
+    let svgRect = svg.getBoundingClientRect(),
+      rootRect = root.getBoundingClientRect(),
+      scale = Math.min(svgRect.width / MAP_W, svgRect.height / MAP_H),
+      offsetX = svgRect.left - rootRect.left + (svgRect.width - MAP_W * scale) / 2,
+      offsetY = svgRect.top - rootRect.top + (svgRect.height - MAP_H * scale) / 2;
+    return [offsetX + x * scale, offsetY + y * scale];
   }
-  (x(), t.append(u));
-  let T = () => {
-      let z = u.clientWidth,
-        D = u.clientHeight;
-      if (!z || !D) return;
-      let M = z / D < 1.15,
-        R = M ? Math.round(D * (Do / ls)) : Math.min(z, Math.round(D * (Do / ls))),
-        A = Math.round((R * ls) / Do);
+  (draw(), container.append(root));
+  let fit = () => {
+      let width = root.clientWidth,
+        height = root.clientHeight;
+      if (!width || !height) return;
+      let narrow = width / height < 1.15,
+        innerW = narrow
+          ? Math.round(height * (MAP_W / MAP_H))
+          : Math.min(width, Math.round(height * (MAP_W / MAP_H))),
+        innerH = Math.round((innerW * MAP_H) / MAP_W);
       if (
-        ((p.style.width = `${R}px`),
-        (p.style.height = `${A}px`),
-        (p.style.margin = M ? '0' : `${Math.max(0, Math.floor((D - A) / 2))}px auto 0`),
-        M && c)
+        ((inner.style.width = `${innerW}px`),
+        (inner.style.height = `${innerH}px`),
+        (inner.style.margin = narrow ? '0' : `${Math.max(0, Math.floor((height - innerH) / 2))}px auto 0`),
+        narrow && here)
       ) {
-        let [P] = b(f[c]);
-        h.scrollLeft = (P / Do) * R - z / 2;
+        let [hereX] = toXY(byId[here]);
+        scroller.scrollLeft = (hereX / MAP_W) * innerW - width / 2;
       }
     },
-    E = typeof ResizeObserver == 'function' ? new ResizeObserver(T) : null;
+    observer = typeof ResizeObserver == 'function' ? new ResizeObserver(fit) : null;
   return (
-    E?.observe(u),
-    requestAnimationFrame(T),
-    addEventListener('resize', T),
+    observer?.observe(root),
+    requestAnimationFrame(fit),
+    addEventListener('resize', fit),
     {
-      el: u,
-      inner: p,
-      world: r,
-      here: c,
-      select: g,
-      info: y,
-      routePoint: w,
-      toPx: k,
-      byId: f,
+      el: root,
+      inner,
+      world,
+      here,
+      select,
+      info,
+      routePoint,
+      toPx,
+      byId,
       dispose: () => {
-        (E?.disconnect(), removeEventListener('resize', T));
+        (observer?.disconnect(), removeEventListener('resize', fit));
       },
       get selected() {
-        return d;
+        return selected;
       },
     }
   );
 }
-const Do = 1600;
-const ls = 1e3;
+const MAP_W = 1600;
+const MAP_H = 1e3;
 
-export { im };
+export { createTravelMap };
