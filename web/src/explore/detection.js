@@ -8,7 +8,7 @@
 import { Vector3 } from 'three';
 import { hexDistance } from './hex.js';
 import { Wu, Xu } from './interact.js';
-import { Uo } from './battle.js';
+import { startBattle } from './battle.js';
 import { SKILL_LABELS } from './checks.js';
 
 /** Percepción pasiva de un miembro (las del grupo se calculan una vez y se guardan en `explore.pp`). */
@@ -134,7 +134,7 @@ function detect(explore) {
               if ((group.hidden && noticeHidden(explore, gid, m), dist <= 1)) {
                 ((group.alerted = !0),
                   explore.stopAll(),
-                  Uo(explore, gid, { surprise: !0, hidden: stealthTotals(group) }));
+                  startBattle(explore, gid, { surprise: !0, hidden: stealthTotals(group) }));
                 return;
               }
               continue;
@@ -224,7 +224,7 @@ async function spotted(explore, gid, enemy, member) {
     }
     (await explore.withBusy(() => sleep(650)),
       explore.groups.has(gid) && !explore.inBattle
-        ? await Uo(explore, gid, {})
+        ? await startBattle(explore, gid, {})
         : explore.groups.has(gid) && (group.alerted = !1));
   }
 }
@@ -265,7 +265,7 @@ async function talkGroup(explore, gid, enemy = null, { stealth = !1 } = {}) {
         (await explore.say(talker.id, group.def.taunt || '\xAB\xA1Ni un paso m\xE1s, carne blanda!\xBB', {
           dur: 2.2,
         })),
-      await Uo(explore, gid, {}));
+      await startBattle(explore, gid, {}));
   }
 }
 /** Emboscada de un grupo oculto: quien no lo ve venir queda sorprendido. */
@@ -310,7 +310,7 @@ async function springAmbush(explore, gid, member) {
     await explore.withBusy(() => sleep(900)),
     explore.groups.has(gid) &&
       !explore.inBattle &&
-      (await Uo(explore, gid, { surprisedParty: surprised, ambush: !0 })));
+      (await startBattle(explore, gid, { surprisedParty: surprised, ambush: !0 })));
 }
 /** Hace visibles a los enemigos de un grupo oculto (con una animación de escala). */
 function revealGroup(explore, gid) {

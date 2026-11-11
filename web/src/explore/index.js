@@ -26,7 +26,7 @@ import { ExploreMarks } from './marks.js';
 import { createExploreHud, fallbackDialog } from './hud.js';
 import { Ju, Xu, cy, Xk, Yk, m0, uy, Zk } from './interact.js';
 import { perceive, search, toggleStealth, detect, checkTriggers } from './detection.js';
-import { Uk, Uo, Gk } from './battle.js';
+import { attackEnemy, startBattle, withdrawGroup } from './battle.js';
 import { AmbientAnimals, Banter } from './animals.js';
 
 async function createExplore(o, e = {}) {
@@ -1184,7 +1184,7 @@ const Explore = class {
           m0(this, n.id);
           break;
         case 'enemy':
-          Uk(this, n.id);
+          attackEnemy(this, n.id);
           break;
         case 'object':
           Xk(this, n.id);
@@ -1365,8 +1365,8 @@ const Explore = class {
       get isBusy() {
         return e.isBusy();
       },
-      startBattle: (t, a = {}) => Uo(e, t, a),
-      removeGroup: (t, a = {}) => Gk(e, t, a),
+      startBattle: (t, a = {}) => startBattle(e, t, a),
+      removeGroup: (t, a = {}) => withdrawGroup(e, t, a),
       addCompanion: async () => {
         await e.rebuildParty();
       },

@@ -5,7 +5,7 @@ import { Vector3 } from 'three';
 import { cellKey, neighbors, hexDistance } from './hex.js';
 import { lootDialog, showInterlude } from './hud.js';
 import './checks.js';
-import { Uo } from './battle.js';
+import { startBattle } from './battle.js';
 
 async function f0(o, e, { actorId: t = null, adjacent: a = !0 } = {}) {
   let n = o.member(t) || o.lead();
@@ -232,7 +232,7 @@ function Wk(o, e, t) {
 function $k(o, e, t) {
   for (let [a, n] of o.groups)
     if (!n.hidden && n.enemies.some((s) => !s.dead && hexDistance(s.cell, e) <= 7)) {
-      (o.toast(t, 'mal'), setTimeout(() => !o.inBattle && o.groups.has(a) && Uo(o, a, {}), 900));
+      (o.toast(t, 'mal'), setTimeout(() => !o.inBattle && o.groups.has(a) && startBattle(o, a, {}), 900));
       return;
     }
 }
@@ -336,7 +336,7 @@ function cy(o, e, t) {
     a.alarm &&
       (o.hud?.banner?.('\xA1Una alarma!', 'mal', 1300),
       o.toast('Una cuerda tensa, un ruido de latas: el campamento sabe que est\xE1is aqu\xED.', 'mal'),
-      o.groups.has(a.alarm) && setTimeout(() => !o.inBattle && Uo(o, a.alarm, {}), 1300)));
+      o.groups.has(a.alarm) && setTimeout(() => !o.inBattle && startBattle(o, a.alarm, {}), 1300)));
 }
 async function xN(o, e) {
   let t = o.objects.get(e);
