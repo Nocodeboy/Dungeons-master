@@ -13,7 +13,7 @@ import { $3 } from './interiors.js';
 import { ok } from './procedural.js';
 import { buildWater, WATER_LEVEL } from './water.js';
 import { CryptWalls } from './crypt.js';
-import { o0 } from './particles.js';
+import { WorldFx } from './particles.js';
 import { makeRng, hashString, cellToWorld, worldToCell, HEX_SIZE, TileMap } from './grid.js';
 
 async function buildLevel(
@@ -42,7 +42,7 @@ async function buildLevel(
     x = n || q9[i] || 'dusk';
   !n && e.id === 'merrowick' && a?.flag?.('e1_done') && (x = 'day');
   let g = new Sky(o, { center: v, radius: Math.max(h.sizeX, h.sizeZ), quality: t, ambient: r ? 'crypt' : x }),
-    y = new o0(b, { quality: t, ambient: i }),
+    y = new WorldFx(b, { quality: t, ambient: i }),
     w = { scene: b, map: h, level: e, ground: f, rnd: u, quality: t, ambient: i, fx: y, sky: g };
   f.paintTiles();
   let k = new MeshMerger({

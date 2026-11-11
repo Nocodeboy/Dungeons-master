@@ -1,5 +1,7 @@
-// world/particles.js
-// Reconstruido de publicado/juego.js (módulo __esm «rk»). Nombres locales aún minificados.
+// world/particles.js — efectos ambientales del mundo (`WorldFx`): sistemas de partículas por shader
+// (humo de chimeneas, fuego y brasas, halos de faroles, luciérnagas, hojas, polvo), haces de sol en el
+// bosque y un puñado de PointLight que se reparten cada 0,3 s entre las fuentes de luz más cercanas.
+// Reconstruido de publicado/juego.js (módulo __esm «rk»). Lo usan index.js y crypt.js (antorchas).
 
 import {
   AdditiveBlending,
@@ -18,31 +20,39 @@ import {
   Vector3,
 } from 'three';
 
-function ju(o, e, { count: t = 12, size: a = 1, color: n = 16777215, extra: s = null, area: i = null } = {}) {
-  let r = e.length * t;
-  if (!r) return null;
-  let l = new Float32Array(r * 3),
-    c = new Float32Array(r),
-    d = new Float32Array(r * 4),
-    u = 0;
-  for (let f = 0; f < e.length; f++) {
-    let v = e[f];
-    for (let x = 0; x < t; x++, u++) {
-      (l.set([v.x, v.y, v.z], u * 3), (c[u] = (x + Math.random()) / t));
-      let g = s ? s(f, x) : [0, 0, 0, 0];
-      d.set(g, u * 4);
+/**
+ * Sistema de `Points` del tipo `kind` (smoke, fire, ember, firefly, leaf, dust, halo) con `count`
+ * partículas por origen. `extra(origen, k)` da el atributo `aExtra` (vec4) de cada partícula.
+ */
+function makeParticles(
+  kind,
+  origins,
+  { count = 12, size = 1, color = 16777215, extra = null, area = null } = {},
+) {
+  let total = origins.length * count;
+  if (!total) return null;
+  let positions = new Float32Array(total * 3),
+    seeds = new Float32Array(total),
+    extras = new Float32Array(total * 4),
+    k = 0;
+  for (let j = 0; j < origins.length; j++) {
+    let origin = origins[j];
+    for (let q = 0; q < count; q++, k++) {
+      (positions.set([origin.x, origin.y, origin.z], k * 3), (seeds[k] = (q + Math.random()) / count));
+      let ex = extra ? extra(j, q) : [0, 0, 0, 0];
+      extras.set(ex, k * 4);
     }
   }
-  let h = new BufferGeometry();
-  (h.setAttribute('position', new BufferAttribute(l, 3)),
-    h.setAttribute('aSeed', new BufferAttribute(c, 1)),
-    h.setAttribute('aExtra', new BufferAttribute(d, 4)),
-    i ? (h.boundingSphere = i) : h.computeBoundingSphere(),
-    h.boundingSphere && (h.boundingSphere.radius += 6));
-  let p = {
+  let geo = new BufferGeometry();
+  (geo.setAttribute('position', new BufferAttribute(positions, 3)),
+    geo.setAttribute('aSeed', new BufferAttribute(seeds, 1)),
+    geo.setAttribute('aExtra', new BufferAttribute(extras, 4)),
+    area ? (geo.boundingSphere = area) : geo.computeBoundingSphere(),
+    geo.boundingSphere && (geo.boundingSphere.radius += 6));
+  let uniforms = {
       uTime: { value: 0 },
-      uSize: { value: a },
-      uColor: { value: new Color(n) },
+      uSize: { value: size },
+      uColor: { value: new Color(color) },
       uScale: { value: 400 },
       uAmount: { value: 1 },
       uWind: { value: new Vector2(0.25, 0.08) },
@@ -51,7 +61,7 @@ function ju(o, e, { count: t = 12, size: a = 1, color: n = 16777215, extra: s = 
       fogNear: { value: 10 },
       fogFar: { value: 100 },
     },
-    m = {
+    motion = {
       smoke: `
       float age = fract(uTime * 0.16 + aSeed + aExtra.x);
       vec3 p = position + vec3(uWind.x * age * age * 4.0 + sin(age * 6.0 + aSeed * 30.0) * 0.15, age * 3.6, uWind.y * age * age * 4.0);
@@ -98,20 +108,20 @@ function ju(o, e, { count: t = 12, size: a = 1, color: n = 16777215, extra: s = 
       vSize = aExtra.y * uSize * fl;
       vAlpha = uAmount * aExtra.z;
       vTint = uColor * 1.6;`,
-    }[o],
-    _ = new ShaderMaterial({
-      uniforms: p,
+    }[kind],
+    material = new ShaderMaterial({
+      uniforms,
       transparent: !0,
       depthWrite: !1,
-      blending: o === 'smoke' || o === 'leaf' ? NormalBlending : AdditiveBlending,
+      blending: kind === 'smoke' || kind === 'leaf' ? NormalBlending : AdditiveBlending,
       fog: !0,
       vertexShader: `
       attribute float aSeed; attribute vec4 aExtra;
       uniform float uTime; uniform float uSize; uniform float uScale; uniform float uAmount; uniform float uLight; uniform vec2 uWind; uniform vec3 uColor;
       varying float vAlpha; varying vec3 vTint; varying float vSize; varying float vFogDepth; varying float vKind;
-      ${B9}
+      ${FX_HASH_GLSL}
       void main(){
-        ${m}
+        ${motion}
         vec4 mv = modelViewMatrix * vec4(p, 1.0);
         gl_Position = projectionMatrix * mv;
         gl_PointSize = vSize * uScale / max(0.1, -mv.z);
@@ -123,171 +133,207 @@ function ju(o, e, { count: t = 12, size: a = 1, color: n = 16777215, extra: s = 
       void main(){
         vec2 q = gl_PointCoord - 0.5;
         float d = length(q) * 2.0;
-        ${o === 'smoke' ? 'float a = smoothstep(1.0, 0.2, d) * vAlpha; vec3 c = vTint; float f = smoothstep(fogNear, fogFar, vFogDepth); c = mix(c, fogColor, f);' : ''}
-        ${o === 'leaf' ? 'float a = step(d, 0.9) * vAlpha; vec3 c = vTint;' : ''}
-        ${o !== 'smoke' && o !== 'leaf' ? 'float a = pow(max(0.0, 1.0 - d), 2.0) * vAlpha; vec3 c = vTint; float f = smoothstep(fogNear, fogFar, vFogDepth); a *= 1.0 - f * 0.8;' : ''}
+        ${kind === 'smoke' ? 'float a = smoothstep(1.0, 0.2, d) * vAlpha; vec3 c = vTint; float f = smoothstep(fogNear, fogFar, vFogDepth); c = mix(c, fogColor, f);' : ''}
+        ${kind === 'leaf' ? 'float a = step(d, 0.9) * vAlpha; vec3 c = vTint;' : ''}
+        ${kind !== 'smoke' && kind !== 'leaf' ? 'float a = pow(max(0.0, 1.0 - d), 2.0) * vAlpha; vec3 c = vTint; float f = smoothstep(fogNear, fogFar, vFogDepth); a *= 1.0 - f * 0.8;' : ''}
         if (a < 0.003) discard;
         gl_FragColor = vec4(c, a);
       }`,
     }),
-    b = new Points(h, _);
-  return ((b.frustumCulled = !!i || !0), (b.renderOrder = o === 'halo' ? 5 : 4), (b.name = `fx:${o}`), b);
+    points = new Points(geo, material);
+  return (
+    (points.frustumCulled = !!area || !0),
+    (points.renderOrder = kind === 'halo' ? 5 : 4),
+    (points.name = `fx:${kind}`),
+    points
+  );
 }
-const B9 = `
+/** Hash 1D en GLSL que comparten los shaders de partículas. */
+const FX_HASH_GLSL = `
 float fxH(float n){ return fract(sin(n * 12.9898) * 43758.5453); }
 `;
-const o0 = class {
-  constructor(e, { quality: t, ambient: a }) {
-    ((this.scene = e),
-      (this.quality = t),
-      (this.ambient = a),
+/**
+ * Efectos del nivel. Se rellenan `flames`, `lampSources` (con `addLamp`) y `smokeOrigins` y luego
+ * `build(fog)` crea los sistemas. `update(dt, time, camera, focus, viewH)` anima y reparte las luces.
+ */
+const WorldFx = class {
+  constructor(scene, { quality, ambient }) {
+    ((this.scene = scene),
+      (this.quality = quality),
+      (this.ambient = ambient),
       (this.systems = []),
       (this.lampSources = []),
       (this.flames = []),
       (this.lampFactor = 1));
-    let n = t.level === 0 ? 2 : t.level === 1 ? 4 : 6;
+    let count = quality.level === 0 ? 2 : quality.level === 1 ? 4 : 6;
     this.lights = [];
-    for (let s = 0; s < n; s++) {
-      let i = new PointLight(16752720, 0, 6, 1.6);
-      ((i.castShadow = !1), e.add(i), this.lights.push(i));
+    for (let k = 0; k < count; k++) {
+      let light = new PointLight(16752720, 0, 6, 1.6);
+      ((light.castShadow = !1), scene.add(light), this.lights.push(light));
     }
     ((this._t = 0), (this._v = new Vector3()));
   }
-  add(e) {
-    return e ? (this.scene.add(e), this.systems.push(e), e) : null;
+  add(sys) {
+    return sys ? (this.scene.add(sys), this.systems.push(sys), sys) : null;
   }
-  addLamp(e) {
-    let t = { on: !0, ...e };
-    return (this.lampSources.push(t), t);
+  /** Registra una fuente de luz {pos, color, range, energy, kind, halo…}; devuelve el registro. */
+  addLamp(def) {
+    let lamp = { on: !0, ...def };
+    return (this.lampSources.push(lamp), lamp);
   }
-  build(e) {
-    let t = this.quality.level,
-      a = this.smokeOrigins || [];
-    (a.length &&
-      t > 0 &&
-      this.add(ju('smoke', a, { count: t === 2 ? 14 : 9, size: 1, extra: (n) => [n * 0.37, 0, 0, 0] })),
+  /** Crea humo, fuego y halos y guarda la niebla de la escena para los shaders. */
+  build(fog) {
+    let level = this.quality.level,
+      smoke = this.smokeOrigins || [];
+    (smoke.length &&
+      level > 0 &&
+      this.add(
+        makeParticles('smoke', smoke, {
+          count: level === 2 ? 14 : 9,
+          size: 1,
+          extra: (k) => [k * 0.37, 0, 0, 0],
+        }),
+      ),
       this.buildFire(),
       this.buildHalos(),
-      (this.fog = e),
+      (this.fog = fog),
       (this.built = !0));
   }
-  drop(e) {
-    e &&
-      (this.scene.remove(e),
-      e.geometry.dispose(),
-      e.material.dispose(),
-      (this.systems = this.systems.filter((t) => t !== e)));
+  /** Quita y libera un sistema. */
+  drop(sys) {
+    sys &&
+      (this.scene.remove(sys),
+      sys.geometry.dispose(),
+      sys.material.dispose(),
+      (this.systems = this.systems.filter((s) => s !== sys)));
   }
+  /** (Re)crea los sistemas de fuego y brasas de `flames`. */
   buildFire() {
     (this.drop(this.fireSys), this.drop(this.emberSys), (this.fireSys = this.emberSys = null));
-    let e = this.flames;
-    if (e.length) {
-      (e.forEach((t, a) => (t.index = a)),
+    let flames = this.flames;
+    if (flames.length) {
+      (flames.forEach((flame, k) => (flame.index = k)),
         (this.fireSys = this.add(
-          ju(
+          makeParticles(
             'fire',
-            e.map((t) => t.pos),
-            { count: 14, size: 1, extra: (t) => [t * 0.21, e[t].scale || 1, 0, 0] },
+            flames.map((flame) => flame.pos),
+            { count: 14, size: 1, extra: (k) => [k * 0.21, flames[k].scale || 1, 0, 0] },
           ),
         )),
         this.quality.level > 0 &&
           (this.emberSys = this.add(
-            ju(
+            makeParticles(
               'ember',
-              e.filter((t) => t.embers !== !1).map((t) => t.pos),
-              { count: 6, size: 1, extra: (t) => [t * 0.13, 1, 0, 0] },
+              flames.filter((flame) => flame.embers !== !1).map((flame) => flame.pos),
+              { count: 6, size: 1, extra: (k) => [k * 0.13, 1, 0, 0] },
             ),
           )));
-      for (let t of e) t.on === !1 && ((t.on = void 0), this.setFlame(t, !1));
+      for (let flame of flames) flame.on === !1 && ((flame.on = void 0), this.setFlame(flame, !1));
     }
   }
+  /** (Re)crea los halos de las fuentes de luz. */
   buildHalos() {
     (this.drop(this.halo), (this.halo = null));
-    let e = this.lampSources.filter((a) => a.halo !== !1);
-    if (!e.length) return;
-    let t = ju(
+    let lamps = this.lampSources.filter((lamp) => lamp.halo !== !1);
+    if (!lamps.length) return;
+    let sys = makeParticles(
       'halo',
-      e.map((a) => a.pos),
+      lamps.map((lamp) => lamp.pos),
       {
         count: 1,
         size: 1,
         color: 16756832,
-        extra: (a) => [0, e[a].haloSize || 1.6, e[a].haloAlpha ?? 0.5, 0],
+        extra: (k) => [0, lamps[k].haloSize || 1.6, lamps[k].haloAlpha ?? 0.5, 0],
       },
     );
-    ((this.halo = this.add(t)),
+    ((this.halo = this.add(sys)),
       (this.halo.material.uniforms.uAmount.value = Math.min(1, this.lampFactor ?? 1)));
   }
-  addFire(e) {
-    (this.flames.push(e), this.built && (this.buildFire(), this.buildHalos()));
+  /** Añade una llama; si ya se construyó, rehace fuego y halos. */
+  addFire(flame) {
+    (this.flames.push(flame), this.built && (this.buildFire(), this.buildHalos()));
   }
-  ambientAround(e, t) {
-    let a = this.quality.level;
-    if (a === 0) return;
-    let n = [],
-      s = e === 'firefly' ? (a === 2 ? 60 : 36) : e === 'leaf' ? (a === 2 ? 50 : 30) : a === 2 ? 70 : 44;
-    for (let r = 0; r < s; r++)
-      n.push(new Vector3((Math.random() - 0.5) * 30, 0, (Math.random() - 0.5) * 30));
-    let i = ju(e, n, { count: 1, size: 1 });
-    ((i.frustumCulled = !1),
-      (i.userData.follow = !0),
-      this.add(i),
-      e === 'firefly' && (this.fireflies = i),
-      e === 'leaf' && (this.leaves = i),
-      e === 'dust' && (this.dust = i),
-      i.position.copy(t));
+  /** Partículas ambientales de `kind` alrededor de `center` que siguen al foco. */
+  ambientAround(kind, center) {
+    let level = this.quality.level;
+    if (level === 0) return;
+    let origins = [],
+      count =
+        kind === 'firefly'
+          ? level === 2
+            ? 60
+            : 36
+          : kind === 'leaf'
+            ? level === 2
+              ? 50
+              : 30
+            : level === 2
+              ? 70
+              : 44;
+    for (let k = 0; k < count; k++)
+      origins.push(new Vector3((Math.random() - 0.5) * 30, 0, (Math.random() - 0.5) * 30));
+    let sys = makeParticles(kind, origins, { count: 1, size: 1 });
+    ((sys.frustumCulled = !1),
+      (sys.userData.follow = !0),
+      this.add(sys),
+      kind === 'firefly' && (this.fireflies = sys),
+      kind === 'leaf' && (this.leaves = sys),
+      kind === 'dust' && (this.dust = sys),
+      sys.position.copy(center));
   }
-  setFlame(e, t) {
-    if (!this.fireSys || e.index == null || e.on === t) return;
-    e.on = t;
-    let a = this.fireSys.geometry.getAttribute('aExtra');
-    for (let n = 0; n < 14; n++) a.array[(e.index * 14 + n) * 4 + 1] = t ? e.scale || 1 : 0;
-    a.needsUpdate = !0;
+  /** Enciende o apaga una llama (ajusta el tamaño de sus partículas en `aExtra`). */
+  setFlame(flame, on) {
+    if (!this.fireSys || flame.index == null || flame.on === on) return;
+    flame.on = on;
+    let attr = this.fireSys.geometry.getAttribute('aExtra');
+    for (let k = 0; k < 14; k++) attr.array[(flame.index * 14 + k) * 4 + 1] = on ? flame.scale || 1 : 0;
+    attr.needsUpdate = !0;
   }
-  sunShafts(e, t, a = 16769696) {
-    if (!e.length || this.quality.level === 0) return;
-    let n = [],
-      s = [],
-      i = [],
-      r = t.clone().normalize(),
-      l = new Vector3(0, 1, 0);
-    for (let h of e) {
-      let m = 1.4 + Math.random() * 1.6,
-        _ = h.clone().addScaledVector(r, 16);
-      for (let b = 0; b < 2; b++) {
-        let f = new Vector3()
-            .crossVectors(r, b === 0 ? l : new Vector3(1, 0, 0))
+  /** Haces de luz de sol (cuadriláteros aditivos) sobre los puntos dados. */
+  sunShafts(points, sunDir, color = 16769696) {
+    if (!points.length || this.quality.level === 0) return;
+    let positions = [],
+      uvs = [],
+      seeds = [],
+      dir = sunDir.clone().normalize(),
+      up = new Vector3(0, 1, 0);
+    for (let base of points) {
+      let width = 1.4 + Math.random() * 1.6,
+        top = base.clone().addScaledVector(dir, 16);
+      for (let pass = 0; pass < 2; pass++) {
+        let side = new Vector3()
+            .crossVectors(dir, pass === 0 ? up : new Vector3(1, 0, 0))
             .normalize()
-            .multiplyScalar(m / 2),
-          v = _.clone().add(f),
-          x = _.clone().sub(f),
-          g = h.clone().add(f),
-          y = h.clone().sub(f);
-        (n.push(
-          ...v.toArray(),
-          ...x.toArray(),
-          ...g.toArray(),
-          ...x.toArray(),
-          ...y.toArray(),
-          ...g.toArray(),
+            .multiplyScalar(width / 2),
+          topA = top.clone().add(side),
+          topB = top.clone().sub(side),
+          baseA = base.clone().add(side),
+          baseB = base.clone().sub(side);
+        (positions.push(
+          ...topA.toArray(),
+          ...topB.toArray(),
+          ...baseA.toArray(),
+          ...topB.toArray(),
+          ...baseB.toArray(),
+          ...baseA.toArray(),
         ),
-          s.push(0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0));
-        let w = Math.random();
-        for (let k = 0; k < 6; k++) i.push(w);
+          uvs.push(0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0));
+        let seed = Math.random();
+        for (let j = 0; j < 6; j++) seeds.push(seed);
       }
     }
-    let c = new BufferGeometry();
-    (c.setAttribute('position', new Float32BufferAttribute(n, 3)),
-      c.setAttribute('uv', new Float32BufferAttribute(s, 2)),
-      c.setAttribute('aSeed', new Float32BufferAttribute(i, 1)));
-    let d = new ShaderMaterial({
+    let geo = new BufferGeometry();
+    (geo.setAttribute('position', new Float32BufferAttribute(positions, 3)),
+      geo.setAttribute('uv', new Float32BufferAttribute(uvs, 2)),
+      geo.setAttribute('aSeed', new Float32BufferAttribute(seeds, 1)));
+    let material = new ShaderMaterial({
         transparent: !0,
         depthWrite: !1,
         blending: AdditiveBlending,
         side: DoubleSide,
         uniforms: {
           uTime: { value: 0 },
-          uColor: { value: new Color(a) },
+          uColor: { value: new Color(color) },
           uAmount: { value: 1 },
           uScale: { value: 1 },
           uSize: { value: 1 },
@@ -307,61 +353,77 @@ const o0 = class {
           gl_FragColor = vec4(uColor * a, a);
         }`,
       }),
-      u = new Mesh(c, d);
-    ((u.renderOrder = 6), (u.name = 'fx:rayos'), this.scene.add(u), this.systems.push(u), (this.shafts = u));
+      mesh = new Mesh(geo, material);
+    ((mesh.renderOrder = 6),
+      (mesh.name = 'fx:rayos'),
+      this.scene.add(mesh),
+      this.systems.push(mesh),
+      (this.shafts = mesh));
   }
-  setLevels({ lamps: e = 1, fireflies: t = 1, light: a = 1 } = {}) {
-    this.lampFactor = e;
-    for (let n of this.systems) n.material.uniforms.uLight && (n.material.uniforms.uLight.value = a);
-    ((this.light = a),
-      this.halo && (this.halo.material.uniforms.uAmount.value = Math.min(1, e)),
-      this.fireflies && (this.fireflies.material.uniforms.uAmount.value = t));
+  /** Intensidad de faroles, luciérnagas y luz general según el momento del día. */
+  setLevels({ lamps = 1, fireflies = 1, light = 1 } = {}) {
+    this.lampFactor = lamps;
+    for (let sys of this.systems)
+      sys.material.uniforms.uLight && (sys.material.uniforms.uLight.value = light);
+    ((this.light = light),
+      this.halo && (this.halo.material.uniforms.uAmount.value = Math.min(1, lamps)),
+      this.fireflies && (this.fireflies.material.uniforms.uAmount.value = fireflies));
   }
-  update(e, t, a, n, s) {
-    let i = s / (2 * Math.tan(MathUtils.degToRad(a.fov) / 2));
-    for (let l of this.systems) {
-      let c = l.material.uniforms;
-      ((c.uTime.value = t),
-        (c.uScale.value = i),
+  update(dt, time, camera, focus, viewH) {
+    let pxScale = viewH / (2 * Math.tan(MathUtils.degToRad(camera.fov) / 2));
+    for (let sys of this.systems) {
+      let uniforms = sys.material.uniforms;
+      ((uniforms.uTime.value = time),
+        (uniforms.uScale.value = pxScale),
         this.fog &&
-          (c.fogColor.value.copy(this.fog.color),
-          (c.fogNear.value = this.fog.near),
-          (c.fogFar.value = this.fog.far)),
-        l.userData.follow && n && l.position.set(n.x, n.y, n.z));
+          (uniforms.fogColor.value.copy(this.fog.color),
+          (uniforms.fogNear.value = this.fog.near),
+          (uniforms.fogFar.value = this.fog.far)),
+        sys.userData.follow && focus && sys.position.set(focus.x, focus.y, focus.z));
     }
-    if (((this._t -= e), this._t <= 0 && n)) {
+    if (((this._t -= dt), this._t <= 0 && focus)) {
       this._t = 0.3;
-      let l = this.lampSources.filter(
-        (c) => c.on && (c.kind === 'fire' || c.kind === 'forge' || this.lampFactor > 0.05),
+      let active = this.lampSources.filter(
+        (lamp) => lamp.on && (lamp.kind === 'fire' || lamp.kind === 'forge' || this.lampFactor > 0.05),
       );
-      (l.sort((c, d) => c.pos.distanceToSquared(n) / c.energy - d.pos.distanceToSquared(n) / d.energy),
-        (this.assigned = l.slice(0, Math.min(this.lights.length, this.maxLights ?? this.lights.length))));
+      (active.sort(
+        (lampA, lampB) =>
+          lampA.pos.distanceToSquared(focus) / lampA.energy -
+          lampB.pos.distanceToSquared(focus) / lampB.energy,
+      ),
+        (this.assigned = active.slice(
+          0,
+          Math.min(this.lights.length, this.maxLights ?? this.lights.length),
+        )));
     }
-    let r = this.assigned || [];
-    for (let l = 0; l < this.lights.length; l++) {
-      let c = this.lights[l],
-        d = r[l];
-      if (!d) {
-        c.intensity = Math.max(0, c.intensity - e * 4);
+    let assigned = this.assigned || [];
+    for (let k = 0; k < this.lights.length; k++) {
+      let light = this.lights[k],
+        lamp = assigned[k];
+      if (!lamp) {
+        light.intensity = Math.max(0, light.intensity - dt * 4);
         continue;
       }
-      (c.position.copy(d.pos), (d._c ??= new Color(d.color)), c.color.copy(d._c), (c.distance = d.range));
-      let u =
-          d.kind === 'fire' || d.kind === 'forge' || d.kind === 'torch'
-            ? 0.82 + 0.12 * Math.sin(t * 9.1 + l * 3) + 0.06 * Math.sin(t * 17.3 + l)
-            : 0.96 + 0.04 * Math.sin(t * 5 + l),
-        h =
-          d.kind === 'fire' || d.kind === 'forge' || d.kind === 'torch'
+      (light.position.copy(lamp.pos),
+        (lamp._c ??= new Color(lamp.color)),
+        light.color.copy(lamp._c),
+        (light.distance = lamp.range));
+      let flicker =
+          lamp.kind === 'fire' || lamp.kind === 'forge' || lamp.kind === 'torch'
+            ? 0.82 + 0.12 * Math.sin(time * 9.1 + k * 3) + 0.06 * Math.sin(time * 17.3 + k)
+            : 0.96 + 0.04 * Math.sin(time * 5 + k),
+        factor =
+          lamp.kind === 'fire' || lamp.kind === 'forge' || lamp.kind === 'torch'
             ? Math.max(0.35, this.lampFactor)
             : this.lampFactor,
-        p = d.energy * 4.5 * u * h;
-      c.intensity += (p - c.intensity) * Math.min(1, e * 6);
+        target = lamp.energy * 4.5 * flicker * factor;
+      light.intensity += (target - light.intensity) * Math.min(1, dt * 6);
     }
   }
   dispose() {
-    for (let e of this.systems) (e.geometry.dispose(), e.material.dispose(), this.scene.remove(e));
-    for (let e of this.lights) (this.scene.remove(e), e.dispose?.());
+    for (let sys of this.systems) (sys.geometry.dispose(), sys.material.dispose(), this.scene.remove(sys));
+    for (let light of this.lights) (this.scene.remove(light), light.dispose?.());
   }
 };
 
-export { o0 };
+export { WorldFx };

@@ -12,6 +12,8 @@ en el código y queda para decidir más adelante.
   (solo se añaden `Bush_Common`, `Bush_Common_Flowers` y `Fern_1`).
 - `ground.js`, `Ground.raycast`: `prevGap` se asigna en cada paso pero no se lee nunca.
 - `water.js`, `buildWater`: el parámetro `quality` no se usa.
+- `particles.js`, `makeParticles`: `points.frustumCulled = !!area || !0` vale siempre `true`; el `area` no
+  cambia nada ahí (sí se usa para la esfera envolvente).
 
 ## Duplicados
 
