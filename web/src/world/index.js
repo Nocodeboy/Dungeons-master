@@ -6,7 +6,7 @@ import { loadKits, MeshMerger } from './kit.js';
 import { worldUniforms } from './materials.js';
 import { TIMES, Sky } from './times.js';
 import { LAYER, Ground } from './ground.js';
-import { H3 } from './vegetation.js';
+import { buildVegetation } from './vegetation.js';
 import { j3 } from './buildings.js';
 import { J3, K3 } from './props.js';
 import { $3 } from './interiors.js';
@@ -104,7 +104,7 @@ async function buildLevel(
     for (let Ce of D) if ((L - Ce.c.x) ** 2 + (O - Ce.c.z) ** 2 < Ce.r2) return !0;
     return !1;
   };
-  let M = H3(w),
+  let M = buildVegetation(w),
     R = ok(w);
   y.flames.push(...R.flames);
   let A = null,
