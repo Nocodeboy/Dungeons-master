@@ -1,5 +1,8 @@
-// world/index.js
-// Reconstruido de publicado/juego.js (módulo __esm «ck»). Nombres locales aún minificados.
+// world/index.js — punto de entrada del área mundo (escenarios): `buildLevel` monta un nivel completo
+// (kits, terreno, cielo, edificios, atrezo, vegetación, objetos, muros o interior, agua, efectos) y
+// devuelve la API del mundo que usan la exploración y el combate. Exporta también `TIMES`.
+// Reconstruido de publicado/juego.js (módulo __esm «ck»). Lo carga explore/areas.js con import()
+// (`loadArea('world')`): sus exports (`buildLevel`, `TIMES`) son los nombres originales y no se cambian.
 
 import { Box3, Group, MathUtils, Raycaster, Vector3 } from 'three';
 import { loadKits, MeshMerger } from './kit.js';
@@ -16,368 +19,417 @@ import { CryptWalls } from './crypt.js';
 import { WorldFx } from './particles.js';
 import { makeRng, hashString, cellToWorld, worldToCell, HEX_SIZE, TileMap } from './grid.js';
 
+/**
+ * Construye el nivel `level` (JSON de datos/niveles) en `scene`. Opciones: `quality`, `store` (para
+ * banderas de historia), `timeOfDay` y `stage` (gradación de color). Devuelve el mundo:
+ * `{level, root, map, ground, sky, fx, spots, buildings, objects, bounds, cellToWorld, worldToCell,
+ * heightAt, pick, setObjectState, addObject, setObjectGlow, setGrid, setCombatView, setQuality,
+ * setTimeOfDay, fadeOccluders, update(dt, time, camera), dispose}`.
+ */
 async function buildLevel(
-  o,
-  e,
-  { quality: t = { level: 1, shadowMap: 512 }, store: a = null, timeOfDay: n = null, stage: s = null } = {},
+  scene,
+  level,
+  { quality = { level: 1, shadowMap: 512 }, store = null, timeOfDay = null, stage = null } = {},
 ) {
-  let i = e.ambient || 'dusk',
-    r = i === 'crypt',
-    l = i === 'inn',
-    c = r || l,
-    d = hashString(e.id || 'nivel'),
-    u = makeRng(d),
-    h = new TileMap(e),
-    p = new Set((e.rows || []).join('')),
-    m = [...(e.props || []), ...(e.decor || [])].map((L) => K3(L.key)),
-    _ = ['atrezo'];
-  ((!c || ['B', 'H', 'f'].some((L) => p.has(L))) && _.push('aldea'),
-    (!c || ['T', 'r', 'b'].some((L) => p.has(L))) && _.push('naturaleza'),
-    (r || (!l && p.has('#')) || m.some((L) => U9.has(L))) && _.push('mazmorra'),
-    await loadKits(_));
-  let b = new Group();
-  ((b.name = `nivel:${e.id}`), o.add(b));
-  let f = new Ground(h, e, { ambient: i, quality: t, seed: d, margin: c ? 3 : 12 }),
-    v = new Vector3(h.sizeX / 2, 0, h.sizeZ / 2),
-    x = n || q9[i] || 'dusk';
-  !n && e.id === 'merrowick' && a?.flag?.('e1_done') && (x = 'day');
-  let g = new Sky(o, { center: v, radius: Math.max(h.sizeX, h.sizeZ), quality: t, ambient: r ? 'crypt' : x }),
-    y = new WorldFx(b, { quality: t, ambient: i }),
-    w = { scene: b, map: h, level: e, ground: f, rnd: u, quality: t, ambient: i, fx: y, sky: g };
-  f.paintTiles();
-  let k = new MeshMerger({
+  let ambient = level.ambient || 'dusk',
+    isCrypt = ambient === 'crypt',
+    isInn = ambient === 'inn',
+    indoor = isCrypt || isInn,
+    seed = hashString(level.id || 'nivel'),
+    rnd = makeRng(seed),
+    map = new TileMap(level),
+    chars = new Set((level.rows || []).join('')),
+    propPieces = [...(level.props || []), ...(level.decor || [])].map((prop) => K3(prop.key)),
+    kitNames = ['atrezo'];
+  ((!indoor || ['B', 'H', 'f'].some((ch) => chars.has(ch))) && kitNames.push('aldea'),
+    (!indoor || ['T', 'r', 'b'].some((ch) => chars.has(ch))) && kitNames.push('naturaleza'),
+    (isCrypt || (!isInn && chars.has('#')) || propPieces.some((piece) => DUNGEON_PIECES.has(piece))) &&
+      kitNames.push('mazmorra'),
+    await loadKits(kitNames));
+  let root = new Group();
+  ((root.name = `nivel:${level.id}`), scene.add(root));
+  let ground = new Ground(map, level, { ambient, quality, seed, margin: indoor ? 3 : 12 }),
+    center = new Vector3(map.sizeX / 2, 0, map.sizeZ / 2),
+    timeName = timeOfDay || DEFAULT_TIME[ambient] || 'dusk';
+  !timeOfDay && level.id === 'merrowick' && store?.flag?.('e1_done') && (timeName = 'day');
+  let sky = new Sky(scene, {
+      center,
+      radius: Math.max(map.sizeX, map.sizeZ),
+      quality,
+      ambient: isCrypt ? 'crypt' : timeName,
+    }),
+    fx = new WorldFx(root, { quality, ambient }),
+    ctx = { scene: root, map, level, ground, rnd, quality, ambient, fx, sky };
+  ground.paintTiles();
+  let merger = new MeshMerger({
     fade: !0,
     contactH: 1.4,
     contactMin: 0.42,
-    groundAt: (L, O) => f.heightAt(L, O),
+    groundAt: (x, z) => ground.heightAt(x, z),
     finish: { wind: 0 },
   });
-  w.merger = k;
-  let T = c ? [] : j3(w);
-  ((w.static = k.view({ bld: 0, contactH: 0.7, contactMin: 0.5 })), (w.buildings = T));
-  let E = await J3(w),
-    S = new Map();
-  for (let L of e.props || []) L.key === 'lantern' && S.set(`${L.cell[0]},${L.cell[1]}`, L);
-  for (let L of e.lights || []) {
-    let O = cellToWorld(L.cell[0], L.cell[1]);
-    L.offset && ((O.x += L.offset[0] * HEX_SIZE), (O.z += L.offset[1] * HEX_SIZE));
-    let B = f.heightAt(O.x, O.z) + (L.height ?? 1.2) * HEX_SIZE,
-      $ = S.get(`${L.cell[0]},${L.cell[1]}`);
-    if ($ && !r) {
-      let be = MathUtils.degToRad($.rot || 0);
-      ((O.x += Math.sin(be) * 0.48), (O.z += Math.cos(be) * 0.48), (B = f.heightAt(O.x, O.z) + 2.05));
+  ctx.merger = merger;
+  let buildings = indoor ? [] : j3(ctx);
+  ((ctx.static = merger.view({ bld: 0, contactH: 0.7, contactMin: 0.5 })), (ctx.buildings = buildings));
+  let props = await J3(ctx),
+    lanterns = new Map();
+  for (let prop of level.props || [])
+    prop.key === 'lantern' && lanterns.set(`${prop.cell[0]},${prop.cell[1]}`, prop);
+  for (let light of level.lights || []) {
+    let pos = cellToWorld(light.cell[0], light.cell[1]);
+    light.offset && ((pos.x += light.offset[0] * HEX_SIZE), (pos.z += light.offset[1] * HEX_SIZE));
+    let lampY = ground.heightAt(pos.x, pos.z) + (light.height ?? 1.2) * HEX_SIZE,
+      lantern = lanterns.get(`${light.cell[0]},${light.cell[1]}`);
+    if (lantern && !isCrypt) {
+      let rot = MathUtils.degToRad(lantern.rot || 0);
+      ((pos.x += Math.sin(rot) * 0.48),
+        (pos.z += Math.cos(rot) * 0.48),
+        (lampY = ground.heightAt(pos.x, pos.z) + 2.05));
     }
-    let ee = L.energy ?? 1;
-    ee <= 0 ||
-      (y.addLamp({
-        pos: new Vector3(O.x, B, O.z),
-        color: L.color || '#ffb060',
-        range: (L.range ?? 4) * HEX_SIZE,
-        energy: ee,
+    let energy = light.energy ?? 1;
+    energy <= 0 ||
+      (fx.addLamp({
+        pos: new Vector3(pos.x, lampY, pos.z),
+        color: light.color || '#ffb060',
+        range: (light.range ?? 4) * HEX_SIZE,
+        energy,
         kind: 'lamp',
-        haloSize: 1.1 + ee * 0.5,
+        haloSize: 1.1 + energy * 0.5,
         haloAlpha: 0.45,
       }),
-      f.blob(LAYER.light, O.x, O.z, (L.range ?? 4) * HEX_SIZE * 0.45, Math.min(1, 0.55 + ee * 0.3)));
+      ground.blob(
+        LAYER.light,
+        pos.x,
+        pos.z,
+        (light.range ?? 4) * HEX_SIZE * 0.45,
+        Math.min(1, 0.55 + energy * 0.3),
+      ));
   }
-  for (let L of T) {
-    for (let O of L.lamps)
-      (O.kind === 'wall' && y.lampSources.some((B) => B.pos.distanceTo(O.pos) < 2.6)) ||
-        (y.addLamp({
-          ...O,
-          haloSize: O.kind === 'forge' ? 2.2 : 1.3,
-          haloAlpha: O.kind === 'forge' ? 0.5 : 0.45,
+  for (let bld of buildings) {
+    for (let lamp of bld.lamps)
+      (lamp.kind === 'wall' && fx.lampSources.some((other) => other.pos.distanceTo(lamp.pos) < 2.6)) ||
+        (fx.addLamp({
+          ...lamp,
+          haloSize: lamp.kind === 'forge' ? 2.2 : 1.3,
+          haloAlpha: lamp.kind === 'forge' ? 0.5 : 0.45,
         }),
-        f.blob(LAYER.light, O.pos.x, O.pos.z, O.range * 0.45, 0.8));
-    for (let O of L.windows) {
-      let B = O.clone().sub(L.center).setY(0).normalize();
-      f.blob(LAYER.light, O.x + B.x * 1.2, O.z + B.z * 1.2, 1.5, 0.5);
+        ground.blob(LAYER.light, lamp.pos.x, lamp.pos.z, lamp.range * 0.45, 0.8));
+    for (let win of bld.windows) {
+      let out = win.clone().sub(bld.center).setY(0).normalize();
+      ground.blob(LAYER.light, win.x + out.x * 1.2, win.z + out.z * 1.2, 1.5, 0.5);
     }
   }
-  ((y.smokeOrigins = T.flatMap((L) => L.smoke)), f.readMasks());
-  let z = new Set('BH#wcSPOgr'.split('')),
-    D = T.map((L) => ({ c: L.center, r2: (Math.max(L.W, L.D) / 2 + 0.6) ** 2 }));
-  w.blocked = (L, O, B = !1) => {
-    let [$, ee] = worldToCell(L, O),
-      be = h.inside($, ee) ? h.tile($, ee) : null;
-    if (be && z.has(be) && !(B && be === 'w')) return !0;
-    for (let Ce of D) if ((L - Ce.c.x) ** 2 + (O - Ce.c.z) ** 2 < Ce.r2) return !0;
+  ((fx.smokeOrigins = buildings.flatMap((bld) => bld.smoke)), ground.readMasks());
+  let solid = new Set('BH#wcSPOgr'.split('')),
+    footprints = buildings.map((bld) => ({ c: bld.center, r2: (Math.max(bld.W, bld.D) / 2 + 0.6) ** 2 }));
+  ctx.blocked = (x, z, allowWater = !1) => {
+    let [col, row] = worldToCell(x, z),
+      ch = map.inside(col, row) ? map.tile(col, row) : null;
+    if (ch && solid.has(ch) && !(allowWater && ch === 'w')) return !0;
+    for (let fp of footprints) if ((x - fp.c.x) ** 2 + (z - fp.c.z) ** 2 < fp.r2) return !0;
     return !1;
   };
-  let M = buildVegetation(w),
-    R = ok(w);
-  y.flames.push(...R.flames);
-  let A = null,
-    P = e.rows?.some((L) => L.includes('#'));
-  (l
-    ? (A = await $3(w))
-    : P &&
-      ((A = new CryptWalls(w, { height: e.wall_height ?? (r ? 0.85 : 0.8), torches: r })), b.add(A.group)),
-    c &&
-      h.each((L, O, B) => {
-        if (B !== '#') return;
-        let $ = cellToWorld(L, O);
-        f.blob(LAYER.ao, $.x, $.z, 1.2, 1);
-      }),
-    f.build(b));
-  let I = c ? null : buildWater(b, f, g, t),
-    U = k.build('fundido');
-  b.add(U);
-  for (let L of T) for (let O of L.dynamic) b.add(O);
-  (y.build(o.fog),
-    (w.onFire = (L, O) => {
-      let B = y.flames.find(($) => $.id === L);
-      B && y.setFlame(B, O);
-      for (let $ of y.lampSources) $.id === L && ($.on = O);
-    }));
-  for (let [L, O] of R.anchors) O.userData.type === 'campfire' && w.onFire(L, O.userData.state !== 'out');
-  if (
-    (c ? y.ambientAround('dust', v) : (i === 'forest' || i === 'kesh') && y.ambientAround('leaf', v),
-    c || y.ambientAround('firefly', v),
-    i === 'forest' || i === 'kesh')
-  ) {
-    let L = [];
-    for (let O = 0; O < 60 && L.length < (i === 'forest' ? 14 : 7); O++) {
-      let B = u() * h.sizeX,
-        $ = u() * h.sizeZ,
-        [ee, be] = worldToCell(B, $);
-      h.tile(ee, be) === 'T' || h.tile(ee, be) === 'w' || L.push(new Vector3(B, f.heightAt(B, $), $));
-    }
-    y.sunShafts(L, g.cur.sunDir, i === 'forest' ? 16770728 : 16765600);
-  }
-  let j = new Set();
-  b.traverse((L) => {
-    L.isMesh && L.material?.userData?.window && j.add(L.material);
-  });
-  let X = new Box3(
-      new Vector3(-HEX_SIZE, -1, -HEX_SIZE),
-      new Vector3(h.sizeX + HEX_SIZE, 12, h.sizeZ + HEX_SIZE),
-    ),
-    J = [
-      ...M.occluders,
-      ...T.filter((L) => L.idx > 0).map((L) => ({
-        kind: 'building',
-        idx: L.idx,
-        box: L.box,
-        pos: L.center,
-        h: L.top,
-        r: Math.max(L.W, L.D) * 0.75,
+  let vegetation = buildVegetation(ctx),
+    objects = ok(ctx);
+  fx.flames.push(...objects.flames);
+  let walls = null,
+    hasWalls = level.rows?.some((line) => line.includes('#'));
+  (isInn
+    ? (walls = await $3(ctx))
+    : hasWalls &&
+      ((walls = new CryptWalls(ctx, {
+        height: level.wall_height ?? (isCrypt ? 0.85 : 0.8),
+        torches: isCrypt,
       })),
+      root.add(walls.group)),
+    indoor &&
+      map.each((col, row, ch) => {
+        if (ch !== '#') return;
+        let pos = cellToWorld(col, row);
+        ground.blob(LAYER.ao, pos.x, pos.z, 1.2, 1);
+      }),
+    ground.build(root));
+  let water = indoor ? null : buildWater(root, ground, sky, quality),
+    merged = merger.build('fundido');
+  root.add(merged);
+  for (let bld of buildings) for (let obj of bld.dynamic) root.add(obj);
+  (fx.build(scene.fog),
+    (ctx.onFire = (id, on) => {
+      let flame = fx.flames.find((f) => f.id === id);
+      flame && fx.setFlame(flame, on);
+      for (let lamp of fx.lampSources) lamp.id === id && (lamp.on = on);
+    }));
+  for (let [id, anchor] of objects.anchors)
+    anchor.userData.type === 'campfire' && ctx.onFire(id, anchor.userData.state !== 'out');
+  if (
+    (indoor
+      ? fx.ambientAround('dust', center)
+      : (ambient === 'forest' || ambient === 'kesh') && fx.ambientAround('leaf', center),
+    indoor || fx.ambientAround('firefly', center),
+    ambient === 'forest' || ambient === 'kesh')
+  ) {
+    let shaftSpots = [];
+    for (let tries = 0; tries < 60 && shaftSpots.length < (ambient === 'forest' ? 14 : 7); tries++) {
+      let sx = rnd() * map.sizeX,
+        sz = rnd() * map.sizeZ,
+        [col, row] = worldToCell(sx, sz);
+      map.tile(col, row) === 'T' ||
+        map.tile(col, row) === 'w' ||
+        shaftSpots.push(new Vector3(sx, ground.heightAt(sx, sz), sz));
+    }
+    fx.sunShafts(shaftSpots, sky.cur.sunDir, ambient === 'forest' ? 16770728 : 16765600);
+  }
+  let windowMats = new Set();
+  root.traverse((node) => {
+    node.isMesh && node.material?.userData?.window && windowMats.add(node.material);
+  });
+  let bounds = new Box3(
+      new Vector3(-HEX_SIZE, -1, -HEX_SIZE),
+      new Vector3(map.sizeX + HEX_SIZE, 12, map.sizeZ + HEX_SIZE),
+    ),
+    occluders = [
+      ...vegetation.occluders,
+      ...buildings
+        .filter((bld) => bld.idx > 0)
+        .map((bld) => ({
+          kind: 'building',
+          idx: bld.idx,
+          box: bld.box,
+          pos: bld.center,
+          h: bld.top,
+          r: Math.max(bld.W, bld.D) * 0.75,
+        })),
     ],
-    Z = new Map(),
-    K = !1,
-    ve = 0,
-    ge = v.clone(),
-    ue = new Vector3(),
-    Q = new Vector3(),
-    oe = new Vector3(),
-    ie = new Vector3(),
-    we = new Vector3(),
-    ce = new Raycaster(),
-    ke = {
-      animals: (e.animals || []).map((L) => {
-        let O = cellToWorld(L.cell[0], L.cell[1]);
-        return ((O.y = f.heightAt(O.x, O.z)), { ...L, pos: O });
+    fadeState = new Map(),
+    combatView = !1,
+    gridTarget = 0,
+    focus = center.clone(),
+    tmpA = new Vector3(),
+    tmpQ = new Vector3(),
+    tmpDir = new Vector3(),
+    tmpB = new Vector3(),
+    tmpHit = new Vector3(),
+    raycaster = new Raycaster(),
+    spots = {
+      animals: (level.animals || []).map((animal) => {
+        let pos = cellToWorld(animal.cell[0], animal.cell[1]);
+        return ((pos.y = ground.heightAt(pos.x, pos.z)), { ...animal, pos });
       }),
       spawns: Object.fromEntries(
-        Object.entries(e.spawns || {}).map(([L, O]) => [L, cellToWorld(O[0], O[1])]),
+        Object.entries(level.spawns || {}).map(([name, cell]) => [name, cellToWorld(cell[0], cell[1])]),
       ),
       sounds: [],
     };
   {
-    let L = [];
-    h.each((O, B, $) => {
-      if ($ !== 'w') return;
-      let ee = cellToWorld(O, B);
-      L.some((be) => be.distanceTo(ee) < 7) ||
-        (L.push(ee),
-        ke.sounds.push({ kind: e.ambient === 'forest' ? 'pond' : 'river', pos: ee.setY(WATER_LEVEL) }));
+    let seen = [];
+    map.each((col, row, ch) => {
+      if (ch !== 'w') return;
+      let pos = cellToWorld(col, row);
+      seen.some((prev) => prev.distanceTo(pos) < 7) ||
+        (seen.push(pos),
+        spots.sounds.push({
+          kind: level.ambient === 'forest' ? 'pond' : 'river',
+          pos: pos.setY(WATER_LEVEL),
+        }));
     });
-    for (let O of y.lampSources)
-      (O.kind === 'fire' || O.kind === 'forge' || O.kind === 'torch') &&
-        ke.sounds.push({ kind: O.kind, pos: O.pos.clone() });
-    for (let O of T)
-      ['windmill', 'watermill', 'blacksmith', 'tavern'].includes(O.key) &&
-        ke.sounds.push({ kind: O.key, pos: O.center.clone() });
+    for (let lamp of fx.lampSources)
+      (lamp.kind === 'fire' || lamp.kind === 'forge' || lamp.kind === 'torch') &&
+        spots.sounds.push({ kind: lamp.kind, pos: lamp.pos.clone() });
+    for (let bld of buildings)
+      ['windmill', 'watermill', 'blacksmith', 'tavern'].includes(bld.key) &&
+        spots.sounds.push({ kind: bld.key, pos: bld.center.clone() });
   }
-  function Qe(L) {
-    for (let O of j) O.emissiveIntensity = L.windows * 2.2;
-    (f.uniforms && ((f.uniforms.uLamp.value = L.lamps), (f.uniforms.uClouds.value = L.clouds || 0)),
-      y.setLevels({
-        lamps: L.lamps,
-        fireflies: L.fireflies,
-        light: Math.min(1, 0.18 + (L.sunI / 3.4) * 0.6 + L.hemiI * 0.15),
+  function applyLight(light) {
+    for (let mat of windowMats) mat.emissiveIntensity = light.windows * 2.2;
+    (ground.uniforms &&
+      ((ground.uniforms.uLamp.value = light.lamps), (ground.uniforms.uClouds.value = light.clouds || 0)),
+      fx.setLevels({
+        lamps: light.lamps,
+        fireflies: light.fireflies,
+        light: Math.min(1, 0.18 + (light.sunI / 3.4) * 0.6 + light.hemiI * 0.15),
       }),
-      w.statue?.userData.blood && (w.statue.userData.blood.emissiveIntensity = 0.25 + L.lamps * 0.2));
+      ctx.statue?.userData.blood && (ctx.statue.userData.blood.emissiveIntensity = 0.25 + light.lamps * 0.2));
   }
-  (g.onChange(Qe), Qe(g.cur));
-  let N = {
-    level: e,
-    root: b,
-    map: h,
-    width: h.w,
-    height: h.h,
-    ground: f,
-    sky: g,
-    fx: y,
-    center: v,
-    focus: ge,
-    spots: ke,
-    buildings: T,
-    sun: g.sun,
-    hemi: g.hemi,
-    bounds: { min: X.min.clone(), max: X.max.clone() },
-    objects: R.anchors,
-    timeOfDay: x,
-    cellToWorld([L, O], B = new Vector3()) {
-      (cellToWorld(L, O, B), (B.y = f.heightAt(B.x, B.z)));
-      let $ = h.tile(L, O);
-      return (($ === 'w' || $ === '~') && I && (B.y = Math.max(B.y, WATER_LEVEL)), B);
+  (sky.onChange(applyLight), applyLight(sky.cur));
+  let world = {
+    level,
+    root,
+    map,
+    width: map.w,
+    height: map.h,
+    ground,
+    sky,
+    fx,
+    center,
+    focus,
+    spots,
+    buildings,
+    sun: sky.sun,
+    hemi: sky.hemi,
+    bounds: { min: bounds.min.clone(), max: bounds.max.clone() },
+    objects: objects.anchors,
+    timeOfDay: timeName,
+    cellToWorld([col, row], out = new Vector3()) {
+      (cellToWorld(col, row, out), (out.y = ground.heightAt(out.x, out.z)));
+      let ch = map.tile(col, row);
+      return ((ch === 'w' || ch === '~') && water && (out.y = Math.max(out.y, WATER_LEVEL)), out);
     },
-    worldToCell(L) {
-      return worldToCell(L.x, L.z);
+    worldToCell(pos) {
+      return worldToCell(pos.x, pos.z);
     },
-    heightAt: (L, O) => f.heightAt(L, O),
-    pick(L) {
-      let O = L.ray || L,
-        B = f.raycast(O);
-      return B ? { point: B, cell: worldToCell(B.x, B.z) } : null;
+    heightAt: (x, z) => ground.heightAt(x, z),
+    pick(input) {
+      let ray = input.ray || input,
+        point = ground.raycast(ray);
+      return point ? { point, cell: worldToCell(point.x, point.z) } : null;
     },
-    setObjectState(L, O) {
-      if (L === 'bull' && w.statue) {
-        let B = y.lampSources.find(($) => $.id === 'bull');
-        if (O === 'active' && !B) {
-          let $ = w.statue.position.clone().add(new Vector3(0, 2.2, 0));
-          y.addLamp({ pos: $, color: 16722452, range: 9, energy: 1.6, kind: 'fire', id: 'bull' });
-        } else B && (B.on = O === 'active');
+    setObjectState(id, state) {
+      if (id === 'bull' && ctx.statue) {
+        let lamp = fx.lampSources.find((l) => l.id === 'bull');
+        if (state === 'active' && !lamp) {
+          let pos = ctx.statue.position.clone().add(new Vector3(0, 2.2, 0));
+          fx.addLamp({ pos, color: 16722452, range: 9, energy: 1.6, kind: 'fire', id: 'bull' });
+        } else lamp && (lamp.on = state === 'active');
       }
-      return R.set(L, O);
+      return objects.set(id, state);
     },
-    addObject(L) {
-      let O = R.flames.length,
-        B = R.create(L);
-      for (let $ of R.flames.slice(O)) y.addFire($);
+    addObject(def) {
+      let before = objects.flames.length,
+        obj = objects.create(def);
+      for (let flame of objects.flames.slice(before)) fx.addFire(flame);
       return (
-        B && L.type === 'campfire' && w.onFire(L.id, B.userData.state !== 'out'),
-        B || R.anchors.get(L.id) || null
+        obj && def.type === 'campfire' && ctx.onFire(def.id, obj.userData.state !== 'out'),
+        obj || objects.anchors.get(def.id) || null
       );
     },
-    setObjectGlow(L, O) {
-      R.setGlow(L, O);
+    setObjectGlow(id, on) {
+      objects.setGlow(id, on);
     },
-    setGrid(L) {
-      ve = L;
+    setGrid(v) {
+      gridTarget = v;
     },
-    setCombatView(L) {
-      K = !!L;
+    setCombatView(on) {
+      combatView = !!on;
     },
-    setQuality(L) {
-      t.level = L;
-      for (let B of M.groups) B.name?.startsWith('hierba') && (B.visible = L > 0 || B.userData.keep);
-      y.maxLights = L === 0 ? 2 : L === 1 ? 4 : y.lights.length;
-      for (let B of y.systems) /humo|smoke|ember/.test(B.name) && (B.visible = L > 0);
-      let O = L === 0 ? 512 : L === 1 ? 1024 : g.sun.shadow.mapSize.x;
-      g.sun.shadow.mapSize.x > O &&
-        (g.sun.shadow.mapSize.set(O, O), g.sun.shadow.map?.dispose(), (g.sun.shadow.map = null));
+    setQuality(level) {
+      quality.level = level;
+      for (let group of vegetation.groups)
+        group.name?.startsWith('hierba') && (group.visible = level > 0 || group.userData.keep);
+      fx.maxLights = level === 0 ? 2 : level === 1 ? 4 : fx.lights.length;
+      for (let sys of fx.systems) /humo|smoke|ember/.test(sys.name) && (sys.visible = level > 0);
+      let size = level === 0 ? 512 : level === 1 ? 1024 : sky.sun.shadow.mapSize.x;
+      sky.sun.shadow.mapSize.x > size &&
+        (sky.sun.shadow.mapSize.set(size, size), sky.sun.shadow.map?.dispose(), (sky.sun.shadow.map = null));
     },
-    setTimeOfDay(L, O = 2.5) {
-      TIMES[L] && ((N.timeOfDay = L), g.set(L, O));
+    setTimeOfDay(name, duration = 2.5) {
+      TIMES[name] && ((world.timeOfDay = name), sky.set(name, duration));
     },
-    fadeOccluders(L, O = []) {
-      let B = new Set(),
-        $ = L.position;
-      for (let ee of O) {
-        let be = ee.isObject3D ? ee.getWorldPosition(ue) : ue.copy(ee),
-          Ce = oe
-            .copy(be)
-            .setY(be.y + 0.9)
-            .sub($),
-          ze = Ce.length();
-        (Ce.normalize(), ce.ray.set($, Ce));
-        for (let W of J)
-          if (!(Math.abs(W.pos.x - be.x) > 14 || Math.abs(W.pos.z - be.z) > 14))
-            if (W.kind === 'building') {
-              let De = ce.ray.intersectBox(W.box, we);
-              ((De && $.distanceTo(De) < ze - 0.5) || (K && W.box.distanceToPoint(be) < 2.5)) && B.add(W);
+    fadeOccluders(camera, targets = []) {
+      let hidden = new Set(),
+        eye = camera.position;
+      for (let target of targets) {
+        let tp = target.isObject3D ? target.getWorldPosition(tmpA) : tmpA.copy(target),
+          dir = tmpDir
+            .copy(tp)
+            .setY(tp.y + 0.9)
+            .sub(eye),
+          dist = dir.length();
+        (dir.normalize(), raycaster.ray.set(eye, dir));
+        for (let occ of occluders)
+          if (!(Math.abs(occ.pos.x - tp.x) > 14 || Math.abs(occ.pos.z - tp.z) > 14))
+            if (occ.kind === 'building') {
+              let hit = raycaster.ray.intersectBox(occ.box, tmpHit);
+              ((hit && eye.distanceTo(hit) < dist - 0.5) ||
+                (combatView && occ.box.distanceToPoint(tp) < 2.5)) &&
+                hidden.add(occ);
             } else {
-              let De = ie
-                  .copy(W.pos)
-                  .setY(W.pos.y + W.h * 0.6)
-                  .sub($),
-                rt = De.dot(Ce);
-              if (rt <= 0 || rt > ze + 2) continue;
-              if ((W.pos.x - be.x) ** 2 + (W.pos.z - be.z) ** 2 < (3.5 + W.r * 0.3) ** 2) {
-                B.add(W);
+              let rel = tmpB
+                  .copy(occ.pos)
+                  .setY(occ.pos.y + occ.h * 0.6)
+                  .sub(eye),
+                along = rel.dot(dir);
+              if (along <= 0 || along > dist + 2) continue;
+              if ((occ.pos.x - tp.x) ** 2 + (occ.pos.z - tp.z) ** 2 < (3.5 + occ.r * 0.3) ** 2) {
+                hidden.add(occ);
                 continue;
               }
-              if (rt > ze - 0.3) continue;
-              De.addScaledVector(Ce, -rt).length() < W.r * (K ? 1.25 : 1) + 0.5 && B.add(W);
+              if (along > dist - 0.3) continue;
+              rel.addScaledVector(dir, -along).length() < occ.r * (combatView ? 1.25 : 1) + 0.5 &&
+                hidden.add(occ);
             }
       }
-      for (let ee of J) {
-        let be = B.has(ee) ? 0.2 : 1,
-          Ce = Z.get(ee) ?? 1;
-        Ce !== be && (Z.set(ee, be), (ee.target = be), ee.cur || (ee.cur = Ce));
+      for (let occ of occluders) {
+        let want = hidden.has(occ) ? 0.2 : 1,
+          prev = fadeState.get(occ) ?? 1;
+        prev !== want && (fadeState.set(occ, want), (occ.target = want), occ.cur || (occ.cur = prev));
       }
     },
-    update(L, O, B) {
+    update(dt, time, camera) {
       if (
-        ((worldUniforms.uTime.value = O),
-        (worldUniforms.uSquash.value += ((K ? 0.45 : 1) - worldUniforms.uSquash.value) * Math.min(1, L * 3)),
-        f.uniforms && (f.uniforms.uGrid.value += (ve - f.uniforms.uGrid.value) * Math.min(1, L * 5)),
-        B)
+        ((worldUniforms.uTime.value = time),
+        (worldUniforms.uSquash.value +=
+          ((combatView ? 0.45 : 1) - worldUniforms.uSquash.value) * Math.min(1, dt * 3)),
+        ground.uniforms &&
+          (ground.uniforms.uGrid.value += (gridTarget - ground.uniforms.uGrid.value) * Math.min(1, dt * 5)),
+        camera)
       ) {
-        let $ = B.getWorldDirection(ue);
-        if ($.y < -0.05) {
-          let ee = (B.position.y - 0) / -$.y;
-          (ge.copy(B.position).addScaledVector($, ee),
-            (ge.x = Math.max(f.x0, Math.min(f.x1, ge.x))),
-            (ge.z = Math.max(f.z0, Math.min(f.z1, ge.z))));
+        let dir = camera.getWorldDirection(tmpA);
+        if (dir.y < -0.05) {
+          let t = (camera.position.y - 0) / -dir.y;
+          (focus.copy(camera.position).addScaledVector(dir, t),
+            (focus.x = Math.max(ground.x0, Math.min(ground.x1, focus.x))),
+            (focus.z = Math.max(ground.z0, Math.min(ground.z1, focus.z))));
         }
-        (A && A.updateCutaway($), g.dome.position.copy(B.position));
+        (walls && walls.updateCutaway(dir), sky.dome.position.copy(camera.position));
       }
-      (g.update(L, O, ge, B ? B.position.distanceTo(ge) : 0),
-        s?.grade && s.grade.uniforms.uTint.value.copy(g.cur.tint),
-        I?.update(O),
-        R.update(L));
-      for (let $ of T) $.update?.(L);
-      y.update(L, O, B || { fov: 32 }, ge, innerHeight);
-      for (let $ of J) {
-        if ($.target == null) continue;
-        let ee = $.cur ?? 1,
-          be = ee + ($.target - ee) * Math.min(1, L * 6),
-          Ce = Math.abs(be - $.target) < 0.01 ? $.target : be;
-        (($.cur = Ce),
-          $.kind === 'building'
-            ? worldUniforms.uBld.value[$.idx].set(Ce, Ce)
-            : $.attr && (($.attr.array[$.i] = Ce), ($.attr.needsUpdate = !0)),
-          Ce === $.target && $.target === 1 && ($.target = null));
+      (sky.update(dt, time, focus, camera ? camera.position.distanceTo(focus) : 0),
+        stage?.grade && stage.grade.uniforms.uTint.value.copy(sky.cur.tint),
+        water?.update(time),
+        objects.update(dt));
+      for (let bld of buildings) bld.update?.(dt);
+      fx.update(dt, time, camera || { fov: 32 }, focus, innerHeight);
+      for (let occ of occluders) {
+        if (occ.target == null) continue;
+        let cur = occ.cur ?? 1,
+          next = cur + (occ.target - cur) * Math.min(1, dt * 6),
+          v = Math.abs(next - occ.target) < 0.01 ? occ.target : next;
+        ((occ.cur = v),
+          occ.kind === 'building'
+            ? worldUniforms.uBld.value[occ.idx].set(v, v)
+            : occ.attr && ((occ.attr.array[occ.i] = v), (occ.attr.needsUpdate = !0)),
+          v === occ.target && occ.target === 1 && (occ.target = null));
       }
     },
     dispose() {
-      o.remove(b);
-      for (let O of [g.sun, g.sun.target, g.bounce, g.bounce.target, g.hemi, g.dome]) o.remove(O);
-      ((o.fog = null), (o.background = null));
-      let L = new Set();
-      b.traverse((O) => {
-        if (O.isMesh || O.isPoints || O.isInstancedMesh) {
-          O.geometry?.dispose();
-          for (let B of Array.isArray(O.material) ? O.material : [O.material])
-            for (let $ of ['map', 'emissiveMap', 'alphaMap']) B?.[$]?.isCanvasTexture && L.add(B[$]);
+      scene.remove(root);
+      for (let obj of [sky.sun, sky.sun.target, sky.bounce, sky.bounce.target, sky.hemi, sky.dome])
+        scene.remove(obj);
+      ((scene.fog = null), (scene.background = null));
+      let textures = new Set();
+      root.traverse((node) => {
+        if (node.isMesh || node.isPoints || node.isInstancedMesh) {
+          node.geometry?.dispose();
+          for (let mat of Array.isArray(node.material) ? node.material : [node.material])
+            for (let key of ['map', 'emissiveMap', 'alphaMap'])
+              mat?.[key]?.isCanvasTexture && textures.add(mat[key]);
         }
       });
-      for (let O of L) O.dispose();
-      (f.dispose(), y.dispose(), g.dispose());
-      for (let O of worldUniforms.uBld.value) O.set(1, 1);
+      for (let tex of textures) tex.dispose();
+      (ground.dispose(), fx.dispose(), sky.dispose());
+      for (let v of worldUniforms.uBld.value) v.set(1, 1);
     },
   };
-  if (a?.flag)
-    for (let L of e.objects || [])
-      (L.hidden_until && a.flag(L.hidden_until) && N.setObjectState(L.id, 'revealed'),
-        L.type === 'campfire' && L.requires && a.flag(L.requires) && N.setObjectState(L.id, 'lit'));
-  return N;
+  if (store?.flag)
+    for (let obj of level.objects || [])
+      (obj.hidden_until && store.flag(obj.hidden_until) && world.setObjectState(obj.id, 'revealed'),
+        obj.type === 'campfire' &&
+          obj.requires &&
+          store.flag(obj.requires) &&
+          world.setObjectState(obj.id, 'lit'));
+  return world;
 }
-const q9 = {
+/** Momento del día por defecto según el ambiente del nivel. */
+const DEFAULT_TIME = {
   dusk: 'dusk',
   day: 'day',
   forest: 'forest',
@@ -386,7 +438,8 @@ const q9 = {
   kesh: 'kesh',
   inn: 'inn',
 };
-const U9 = new Set([
+/** Piezas del kit «mazmorra»: si el nivel usa alguna como atrezo, se carga el kit. */
+const DUNGEON_PIECES = new Set([
   'wall',
   'wall_cracked',
   'wall_broken',

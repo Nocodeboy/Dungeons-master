@@ -15,6 +15,11 @@ en el código y queda para decidir más adelante.
 - `particles.js`, `makeParticles`: `points.frustumCulled = !!area || !0` vale siempre `true`; el `area` no
   cambia nada ahí (sí se usa para la esfera envolvente).
 
+- `index.js`, `buildLevel`: `props` (resultado de `await J3(ctx)`, el atrezo) y `tmpQ` (un `Vector3`) no se
+  usan después de crearse.
+- `index.js`, `DEFAULT_TIME`: es la identidad para todos los ambientes que tiene; solo sirve para caer en
+  `'dusk'` con uno desconocido.
+
 ## Duplicados
 
 - `grid.js` repite las fórmulas de rejilla de `explore/hex.js` (`cellToWorld`, `worldToCell` ≈
