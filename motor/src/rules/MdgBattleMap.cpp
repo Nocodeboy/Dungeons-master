@@ -629,6 +629,7 @@ std::vector<Cell> BattleMap::emanation_cells(const Cell& origin, int radius_ft)
 
 Reach BattleMap::reachable(const Cell& start, int budget_ft, const Creature* mover, const Occupancy& occ, bool crawl) const
 {
+	const bool trepa = mover != nullptr && mover->template_id == "giant_spider_srd";
 	// Dijkstra con cola de cubos (los costes son múltiplos de 5 pies)
 	const int n_cells = width * height;
 	constexpr int kInf = 1 << 30;
@@ -684,6 +685,11 @@ Reach BattleMap::reachable(const Cell& start, int budget_ft, const Creature* mov
 				if (zone_diff_[uni] == 1 && step < 2 * kFt)
 				{
 					step = 2 * kFt;
+				}
+				if (trepa)
+				{
+					// Ampliación (Trepar cual arácnido): la araña gigante del SRD no nota el terreno difícil
+					step = kFt;
 				}
 				if (crawl)
 				{

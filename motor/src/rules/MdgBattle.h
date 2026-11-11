@@ -50,6 +50,38 @@ public:
 	Dict<bool> surprised;
 	Dict<int> start_hidden;
 	int turn_counter = 0;
+	// ---------------------------------------------------------------- ampliación: reacciones manuales
+	/** Reacción de una unidad en modo manual que aún no tiene respuesta: la resolución se corta aquí. */
+	struct ReactionPending
+	{
+		Var info;
+	};
+	/** Unidades (por id) y bandos ("0", "1") cuyas reacciones decide el jugador. */
+	Dict<bool> manual_units;
+	Dict<bool> manual_teams;
+	/** Respuestas para la acción en curso (1 usar, 0 omitir), en el orden en que se preguntan. */
+	std::vector<int> reaction_answers;
+	size_t reaction_cursor = 0;
+	bool is_manual(const Creature* c) const;
+	/** -1: decide el núcleo (modo automático); 0: omitir; 1: usar. Sin respuesta: lanza ReactionPending. */
+	int manual_choice(Creature* c, const Var& info);
+	/** Estado del generador justo después de crearlo y estado impuesto para rehacer un combate. */
+	uint64_t rng_initial_s = 0;
+	uint64_t rng_initial_i = 0;
+	static bool forced_rng;
+	static uint64_t forced_rng_s;
+	static uint64_t forced_rng_i;
+
+	// ---------------------------------------------------------------- ampliación: retirada y telaraña (MdgAmpliaciones.cpp)
+	/** Si el grupo puede retirarse ahora, quién provocaría ataques de oportunidad y qué cuesta. */
+	Var retreat_info();
+	/** Retirada del grupo: ataques de oportunidad de quien tenga a alguien a su alcance y fin del combate. */
+	Var do_retreat();
+	/** Criaturas atrapadas en la telaraña de una araña gigante que `c` puede alcanzar (ella misma incluida). */
+	std::vector<Creature*> web_targets(Creature* c);
+	/** Ataque de `c` contra la telaraña que atrapa a `trapped` (CA 10, 5 PG, vulnerable al fuego). */
+	bool break_web(Creature* c, Creature* trapped);
+
 	/** Aviso de cambios para la interfaz (la señal `changed` de Godot). */
 	std::function<void()> on_changed;
 

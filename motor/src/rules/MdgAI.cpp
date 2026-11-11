@@ -284,6 +284,38 @@ double AIBrain::threat_at(Creature* c, const Cell& cell)
 
 double AIBrain::target_value(Creature* c, Creature* t)
 {
+	return target_value_base(c, t) + target_bonus(c, t);
+}
+
+double AIBrain::target_bonus(Creature* c, Creature* t)
+{
+	double v = 0.0;
+	if (c != nullptr && c->template_id == "giant_spider_srd")
+	{
+		// Araña gigante: muerde al que ya está en su telaraña y la lanza al lanzador
+		if (t->has_effect("spider_web_srd"))
+		{
+			v += 1.5;
+		}
+		else if (!t->casting_ability.empty() || t->concentration)
+		{
+			v += 0.6;
+		}
+	}
+	if (modo == "tactico" && c != nullptr && c->team == 0 && t->team != 0)
+	{
+		// Compañeros: primero quien amenaza al héroe
+		Creature* heroe = b.get_creature("hero");
+		if (heroe != nullptr && heroe != c && !heroe->dead && BattleMap::dist(heroe->cell, t->cell) <= 1)
+		{
+			v += 1.5;
+		}
+	}
+	return v;
+}
+
+double AIBrain::target_value_base(Creature* c, Creature* t)
+{
 	(void)c;
 	const std::string key = t->id + ":" + std::to_string(t->hp);
 	if (const double* cached = tv_cache_.find(key))
@@ -659,6 +691,69 @@ Var AIBrain::best_plan(Creature* c)
 				Dice::p_success(std::max(c->skill_bonus("athletics"), c->skill_bonus("acrobatics")), esc->data.get("escape").geti("dc", 10));
 			const double v_esc = p_ok * ((!adjacent || ranged_minded(c)) ? 6.0 : 2.5);
 			cands.push_back(Cand{v_esc, c->cell, vdict({{"kind", "escape"}}), 0.0});
+		}
+	}
+	// --- Ampliación: modo táctico de los compañeros (no cambia nada con el modo publicado)
+	if (modo == "tactico" && c->team == 0)
+	{
+		const bool fragil = (c->ac() <= 13 || c->hp_ratio() <= 0.4) && ranged_minded(c);
+		Creature* heroe = b.get_creature("hero");
+		const bool heroe_amenazado = heroe != nullptr && heroe != c && !heroe->dead && adjacent_enemies(heroe, heroe->cell) > 0;
+		for (Cand& cand : cands)
+		{
+			if (cand.plan.gets("kind") == "spell")
+			{
+				const Var ts = cand.plan.get("data").get("targets", Var::array());
+				bool enemigos = false;
+				bool casi_muertos = true;
+				bool herido = false;
+				bool caido = false;
+				for (const Var& tid : ts.arr())
+				{
+					Creature* t = b.get_creature(tid.as_str());
+					if (t == nullptr)
+					{
+						continue;
+					}
+					if (t->team != c->team)
+					{
+						enemigos = true;
+						casi_muertos = casi_muertos && t->hp <= std::max(6, static_cast<int>(t->max_hp * 0.25));
+					}
+					else if (t->is_down())
+					{
+						caido = true;
+					}
+					else if (t->hp_ratio() <= 0.35)
+					{
+						herido = true;
+					}
+				}
+				// No se gastan espacios en enemigos que caen con cualquier cosa
+				if (cand.plan.geti("slot") > 0 && enemigos && casi_muertos)
+				{
+					cand.v *= 0.35;
+				}
+				// Curar antes de que un aliado caiga (o levantarlo si ya ha caído)
+				if (caido)
+				{
+					cand.v += 6.0;
+				}
+				else if (herido)
+				{
+					cand.v += 3.5;
+				}
+			}
+			// Los frágiles no se quedan en el cuerpo a cuerpo
+			if (fragil)
+			{
+				cand.v -= 2.5 * adjacent_enemies(c, cand.cell);
+			}
+			// Interponerse: los de cuerpo a cuerpo se ponen junto al héroe cuando le amenazan
+			if (heroe_amenazado && !ranged_minded(c) && BattleMap::dist(cand.cell, heroe->cell) <= 1)
+			{
+				cand.v += 1.0;
+			}
 		}
 	}
 	// --- Ramificación y poda: el riesgo siempre resta

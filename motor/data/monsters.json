@@ -851,5 +851,36 @@
         "chance": 0.6
       }
     ]
+  },
+  "giant_spider_srd": {
+    "_ampliacion": true,
+    "name": "Araña gigante",
+    "size": "large",
+    "type": "beast",
+    "tags": [],
+    "ac": 14,
+    "hp": 26,
+    "hp_dice": "4d10+4",
+    "speed": 30,
+    "climb": 30,
+    "init": 3,
+    "abilities": {"str": 14, "dex": 16, "con": 12, "int": 2, "wis": 11, "cha": 4},
+    "skills": {"perception": 4, "stealth": 7},
+    "passive_perception": 14,
+    "darkvision": 60,
+    "blindsight": 10,
+    "cr": "1",
+    "xp": 200,
+    "pb": 2,
+    "traits": ["spider_climb", "web_walker"],
+    "attacks": [
+      {"id": "bite", "name": "Mordisco", "kind": "melee", "bonus": 5, "reach": 5,
+       "damage": [{"dice": "1d8+3", "type": "piercing"}, {"dice": "2d6", "type": "poison"}]}
+    ],
+    "spells": [{"id": "spider_web_srd", "ability": "dex", "recharge": 5}],
+    "visual": {"model": "giant_spider", "scale": 1.0},
+    "ai": "brute",
+    "form_desc": "Araña gigante del SRD 5.2.1. Trepa por paredes y techos sin que el terreno la frene, camina por las telarañas y sabe dónde está quien las toca; vista ciega a 3 m. Lanza telaraña a 18 m (Destreza CD 13 o apresado hasta que alguien rompa la telaraña: CA 10, 5 PG, vulnerable al fuego, inmune al veneno y al daño psíquico; se recarga con 5-6) y su mordisco envenena (1d8+3 perforante y 2d6 de veneno).",
+    "drops": [{"id": "spider_silk", "n": 1, "chance": 0.6}]
   }
 }

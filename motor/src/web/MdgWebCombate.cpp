@@ -130,6 +130,9 @@ Json arrancar(std::unique_ptr<Battle> battle)
 	}
 	cx.ai.reset();
 	cx.ai = std::make_unique<AIBrain>(*cx.battle);
+	cx.rng_s = cx.battle->rng_initial_s;
+	cx.rng_i = cx.battle->rng_initial_i;
+	cx.retirada = false;
 	cx.battle->start();
 	Json out = Json::object();
 	out["state"] = estado_json(*cx.battle, true);
@@ -414,12 +417,14 @@ Json terminar(const Json& req)
 	Json cp = raw;
 	campana::normalizar(cp);
 	Battle& b = *cx.battle;
-	const bool won = jhas(req, "won") ? jbool(req, "won", false) : b.winner == 0;
+	const bool retirada = cx.retirada;
+	const bool won = retirada ? false : (jhas(req, "won") ? jbool(req, "won", false) : b.winner == 0);
 	for (const CreaturePtr& c : b.creatures)
 	{
 		if (c->is_pc && campana::es_miembro(cp, c->id))
 		{
-			if (won && !c->dead && c->hp <= 0)
+			// En la retirada el grupo se lleva a rastras a los que han caído
+			if ((won || retirada) && !c->dead && c->hp <= 0)
 			{
 				c->hp = 1;
 			}
@@ -462,7 +467,7 @@ Json terminar(const Json& req)
 		}
 		const bool caido = c->dead || c->hp <= 0;
 		(caido ? enemies_dead : enemies_alive).push_back(c->id);
-		if (!caido)
+		if (!caido || retirada)
 		{
 			continue;
 		}
@@ -484,7 +489,7 @@ Json terminar(const Json& req)
 			}
 		}
 	}
-	for (const Json& l : jarr(req, "loot"))
+	for (const Json& l : retirada ? jempty_array() : jarr(req, "loot"))
 	{
 		if (l.is_array() && !l.empty())
 		{
@@ -513,18 +518,55 @@ Json terminar(const Json& req)
 		captured[id.get<std::string>()] = jobj(jobj(cp, "state"), id.get<std::string>());
 	}
 	out["captured"] = captured;
+	if (retirada)
+	{
+		// Penalización de la retirada: sin botín ni experiencia y se pierde la décima parte del oro
+		const int perdido = jint(cp, "gold", 0) / 10;
+		cp["gold"] = jint(cp, "gold", 0) - perdido;
+		out["cp"] = cp;
+		out["retreat"] = true;
+		out["gold_lost"] = perdido;
+	}
 	cx.ai.reset();
 	cx.battle.reset();
+	cx.registro.clear();
+	cx.pendiente = Json();
+	cx.retirada = false;
 	return out;
 }
 
 } // namespace
+
+/** Opciones de las ampliaciones al empezar un combate y comienzo del registro. */
+void tras_empezar(const Json& req, const Json& out)
+{
+	Contexto& cx = ctx();
+	if (!cx.battle || !out.contains("state"))
+	{
+		return;
+	}
+	if (jbool(req, "manual_reactions", false))
+	{
+		cx.battle->manual_teams["0"] = true;
+	}
+	if (jat(req, "ai_mode").is_string() && cx.ai)
+	{
+		cx.ai->modo = jstr(req, "ai_mode", "");
+	}
+	if (!cx.rehaciendo)
+	{
+		cx.registro.clear();
+		cx.registro.emplace_back(req, std::vector<int>());
+		cx.pendiente = Json();
+	}
+}
 
 bool grupo_inicio_combate(const std::string& op, const Json& req, Json& out)
 {
 	if (op == "battle_start")
 	{
 		out = empezar_en_mapa(req);
+		tras_empezar(req, out);
 		return true;
 	}
 	if (op == "battle_end")
@@ -549,12 +591,20 @@ bool grupo_inicio_combate(const std::string& op, const Json& req, Json& out)
 		}
 		const Json party = req.value("party", Json::array());
 		out = arrancar(BattleSetup::build(enc, seed, party, jint(req, "level", -1)));
+		tras_empezar(req, out);
 		return true;
 	}
 	return false;
 }
 
-bool grupo_combate(const std::string& op, const Json& req, Json& out)
+bool grupo_combate_ampliado(const std::string& op, const Json& req, Json& out);
+void anadir_acciones_ampliadas(Json& out);
+
+namespace
+{
+
+/** Operaciones del combate tal como estaban (más las de las ampliaciones). */
+bool despachar(const std::string& op, const Json& req, Json& out)
 {
 	Contexto& cx = ctx();
 	Battle& b = *cx.battle;
@@ -579,7 +629,134 @@ bool grupo_combate(const std::string& op, const Json& req, Json& out)
 		out = solo_eventos(b);
 		return true;
 	}
-	return grupo_combate_acciones(op, req, out);
+	if (grupo_combate_ampliado(op, req, out))
+	{
+		return true;
+	}
+	const bool ok = grupo_combate_acciones(op, req, out);
+	if (ok && op == "options")
+	{
+		anadir_acciones_ampliadas(out);
+	}
+	return ok;
+}
+
+/** Vuelve a montar el combate desde su primera petición (con el mismo azar) y las siguientes. */
+void rehacer()
+{
+	Contexto& cx = ctx();
+	const auto reg = cx.registro;
+	if (reg.empty())
+	{
+		return;
+	}
+	cx.rehaciendo = true;
+	Battle::forced_rng = true;
+	Battle::forced_rng_s = cx.rng_s;
+	Battle::forced_rng_i = cx.rng_i;
+	Json o;
+	grupo_inicio_combate(jstr(reg[0].first, "op", ""), reg[0].first, o);
+	Battle::forced_rng = false;
+	for (size_t i = 1; i < reg.size() && cx.battle; ++i)
+	{
+		cx.battle->reaction_answers = reg[i].second;
+		cx.battle->reaction_cursor = 0;
+		Json o2;
+		try
+		{
+			despachar(jstr(reg[i].first, "op", ""), reg[i].first, o2);
+		}
+		catch (const Battle::ReactionPending&)
+		{
+		}
+		cx.battle->reaction_answers.clear();
+		cx.battle->pop_events();
+	}
+	cx.registro = reg;
+	cx.rehaciendo = false;
+}
+
+Json pendiente_json(const Var& info)
+{
+	Contexto& cx = ctx();
+	Json p = info.to_json();
+	Creature* q = cx.battle ? cx.battle->get_creature(info.gets("who")) : nullptr;
+	Creature* t = cx.battle ? cx.battle->get_creature(info.gets("target")) : nullptr;
+	p["who_name"] = q ? q->name : std::string();
+	p["target_name"] = t ? t->name : std::string();
+	p["options"] = Json::array({"use", "skip"});
+	return p;
+}
+
+/** Ejecuta y apunta una petición; si una reacción manual queda sin respuesta, deja el combate como estaba. */
+bool ejecutar(const std::string& op, const Json& req, const std::vector<int>& respuestas, Json& out)
+{
+	Contexto& cx = ctx();
+	cx.battle->reaction_answers = respuestas;
+	cx.battle->reaction_cursor = 0;
+	try
+	{
+		const bool ok = despachar(op, req, out);
+		if (cx.battle)
+		{
+			cx.battle->reaction_answers.clear();
+		}
+		if (ok && !cx.rehaciendo && cx.battle)
+		{
+			cx.registro.emplace_back(req, respuestas);
+		}
+		return ok;
+	}
+	catch (const Battle::ReactionPending& p)
+	{
+		Json pend = Json::object();
+		pend["req"] = req;
+		pend["answers"] = respuestas;
+		pend["info"] = p.info.to_json();
+		rehacer();
+		pend["view"] = pendiente_json(p.info);
+		cx.pendiente = pend;
+		out = Json::object();
+		out["pending"] = pend["view"];
+		out["events"] = Json::array();
+		return true;
+	}
+}
+
+} // namespace
+
+bool grupo_combate(const std::string& op, const Json& req, Json& out)
+{
+	Contexto& cx = ctx();
+	if (!cx.pendiente.is_null())
+	{
+		if (op == "state")
+		{
+			out = estado_json(*cx.battle, false);
+			out["pending"] = cx.pendiente["view"];
+			return true;
+		}
+		if (op != "react")
+		{
+			out = error_json("Hay una reacción pendiente: respóndela con react.");
+			return true;
+		}
+		std::vector<int> resp = cx.pendiente["answers"].get<std::vector<int>>();
+		resp.push_back(jbool(req, "use", false) ? 1 : 0);
+		const Json pet = cx.pendiente["req"];
+		cx.pendiente = Json();
+		return ejecutar(jstr(pet, "op", ""), pet, resp, out);
+	}
+	if (op == "react")
+	{
+		out = error_json("No hay ninguna reacción pendiente.");
+		return true;
+	}
+	if (op == "state")
+	{
+		return despachar(op, req, out);
+	}
+	return ejecutar(op, req, {}, out);
 }
 
 } // namespace mdg::web

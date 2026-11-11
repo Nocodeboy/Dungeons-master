@@ -59,8 +59,17 @@ std::string src_id(const Creature* source)
 
 } // namespace battle_detail
 
+bool Battle::forced_rng = false;
+uint64_t Battle::forced_rng_s = 0;
+uint64_t Battle::forced_rng_i = 0;
+
 Battle::Battle(BattleMap p_map, int64_t p_seed) : map(std::move(p_map)), dice(p_seed)
 {
+	if (forced_rng)
+	{
+		dice.rng.set_state(forced_rng_s, forced_rng_i);
+	}
+	dice.rng.get_state(rng_initial_s, rng_initial_i);
 	settings = vdict({{"pc_reactions", "auto"}, {"sunlight", false}});
 	tokens = Var::dict();
 	spells = std::make_unique<SpellResolver>(*this);
@@ -213,6 +222,32 @@ std::vector<Var> Battle::pop_events()
 	return e;
 }
 
+bool Battle::is_manual(const Creature* c) const
+{
+	if (c == nullptr)
+	{
+		return false;
+	}
+	if (const bool* u = manual_units.find(c->id))
+	{
+		return *u;
+	}
+	return manual_teams.get(std::to_string(c->team), false);
+}
+
+int Battle::manual_choice(Creature* c, const Var& info)
+{
+	if (!is_manual(c))
+	{
+		return -1;
+	}
+	if (reaction_cursor < reaction_answers.size())
+	{
+		return reaction_answers[reaction_cursor++] != 0 ? 1 : 0;
+	}
+	throw ReactionPending{info};
+}
+
 bool Battle::pc_reacts(const Creature* c) const
 {
 	// ¿Puede esta criatura usar reacciones automáticas? (ajuste «reacciones» del jugador)
@@ -224,6 +259,18 @@ bool Battle::pc_reacts(const Creature* c) const
 bool Battle::sees(Creature* v, Creature* t, std::optional<Cell> vcell, std::optional<Cell> tcell)
 {
 	if (v == t)
+	{
+		return true;
+	}
+	// Ampliación (Caminar por telarañas): la araña sabe dónde está quien toca su telaraña
+	if (v->has_trait("web_walker") && t->has_effect("spider_web_srd"))
+	{
+		return true;
+	}
+	const Cell vc = vcell ? *vcell : v->cell;
+	const Cell tc = tcell ? *tcell : t->cell;
+	// Ampliación (araña gigante del SRD): vista ciega a 3 m
+	if (v->template_id == "giant_spider_srd" && BattleMap::dist(vc, tc) <= 2)
 	{
 		return true;
 	}
@@ -239,8 +286,6 @@ bool Battle::sees(Creature* v, Creature* t, std::optional<Cell> vcell, std::opti
 	{
 		return true;
 	}
-	const Cell vc = vcell ? *vcell : v->cell;
-	const Cell tc = tcell ? *tcell : t->cell;
 	return clear_sight(v, vc, tc);
 }
 
@@ -906,6 +951,11 @@ EffectPtr Battle::apply_effect_spec(Creature* target, const Var& spec, Creature*
 	{
 		e->data["escape"] = vdict({{"skill", spec.get("escape")}, {"dc", dc}});
 	}
+	if (spec.has("web"))
+	{
+		// Ampliación: telaraña de araña gigante (SRD 5.2.1), un objeto con CA y PG propios
+		e->data["web"] = spec.get("web").duplicate(true);
+	}
 	if (spec.getb("ends_on_damage_from_team", false) && caster != nullptr)
 	{
 		e->data["ends_on_team"] = caster->team;
@@ -1417,7 +1467,9 @@ int Battle::apply_damage(Creature* target, int amount, const std::string& dtype,
 		pc_reacts(target))
 	{
 		const bool lethal = dmg >= target->hp + target->temp_hp;
-		if (lethal || dmg >= std::max(7, static_cast<int>(target->max_hp * 0.25)))
+		const int mc = manual_choice(target, vdict({{"who", target->id}, {"kind", "stones_endurance"},
+			{"name", RulesDB::feature_name("stones_endurance")}, {"target", source ? Var(source->id) : Var()}, {"damage", dmg}}));
+		if (mc == 1 || (mc == -1 && (lethal || dmg >= std::max(7, static_cast<int>(target->max_hp * 0.25)))))
 		{
 			const int red = dice.roll("1d12").total + target->mod("con");
 			target->resources["giant_ancestry"] -= 1;
@@ -1615,7 +1667,9 @@ void Battle::damage_reactions(Creature* target, Creature* source)
 		return;
 	}
 	// Trueno de la tormenta (goliat)
-	if (target->has_trait("storms_thunder") && target->resources.get("giant_ancestry", 0) > 0)
+	if (target->has_trait("storms_thunder") && target->resources.get("giant_ancestry", 0) > 0 &&
+		manual_choice(target, vdict({{"who", target->id}, {"kind", "storms_thunder"}, {"name", RulesDB::feature_name("storms_thunder")},
+							  {"target", source->id}})) != 0)
 	{
 		target->resources["giant_ancestry"] -= 1;
 		target->turn.reaction = 0;
@@ -1628,7 +1682,9 @@ void Battle::damage_reactions(Creature* target, Creature* source)
 	if (contains(target->known_spells(), std::string("hellish_rebuke")) && target->can_cast("hellish_rebuke") && !target->is_raging())
 	{
 		const bool free_cast = target->free_casts.get("hellish_rebuke", 0) > 0;
-		if (free_cast || target->total_slots() >= 2 || source->hp <= 14)
+		const int mc = manual_choice(target, vdict({{"who", target->id}, {"kind", "hellish_rebuke"},
+			{"name", jstr(RulesDB::spell("hellish_rebuke"), "name", "")}, {"spell", "hellish_rebuke"}, {"target", source->id}}));
+		if (mc == 1 || (mc == -1 && (free_cast || target->total_slots() >= 2 || source->hp <= 14)))
 		{
 			spells->cast_reaction(target, "hellish_rebuke", source);
 		}
@@ -3165,7 +3221,13 @@ bool Battle::try_shield(Creature* t, int attack_total, int ac, double avg_dmg)
 	{
 		return false;
 	}
-	if (t->is_pc && avg_dmg >= 0.0 && !free_cast)
+	const int mc = manual_choice(t, vdict({{"who", t->id}, {"kind", "shield"}, {"name", jstr(RulesDB::spell("shield"), "name", "Escudo")},
+		{"spell", "shield"}, {"attack_total", attack_total}, {"ac", ac}}));
+	if (mc == 0)
+	{
+		return false;
+	}
+	if (mc == -1 && t->is_pc && avg_dmg >= 0.0 && !free_cast)
 	{
 		const int total_slots = t->total_slots();
 		const bool lethal = avg_dmg >= t->hp;
@@ -3220,6 +3282,11 @@ int Battle::try_cutting_words(Creature* a, Creature* t, int total, int ac)
 		{
 			continue;
 		}
+		if (manual_choice(bard, vdict({{"who", bard->id}, {"kind", "cutting_words"}, {"name", RulesDB::feature_name("cutting_words")},
+								{"target", a->id}, {"attack_total", total}, {"ac", ac}})) == 0)
+		{
+			continue;
+		}
 		bard->resources["bardic_inspiration"] -= 1;
 		bard->turn.reaction = 0;
 		const int n = dice.roll(bard->bardic_die).total;
@@ -3253,7 +3320,9 @@ bool Battle::try_deflect(Creature* t, Creature* a, Var parts, const std::string&
 	{
 		total += part.geti("amount");
 	}
-	if (total < 5 && total < t->hp)
+	const int mc = manual_choice(t, vdict({{"who", t->id}, {"kind", "deflect_attacks"}, {"name", RulesDB::feature_name("deflect_attacks")},
+		{"target", a->id}, {"damage", total}}));
+	if (mc == 0 || (mc == -1 && total < 5 && total < t->hp))
 	{
 		return false;
 	}
@@ -3556,6 +3625,11 @@ Var Battle::walk(Creature* c, const std::vector<Cell>& path, bool dashing, bool 
 				if (BattleMap::dist(cur, e->cell) <= reach && BattleMap::dist(nxt, e->cell) > reach && sees(e, c))
 				{
 					if (!pc_reacts(e) || !may_target(e, c))
+					{
+						continue;
+					}
+					if (manual_choice(e, vdict({{"who", e->id}, {"kind", "opportunity_attack"}, {"name", "Ataque de oportunidad"},
+										  {"target", c->id}, {"key", mp.get("key")}})) == 0)
 					{
 						continue;
 					}

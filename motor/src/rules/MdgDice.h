@@ -37,6 +37,18 @@ public:
 	float randf();
 	float randf_range(float from, float to) { return randf() * (to - from) + from; }
 
+	/** Estado completo del generador (para rehacer un combate idéntico). */
+	void get_state(uint64_t& s, uint64_t& i) const
+	{
+		s = state_;
+		i = inc_;
+	}
+	void set_state(uint64_t s, uint64_t i)
+	{
+		state_ = s;
+		inc_ = i;
+	}
+
 private:
 	uint64_t state_ = 0;
 	uint64_t inc_ = 0;

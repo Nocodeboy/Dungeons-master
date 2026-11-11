@@ -14,6 +14,9 @@ class AIBrain
 public:
 	explicit AIBrain(Battle& battle) : b(battle) {}
 
+	/** Ampliación: "" (la IA publicada) o "tactico" (compañeros más cuidadosos; ver MdgAI.cpp). */
+	std::string modo;
+
 	Battle& b;
 	bool debug = false;
 
@@ -25,6 +28,9 @@ public:
 	double threat_at(Creature* c, const Cell& cell);
 	/** Prioridad de un objetivo: amenaza, fragilidad y concentración. */
 	double target_value(Creature* c, Creature* t);
+	double target_value_base(Creature* c, Creature* t);
+	/** Ampliaciones: preferencias de la araña gigante y del modo táctico (0 en la IA publicada). */
+	double target_bonus(Creature* c, Creature* t);
 	/** Castigo que la IA arma antes de atacar (se gasta solo si impacta). */
 	Var choose_rider(Creature* c, const Var& p, Creature* t);
 

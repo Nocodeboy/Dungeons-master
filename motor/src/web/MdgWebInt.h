@@ -19,6 +19,15 @@ struct Contexto
 {
 	std::unique_ptr<Battle> battle;
 	std::unique_ptr<AIBrain> ai;
+	// Ampliaciones (reacciones manuales y retirada)
+	/** Peticiones aplicadas al combate en curso con sus respuestas de reacción, para rehacerlo. */
+	std::vector<std::pair<Json, std::vector<int>>> registro;
+	/** Reacción pendiente: {req, answers, info} (null si no hay). */
+	Json pendiente;
+	bool rehaciendo = false;
+	bool retirada = false;
+	uint64_t rng_s = 0;
+	uint64_t rng_i = 0;
 };
 
 Contexto& ctx();

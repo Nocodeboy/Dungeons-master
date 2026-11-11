@@ -361,6 +361,17 @@ bool grupo_datos(const std::string& op, const Json& req, Json& out)
 		const std::string nombre = jstr(req, "name", "");
 		const Json* t = tabla_datos(nombre);
 		out = t != nullptr ? *t : error_json("No hay datos con ese nombre: " + nombre);
+		// Las entradas de las ampliaciones (araña gigante del SRD...) no salen en las tablas publicadas
+		if (out.is_object() && t != nullptr)
+		{
+			for (auto it = t->begin(); it != t->end(); ++it)
+			{
+				if (it->is_object() && it->contains("_ampliacion"))
+				{
+					out.erase(it.key());
+				}
+			}
+		}
 		return true;
 	}
 	if (op == "loc")

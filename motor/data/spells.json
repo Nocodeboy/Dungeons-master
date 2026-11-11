@@ -522,5 +522,12 @@
     "save": {"ability": "dex", "half": false}, "skip_condition": "restrained", "monster": true,
     "on_fail_effect": {"kind": "spider_web", "name": "Atrapado en la telaraña", "grants": ["restrained"], "escape": "athletics"},
     "tags": ["control"], "fx": "web",
-    "desc": "Un chorro de seda pegajosa a una criatura a 18 m: salvación de Destreza o queda apresada hasta que se libere (acción: Atletismo o Acrobacias contra la CD)."}
+    "desc": "Un chorro de seda pegajosa a una criatura a 18 m: salvación de Destreza o queda apresada hasta que se libere (acción: Atletismo o Acrobacias contra la CD)."},
+  "spider_web_srd": {
+    "_ampliacion": true,
+    "name": "Telaraña", "level": 1, "school": "conjuration", "cast": "action", "range": 60, "target": "enemy",
+    "save": {"ability": "dex", "half": false}, "skip_condition": "restrained", "monster": true,
+    "on_fail_effect": {"kind": "spider_web_srd", "name": "Atrapado en la telaraña", "grants": ["restrained"], "web": {"hp": 5, "ac": 10}},
+    "tags": ["control"], "fx": "web",
+    "desc": "Un chorro de seda pegajosa a una criatura a 18 m: salvación de Destreza CD 13 o queda apresada hasta que se rompa la telaraña (CA 10, 5 PG, vulnerable al fuego; inmune al veneno y al daño psíquico)."}
 }
