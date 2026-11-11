@@ -12,7 +12,7 @@ import {
   NormalBlending,
   ShaderMaterial,
 } from 'three';
-import { km, vi, _c } from './atlas.js';
+import { getParticleAtlas, ATLAS_COLS, ATLAS_ROWS } from './atlas.js';
 
 function Am(o, e = Wr) {
   return o && o.isColor ? e.copy(o) : Array.isArray(o) ? e.setRGB(o[0], o[1], o[2]) : e.set(o ?? 16777215);
@@ -109,7 +109,11 @@ const Su = class {
       n.setAttribute('iPar', this.aPar),
       (n.instanceCount = 0),
       (this.material = new ShaderMaterial({
-        uniforms: { uAtlas: { value: km() }, uCols: { value: vi }, uRows: { value: _c } },
+        uniforms: {
+          uAtlas: { value: getParticleAtlas() },
+          uCols: { value: ATLAS_COLS },
+          uRows: { value: ATLAS_ROWS },
+        },
         vertexShader: PI,
         fragmentShader: zI,
         transparent: !0,

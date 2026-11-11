@@ -21,7 +21,7 @@ import {
   Vector2,
   Vector3,
 } from 'three';
-import { km, DS, vi, _c } from './atlas.js';
+import { getParticleAtlas, getMagicCircleTexture, ATLAS_COLS, ATLAS_ROWS } from './atlas.js';
 import { hexShape, HEX_SIZE, HEX_RADIUS } from '../explore/hex.js';
 import { Am } from './particles.js';
 
@@ -536,7 +536,7 @@ const nr = class {
       (this.alpha = i),
       (this.growT = c),
       (this.uniforms = {
-        uTex: { value: DS() },
+        uTex: { value: getMagicCircleTexture() },
         uColor: { value: or(t, a) },
         uAlpha: { value: 0 },
         uTime: { value: 0 },
@@ -628,7 +628,7 @@ const GI = `
 uniform sampler2D uAtlas; uniform vec3 uColor; uniform float uAlpha; uniform vec2 uCell;
 varying vec2 vUv;
 void main(){
-  vec2 uv = vec2((uCell.x + vUv.x) / ${vi.toFixed(1)}, (${_c.toFixed(1)} - uCell.y - 1.0 + vUv.y) / ${_c.toFixed(1)});
+  vec2 uv = vec2((uCell.x + vUv.x) / ${ATLAS_COLS.toFixed(1)}, (${ATLAS_ROWS.toFixed(1)} - uCell.y - 1.0 + vUv.y) / ${ATLAS_ROWS.toFixed(1)});
   vec4 t = texture2D(uAtlas, uv);
   gl_FragColor = vec4(uColor * t.rgb, t.a * uAlpha);
 }`;
@@ -653,10 +653,10 @@ const xi = class {
       (this.alpha = r),
       (this.spin = c),
       (this.uniforms = {
-        uAtlas: { value: km() },
+        uAtlas: { value: getParticleAtlas() },
         uColor: { value: or(a, n) },
         uAlpha: { value: r },
-        uCell: { value: new Vector2(t % vi, Math.floor(t / vi)) },
+        uCell: { value: new Vector2(t % ATLAS_COLS, Math.floor(t / ATLAS_COLS)) },
       }),
       (this.mesh = new Mesh(
         new PlaneGeometry(1, 1),

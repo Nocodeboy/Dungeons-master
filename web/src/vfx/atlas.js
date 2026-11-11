@@ -1,95 +1,106 @@
 // vfx/atlas.js
-// Reconstruido de publicado/juego.js (módulo __esm «yi»). Nombres locales aún minificados.
+// Atlas de partículas: dibuja en un canvas (8 × 5 celdas de 128 px) las 40 siluetas blancas que usan
+// los efectos (brillo, chispa, humo, llama, runa, calavera…) y lo sube como CanvasTexture. También
+// genera la textura del círculo mágico de 512 px. `FRAME` da el índice de celda de cada silueta.
+// Lo usan particles.js y shaders.js (texturas) y casi todo vfx/ y combat/controller.js (`FRAME`).
+// Reconstruido de publicado/juego.js (módulo __esm «yi»).
 
 import { CanvasTexture, LinearFilter, LinearMipmapLinearFilter, NoColorSpace } from 'three';
 
-function Sm(o) {
-  let e = o;
+/** Generador pseudoaleatorio determinista (mulberry32): devuelve una función que da valores en [0, 1). */
+function seededRandom(seed) {
+  let state = seed;
   return () => {
-    e = (e + 1831565813) | 0;
-    let t = Math.imul(e ^ (e >>> 15), 1 | e);
-    return ((t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t), ((t ^ (t >>> 14)) >>> 0) / 4294967296);
+    state = (state + 1831565813) | 0;
+    let h = Math.imul(state ^ (state >>> 15), 1 | state);
+    return ((h = (h + Math.imul(h ^ (h >>> 7), 61 | h)) ^ h), ((h ^ (h >>> 14)) >>> 0) / 4294967296);
   };
 }
-function Io(o, e, t, a, n) {
-  let s = o.createRadialGradient(e, t, 0, e, t, a);
-  for (let [i, r] of n) s.addColorStop(i, `rgba(255,255,255,${r})`);
-  ((o.fillStyle = s), o.beginPath(), o.arc(e, t, a, 0, Math.PI * 2), o.fill());
+/** Rellena un círculo blanco con degradado radial; `stops` es una lista de pares [posición, alfa]. */
+function fillRadialGlow(ctx, cx, cy, radius, stops) {
+  let gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+  for (let [offset, alpha] of stops) gradient.addColorStop(offset, `rgba(255,255,255,${alpha})`);
+  ((ctx.fillStyle = gradient), ctx.beginPath(), ctx.arc(cx, cy, radius, 0, Math.PI * 2), ctx.fill());
 }
-function km() {
-  if (er) return er;
-  let o = document.createElement('canvas');
-  ((o.width = vi * Qi), (o.height = _c * Qi));
-  let e = o.getContext('2d');
-  for (let [t, a] of Object.entries(FRAME)) {
-    let n = CI[t];
-    n &&
-      (e.save(),
-      e.translate((a % vi) * Qi, Math.floor(a / vi) * Qi),
-      e.beginPath(),
-      e.rect(0, 0, Qi, Qi),
-      e.clip(),
-      e.translate(Qi * 0.04, Qi * 0.04),
-      e.scale(0.92, 0.92),
-      n(e),
-      e.restore());
+/** Textura del atlas de partículas (se dibuja una sola vez y se reutiliza). */
+function getParticleAtlas() {
+  if (atlasTexture) return atlasTexture;
+  let canvas = document.createElement('canvas');
+  ((canvas.width = ATLAS_COLS * ATLAS_CELL), (canvas.height = ATLAS_ROWS * ATLAS_CELL));
+  let ctx = canvas.getContext('2d');
+  for (let [name, index] of Object.entries(FRAME)) {
+    let draw = FRAME_DRAWERS[name];
+    draw &&
+      (ctx.save(),
+      ctx.translate((index % ATLAS_COLS) * ATLAS_CELL, Math.floor(index / ATLAS_COLS) * ATLAS_CELL),
+      ctx.beginPath(),
+      ctx.rect(0, 0, ATLAS_CELL, ATLAS_CELL),
+      ctx.clip(),
+      ctx.translate(ATLAS_CELL * 0.04, ATLAS_CELL * 0.04),
+      ctx.scale(0.92, 0.92),
+      draw(ctx),
+      ctx.restore());
   }
   return (
-    (er = new CanvasTexture(o)),
-    (er.colorSpace = NoColorSpace),
-    (er.generateMipmaps = !0),
-    (er.minFilter = LinearMipmapLinearFilter),
-    (er.magFilter = LinearFilter),
-    er
+    (atlasTexture = new CanvasTexture(canvas)),
+    (atlasTexture.colorSpace = NoColorSpace),
+    (atlasTexture.generateMipmaps = !0),
+    (atlasTexture.minFilter = LinearMipmapLinearFilter),
+    (atlasTexture.magFilter = LinearFilter),
+    atlasTexture
   );
 }
-function DS() {
-  if (Eu) return Eu;
-  let o = 512,
-    e = document.createElement('canvas');
-  e.width = e.height = o;
-  let t = e.getContext('2d'),
-    a = o / 2;
-  ((t.strokeStyle = '#fff'), (t.fillStyle = '#fff'), (t.shadowColor = '#fff'), (t.shadowBlur = 6));
-  let n = (i, r) => {
-    ((t.lineWidth = r), t.beginPath(), t.arc(a, a, i, 0, Math.PI * 2), t.stroke());
+/** Textura del círculo mágico (anillos, runas y estrella de siete puntas), cacheada. */
+function getMagicCircleTexture() {
+  if (magicCircleTexture) return magicCircleTexture;
+  let size = 512,
+    canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  let ctx = canvas.getContext('2d'),
+    center = size / 2;
+  ((ctx.strokeStyle = '#fff'), (ctx.fillStyle = '#fff'), (ctx.shadowColor = '#fff'), (ctx.shadowBlur = 6));
+  let strokeCircle = (radius, width) => {
+    ((ctx.lineWidth = width), ctx.beginPath(), ctx.arc(center, center, radius, 0, Math.PI * 2), ctx.stroke());
   };
-  (n(244, 6), n(226, 2.5), n(150, 4), n(138, 2));
-  let s = Sm(42);
-  ((t.lineWidth = 4), (t.lineCap = 'round'));
+  (strokeCircle(244, 6), strokeCircle(226, 2.5), strokeCircle(150, 4), strokeCircle(138, 2));
+  let rand = seededRandom(42);
+  ((ctx.lineWidth = 4), (ctx.lineCap = 'round'));
   for (let i = 0; i < 24; i++) {
-    let r = (i / 24) * Math.PI * 2;
-    (t.save(),
-      t.translate(a + Math.cos(r) * 188, a + Math.sin(r) * 188),
-      t.rotate(r + Math.PI / 2),
-      t.beginPath());
-    let l = 2 + Math.floor(s() * 3),
-      c = (s() - 0.5) * 18,
-      d = -16;
-    t.moveTo(c, d);
-    for (let u = 0; u < l; u++) ((c = (s() - 0.5) * 22), (d += 32 / l), t.lineTo(c, d));
-    (s() < 0.5 && (t.moveTo(-9, -4), t.lineTo(9, -4)), t.stroke(), t.restore());
+    let angle = (i / 24) * Math.PI * 2;
+    (ctx.save(),
+      ctx.translate(center + Math.cos(angle) * 188, center + Math.sin(angle) * 188),
+      ctx.rotate(angle + Math.PI / 2),
+      ctx.beginPath());
+    let segments = 2 + Math.floor(rand() * 3),
+      x = (rand() - 0.5) * 18,
+      y = -16;
+    ctx.moveTo(x, y);
+    for (let seg = 0; seg < segments; seg++)
+      ((x = (rand() - 0.5) * 22), (y += 32 / segments), ctx.lineTo(x, y));
+    (rand() < 0.5 && (ctx.moveTo(-9, -4), ctx.lineTo(9, -4)), ctx.stroke(), ctx.restore());
   }
-  ((t.lineWidth = 3), t.beginPath());
+  ((ctx.lineWidth = 3), ctx.beginPath());
   for (let i = 0; i <= 7; i++) {
-    let r = -Math.PI / 2 + (i * 6 * Math.PI) / 7,
-      l = a + Math.cos(r) * 138,
-      c = a + Math.sin(r) * 138;
-    i === 0 ? t.moveTo(l, c) : t.lineTo(l, c);
+    let angle = -Math.PI / 2 + (i * 6 * Math.PI) / 7,
+      x = center + Math.cos(angle) * 138,
+      y = center + Math.sin(angle) * 138;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
   }
   return (
-    t.stroke(),
-    n(54, 3),
-    (t.globalAlpha = 0.5),
-    n(30, 2),
-    (Eu = new CanvasTexture(e)),
-    (Eu.colorSpace = NoColorSpace),
-    Eu
+    ctx.stroke(),
+    strokeCircle(54, 3),
+    (ctx.globalAlpha = 0.5),
+    strokeCircle(30, 2),
+    (magicCircleTexture = new CanvasTexture(canvas)),
+    (magicCircleTexture.colorSpace = NoColorSpace),
+    magicCircleTexture
   );
 }
-const vi = 8;
-const _c = 5;
-const Qi = 128;
+// Rejilla del atlas: columnas, filas y tamaño de celda en píxeles.
+const ATLAS_COLS = 8;
+const ATLAS_ROWS = 5;
+const ATLAS_CELL = 128;
+/** Índice de celda del atlas para cada silueta de partícula. */
 const FRAME = {
   glow: 0,
   spark: 1,
@@ -132,17 +143,18 @@ const FRAME = {
   arrow: 38,
   wave: 39,
 };
-const CI = {
-  glow(o) {
-    Io(o, 64, 64, 62, [
+// Funciones de dibujo de cada silueta, en una celda de 128 × 128 (escalada al 92 % con margen).
+const FRAME_DRAWERS = {
+  glow(ctx) {
+    fillRadialGlow(ctx, 64, 64, 62, [
       [0, 1],
       [0.2, 0.75],
       [0.5, 0.25],
       [1, 0],
     ]);
   },
-  spark(o) {
-    Io(o, 64, 64, 62, [
+  spark(ctx) {
+    fillRadialGlow(ctx, 64, 64, 62, [
       [0, 1],
       [0.12, 1],
       [0.3, 0.45],
@@ -150,542 +162,551 @@ const CI = {
       [1, 0],
     ]);
   },
-  smoke(o) {
-    let e = Sm(11);
-    for (let t = 0; t < 26; t++) {
-      let a = e() * Math.PI * 2,
-        n = e() * 26;
-      Io(o, 64 + Math.cos(a) * n, 64 + Math.sin(a) * n, 22 + e() * 18, [
+  smoke(ctx) {
+    let rand = seededRandom(11);
+    for (let i = 0; i < 26; i++) {
+      let angle = rand() * Math.PI * 2,
+        dist = rand() * 26;
+      fillRadialGlow(ctx, 64 + Math.cos(angle) * dist, 64 + Math.sin(angle) * dist, 22 + rand() * 18, [
         [0, 0.22],
         [0.6, 0.1],
         [1, 0],
       ]);
     }
   },
-  flame(o) {
-    let e = o.createRadialGradient(64, 92, 2, 64, 74, 70);
-    (e.addColorStop(0, 'rgba(255,255,255,1)'),
-      e.addColorStop(0.35, 'rgba(255,255,255,0.75)'),
-      e.addColorStop(0.75, 'rgba(255,255,255,0.15)'),
-      e.addColorStop(1, 'rgba(255,255,255,0)'),
-      (o.fillStyle = e),
-      o.beginPath(),
-      o.moveTo(64, 6),
-      o.bezierCurveTo(104, 52, 112, 96, 64, 122),
-      o.bezierCurveTo(16, 96, 24, 52, 64, 6),
-      o.fill());
+  flame(ctx) {
+    let gradient = ctx.createRadialGradient(64, 92, 2, 64, 74, 70);
+    (gradient.addColorStop(0, 'rgba(255,255,255,1)'),
+      gradient.addColorStop(0.35, 'rgba(255,255,255,0.75)'),
+      gradient.addColorStop(0.75, 'rgba(255,255,255,0.15)'),
+      gradient.addColorStop(1, 'rgba(255,255,255,0)'),
+      (ctx.fillStyle = gradient),
+      ctx.beginPath(),
+      ctx.moveTo(64, 6),
+      ctx.bezierCurveTo(104, 52, 112, 96, 64, 122),
+      ctx.bezierCurveTo(16, 96, 24, 52, 64, 6),
+      ctx.fill());
   },
-  ring(o) {
-    ((o.strokeStyle = 'rgba(255,255,255,1)'),
-      (o.lineWidth = 9),
-      (o.shadowColor = '#fff'),
-      (o.shadowBlur = 10),
-      o.beginPath(),
-      o.arc(64, 64, 48, 0, Math.PI * 2),
-      o.stroke());
+  ring(ctx) {
+    ((ctx.strokeStyle = 'rgba(255,255,255,1)'),
+      (ctx.lineWidth = 9),
+      (ctx.shadowColor = '#fff'),
+      (ctx.shadowBlur = 10),
+      ctx.beginPath(),
+      ctx.arc(64, 64, 48, 0, Math.PI * 2),
+      ctx.stroke());
   },
-  star(o) {
-    (Io(o, 64, 64, 28, [
+  star(ctx) {
+    (fillRadialGlow(ctx, 64, 64, 28, [
       [0, 1],
       [0.4, 0.5],
       [1, 0],
     ]),
-      (o.fillStyle = '#fff'),
-      o.translate(64, 64));
-    for (let e = 0; e < 2; e++)
-      (o.beginPath(),
-        o.moveTo(-62, 0),
-        o.quadraticCurveTo(0, -7, 62, 0),
-        o.quadraticCurveTo(0, 7, -62, 0),
-        o.fill(),
-        o.rotate(Math.PI / 2));
+      (ctx.fillStyle = '#fff'),
+      ctx.translate(64, 64));
+    for (let i = 0; i < 2; i++)
+      (ctx.beginPath(),
+        ctx.moveTo(-62, 0),
+        ctx.quadraticCurveTo(0, -7, 62, 0),
+        ctx.quadraticCurveTo(0, 7, -62, 0),
+        ctx.fill(),
+        ctx.rotate(Math.PI / 2));
   },
-  flake(o) {
-    ((o.strokeStyle = '#fff'), (o.lineWidth = 6), (o.lineCap = 'round'), o.translate(64, 64));
-    for (let e = 0; e < 6; e++)
-      (o.rotate(Math.PI / 3),
-        o.beginPath(),
-        o.moveTo(0, 0),
-        o.lineTo(0, -50),
-        o.moveTo(0, -30),
-        o.lineTo(-12, -42),
-        o.moveTo(0, -30),
-        o.lineTo(12, -42),
-        o.stroke());
+  flake(ctx) {
+    ((ctx.strokeStyle = '#fff'), (ctx.lineWidth = 6), (ctx.lineCap = 'round'), ctx.translate(64, 64));
+    for (let i = 0; i < 6; i++)
+      (ctx.rotate(Math.PI / 3),
+        ctx.beginPath(),
+        ctx.moveTo(0, 0),
+        ctx.lineTo(0, -50),
+        ctx.moveTo(0, -30),
+        ctx.lineTo(-12, -42),
+        ctx.moveTo(0, -30),
+        ctx.lineTo(12, -42),
+        ctx.stroke());
   },
-  shard(o) {
-    let e = o.createLinearGradient(30, 10, 98, 118);
-    (e.addColorStop(0, 'rgba(255,255,255,1)'),
-      e.addColorStop(1, 'rgba(255,255,255,0.5)'),
-      (o.fillStyle = e),
-      o.beginPath(),
-      o.moveTo(64, 6),
-      o.lineTo(92, 70),
-      o.lineTo(64, 122),
-      o.lineTo(40, 64),
-      o.closePath(),
-      o.fill());
+  shard(ctx) {
+    let gradient = ctx.createLinearGradient(30, 10, 98, 118);
+    (gradient.addColorStop(0, 'rgba(255,255,255,1)'),
+      gradient.addColorStop(1, 'rgba(255,255,255,0.5)'),
+      (ctx.fillStyle = gradient),
+      ctx.beginPath(),
+      ctx.moveTo(64, 6),
+      ctx.lineTo(92, 70),
+      ctx.lineTo(64, 122),
+      ctx.lineTo(40, 64),
+      ctx.closePath(),
+      ctx.fill());
   },
-  leaf(o) {
-    ((o.fillStyle = '#fff'),
-      o.beginPath(),
-      o.moveTo(64, 10),
-      o.bezierCurveTo(108, 40, 100, 100, 64, 118),
-      o.bezierCurveTo(28, 100, 20, 40, 64, 10),
-      o.fill(),
-      (o.globalCompositeOperation = 'destination-out'),
-      (o.strokeStyle = 'rgba(0,0,0,0.6)'),
-      (o.lineWidth = 3),
-      o.beginPath(),
-      o.moveTo(64, 18),
-      o.lineTo(64, 112),
-      o.stroke());
+  leaf(ctx) {
+    ((ctx.fillStyle = '#fff'),
+      ctx.beginPath(),
+      ctx.moveTo(64, 10),
+      ctx.bezierCurveTo(108, 40, 100, 100, 64, 118),
+      ctx.bezierCurveTo(28, 100, 20, 40, 64, 10),
+      ctx.fill(),
+      (ctx.globalCompositeOperation = 'destination-out'),
+      (ctx.strokeStyle = 'rgba(0,0,0,0.6)'),
+      (ctx.lineWidth = 3),
+      ctx.beginPath(),
+      ctx.moveTo(64, 18),
+      ctx.lineTo(64, 112),
+      ctx.stroke());
   },
-  drop(o) {
-    (Io(o, 64, 78, 40, [
+  drop(ctx) {
+    (fillRadialGlow(ctx, 64, 78, 40, [
       [0, 1],
       [0.7, 0.9],
       [1, 0],
     ]),
-      (o.fillStyle = 'rgba(255,255,255,0.9)'),
-      o.beginPath(),
-      o.moveTo(64, 14),
-      o.quadraticCurveTo(84, 54, 92, 76),
-      o.lineTo(36, 76),
-      o.quadraticCurveTo(44, 54, 64, 14),
-      o.fill());
+      (ctx.fillStyle = 'rgba(255,255,255,0.9)'),
+      ctx.beginPath(),
+      ctx.moveTo(64, 14),
+      ctx.quadraticCurveTo(84, 54, 92, 76),
+      ctx.lineTo(36, 76),
+      ctx.quadraticCurveTo(44, 54, 64, 14),
+      ctx.fill());
   },
-  bubble(o) {
-    ((o.strokeStyle = 'rgba(255,255,255,0.9)'),
-      (o.lineWidth = 6),
-      o.beginPath(),
-      o.arc(64, 64, 44, 0, Math.PI * 2),
-      o.stroke(),
-      Io(o, 48, 46, 16, [
+  bubble(ctx) {
+    ((ctx.strokeStyle = 'rgba(255,255,255,0.9)'),
+      (ctx.lineWidth = 6),
+      ctx.beginPath(),
+      ctx.arc(64, 64, 44, 0, Math.PI * 2),
+      ctx.stroke(),
+      fillRadialGlow(ctx, 48, 46, 16, [
         [0, 1],
         [1, 0],
       ]));
   },
-  note(o) {
-    ((o.fillStyle = '#fff'),
-      o.beginPath(),
-      o.ellipse(46, 92, 20, 14, -0.4, 0, Math.PI * 2),
-      o.fill(),
-      o.fillRect(60, 24, 8, 70),
-      o.beginPath(),
-      o.moveTo(68, 24),
-      o.quadraticCurveTo(96, 36, 92, 64),
-      o.quadraticCurveTo(88, 46, 68, 44),
-      o.fill());
+  note(ctx) {
+    ((ctx.fillStyle = '#fff'),
+      ctx.beginPath(),
+      ctx.ellipse(46, 92, 20, 14, -0.4, 0, Math.PI * 2),
+      ctx.fill(),
+      ctx.fillRect(60, 24, 8, 70),
+      ctx.beginPath(),
+      ctx.moveTo(68, 24),
+      ctx.quadraticCurveTo(96, 36, 92, 64),
+      ctx.quadraticCurveTo(88, 46, 68, 44),
+      ctx.fill());
   },
-  rune(o) {
-    ((o.strokeStyle = '#fff'),
-      (o.lineWidth = 8),
-      (o.lineCap = 'round'),
-      (o.lineJoin = 'round'),
-      o.beginPath(),
-      o.moveTo(44, 20),
-      o.lineTo(44, 108),
-      o.moveTo(44, 30),
-      o.lineTo(86, 54),
-      o.lineTo(44, 74),
-      o.moveTo(64, 64),
-      o.lineTo(90, 106),
-      o.stroke());
+  rune(ctx) {
+    ((ctx.strokeStyle = '#fff'),
+      (ctx.lineWidth = 8),
+      (ctx.lineCap = 'round'),
+      (ctx.lineJoin = 'round'),
+      ctx.beginPath(),
+      ctx.moveTo(44, 20),
+      ctx.lineTo(44, 108),
+      ctx.moveTo(44, 30),
+      ctx.lineTo(86, 54),
+      ctx.lineTo(44, 74),
+      ctx.moveTo(64, 64),
+      ctx.lineTo(90, 106),
+      ctx.stroke());
   },
-  spiral(o) {
-    ((o.strokeStyle = '#fff'), (o.lineWidth = 7), (o.lineCap = 'round'), o.beginPath());
-    for (let e = 0; e < Math.PI * 5; e += 0.1) {
-      let t = 4 + e * 3.4,
-        a = 64 + Math.cos(e) * t,
-        n = 64 + Math.sin(e) * t;
-      e === 0 ? o.moveTo(a, n) : o.lineTo(a, n);
+  spiral(ctx) {
+    ((ctx.strokeStyle = '#fff'), (ctx.lineWidth = 7), (ctx.lineCap = 'round'), ctx.beginPath());
+    for (let angle = 0; angle < Math.PI * 5; angle += 0.1) {
+      let radius = 4 + angle * 3.4,
+        x = 64 + Math.cos(angle) * radius,
+        y = 64 + Math.sin(angle) * radius;
+      angle === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
-    o.stroke();
+    ctx.stroke();
   },
-  skull(o) {
-    ((o.fillStyle = '#fff'),
-      o.beginPath(),
-      o.arc(64, 56, 38, 0, Math.PI * 2),
-      o.fill(),
-      o.fillRect(44, 80, 40, 26),
-      (o.globalCompositeOperation = 'destination-out'),
-      o.beginPath(),
-      o.arc(50, 58, 11, 0, Math.PI * 2),
-      o.arc(78, 58, 11, 0, Math.PI * 2),
-      o.fill(),
-      o.beginPath(),
-      o.moveTo(64, 70),
-      o.lineTo(58, 82),
-      o.lineTo(70, 82),
-      o.fill());
-    for (let e of [52, 64, 76]) o.fillRect(e - 2, 92, 4, 14);
+  skull(ctx) {
+    ((ctx.fillStyle = '#fff'),
+      ctx.beginPath(),
+      ctx.arc(64, 56, 38, 0, Math.PI * 2),
+      ctx.fill(),
+      ctx.fillRect(44, 80, 40, 26),
+      (ctx.globalCompositeOperation = 'destination-out'),
+      ctx.beginPath(),
+      ctx.arc(50, 58, 11, 0, Math.PI * 2),
+      ctx.arc(78, 58, 11, 0, Math.PI * 2),
+      ctx.fill(),
+      ctx.beginPath(),
+      ctx.moveTo(64, 70),
+      ctx.lineTo(58, 82),
+      ctx.lineTo(70, 82),
+      ctx.fill());
+    for (let x of [52, 64, 76]) ctx.fillRect(x - 2, 92, 4, 14);
   },
-  heart(o) {
-    ((o.fillStyle = '#fff'),
-      o.beginPath(),
-      o.moveTo(64, 112),
-      o.bezierCurveTo(10, 70, 18, 22, 64, 42),
-      o.bezierCurveTo(110, 22, 118, 70, 64, 112),
-      o.fill());
+  heart(ctx) {
+    ((ctx.fillStyle = '#fff'),
+      ctx.beginPath(),
+      ctx.moveTo(64, 112),
+      ctx.bezierCurveTo(10, 70, 18, 22, 64, 42),
+      ctx.bezierCurveTo(110, 22, 118, 70, 64, 112),
+      ctx.fill());
   },
-  zz(o) {
-    ((o.fillStyle = '#fff'),
-      (o.font = 'bold 64px Georgia, serif'),
-      (o.textAlign = 'center'),
-      o.fillText('z', 48, 98),
-      (o.font = 'bold 44px Georgia, serif'),
-      o.fillText('z', 86, 58));
+  zz(ctx) {
+    ((ctx.fillStyle = '#fff'),
+      (ctx.font = 'bold 64px Georgia, serif'),
+      (ctx.textAlign = 'center'),
+      ctx.fillText('z', 48, 98),
+      (ctx.font = 'bold 44px Georgia, serif'),
+      ctx.fillText('z', 86, 58));
   },
-  cross(o) {
-    ((o.strokeStyle = '#fff'),
-      (o.lineWidth = 7),
-      o.beginPath(),
-      o.arc(64, 64, 38, 0, Math.PI * 2),
-      o.moveTo(64, 8),
-      o.lineTo(64, 40),
-      o.moveTo(64, 88),
-      o.lineTo(64, 120),
-      o.moveTo(8, 64),
-      o.lineTo(40, 64),
-      o.moveTo(88, 64),
-      o.lineTo(120, 64),
-      o.stroke(),
-      Io(o, 64, 64, 8, [
+  cross(ctx) {
+    ((ctx.strokeStyle = '#fff'),
+      (ctx.lineWidth = 7),
+      ctx.beginPath(),
+      ctx.arc(64, 64, 38, 0, Math.PI * 2),
+      ctx.moveTo(64, 8),
+      ctx.lineTo(64, 40),
+      ctx.moveTo(64, 88),
+      ctx.lineTo(64, 120),
+      ctx.moveTo(8, 64),
+      ctx.lineTo(40, 64),
+      ctx.moveTo(88, 64),
+      ctx.lineTo(120, 64),
+      ctx.stroke(),
+      fillRadialGlow(ctx, 64, 64, 8, [
         [0, 1],
         [1, 0.6],
       ]));
   },
-  thorn(o) {
-    ((o.fillStyle = '#fff'),
-      o.beginPath(),
-      o.moveTo(64, 4),
-      o.lineTo(76, 120),
-      o.lineTo(52, 120),
-      o.closePath(),
-      o.fill());
+  thorn(ctx) {
+    ((ctx.fillStyle = '#fff'),
+      ctx.beginPath(),
+      ctx.moveTo(64, 4),
+      ctx.lineTo(76, 120),
+      ctx.lineTo(52, 120),
+      ctx.closePath(),
+      ctx.fill());
   },
-  feather(o) {
-    ((o.strokeStyle = '#fff'),
-      (o.lineWidth = 4),
-      o.beginPath(),
-      o.moveTo(40, 116),
-      o.quadraticCurveTo(70, 70, 90, 12),
-      o.stroke(),
-      (o.fillStyle = 'rgba(255,255,255,0.8)'),
-      o.beginPath(),
-      o.moveTo(90, 12),
-      o.quadraticCurveTo(110, 60, 58, 96),
-      o.quadraticCurveTo(50, 50, 90, 12),
-      o.fill());
+  feather(ctx) {
+    ((ctx.strokeStyle = '#fff'),
+      (ctx.lineWidth = 4),
+      ctx.beginPath(),
+      ctx.moveTo(40, 116),
+      ctx.quadraticCurveTo(70, 70, 90, 12),
+      ctx.stroke(),
+      (ctx.fillStyle = 'rgba(255,255,255,0.8)'),
+      ctx.beginPath(),
+      ctx.moveTo(90, 12),
+      ctx.quadraticCurveTo(110, 60, 58, 96),
+      ctx.quadraticCurveTo(50, 50, 90, 12),
+      ctx.fill());
   },
-  cloud(o) {
-    let e = Sm(5);
-    for (let t = 0; t < 14; t++)
-      Io(o, 34 + e() * 60, 40 + e() * 48, 26 + e() * 14, [
+  cloud(ctx) {
+    let rand = seededRandom(5);
+    for (let i = 0; i < 14; i++)
+      fillRadialGlow(ctx, 34 + rand() * 60, 40 + rand() * 48, 26 + rand() * 14, [
         [0, 0.5],
         [0.6, 0.25],
         [1, 0],
       ]);
   },
-  dust(o) {
-    let e = Sm(9);
-    for (let t = 0; t < 90; t++) {
-      let a = e() * Math.PI * 2,
-        n = Math.sqrt(e()) * 52;
-      ((o.fillStyle = `rgba(255,255,255,${0.3 + e() * 0.6})`),
-        o.beginPath(),
-        o.arc(64 + Math.cos(a) * n, 64 + Math.sin(a) * n, 1.5 + e() * 3.5, 0, Math.PI * 2),
-        o.fill());
+  dust(ctx) {
+    let rand = seededRandom(9);
+    for (let i = 0; i < 90; i++) {
+      let angle = rand() * Math.PI * 2,
+        dist = Math.sqrt(rand()) * 52;
+      ((ctx.fillStyle = `rgba(255,255,255,${0.3 + rand() * 0.6})`),
+        ctx.beginPath(),
+        ctx.arc(64 + Math.cos(angle) * dist, 64 + Math.sin(angle) * dist, 1.5 + rand() * 3.5, 0, Math.PI * 2),
+        ctx.fill());
     }
-    Io(o, 64, 64, 60, [
+    fillRadialGlow(ctx, 64, 64, 60, [
       [0, 0.25],
       [1, 0],
     ]);
   },
-  sigil(o) {
-    ((o.strokeStyle = '#fff'),
-      (o.lineWidth = 6),
-      o.beginPath(),
-      o.arc(64, 64, 52, 0, Math.PI * 2),
-      o.stroke(),
-      o.beginPath());
-    for (let e = 0; e <= 5; e++) {
-      let t = -Math.PI / 2 + (e * 4 * Math.PI) / 5,
-        a = 64 + Math.cos(t) * 46,
-        n = 64 + Math.sin(t) * 46;
-      e === 0 ? o.moveTo(a, n) : o.lineTo(a, n);
+  sigil(ctx) {
+    ((ctx.strokeStyle = '#fff'),
+      (ctx.lineWidth = 6),
+      ctx.beginPath(),
+      ctx.arc(64, 64, 52, 0, Math.PI * 2),
+      ctx.stroke(),
+      ctx.beginPath());
+    for (let i = 0; i <= 5; i++) {
+      let angle = -Math.PI / 2 + (i * 4 * Math.PI) / 5,
+        x = 64 + Math.cos(angle) * 46,
+        y = 64 + Math.sin(angle) * 46;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
-    (o.stroke(),
-      Io(o, 64, 64, 14, [
+    (ctx.stroke(),
+      fillRadialGlow(ctx, 64, 64, 14, [
         [0, 1],
         [1, 0],
       ]));
   },
-  ankh(o) {
-    ((o.strokeStyle = '#fff'),
-      (o.lineWidth = 10),
-      (o.lineCap = 'round'),
-      o.beginPath(),
-      o.ellipse(64, 36, 16, 22, 0, 0, Math.PI * 2),
-      o.moveTo(64, 58),
-      o.lineTo(64, 118),
-      o.moveTo(34, 70),
-      o.lineTo(94, 70),
-      o.stroke());
+  ankh(ctx) {
+    ((ctx.strokeStyle = '#fff'),
+      (ctx.lineWidth = 10),
+      (ctx.lineCap = 'round'),
+      ctx.beginPath(),
+      ctx.ellipse(64, 36, 16, 22, 0, 0, Math.PI * 2),
+      ctx.moveTo(64, 58),
+      ctx.lineTo(64, 118),
+      ctx.moveTo(34, 70),
+      ctx.lineTo(94, 70),
+      ctx.stroke());
   },
-  swirl(o) {
-    o.lineCap = 'round';
-    for (let e = 0; e < 3; e++)
-      ((o.strokeStyle = `rgba(255,255,255,${0.9 - e * 0.25})`),
-        (o.lineWidth = 7 - e * 2),
-        o.beginPath(),
-        o.arc(64, 64, 44 - e * 13, 0.2 + e, Math.PI * 1.4 + e),
-        o.stroke());
+  swirl(ctx) {
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++)
+      ((ctx.strokeStyle = `rgba(255,255,255,${0.9 - i * 0.25})`),
+        (ctx.lineWidth = 7 - i * 2),
+        ctx.beginPath(),
+        ctx.arc(64, 64, 44 - i * 13, 0.2 + i, Math.PI * 1.4 + i),
+        ctx.stroke());
   },
-  bolt(o) {
-    ((o.fillStyle = '#fff'),
-      o.beginPath(),
-      o.moveTo(74, 6),
-      o.lineTo(36, 70),
-      o.lineTo(62, 70),
-      o.lineTo(50, 122),
-      o.lineTo(94, 52),
-      o.lineTo(68, 52),
-      o.closePath(),
-      o.fill());
+  bolt(ctx) {
+    ((ctx.fillStyle = '#fff'),
+      ctx.beginPath(),
+      ctx.moveTo(74, 6),
+      ctx.lineTo(36, 70),
+      ctx.lineTo(62, 70),
+      ctx.lineTo(50, 122),
+      ctx.lineTo(94, 52),
+      ctx.lineTo(68, 52),
+      ctx.closePath(),
+      ctx.fill());
   },
-  die(o) {
-    ((o.strokeStyle = '#fff'),
-      (o.fillStyle = 'rgba(255,255,255,0.25)'),
-      (o.lineWidth = 6),
-      (o.lineJoin = 'round'),
-      o.beginPath());
-    for (let e = 0; e < 6; e++) {
-      let t = -Math.PI / 2 + (e * Math.PI) / 3,
-        a = 64 + Math.cos(t) * 54,
-        n = 64 + Math.sin(t) * 54;
-      e === 0 ? o.moveTo(a, n) : o.lineTo(a, n);
+  die(ctx) {
+    ((ctx.strokeStyle = '#fff'),
+      (ctx.fillStyle = 'rgba(255,255,255,0.25)'),
+      (ctx.lineWidth = 6),
+      (ctx.lineJoin = 'round'),
+      ctx.beginPath());
+    for (let i = 0; i < 6; i++) {
+      let angle = -Math.PI / 2 + (i * Math.PI) / 3,
+        x = 64 + Math.cos(angle) * 54,
+        y = 64 + Math.sin(angle) * 54;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
-    (o.closePath(),
-      o.fill(),
-      o.stroke(),
-      o.beginPath(),
-      o.moveTo(64, 10),
-      o.lineTo(28, 82),
-      o.lineTo(100, 82),
-      o.closePath(),
-      o.stroke());
+    (ctx.closePath(),
+      ctx.fill(),
+      ctx.stroke(),
+      ctx.beginPath(),
+      ctx.moveTo(64, 10),
+      ctx.lineTo(28, 82),
+      ctx.lineTo(100, 82),
+      ctx.closePath(),
+      ctx.stroke());
   },
-  eye(o) {
-    ((o.strokeStyle = '#fff'),
-      (o.lineWidth = 7),
-      o.beginPath(),
-      o.moveTo(10, 64),
-      o.quadraticCurveTo(64, 14, 118, 64),
-      o.quadraticCurveTo(64, 114, 10, 64),
-      o.stroke(),
-      Io(o, 64, 64, 18, [
+  eye(ctx) {
+    ((ctx.strokeStyle = '#fff'),
+      (ctx.lineWidth = 7),
+      ctx.beginPath(),
+      ctx.moveTo(10, 64),
+      ctx.quadraticCurveTo(64, 14, 118, 64),
+      ctx.quadraticCurveTo(64, 114, 10, 64),
+      ctx.stroke(),
+      fillRadialGlow(ctx, 64, 64, 18, [
         [0, 1],
         [0.8, 1],
         [1, 0],
       ]),
-      o.beginPath(),
-      o.moveTo(20, 108),
-      o.lineTo(108, 20),
-      o.stroke());
+      ctx.beginPath(),
+      ctx.moveTo(20, 108),
+      ctx.lineTo(108, 20),
+      ctx.stroke());
   },
-  chain(o) {
-    ((o.strokeStyle = '#fff'),
-      (o.lineWidth = 9),
-      o.beginPath(),
-      o.ellipse(46, 50, 30, 18, -0.7, 0, Math.PI * 2),
-      o.stroke(),
-      o.beginPath(),
-      o.ellipse(82, 80, 30, 18, -0.7, 0, Math.PI * 2),
-      o.stroke());
+  chain(ctx) {
+    ((ctx.strokeStyle = '#fff'),
+      (ctx.lineWidth = 9),
+      ctx.beginPath(),
+      ctx.ellipse(46, 50, 30, 18, -0.7, 0, Math.PI * 2),
+      ctx.stroke(),
+      ctx.beginPath(),
+      ctx.ellipse(82, 80, 30, 18, -0.7, 0, Math.PI * 2),
+      ctx.stroke());
   },
-  web(o) {
-    ((o.strokeStyle = 'rgba(255,255,255,0.9)'), (o.lineWidth = 2.5), o.translate(64, 64));
-    for (let e = 0; e < 8; e++) {
-      let t = (e * Math.PI) / 4;
-      (o.beginPath(), o.moveTo(0, 0), o.lineTo(Math.cos(t) * 62, Math.sin(t) * 62), o.stroke());
+  web(ctx) {
+    ((ctx.strokeStyle = 'rgba(255,255,255,0.9)'), (ctx.lineWidth = 2.5), ctx.translate(64, 64));
+    for (let i = 0; i < 8; i++) {
+      let angle = (i * Math.PI) / 4;
+      (ctx.beginPath(),
+        ctx.moveTo(0, 0),
+        ctx.lineTo(Math.cos(angle) * 62, Math.sin(angle) * 62),
+        ctx.stroke());
     }
-    for (let e = 12; e < 62; e += 12) {
-      o.beginPath();
-      for (let t = 0; t <= 8; t++) {
-        let a = (t * Math.PI) / 4,
-          n = Math.cos(a) * e,
-          s = Math.sin(a) * e;
-        t === 0
-          ? o.moveTo(n, s)
-          : o.quadraticCurveTo(
-              Math.cos(a - Math.PI / 8) * e * 0.8,
-              Math.sin(a - Math.PI / 8) * e * 0.8,
-              n,
-              s,
+    for (let radius = 12; radius < 62; radius += 12) {
+      ctx.beginPath();
+      for (let k = 0; k <= 8; k++) {
+        let angle = (k * Math.PI) / 4,
+          x = Math.cos(angle) * radius,
+          y = Math.sin(angle) * radius;
+        k === 0
+          ? ctx.moveTo(x, y)
+          : ctx.quadraticCurveTo(
+              Math.cos(angle - Math.PI / 8) * radius * 0.8,
+              Math.sin(angle - Math.PI / 8) * radius * 0.8,
+              x,
+              y,
             );
       }
-      o.stroke();
+      ctx.stroke();
     }
   },
-  sun(o) {
-    (Io(o, 64, 64, 30, [
+  sun(ctx) {
+    (fillRadialGlow(ctx, 64, 64, 30, [
       [0, 1],
       [0.6, 0.9],
       [1, 0],
     ]),
-      (o.fillStyle = 'rgba(255,255,255,0.8)'),
-      o.translate(64, 64));
-    for (let e = 0; e < 12; e++)
-      (o.rotate(Math.PI / 6), o.beginPath(), o.moveTo(-4, -30), o.lineTo(0, -62), o.lineTo(4, -30), o.fill());
+      (ctx.fillStyle = 'rgba(255,255,255,0.8)'),
+      ctx.translate(64, 64));
+    for (let i = 0; i < 12; i++)
+      (ctx.rotate(Math.PI / 6),
+        ctx.beginPath(),
+        ctx.moveTo(-4, -30),
+        ctx.lineTo(0, -62),
+        ctx.lineTo(4, -30),
+        ctx.fill());
   },
-  moon(o) {
-    ((o.fillStyle = '#fff'),
-      o.beginPath(),
-      o.arc(64, 64, 46, 0, Math.PI * 2),
-      o.fill(),
-      (o.globalCompositeOperation = 'destination-out'),
-      o.beginPath(),
-      o.arc(86, 50, 40, 0, Math.PI * 2),
-      o.fill());
+  moon(ctx) {
+    ((ctx.fillStyle = '#fff'),
+      ctx.beginPath(),
+      ctx.arc(64, 64, 46, 0, Math.PI * 2),
+      ctx.fill(),
+      (ctx.globalCompositeOperation = 'destination-out'),
+      ctx.beginPath(),
+      ctx.arc(86, 50, 40, 0, Math.PI * 2),
+      ctx.fill());
   },
-  bell(o) {
-    ((o.fillStyle = '#fff'),
-      o.beginPath(),
-      o.moveTo(64, 14),
-      o.bezierCurveTo(30, 14, 34, 70, 18, 96),
-      o.lineTo(110, 96),
-      o.bezierCurveTo(94, 70, 98, 14, 64, 14),
-      o.fill(),
-      o.fillRect(58, 4, 12, 14),
-      o.beginPath(),
-      o.arc(64, 106, 11, 0, Math.PI * 2),
-      o.fill(),
-      (o.globalCompositeOperation = 'destination-out'),
-      o.fillRect(24, 84, 80, 4));
+  bell(ctx) {
+    ((ctx.fillStyle = '#fff'),
+      ctx.beginPath(),
+      ctx.moveTo(64, 14),
+      ctx.bezierCurveTo(30, 14, 34, 70, 18, 96),
+      ctx.lineTo(110, 96),
+      ctx.bezierCurveTo(94, 70, 98, 14, 64, 14),
+      ctx.fill(),
+      ctx.fillRect(58, 4, 12, 14),
+      ctx.beginPath(),
+      ctx.arc(64, 106, 11, 0, Math.PI * 2),
+      ctx.fill(),
+      (ctx.globalCompositeOperation = 'destination-out'),
+      ctx.fillRect(24, 84, 80, 4));
   },
-  fist(o) {
-    o.fillStyle = '#fff';
-    for (let e = 0; e < 4; e++)
-      (o.beginPath(), o.ellipse(34 + e * 20, 44, 11, 15, 0, 0, Math.PI * 2), o.fill());
-    (o.beginPath(),
-      o.roundRect(22, 44, 84, 46, 14),
-      o.fill(),
-      o.beginPath(),
-      o.ellipse(40, 84, 24, 10, -0.25, 0, Math.PI * 2),
-      o.fill(),
-      o.fillRect(44, 88, 50, 30),
-      (o.globalCompositeOperation = 'destination-out'),
-      (o.lineWidth = 3),
-      (o.strokeStyle = '#000'));
-    for (let e = 1; e < 4; e++)
-      (o.beginPath(), o.moveTo(24 + e * 20, 34), o.lineTo(24 + e * 20, 60), o.stroke());
+  fist(ctx) {
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 4; i++)
+      (ctx.beginPath(), ctx.ellipse(34 + i * 20, 44, 11, 15, 0, 0, Math.PI * 2), ctx.fill());
+    (ctx.beginPath(),
+      ctx.roundRect(22, 44, 84, 46, 14),
+      ctx.fill(),
+      ctx.beginPath(),
+      ctx.ellipse(40, 84, 24, 10, -0.25, 0, Math.PI * 2),
+      ctx.fill(),
+      ctx.fillRect(44, 88, 50, 30),
+      (ctx.globalCompositeOperation = 'destination-out'),
+      (ctx.lineWidth = 3),
+      (ctx.strokeStyle = '#000'));
+    for (let i = 1; i < 4; i++)
+      (ctx.beginPath(), ctx.moveTo(24 + i * 20, 34), ctx.lineTo(24 + i * 20, 60), ctx.stroke());
   },
-  shield(o) {
-    ((o.fillStyle = 'rgba(255,255,255,0.35)'),
-      (o.strokeStyle = '#fff'),
-      (o.lineWidth = 8),
-      (o.lineJoin = 'round'),
-      o.beginPath(),
-      o.moveTo(64, 8),
-      o.lineTo(112, 24),
-      o.bezierCurveTo(112, 74, 94, 104, 64, 122),
-      o.bezierCurveTo(34, 104, 16, 74, 16, 24),
-      o.closePath(),
-      o.fill(),
-      o.stroke(),
-      (o.lineWidth = 6),
-      o.beginPath(),
-      o.moveTo(64, 26),
-      o.lineTo(64, 104),
-      o.moveTo(32, 50),
-      o.lineTo(96, 50),
-      o.stroke());
+  shield(ctx) {
+    ((ctx.fillStyle = 'rgba(255,255,255,0.35)'),
+      (ctx.strokeStyle = '#fff'),
+      (ctx.lineWidth = 8),
+      (ctx.lineJoin = 'round'),
+      ctx.beginPath(),
+      ctx.moveTo(64, 8),
+      ctx.lineTo(112, 24),
+      ctx.bezierCurveTo(112, 74, 94, 104, 64, 122),
+      ctx.bezierCurveTo(34, 104, 16, 74, 16, 24),
+      ctx.closePath(),
+      ctx.fill(),
+      ctx.stroke(),
+      (ctx.lineWidth = 6),
+      ctx.beginPath(),
+      ctx.moveTo(64, 26),
+      ctx.lineTo(64, 104),
+      ctx.moveTo(32, 50),
+      ctx.lineTo(96, 50),
+      ctx.stroke());
   },
-  sword(o) {
-    ((o.fillStyle = '#fff'),
-      o.translate(64, 64),
-      o.rotate(-Math.PI / 4),
-      o.beginPath(),
-      o.moveTo(0, -62),
-      o.lineTo(8, -48),
-      o.lineTo(8, 22),
-      o.lineTo(-8, 22),
-      o.lineTo(-8, -48),
-      o.closePath(),
-      o.fill(),
-      o.fillRect(-26, 22, 52, 8),
-      o.fillRect(-5, 30, 10, 22),
-      o.beginPath(),
-      o.arc(0, 56, 7, 0, Math.PI * 2),
-      o.fill());
+  sword(ctx) {
+    ((ctx.fillStyle = '#fff'),
+      ctx.translate(64, 64),
+      ctx.rotate(-Math.PI / 4),
+      ctx.beginPath(),
+      ctx.moveTo(0, -62),
+      ctx.lineTo(8, -48),
+      ctx.lineTo(8, 22),
+      ctx.lineTo(-8, 22),
+      ctx.lineTo(-8, -48),
+      ctx.closePath(),
+      ctx.fill(),
+      ctx.fillRect(-26, 22, 52, 8),
+      ctx.fillRect(-5, 30, 10, 22),
+      ctx.beginPath(),
+      ctx.arc(0, 56, 7, 0, Math.PI * 2),
+      ctx.fill());
   },
-  paw(o) {
-    ((o.fillStyle = '#fff'), o.beginPath(), o.ellipse(64, 86, 30, 26, 0, 0, Math.PI * 2), o.fill());
-    for (let [e, t, a] of [
+  paw(ctx) {
+    ((ctx.fillStyle = '#fff'), ctx.beginPath(), ctx.ellipse(64, 86, 30, 26, 0, 0, Math.PI * 2), ctx.fill());
+    for (let [x, y, radius] of [
       [26, 52, 13],
       [48, 30, 14],
       [80, 30, 14],
       [102, 52, 13],
     ])
-      (o.beginPath(), o.ellipse(e, t, a * 0.85, a, 0, 0, Math.PI * 2), o.fill());
+      (ctx.beginPath(), ctx.ellipse(x, y, radius * 0.85, radius, 0, 0, Math.PI * 2), ctx.fill());
   },
-  hand(o) {
-    ((o.fillStyle = '#fff'), o.beginPath(), o.roundRect(34, 58, 60, 60, 18), o.fill());
-    for (let [e, t] of [
+  hand(ctx) {
+    ((ctx.fillStyle = '#fff'), ctx.beginPath(), ctx.roundRect(34, 58, 60, 60, 18), ctx.fill());
+    for (let [x, height] of [
       [40, 52],
       [56, 62],
       [72, 60],
       [88, 46],
     ])
-      (o.beginPath(), o.roundRect(e - 7, 58 - t + 10, 14, t + 10, 7), o.fill());
-    (o.save(),
-      o.translate(30, 84),
-      o.rotate(-0.8),
-      o.beginPath(),
-      o.roundRect(-7, -34, 14, 40, 7),
-      o.fill(),
-      o.restore());
+      (ctx.beginPath(), ctx.roundRect(x - 7, 58 - height + 10, 14, height + 10, 7), ctx.fill());
+    (ctx.save(),
+      ctx.translate(30, 84),
+      ctx.rotate(-0.8),
+      ctx.beginPath(),
+      ctx.roundRect(-7, -34, 14, 40, 7),
+      ctx.fill(),
+      ctx.restore());
   },
-  arrow(o) {
-    ((o.strokeStyle = '#fff'),
-      (o.fillStyle = '#fff'),
-      (o.lineWidth = 6),
-      (o.lineCap = 'round'),
-      o.beginPath(),
-      o.moveTo(18, 110),
-      o.lineTo(98, 30),
-      o.stroke(),
-      o.beginPath(),
-      o.moveTo(114, 14),
-      o.lineTo(84, 26),
-      o.lineTo(102, 44),
-      o.closePath(),
-      o.fill(),
-      (o.lineWidth = 4));
-    for (let e = 0; e < 3; e++) {
-      let t = 22 + e * 9,
-        a = 106 - e * 9;
-      (o.beginPath(),
-        o.moveTo(t, a),
-        o.lineTo(t - 10, a - 18),
-        o.moveTo(t, a),
-        o.lineTo(t + 18, a + 10),
-        o.stroke());
+  arrow(ctx) {
+    ((ctx.strokeStyle = '#fff'),
+      (ctx.fillStyle = '#fff'),
+      (ctx.lineWidth = 6),
+      (ctx.lineCap = 'round'),
+      ctx.beginPath(),
+      ctx.moveTo(18, 110),
+      ctx.lineTo(98, 30),
+      ctx.stroke(),
+      ctx.beginPath(),
+      ctx.moveTo(114, 14),
+      ctx.lineTo(84, 26),
+      ctx.lineTo(102, 44),
+      ctx.closePath(),
+      ctx.fill(),
+      (ctx.lineWidth = 4));
+    for (let i = 0; i < 3; i++) {
+      let x = 22 + i * 9,
+        y = 106 - i * 9;
+      (ctx.beginPath(),
+        ctx.moveTo(x, y),
+        ctx.lineTo(x - 10, y - 18),
+        ctx.moveTo(x, y),
+        ctx.lineTo(x + 18, y + 10),
+        ctx.stroke());
     }
   },
-  wave(o) {
-    o.lineCap = 'round';
-    for (let e = 0; e < 3; e++)
-      ((o.strokeStyle = `rgba(255,255,255,${1 - e * 0.28})`),
-        (o.lineWidth = 8 - e * 2),
-        o.beginPath(),
-        o.arc(20, 64, 30 + e * 26, -0.9, 0.9),
-        o.stroke());
+  wave(ctx) {
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++)
+      ((ctx.strokeStyle = `rgba(255,255,255,${1 - i * 0.28})`),
+        (ctx.lineWidth = 8 - i * 2),
+        ctx.beginPath(),
+        ctx.arc(20, 64, 30 + i * 26, -0.9, 0.9),
+        ctx.stroke());
   },
 };
-let er = null;
-let Eu = null;
+// Texturas cacheadas.
+let atlasTexture = null;
+let magicCircleTexture = null;
 
-export { DS, FRAME, _c, km, vi };
+export { getMagicCircleTexture, FRAME, ATLAS_ROWS, getParticleAtlas, ATLAS_COLS };
