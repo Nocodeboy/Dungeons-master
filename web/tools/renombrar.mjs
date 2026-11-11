@@ -18,6 +18,8 @@
 //   "f>fn:t"        otra función anónima (IIFE, valor devuelto…)
 //   "…#2"           segunda aparición (en orden de fuente) de un elemento o de un enlace homónimo
 //   "*:t"           todos los enlaces llamados t del archivo (prioridad mínima)
+//   "$I.*:t"        comodín de ruta: los t de cualquier función cuya ruta case («*» sin «>», «**»
+//                   cualquier cosa); prioridad menor que las claves explícitas y puede no casar
 // «--listar» imprime las direcciones de un archivo. Una dirección sin «#k» abarca a todos sus homónimos.
 //
 // Exports: si un enlace exportado con `export { x }` cambia de nombre, cambia el nombre exportado
@@ -365,6 +367,19 @@ function aplicarMapa(abs, mapa, opciones) {
     if (clave.startsWith('*:')) {
       const nombre = clave.slice(2);
       for (const e of est.enlaces) if (e.nombre === nombre) asignar(e, nuevo, clave, 0);
+      continue;
+    }
+    const sep = clave.lastIndexOf(':');
+    if (sep > 0 && clave.slice(0, sep).includes('*')) {
+      // Comodín de ruta: «*» = cualquier texto sin «>», «**» = cualquier texto. Puede no casar con nada.
+      const nombre = clave.slice(sep + 1);
+      const patron = clave
+        .slice(0, sep)
+        .split(/(\*\*|\*)/)
+        .map((t) => (t === '**' ? '.*' : t === '*' ? '[^>]*' : t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+        .join('');
+      const re = new RegExp(`^${patron}$`);
+      for (const e of est.enlaces) if (e.nombre === nombre && re.test(e.duena)) asignar(e, nuevo, clave, 0.5);
       continue;
     }
     const exacta = /#\d+$/.test(clave.split(':').pop());
