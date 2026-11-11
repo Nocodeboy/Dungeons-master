@@ -3,95 +3,98 @@
 
 import { createSimulator } from './catalog.js';
 
-function createRulesBridge(o, { mock: e = !0 } = {}) {
-  let t = new Set(),
-    a = null,
-    n = { core: new Set(), mock: new Set() };
-  function s(h, p = {}) {
-    if (!t.has(h) && typeof o.rules == 'function')
+function createRulesBridge(game, { mock = !0 } = {}) {
+  let missing = new Set(),
+    simulator = null,
+    stats = { core: new Set(), mock: new Set() };
+  function call(op, args = {}) {
+    if (!missing.has(op) && typeof game.rules == 'function')
       try {
-        let m = o.rules(h, p);
-        if (!(m && m.error && sz.test(String(m.error)))) return (n.core.add(h), m);
-        t.add(h);
-      } catch (m) {
-        (console.warn(`[interfaz] ${h}:`, m), t.add(h));
+        let res = game.rules(op, args);
+        if (!(res && res.error && MISSING_OP.test(String(res.error)))) return (stats.core.add(op), res);
+        missing.add(op);
+      } catch (err) {
+        (console.warn(`[interfaz] ${op}:`, err), missing.add(op));
       }
-    if (e && ((a ??= createSimulator()), a[h])) {
-      (n.mock.has(h) ||
-        console.info(`[interfaz] \xAB${h}\xBB con el simulador (el n\xFAcleo a\xFAn no la tiene)`),
-        n.mock.add(h));
+    if (mock && ((simulator ??= createSimulator()), simulator[op])) {
+      (stats.mock.has(op) ||
+        console.info(`[interfaz] \xAB${op}\xBB con el simulador (el n\xFAcleo a\xFAn no la tiene)`),
+        stats.mock.add(op));
       try {
-        return a[h](structuredClone(p));
-      } catch (m) {
-        return (console.error(`[interfaz] simulador ${h}:`, m), { error: String(m.message || m) });
+        return simulator[op](structuredClone(args));
+      } catch (err) {
+        return (console.error(`[interfaz] simulador ${op}:`, err), { error: String(err.message || err) });
       }
     }
-    return { error: `No disponible: ${h}` };
+    return { error: `No disponible: ${op}` };
   }
-  function i(h) {
-    return (h && h.cp && !h.error && o.store.set(h.cp), h);
+  function apply(res) {
+    return (res && res.cp && !res.error && game.store.set(res.cp), res);
   }
-  let r = () => o.store.cp,
-    l = new Map();
-  function c(h) {
-    if (!l.has(h)) {
-      let p = s('data', { name: h });
-      l.set(h, p && !p.error ? p : {});
+  let currentCp = () => game.store.cp,
+    dataCache = new Map();
+  function data(name) {
+    if (!dataCache.has(name)) {
+      let res = call('data', { name });
+      dataCache.set(name, res && !res.error ? res : {});
     }
-    return l.get(h);
+    return dataCache.get(name);
   }
-  let d = new Map();
-  function u(h) {
-    if (!h) return null;
-    if (!d.has(h)) {
-      let p = s('item_info', { id: h });
-      d.set(h, p && !p.error ? p : { id: h, name: h, kind: 'gear', desc: '' });
+  let itemCache = new Map();
+  function item(id) {
+    if (!id) return null;
+    if (!itemCache.has(id)) {
+      let res = call('item_info', { id });
+      itemCache.set(id, res && !res.error ? res : { id, name: id, kind: 'gear', desc: '' });
     }
-    return d.get(h);
+    return itemCache.get(id);
   }
   return {
-    call: s,
-    apply: i,
-    data: c,
-    item: u,
-    stats: n,
-    real: (h) => n.core.has(h),
-    sheetNew: (h = {}) => s('sheet_new', h),
-    sheetSet: (h, p, m = {}) =>
-      s('sheet_set', { sheet: h, ...(Array.isArray(p) ? { sets: p } : { set: p }), ...m }),
-    sheetView: (h, p = {}) => s('sheet_options', { sheet: h, ...p }),
-    sheetFinish: (h) => s('sheet_finish', { sheet: h }),
-    sheetOptions: (h, p = 1) => s('sheet_options', { sheet: h, level: p }),
-    sheetComplete: (h, p = 1) => s('sheet_complete', { sheet: h, level: p }),
-    sheetValidate: (h, p = 1) => s('sheet_validate', { sheet: h, level: p }),
-    sheetSummary: (h, p = 1, m) => s('sheet_summary', { sheet: h, level: p, state: m }),
-    randomName: (h, p) => s('random_name', { species: h, pronoun: p })?.name || '',
-    levelChoices: (h, p, m) => s('level_choices', m ? { sheet: h, from: p, to: m } : { sheet: h, from: p }),
-    cpNew: (h, p = ['brenna']) => s('cp_new', { hero: h, companions: p }),
-    hire: (h) => i(s('cp_hire', { cp: r(), sheet: h })),
+    call,
+    apply,
+    data,
+    item,
+    stats,
+    real: (op) => stats.core.has(op),
+    sheetNew: (args = {}) => call('sheet_new', args),
+    sheetSet: (sheet, set, extra = {}) =>
+      call('sheet_set', { sheet, ...(Array.isArray(set) ? { sets: set } : { set }), ...extra }),
+    sheetView: (sheet, extra = {}) => call('sheet_options', { sheet, ...extra }),
+    sheetFinish: (sheet) => call('sheet_finish', { sheet }),
+    sheetOptions: (sheet, level = 1) => call('sheet_options', { sheet, level }),
+    sheetComplete: (sheet, level = 1) => call('sheet_complete', { sheet, level }),
+    sheetValidate: (sheet, level = 1) => call('sheet_validate', { sheet, level }),
+    sheetSummary: (sheet, level = 1, state) => call('sheet_summary', { sheet, level, state }),
+    randomName: (species, pronoun) => call('random_name', { species, pronoun })?.name || '',
+    levelChoices: (sheet, from, to) => call('level_choices', to ? { sheet, from, to } : { sheet, from }),
+    cpNew: (hero, companions = ['brenna']) => call('cp_new', { hero, companions }),
+    hire: (sheet) => apply(call('cp_hire', { cp: currentCp(), sheet })),
     partySummary: () => {
-      let h = r() ? s('party_summary', { cp: r() }) : [];
-      return Array.isArray(h) ? h : h?.party || [];
+      let res = currentCp() ? call('party_summary', { cp: currentCp() }) : [];
+      return Array.isArray(res) ? res : res?.party || [];
     },
-    shortRest: (h) => i(s('cp_short_rest', { cp: r(), spend: h })),
-    longRest: () => i(s('cp_long_rest', { cp: r() })),
-    levelUp: (h, p) => i(s('cp_level_up', { cp: r(), level: h, choices: p })),
-    gold: (h) => i(s('cp_gold', { cp: r(), delta: h })),
-    give: (h, p = 1, m, _) => i(s('cp_give', { cp: r(), item: h, n: p, to: m, unid: _ })),
-    passHours: (h) => i(s('cp_pass_hours', { cp: r(), hours: h })),
-    inv: (h) => s('inv', { cp: r(), who: h }),
-    invPreview: (h, p, m) => s('inv_preview', { cp: r(), who: h, item: p, slot: m }),
-    equip: (h, p, m) => i(s('inv_equip', { cp: r(), who: h, item: p, slot: m })),
-    unequip: (h, p) => i(s('inv_unequip', { cp: r(), who: h, slot: p })),
-    giveTo: (h, p, m, _ = 1) => i(s('inv_give', { cp: r(), from: h, to: p, item: m, n: _ })),
-    use: (h, p, m) => i(s('inv_use', { cp: r(), who: h, item: p, target: m })),
-    drop: (h, p, m = 1) => i(s('inv_drop', { cp: r(), who: h, item: p, n: m })),
-    shop: (h) => s('shop', { cp: r(), merchant: h }),
-    buy: (h, p, m = 1, _) => i(s('shop_buy', { cp: r(), merchant: h, item: p, n: m, who: _ })),
-    sell: (h, p, m, _ = 1) => i(s('shop_sell', { cp: r(), merchant: h, who: p, item: m, n: _ })),
-    check: (h) => s('check', { cp: r(), ...h }),
+    shortRest: (spend) => apply(call('cp_short_rest', { cp: currentCp(), spend })),
+    longRest: () => apply(call('cp_long_rest', { cp: currentCp() })),
+    levelUp: (level, choices) => apply(call('cp_level_up', { cp: currentCp(), level, choices })),
+    gold: (delta) => apply(call('cp_gold', { cp: currentCp(), delta })),
+    give: (itemId, n = 1, to, unid) => apply(call('cp_give', { cp: currentCp(), item: itemId, n, to, unid })),
+    passHours: (hours) => apply(call('cp_pass_hours', { cp: currentCp(), hours })),
+    inv: (who) => call('inv', { cp: currentCp(), who }),
+    invPreview: (who, itemId, slot) => call('inv_preview', { cp: currentCp(), who, item: itemId, slot }),
+    equip: (who, itemId, slot) => apply(call('inv_equip', { cp: currentCp(), who, item: itemId, slot })),
+    unequip: (who, slot) => apply(call('inv_unequip', { cp: currentCp(), who, slot })),
+    giveTo: (from, to, itemId, n = 1) =>
+      apply(call('inv_give', { cp: currentCp(), from, to, item: itemId, n })),
+    use: (who, itemId, target) => apply(call('inv_use', { cp: currentCp(), who, item: itemId, target })),
+    drop: (who, itemId, n = 1) => apply(call('inv_drop', { cp: currentCp(), who, item: itemId, n })),
+    shop: (merchant) => call('shop', { cp: currentCp(), merchant }),
+    buy: (merchant, itemId, n = 1, who) =>
+      apply(call('shop_buy', { cp: currentCp(), merchant, item: itemId, n, who })),
+    sell: (merchant, who, itemId, n = 1) =>
+      apply(call('shop_sell', { cp: currentCp(), merchant, who, item: itemId, n })),
+    check: (args) => call('check', { cp: currentCp(), ...args }),
   };
 }
-const sz = /op desconocida|unknown op|sin combate/i;
+const MISSING_OP = /op desconocida|unknown op|sin combate/i;
 
 export { createRulesBridge };
