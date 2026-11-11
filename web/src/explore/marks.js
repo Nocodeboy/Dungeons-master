@@ -22,10 +22,10 @@ function flatMesh(geo, color, opacity = 0.8, map = null) {
   let mesh = new Mesh(
     geo,
     new MeshBasicMaterial({
-      color: color,
-      map: map,
+      color,
+      map,
       transparent: !0,
-      opacity: opacity,
+      opacity,
       depthWrite: !1,
       toneMapped: !1,
       fog: !1,
@@ -118,7 +118,7 @@ const ExploreMarks = class {
       return;
     }
     (ring ||
-      ((ring = { mesh: flatMesh(this.ringGeo, MARK_COLORS.member, 0.75, RING_TEXTURE), root: root }),
+      ((ring = { mesh: flatMesh(this.ringGeo, MARK_COLORS.member, 0.75, RING_TEXTURE), root }),
       this.group.add(ring.mesh),
       this.rings.set(id, ring)),
       (ring.root = root),

@@ -4,7 +4,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «SS»).
 
 /** Devuelve la campaña activa de `game.store` o crea una nueva (héroe por defecto y compañeros). */
-function ensureCampaign(game, { party: party = null, level: level = 1 } = {}) {
+function ensureCampaign(game, { party = null, level = 1 } = {}) {
   let store = game.store;
   if (store.cp) return store.cp;
   let groupParam = game.params?.get?.('grupo'),
@@ -17,13 +17,13 @@ function ensureCampaign(game, { party: party = null, level: level = 1 } = {}) {
           : ['brenna']),
     cp = null;
   try {
-    let res = game.rules?.('cp_new', { hero: DEFAULT_HERO, companions: companions });
+    let res = game.rules?.('cp_new', { hero: DEFAULT_HERO, companions });
     res && !res.error && res.cp && (cp = res.cp);
   } catch {}
   if (cp) {
     for (let id of companions)
       if (!cp.party.includes(id)) {
-        let rec = game.rules('cp_recruit', { cp: cp, id: id });
+        let rec = game.rules('cp_recruit', { cp, id });
         rec?.cp && (cp = rec.cp);
       }
   } else cp = buildFallbackCampaign(companions, level);
@@ -38,7 +38,7 @@ function buildFallbackCampaign(companions = ['brenna'], level = 1) {
   let members = { hero: { ...DEFAULT_HERO } },
     party = ['hero'];
   for (let id of companions)
-    FALLBACK_COMPANIONS[id] && ((members[id] = { id: id, ...FALLBACK_COMPANIONS[id] }), party.push(id));
+    FALLBACK_COMPANIONS[id] && ((members[id] = { id, ...FALLBACK_COMPANIONS[id] }), party.push(id));
   let state = {};
   for (let id of party) {
     let m = members[id],
@@ -46,7 +46,7 @@ function buildFallbackCampaign(companions = ['brenna'], level = 1) {
       conMod = Math.floor(((m.abilities?.con ?? 10) - 10) / 2),
       hp = hitDie + conMod + (level - 1) * (hitDie / 2 + 1 + conMod);
     state[id] = {
-      hp: hp,
+      hp,
       max_hp: hp,
       temp_hp: 0,
       slots: [],
@@ -59,9 +59,9 @@ function buildFallbackCampaign(companions = ['brenna'], level = 1) {
   }
   return {
     version: 1,
-    members: members,
-    party: party,
-    state: state,
+    members,
+    party,
+    state,
     party_level: level,
     gold: 15,
     location: {},
