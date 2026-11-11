@@ -72,12 +72,24 @@ Json pg_de(const Json& cp, const std::string& id)
 /** Ids a los que afecta una curación o un daño: "all" = todo el grupo. */
 StrList objetivos(const Json& cp, const Json& req)
 {
-	const std::string id = jstr(req, "id", "all");
-	if (id == "all")
+	const std::string id = jstr(req, "id", "");
+	if (id == "all" || id == "party")
 	{
 		return jstrs(cp, "party");
 	}
-	return {id};
+	if (campana::es_miembro(cp, id))
+	{
+		return {id};
+	}
+	// Sin id (o con uno que no es del grupo): el primero del grupo que sigue vivo
+	for (const std::string& m : jstrs(cp, "party"))
+	{
+		if (campana::es_miembro(cp, m) && !campana::muerto(cp, m))
+		{
+			return {m};
+		}
+	}
+	return {"hero"};
 }
 
 /** Une los campos de un único resultado a la respuesta (cp_heal / cp_damage con un id). */

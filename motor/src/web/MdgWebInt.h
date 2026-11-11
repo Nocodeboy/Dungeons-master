@@ -36,6 +36,8 @@ Json error_json(const std::string& mensaje);
 Json celda_json(const Cell& c);
 /** Lista de casillas [[x, y], ...] de la petición (las entradas mal formadas se ignoran). */
 std::vector<Cell> celdas_de(const Json& arr);
+/** Texto de las reglas de un objeto, línea a línea (describe() de items.gd sin BBCode). */
+StrList lineas_objeto(const std::string& id, bool unid);
 /** Eventos pendientes del combate como array JSON (los vacía). */
 Json eventos_json(Battle& b);
 
