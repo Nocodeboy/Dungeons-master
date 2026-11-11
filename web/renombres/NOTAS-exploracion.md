@@ -47,3 +47,6 @@ comporta igual que el publicado. Los nombres son los nuevos (tras `renombres/exp
   tiene parte de los renombres: `node tools/renombrar.mjs renombres/exploracion.json --tolerante`.
 - Comprobado: aplicar `renombres/exploracion.json` (11 tandas, 2419 enlaces) sobre el `src/` del commit
   58502c0 da el mismo código que esta rama, salvo los comentarios.
+- Verificación final (11 nov): `node build.mjs` + `tools/comparar-bundles.mjs` igual que la base (165/176) y
+  `tools/verificar.cjs --hasta combate` sin errores (Merrowick a los 149 s, combate e1 a los 715 s; el único
+  aviso es el del controlador de SwiftShader).
