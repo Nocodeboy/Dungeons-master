@@ -58,8 +58,10 @@ peticiones mal formadas, operaciones inexistentes y documentos de campaña raros
 | Creador y subida de nivel (`sheet_*`, `level_choices`, `levelup_begin`) | `creador.*` | 3 622 | 100 % |
 
 Las cifras son las de la herramienta nativa y las del wasm de `motor/dist/` (las dos dan el mismo
-resultado; el wasm se compila con las mismas opciones que el publicado: Emscripten 7.0.0, `-O2`,
-`-fwasm-exceptions`).
+resultado: 28 613 de 28 613 respuestas idénticas byte a byte). El wasm se compila con las mismas
+opciones que el publicado (Emscripten 7.0.0, `-O2`, `-fwasm-exceptions`) y el `rules.mjs` que sale
+es idéntico al publicado, así que los dos archivos de `motor/dist/` sustituyen sin más a los de
+`publicado/rules/`.
 
 ## Diferencias conocidas
 
