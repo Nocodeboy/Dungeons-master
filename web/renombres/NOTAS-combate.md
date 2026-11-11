@@ -11,6 +11,30 @@
   2. `tools/comparar-enlaces.mjs` entre el bundle legible (`--sin-minificar`) de la línea base y el actual: **alfa-equivalentes** (misma forma, propiedades y literales, y cada identificador apunta al mismo enlace). Esto detecta capturas de nombres, que el comparador de bundles no ve.
 - Los exports con espacio de nombres (`combat/index.js`, `story/index.js`, cargados con `import()` de plantilla) conservan sus nombres originales.
 
+## Exports renombrados
+
+Todos se importan solo dentro del área, así que ninguna otra área tiene que cambiar nada. Los exports de `combat/index.js`, `story/index.js` y de los módulos raíz (`createStage`, `SceneManager`, `Bus`, `Store`, `loadRules`, `createApi`, `getCap`, `getUserId`, `detectQuality`, `loadGLTF`, `loadProp`, `loadingManager`, `pbrMaterial`, `setAnisotropy`) no cambian.
+
+| Archivo | Antes → ahora |
+|---|---|
+| `combat/creatures.js` | `a3` → `isBeast`, `jm` → `makeBeast`, `t3` → `humanoidMonsterLook` |
+| `combat/hands.js` | `QS` → `anchorsOf`, `Um` → `handWorld` |
+| `combat/hud.js` | `Bm` → `conditionName`, `Ec` → `formatNumber`, `cr` → `shortName` |
+| `combat/overlay.js` | `Om` → `Overlay` |
+| `combat/units.js` | `p3` → `createUnits` |
+| `story/actions.js` | `dE` → `parseEffect`, `hE` → `rollDice`, `uE` → `DEFERRED_EFFECTS` |
+| `story/conditions.js` | `eE` → `conditionAtoms`, `tE` → `evalCondition` |
+| `story/data.js` | `lS` → `storyData` |
+| `story/text.js` | `fm` → `formatText`, `lE` → `conditionTag`, `oE` → `SKILL_ABILITIES`, `vc` → `SKILL_NAMES`, `yc` → `ABILITY_NAMES` |
+
+Imports de otras áreas que siguen con nombre minificado (los renombrará su área): `BS` (vfx/conditions.js) y `o1` (vfx/spells.js) en `combat/controller.js`; `Fs` (actors/character.js) y `hc` (actors/roster.js) en `combat/units.js`.
+
+## Para el coordinador
+
+- Si al integrar hay conflictos en mis archivos, se puede partir del `src/` de la base y aplicar `node tools/renombrar.mjs renombres/combate.json --abreviar`: reproduce mis archivos salvo los comentarios (comprobado sobre la base `58502c0`). Los comentarios hay que traerlos de esta rama.
+- Los imports de mis archivos que vienen de otras áreas pueden chocar con los renombres de esas áreas; basta con quedarse con el nombre nuevo del export.
+- `combat/combat.css` ya tenía su cabecera original; no se le añade nada porque se empaqueta como texto (cambiaría el bundle).
+
 ## Fallos y código sospechoso (sin arreglar)
 
 - `story/data.js`: las claves de `DIALOG_FILES` son las originales y los nombres de archivo de `datos/historia/dialogos/` se dedujeron por el lugar donde ocurren, así que no coinciden (`sedge` → `elderhal.json`, `elderhal` → `santuario.json`, `kesh` → `odvar.json`, `runes` → `kesh.json`). No es un fallo; solo puede despistar.
