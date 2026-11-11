@@ -1,5 +1,10 @@
-// combat/hud.js
-// Reconstruido de publicado/juego.js (módulo __esm «qm»). Nombres locales aún minificados.
+// combat/hud.js — Interfaz HTML del combate (`.mdg-combate`, ids «cb-*»).
+// Iniciativa con retratos, tarjetas del grupo (PG, espacios de conjuro, estados, IA), rótulos sobre las
+// unidades, barra de turno con recursos y botones de acción, hoja de opciones, previsión de ataque, avisos,
+// carteles, números flotantes, registro y ficha al pasar el ratón. En el banco de pruebas (`standalone`)
+// añade la cabecera, la introducción con el selector de encuentro y grupo, y la pantalla final. La crea
+// combat/index.js; la maneja combat/controller.js (bind, setup, refresh, turnBar, sheet, preview, float…).
+// Los estilos están en combat.css y se inyectan una sola vez.
 
 import {
   ACESFilmicToneMapping,
@@ -13,48 +18,56 @@ import {
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import combatCss from './combat.css';
 
-function oH() {
+/** Carga icons.json (SVG de game-icons.net) una sola vez. */
+function loadIcons() {
   return (
-    f1 ||
-      (f1 = fetch(new URL('icons.json', document.baseURI))
-        .then((o) => o.json())
-        .then((o) => {
-          Tc = o;
+    iconsPromise ||
+      (iconsPromise = fetch(new URL('icons.json', document.baseURI))
+        .then((res) => res.json())
+        .then((data) => {
+          icons = data;
         })
         .catch(() => {
-          Tc = {};
+          icons = {};
         })),
-    f1
+    iconsPromise
   );
 }
-function WS(o) {
-  return `<svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">${(Tc && (Tc[o] || Tc.magic)) || ''}</svg>`;
+/** SVG de un icono (el de «magic» si no existe). */
+function iconSvg(name) {
+  return `<svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">${(icons && (icons[name] || icons.magic)) || ''}</svg>`;
 }
-function Bm(o) {
-  return rH[o] || o;
+/** Nombre en español de un estado (prone → Derribado…). */
+function conditionName(cond) {
+  return CONDITION_NAMES[cond] || cond;
 }
-function cr(o) {
-  return o
-    ? o.name.startsWith('Maese ')
-      ? o.name.slice(6)
-      : o.team === 0
-        ? o.name.split(' ')[0]
-        : o.name
+/** Nombre corto: sin «Maese» y, en el grupo, solo el nombre de pila. */
+function shortName(creature) {
+  return creature
+    ? creature.name.startsWith('Maese ')
+      ? creature.name.slice(6)
+      : creature.team === 0
+        ? creature.name.split(' ')[0]
+        : creature.name
     : '';
 }
-function Kr(o) {
-  return String(o).replace(/[&<>"]/g, (e) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[e]);
+/** Escapa &, <, > y comillas. */
+function escapeHtml(text) {
+  return String(text).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
 }
-function cH(o) {
-  return window.CSS && window.CSS.escape ? window.CSS.escape(o) : String(o).replace(/"/g, '\\"');
+/** Escapa un valor para un selector CSS. */
+function cssEscape(value) {
+  return window.CSS && window.CSS.escape ? window.CSS.escape(value) : String(value).replace(/"/g, '\\"');
 }
-function Ec(o) {
-  return Number.isInteger(o) ? String(o) : o.toFixed(1).replace('.', ',');
+/** Número con coma decimal y un decimal si no es entero. */
+function formatNumber(value) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace('.', ',');
 }
-const mn = new Vector3();
-let Tc = null;
-let f1 = null;
-const XS = {
+const tmpVec = new Vector3();
+let icons = null;
+let iconsPromise = null;
+/** Nombres de clase (masculino y, para Brenna e Ilyra, femenino). */
+const CLASS_NAMES = {
   fighter: 'Guerrero',
   rogue: 'P\xEDcaro',
   cleric: 'Cl\xE9rigo',
@@ -68,7 +81,7 @@ const XS = {
   sorcerer: 'Hechicero',
   warlock: 'Brujo',
 };
-const sH = {
+const CLASS_NAMES_F = {
   fighter: 'Guerrera',
   cleric: 'Cl\xE9riga',
   wizard: 'Maga',
@@ -78,8 +91,9 @@ const sH = {
   warlock: 'Bruja',
   rogue: 'P\xEDcara',
 };
-const iH = new Set(['brenna', 'ilyra']);
-const rH = {
+const FEMALE_COMPANIONS = new Set(['brenna', 'ilyra']);
+/** Nombres de los estados. */
+const CONDITION_NAMES = {
   prone: 'Derribado',
   frightened: 'Asustado',
   poisoned: 'Envenenado',
@@ -96,8 +110,9 @@ const rH = {
   petrified: 'Petrificado',
   exhaustion: 'Agotamiento',
 };
-const lH = (o) => `
-${o ? '<header id="cb-marca" class="hud placa"><h1>Marca de Granito</h1><p id="cb-marca-sub"></p><a href="./">\u2190 Volver a la posada</a></header>' : ''}
+/** HTML del HUD; `standalone` añade la cabecera, la introducción y la pantalla final del banco de pruebas. */
+const hudHtml = (standalone) => `
+${standalone ? '<header id="cb-marca" class="hud placa"><h1>Marca de Granito</h1><p id="cb-marca-sub"></p><a href="./">\u2190 Volver a la posada</a></header>' : ''}
 <div id="cb-rotulos" aria-hidden="true"></div>
 <div id="cb-flotantes" aria-hidden="true"></div>
 <div id="cb-iniciativa" class="hud placa" aria-label="Orden de iniciativa"><span id="cb-ronda">Ronda 1</span><ol id="cb-iniciativa-lista"></ol></div>
@@ -137,7 +152,7 @@ ${o ? '<header id="cb-marca" class="hud placa"><h1>Marca de Granito</h1><p id="c
 <div id="cb-ficha" class="hud placa"></div>
 <div id="cb-nota" class="hud"></div>
 ${
-  o
+  standalone
     ? `
 <section id="cb-intro" class="hud placa modal" hidden aria-labelledby="cb-intro-titulo">
   <h2 id="cb-intro-titulo"></h2><p id="cb-intro-lugar" class="lugar"></p><div id="cb-intro-texto"></div>
@@ -152,23 +167,24 @@ ${
 </section>`
     : ''
 }`;
-let YS = !1;
+let cssInjected = !1;
+/** HUD del combate. */
 const Hud = class {
-  constructor(e = document.body, { standalone: t = !1, portrait: a = null } = {}) {
-    if (!YS) {
-      let n = document.createElement('style');
-      ((n.dataset.area = 'combate'), (n.textContent = combatCss), document.head.appendChild(n), (YS = !0));
+  constructor(mount = document.body, { standalone = !1, portrait = null } = {}) {
+    if (!cssInjected) {
+      let style = document.createElement('style');
+      ((style.dataset.area = 'combate'), (style.textContent = combatCss), document.head.appendChild(style), (cssInjected = !0));
     }
     ((this.root = document.createElement('div')),
       (this.root.className = 'mdg-combate'),
       (this.root.style.pointerEvents = 'none'),
-      (this.root.innerHTML = lH(t)),
-      e.appendChild(this.root),
-      (this.standalone = t),
-      t ||
+      (this.root.innerHTML = hudHtml(standalone)),
+      mount.appendChild(this.root),
+      (this.standalone = standalone),
+      standalone ||
         (this.root.classList.add('oculto'),
         requestAnimationFrame(() => requestAnimationFrame(() => this.root.classList.remove('oculto')))),
-      (this.portraitFn = a),
+      (this.portraitFn = portrait),
       (this.labels = new Map()),
       (this.floats = []),
       (this.cards = new Map()),
@@ -176,396 +192,419 @@ const Hud = class {
       (this.portraits = {}),
       (this.initRolls = {}),
       (this.surprised = new Set()),
-      oH().then(() => this.paintIcons()));
+      loadIcons().then(() => this.paintIcons()));
   }
-  $(e) {
-    return this.root.querySelector(e);
+  /** querySelector dentro del HUD. */
+  $(selector) {
+    return this.root.querySelector(selector);
   }
+  /** Inserta los SVG en los elementos con data-icon (una vez). */
   paintIcons() {
-    for (let e of this.root.querySelectorAll('[data-icon]'))
-      e.dataset.painted ||
-        ((e.dataset.painted = '1'), e.insertAdjacentHTML('afterbegin', WS(e.dataset.icon)));
+    for (let el of this.root.querySelectorAll('[data-icon]'))
+      el.dataset.painted ||
+        ((el.dataset.painted = '1'), el.insertAdjacentHTML('afterbegin', iconSvg(el.dataset.icon)));
   }
-  visible(e) {
-    this.root.classList.toggle('oculto', !e);
+  visible(on) {
+    this.root.classList.toggle('oculto', !on);
   }
   dispose() {
     (clearTimeout(this._banner),
       clearTimeout(this._big),
       clearTimeout(this._tip),
       this.root.classList.add('oculto'));
-    let e = this.root;
-    setTimeout(() => e.remove(), 400);
+    let root = this.root;
+    setTimeout(() => root.remove(), 400);
   }
-  bind(e) {
-    this.ctl = e;
-    let t = (a, n) => this.$(a)?.addEventListener('click', n);
-    (t('#cb-b-atacar', () => e.menu('attack')),
-      t('#cb-b-conjuros', () => e.menu('spells')),
-      t('#cb-b-habilidades', () => e.menu('features')),
-      t('#cb-b-acciones', () => e.menu('actions')),
-      t('#cb-b-objetos', () => e.menu('items')),
-      t('#cb-b-deshacer', () => e.undoMove()),
-      t('#cb-b-fin', () => e.mode !== 'busy' && e.endTurn()),
-      t('#cb-b-cancelar', () => e.cancelPending()),
-      t('#cb-prevista-no', () => e.cancelPending()),
-      t('#cb-b-rapido', () => this.toggleFast()),
-      t('#cb-b-girar-izq', () => e.rotate(0.5)),
-      t('#cb-b-girar-der', () => e.rotate(-0.5)),
-      t('#cb-b-centrar', () => e.centerOnCurrent()),
-      t('#cb-b-registro', () => this.toggleLog()),
-      t('#cb-hoja-cerrar', () => this.closeSheet()));
+  /** Conecta los botones con el controlador. */
+  bind(ctl) {
+    this.ctl = ctl;
+    let onClick = (selector, fn) => this.$(selector)?.addEventListener('click', fn);
+    (onClick('#cb-b-atacar', () => ctl.menu('attack')),
+      onClick('#cb-b-conjuros', () => ctl.menu('spells')),
+      onClick('#cb-b-habilidades', () => ctl.menu('features')),
+      onClick('#cb-b-acciones', () => ctl.menu('actions')),
+      onClick('#cb-b-objetos', () => ctl.menu('items')),
+      onClick('#cb-b-deshacer', () => ctl.undoMove()),
+      onClick('#cb-b-fin', () => ctl.mode !== 'busy' && ctl.endTurn()),
+      onClick('#cb-b-cancelar', () => ctl.cancelPending()),
+      onClick('#cb-prevista-no', () => ctl.cancelPending()),
+      onClick('#cb-b-rapido', () => this.toggleFast()),
+      onClick('#cb-b-girar-izq', () => ctl.rotate(0.5)),
+      onClick('#cb-b-girar-der', () => ctl.rotate(-0.5)),
+      onClick('#cb-b-centrar', () => ctl.centerOnCurrent()),
+      onClick('#cb-b-registro', () => this.toggleLog()),
+      onClick('#cb-hoja-cerrar', () => this.closeSheet()));
   }
   toggleFast() {
-    let e = !this.ctl.fast;
-    (this.ctl.setFast(e), this.$('#cb-b-rapido').setAttribute('aria-pressed', String(e)));
+    let fast = !this.ctl.fast;
+    (this.ctl.setFast(fast), this.$('#cb-b-rapido').setAttribute('aria-pressed', String(fast)));
   }
   toggleLog() {
-    let e = this.$('#cb-registro');
-    (e.classList.toggle('plegado'),
-      this.$('#cb-b-registro').setAttribute('aria-expanded', String(!e.classList.contains('plegado'))));
+    let log = this.$('#cb-registro');
+    (log.classList.toggle('plegado'),
+      this.$('#cb-b-registro').setAttribute('aria-expanded', String(!log.classList.contains('plegado'))));
   }
-  setup(e, t, a = null) {
-    ((this.units = t),
-      this.standalone && a && (this.$('#cb-marca-sub').textContent = `${a.name} \xB7 ${a.place || ''}`));
-    let n = this.$('#cb-grupo');
-    ((n.innerHTML = ''), this.cards.clear());
-    for (let i of e.creatures.filter((r) => r.team === 0)) this.addCard(i);
-    let s = this.$('#cb-rotulos');
-    ((s.innerHTML = ''), this.labels.clear());
-    for (let i of e.creatures) this.addLabel(i);
-    ((this.state = e), this.renderPortraits(t), this.refresh(e));
+  /** Monta tarjetas, rótulos y retratos para el estado inicial. */
+  setup(state, units, encounter = null) {
+    ((this.units = units),
+      this.standalone && encounter && (this.$('#cb-marca-sub').textContent = `${encounter.name} \xB7 ${encounter.place || ''}`));
+    let party = this.$('#cb-grupo');
+    ((party.innerHTML = ''), this.cards.clear());
+    for (let creature of state.creatures.filter((c) => c.team === 0)) this.addCard(creature);
+    let labels = this.$('#cb-rotulos');
+    ((labels.innerHTML = ''), this.labels.clear());
+    for (let creature of state.creatures) this.addLabel(creature);
+    ((this.state = state), this.renderPortraits(units), this.refresh(state));
   }
-  addCard(e) {
-    let t = document.createElement('button');
-    ((t.type = 'button'), (t.className = 'pj'));
-    let a = (iH.has(e.id) ? sH[e.cls] : null) || XS[e.cls] || e.cls || '';
-    ((t.innerHTML = `
+  /** Tarjeta de un miembro del grupo (clic: centrar; interruptor: IA). */
+  addCard(creature) {
+    let card = document.createElement('button');
+    ((card.type = 'button'), (card.className = 'pj'));
+    let role = (FEMALE_COMPANIONS.has(creature.id) ? CLASS_NAMES_F[creature.cls] : null) || CLASS_NAMES[creature.cls] || creature.cls || '';
+    ((card.innerHTML = `
       <span class="auto" role="switch" aria-checked="false" title="Que lo juegue la IA" data-icon="auto"></span>
-      <span class="marco"><img alt="" data-retrato="${e.id}"><span class="ca" title="Clase de armadura">${e.ac}</span></span>
+      <span class="marco"><img alt="" data-retrato="${creature.id}"><span class="ca" title="Clase de armadura">${creature.ac}</span></span>
       <span class="datos">
-        <span class="nombre">${cr(e)}</span>
-        <span class="rol">${a}${e.level ? ` \xB7 nivel ${e.level}` : ''}</span>
+        <span class="nombre">${shortName(creature)}</span>
+        <span class="rol">${role}${creature.level ? ` \xB7 nivel ${creature.level}` : ''}</span>
         <span class="vida" role="meter" aria-label="Puntos de golpe"><span class="relleno"></span><span class="temp"></span><span class="cifra"></span></span>
         <span class="espacios"></span>
         <span class="estados"></span>
       </span>`),
-      t.addEventListener('click', (n) => {
-        if (n.target.closest('.auto')) {
-          (n.stopPropagation(), this.ctl.toggleAuto(e.id));
+      card.addEventListener('click', (ev) => {
+        if (ev.target.closest('.auto')) {
+          (ev.stopPropagation(), this.ctl.toggleAuto(creature.id));
           return;
         }
-        let s = this.units?.byId.get(e.id);
-        s && this.ctl.focusUnit(s, null, !0);
+        let unit = this.units?.byId.get(creature.id);
+        unit && this.ctl.focusUnit(unit, null, !0);
       }),
-      this.$('#cb-grupo').appendChild(t),
-      this.cards.set(e.id, t),
-      Tc && this.paintIcons());
+      this.$('#cb-grupo').appendChild(card),
+      this.cards.set(creature.id, card),
+      icons && this.paintIcons());
   }
-  addLabel(e) {
-    let t = document.createElement('div');
-    ((t.className = `rotulo ${e.team === 0 ? 'de-grupo' : 'de-enemigo'}`),
-      (t.innerHTML = `<b>${cr(e)}</b><span class="mini"><span></span></span>`),
-      this.$('#cb-rotulos').appendChild(t),
-      this.labels.set(e.id, t));
+  /** Rótulo con nombre y vida sobre la unidad. */
+  addLabel(creature) {
+    let label = document.createElement('div');
+    ((label.className = `rotulo ${creature.team === 0 ? 'de-grupo' : 'de-enemigo'}`),
+      (label.innerHTML = `<b>${shortName(creature)}</b><span class="mini"><span></span></span>`),
+      this.$('#cb-rotulos').appendChild(label),
+      this.labels.set(creature.id, label));
   }
-  async renderPortraits(e) {
-    let t = e.list;
+  /** Retratos de todas las unidades (función externa o render propio) y barra de iniciativa. */
+  async renderPortraits(units) {
+    let list = units.list;
     this.portraitFn &&
       (await Promise.all(
-        t.map(async (n) => {
+        list.map(async (unit) => {
           try {
-            this.portraits[n.id] = await this.portraitFn(n);
+            this.portraits[unit.id] = await this.portraitFn(unit);
           } catch {}
         }),
       ));
-    let a = t.filter((n) => !this.portraits[n.id]);
-    a.length && this.renderOwnPortraits(a);
-    for (let [n, s] of Object.entries(this.portraits))
-      for (let i of this.root.querySelectorAll(`img[data-retrato="${cH(n)}"]`)) i.src = s;
+    let missing = list.filter((unit) => !this.portraits[unit.id]);
+    missing.length && this.renderOwnPortraits(missing);
+    for (let [id, src] of Object.entries(this.portraits))
+      for (let img of this.root.querySelectorAll(`img[data-retrato="${cssEscape(id)}"]`)) img.src = src;
     this.buildInitiative();
   }
-  renderOwnPortraits(e) {
-    let n;
+  /** Retratos propios: clona la figura en una escena aparte y la fotografía (por plantilla). */
+  renderOwnPortraits(units) {
+    let renderer;
     try {
-      n = new WebGLRenderer({ antialias: !0, alpha: !0, preserveDrawingBuffer: !0 });
+      renderer = new WebGLRenderer({ antialias: !0, alpha: !0, preserveDrawingBuffer: !0 });
     } catch {
       return;
     }
-    (n.setSize(168, 200), (n.toneMapping = ACESFilmicToneMapping), (n.toneMappingExposure = 1.15));
-    let s = new Map();
-    for (let i of e) {
-      let r = i.team === 0 ? i.id : i.template;
-      if (s.has(r)) {
-        this.portraits[i.id] = s.get(r);
+    (renderer.setSize(168, 200), (renderer.toneMapping = ACESFilmicToneMapping), (renderer.toneMappingExposure = 1.15));
+    let byKey = new Map();
+    for (let unit of units) {
+      let key = unit.team === 0 ? unit.id : unit.template;
+      if (byKey.has(key)) {
+        this.portraits[unit.id] = byKey.get(key);
         continue;
       }
       try {
-        (i.ch.mixer?.update(0.01), i.root.updateMatrixWorld(!0));
-        let l = new Scene(),
-          c = clone(i.root);
-        (c.position.set(0, 0, 0),
-          c.rotation.set(0, 0, 0),
-          c.traverse((x) => {
-            (x.isLight && (x.intensity = 0), (x.isSprite || x.isPoints) && (x.visible = !1));
+        (unit.ch.mixer?.update(0.01), unit.root.updateMatrixWorld(!0));
+        let scene = new Scene(),
+          copy = clone(unit.root);
+        (copy.position.set(0, 0, 0),
+          copy.rotation.set(0, 0, 0),
+          copy.traverse((obj) => {
+            (obj.isLight && (obj.intensity = 0), (obj.isSprite || obj.isPoints) && (obj.visible = !1));
           }),
-          l.add(c),
-          c.updateMatrixWorld(!0));
-        let d = c.getObjectByName('Head');
-        if (!d) continue;
-        let u = d.getWorldPosition(new Vector3()),
-          h = i.scale || 1,
-          p = new DirectionalLight(16765600, 3);
-        p.position.set(1.2, u.y + 1.2, 2.2);
-        let m = new DirectionalLight(7309e3, 1.1);
-        m.position.set(-2, u.y + 0.5, 0.5);
-        let _ = new DirectionalLight(16754784, 2.2);
-        (_.position.set(-0.6, u.y + 1, -2.5), l.add(p, m, _, new AmbientLight(2760752, 1.2)));
-        let b = !c.getObjectByName('hand_r'),
-          f = new PerspectiveCamera(24, 168 / 200, 0.02, 20);
-        (b
-          ? (f.position.set(u.x + 0.95 * h, u.y + 0.3 * h, u.z + 1.55 * h),
-            f.lookAt(u.x, u.y - 0.12 * h, u.z - 0.15 * h))
-          : (f.position.set(0.22 * h, u.y + 0.06 * h, 0.95 * h), f.lookAt(0, u.y - 0.03 * h, 0)),
-          n.render(l, f));
-        let v = n.domElement.toDataURL('image/png');
-        (s.set(r, v), (this.portraits[i.id] = v));
-      } catch (l) {
-        console.warn('[combate] retrato', i.id, l);
+          scene.add(copy),
+          copy.updateMatrixWorld(!0));
+        let head = copy.getObjectByName('Head');
+        if (!head) continue;
+        let headPos = head.getWorldPosition(new Vector3()),
+          scale = unit.scale || 1,
+          keyLight = new DirectionalLight(16765600, 3);
+        keyLight.position.set(1.2, headPos.y + 1.2, 2.2);
+        let fillLight = new DirectionalLight(7309e3, 1.1);
+        fillLight.position.set(-2, headPos.y + 0.5, 0.5);
+        let rimLight = new DirectionalLight(16754784, 2.2);
+        (rimLight.position.set(-0.6, headPos.y + 1, -2.5), scene.add(keyLight, fillLight, rimLight, new AmbientLight(2760752, 1.2)));
+        let beast = !copy.getObjectByName('hand_r'),
+          camera = new PerspectiveCamera(24, 168 / 200, 0.02, 20);
+        (beast
+          ? (camera.position.set(headPos.x + 0.95 * scale, headPos.y + 0.3 * scale, headPos.z + 1.55 * scale),
+            camera.lookAt(headPos.x, headPos.y - 0.12 * scale, headPos.z - 0.15 * scale))
+          : (camera.position.set(0.22 * scale, headPos.y + 0.06 * scale, 0.95 * scale), camera.lookAt(0, headPos.y - 0.03 * scale, 0)),
+          renderer.render(scene, camera));
+        let dataUrl = renderer.domElement.toDataURL('image/png');
+        (byKey.set(key, dataUrl), (this.portraits[unit.id] = dataUrl));
+      } catch (err) {
+        console.warn('[combate] retrato', unit.id, err);
       }
     }
-    (n.dispose(), n.forceContextLoss?.());
+    (renderer.dispose(), renderer.forceContextLoss?.());
   }
+  /** Rehace la barra de iniciativa. */
   buildInitiative() {
     if (!this.state) return;
     this._orderKey = '';
-    let e = this.$('#cb-iniciativa-lista');
-    ((e.innerHTML = ''), this.chips.clear());
-    for (let t of this.state.order) {
-      let a = this.state.creatures.find((n) => n.id === t);
-      a && this.addChip(a);
+    let list = this.$('#cb-iniciativa-lista');
+    ((list.innerHTML = ''), this.chips.clear());
+    for (let id of this.state.order) {
+      let creature = this.state.creatures.find((c) => c.id === id);
+      creature && this.addChip(creature);
     }
     ((this.sep = document.createElement('li')),
       (this.sep.className = 'ficha ronda-nueva'),
       (this.sep.title = 'Ronda siguiente'),
       this.refresh(this.state));
   }
-  addChip(e) {
-    let t = document.createElement('li');
-    ((t.className = `ficha ${e.team === 0 ? 'de-grupo' : 'de-enemigo'}`),
-      (t.title = e.name),
-      (t.innerHTML = `<img alt="" src="${this.portraits[e.id] || ''}"><span class="ini"></span><span class="mini"><span></span></span>`),
-      t.addEventListener('click', () => {
-        let a = this.units?.byId.get(e.id);
-        a && this.ctl.focusUnit(a, null, !0);
+  /** Ficha de iniciativa (clic: centrar; ratón encima: resaltar). */
+  addChip(creature) {
+    let chip = document.createElement('li');
+    ((chip.className = `ficha ${creature.team === 0 ? 'de-grupo' : 'de-enemigo'}`),
+      (chip.title = creature.name),
+      (chip.innerHTML = `<img alt="" src="${this.portraits[creature.id] || ''}"><span class="ini"></span><span class="mini"><span></span></span>`),
+      chip.addEventListener('click', () => {
+        let unit = this.units?.byId.get(creature.id);
+        unit && this.ctl.focusUnit(unit, null, !0);
       }),
-      t.addEventListener('mouseenter', () => this.ctl?.highlight?.(e.id, !0)),
-      t.addEventListener('mouseleave', () => this.ctl?.highlight?.(e.id, !1)),
-      this.$('#cb-iniciativa-lista').appendChild(t),
-      this.chips.set(e.id, t),
+      chip.addEventListener('mouseenter', () => this.ctl?.highlight?.(creature.id, !0)),
+      chip.addEventListener('mouseleave', () => this.ctl?.highlight?.(creature.id, !1)),
+      this.$('#cb-iniciativa-lista').appendChild(chip),
+      this.chips.set(creature.id, chip),
       (this._orderKey = ''));
   }
-  setAuto(e, t) {
-    let a = this.cards.get(e);
-    a && (a.classList.toggle('ia', t), a.querySelector('.auto')?.setAttribute('aria-checked', String(t)));
+  /** Marca la tarjeta como llevada por la IA. */
+  setAuto(id, on) {
+    let card = this.cards.get(id);
+    card && (card.classList.toggle('ia', on), card.querySelector('.auto')?.setAttribute('aria-checked', String(on)));
   }
-  setInitiative(e, t) {
-    this.initRolls[e] = t;
-    let a = this.chips.get(e);
-    a && (a.querySelector('.ini').textContent = t);
+  /** Muestra la tirada de iniciativa en la ficha. */
+  setInitiative(id, roll) {
+    this.initRolls[id] = roll;
+    let chip = this.chips.get(id);
+    chip && (chip.querySelector('.ini').textContent = roll);
   }
-  setSurprised(e) {
-    this.surprised = new Set(e || []);
-    for (let [t, a] of this.chips) a.classList.toggle('sorpresa', this.surprised.has(t));
+  /** Marca las fichas sorprendidas. */
+  setSurprised(ids) {
+    this.surprised = new Set(ids || []);
+    for (let [id, chip] of this.chips) chip.classList.toggle('sorpresa', this.surprised.has(id));
   }
-  orderChips(e) {
-    let t = this.$('#cb-iniciativa-lista'),
-      a = (e.order || []).filter((l) => this.chips.has(l)),
-      n = Math.max(0, a.indexOf(e.current)),
-      s = [...a.slice(n), ...a.slice(0, n)],
-      i = `${s.join(',')}|${a.length - n}`;
-    if (i === this._orderKey) return;
-    this._orderKey = i;
-    let r = document.createDocumentFragment();
-    (s.forEach((l, c) => {
-      (c === a.length - n && c > 0 && this.sep && r.appendChild(this.sep), r.appendChild(this.chips.get(l)));
+  /** Ordena las fichas a partir del turno actual, con un separador de ronda. */
+  orderChips(state) {
+    let list = this.$('#cb-iniciativa-lista'),
+      order = (state.order || []).filter((id) => this.chips.has(id)),
+      currentIndex = Math.max(0, order.indexOf(state.current)),
+      rotated = [...order.slice(currentIndex), ...order.slice(0, currentIndex)],
+      key = `${rotated.join(',')}|${order.length - currentIndex}`;
+    if (key === this._orderKey) return;
+    this._orderKey = key;
+    let frag = document.createDocumentFragment();
+    (rotated.forEach((id, k) => {
+      (k === order.length - currentIndex && k > 0 && this.sep && frag.appendChild(this.sep), frag.appendChild(this.chips.get(id)));
     }),
-      t.appendChild(r),
-      (t.scrollLeft = 0));
+      list.appendChild(frag),
+      (list.scrollLeft = 0));
   }
-  refresh(e) {
-    ((this.state = e), !this.chips.size && Object.keys(this.portraits).length && this.buildInitiative());
-    for (let t of e.creatures) {
-      (this.labels.has(t.id) || this.addLabel(t),
-        t.team === 0 && !this.cards.has(t.id) && t.is_pc !== !1 && !t.summon && this.addCard(t),
-        this.chips.size && !this.chips.has(t.id) && (e.order || []).includes(t.id) && this.addChip(t));
-      let a = this.cards.get(t.id),
-        n = Math.max(0, t.hp) / Math.max(1, t.max_hp);
-      if (a) {
-        ((a.querySelector('.relleno').style.width = `${n * 100}%`),
-          (a.querySelector('.temp').style.width =
-            `${Math.min(1, (t.temp_hp || 0) / Math.max(1, t.max_hp)) * 100}%`),
-          (a.querySelector('.cifra').textContent = t.dead
+  /** Actualiza tarjetas, fichas y rótulos con el estado del núcleo. */
+  refresh(state) {
+    ((this.state = state), !this.chips.size && Object.keys(this.portraits).length && this.buildInitiative());
+    for (let creature of state.creatures) {
+      (this.labels.has(creature.id) || this.addLabel(creature),
+        creature.team === 0 && !this.cards.has(creature.id) && creature.is_pc !== !1 && !creature.summon && this.addCard(creature),
+        this.chips.size && !this.chips.has(creature.id) && (state.order || []).includes(creature.id) && this.addChip(creature));
+      let card = this.cards.get(creature.id),
+        hpFrac = Math.max(0, creature.hp) / Math.max(1, creature.max_hp);
+      if (card) {
+        ((card.querySelector('.relleno').style.width = `${hpFrac * 100}%`),
+          (card.querySelector('.temp').style.width =
+            `${Math.min(1, (creature.temp_hp || 0) / Math.max(1, creature.max_hp)) * 100}%`),
+          (card.querySelector('.cifra').textContent = creature.dead
             ? 'Muerto'
-            : t.hp <= 0
-              ? `Ca\xEDdo \xB7 ${t.death_successes}\u2713 ${t.death_failures}\u2717`
-              : `${t.hp} / ${t.max_hp}${t.temp_hp ? ` +${t.temp_hp}` : ''}`),
-          (a.querySelector('.ca').textContent = t.ac),
-          a.classList.toggle('caido', t.hp <= 0),
-          a.classList.toggle('activo', e.current === t.id));
-        let r = [...(t.conditions || []).map(Bm), ...(t.effects || []).map((h) => h.name)];
-        (t.concentration && r.push('Concentrado'),
-          (a.querySelector('.estados').textContent = r.slice(0, 4).join(' \xB7 ')));
-        let l = a.querySelector('.espacios'),
-          c = t.slots || [],
-          d = t.slots_max || [],
-          u = `${c.join(',')}/${d.join(',')}`;
-        if (l.dataset.k !== u) {
-          l.dataset.k = u;
-          let h = '';
-          for (let p = 0; p < Math.min(3, d.length); p++)
-            for (let m = 0; m < d[p]; m++)
-              h += `<i class="${m < (c[p] ?? 0) ? 'lleno' : ''}" title="Espacio de nivel ${p + 1}"></i>`;
-          l.innerHTML = h;
+            : creature.hp <= 0
+              ? `Ca\xEDdo \xB7 ${creature.death_successes}\u2713 ${creature.death_failures}\u2717`
+              : `${creature.hp} / ${creature.max_hp}${creature.temp_hp ? ` +${creature.temp_hp}` : ''}`),
+          (card.querySelector('.ca').textContent = creature.ac),
+          card.classList.toggle('caido', creature.hp <= 0),
+          card.classList.toggle('activo', state.current === creature.id));
+        let states = [...(creature.conditions || []).map(conditionName), ...(creature.effects || []).map((effect) => effect.name)];
+        (creature.concentration && states.push('Concentrado'),
+          (card.querySelector('.estados').textContent = states.slice(0, 4).join(' \xB7 ')));
+        let slotsEl = card.querySelector('.espacios'),
+          slots = creature.slots || [],
+          slotsMax = creature.slots_max || [],
+          key = `${slots.join(',')}/${slotsMax.join(',')}`;
+        if (slotsEl.dataset.k !== key) {
+          slotsEl.dataset.k = key;
+          let html = '';
+          for (let lvl = 0; lvl < Math.min(3, slotsMax.length); lvl++)
+            for (let k = 0; k < slotsMax[lvl]; k++)
+              html += `<i class="${k < (slots[lvl] ?? 0) ? 'lleno' : ''}" title="Espacio de nivel ${lvl + 1}"></i>`;
+          slotsEl.innerHTML = html;
         }
       }
-      let s = this.chips.get(t.id);
-      s &&
-        (s.classList.toggle('activo', e.current === t.id),
-        s.classList.toggle('fuera', !!t.dead || (t.team !== 0 && t.hp <= 0)),
-        (s.querySelector('.mini span').style.width = `${n * 100}%`),
-        this.portraits[t.id] &&
-          !s.querySelector('img').src &&
-          (s.querySelector('img').src = this.portraits[t.id]));
-      let i = this.labels.get(t.id);
-      i &&
-        ((i.querySelector('.mini span').style.width = `${n * 100}%`),
-        i.classList.toggle('fuera', !!t.dead),
-        i.classList.toggle('herido', n <= 0.5),
-        i.classList.toggle('activo', e.current === t.id));
+      let chip = this.chips.get(creature.id);
+      chip &&
+        (chip.classList.toggle('activo', state.current === creature.id),
+        chip.classList.toggle('fuera', !!creature.dead || (creature.team !== 0 && creature.hp <= 0)),
+        (chip.querySelector('.mini span').style.width = `${hpFrac * 100}%`),
+        this.portraits[creature.id] &&
+          !chip.querySelector('img').src &&
+          (chip.querySelector('img').src = this.portraits[creature.id]));
+      let label = this.labels.get(creature.id);
+      label &&
+        ((label.querySelector('.mini span').style.width = `${hpFrac * 100}%`),
+        label.classList.toggle('fuera', !!creature.dead),
+        label.classList.toggle('herido', hpFrac <= 0.5),
+        label.classList.toggle('activo', state.current === creature.id));
     }
-    this.chips.size && this.orderChips(e);
+    this.chips.size && this.orderChips(state);
   }
-  setActive(e) {
-    for (let [t, a] of this.chips) a.classList.toggle('activo', t === e);
-    for (let [t, a] of this.cards) a.classList.toggle('activo', t === e);
-    for (let [t, a] of this.labels) a.classList.toggle('activo', t === e);
-    this.state && this.orderChips({ ...this.state, current: e });
+  /** Resalta a quien tiene el turno. */
+  setActive(id) {
+    for (let [key, chip] of this.chips) chip.classList.toggle('activo', key === id);
+    for (let [key, card] of this.cards) card.classList.toggle('activo', key === id);
+    for (let [key, label] of this.labels) label.classList.toggle('activo', key === id);
+    this.state && this.orderChips({ ...this.state, current: id });
   }
-  setHp(e, t, a) {
-    let n = this.state?.creatures.find((s) => s.id === e);
-    if (n) {
-      let s = t < n.hp;
-      if (((n.hp = t), a && (n.max_hp = a), this.refresh(this.state), s)) {
-        let i = this.cards.get(e);
-        i && (i.classList.remove('golpe'), i.offsetWidth, i.classList.add('golpe'));
+  /** Cambia los PG mostrados (con sacudida de la tarjeta si bajan). */
+  setHp(id, hp, maxHp) {
+    let creature = this.state?.creatures.find((c) => c.id === id);
+    if (creature) {
+      let hurt = hp < creature.hp;
+      if (((creature.hp = hp), maxHp && (creature.max_hp = maxHp), this.refresh(this.state), hurt)) {
+        let card = this.cards.get(id);
+        card && (card.classList.remove('golpe'), card.offsetWidth, card.classList.add('golpe'));
       }
     }
   }
-  round(e) {
-    this.$('#cb-ronda').innerHTML = `Ronda ${e}`;
+  round(n) {
+    this.$('#cb-ronda').innerHTML = `Ronda ${n}`;
   }
-  thinking(e) {
-    let t = this.$('#cb-pensando');
-    ((t.textContent = e), t.classList.toggle('visible', !!e));
+  /** Texto «pensando» del turno de la IA. */
+  thinking(text) {
+    let el = this.$('#cb-pensando');
+    ((el.textContent = text), el.classList.toggle('visible', !!text));
   }
-  banner(e, t = 'oro', a = 1e3, n = '') {
-    let s = this.$('#cb-cartel');
-    ((s.innerHTML = `${Kr(e)}${n ? `<small>${Kr(n)}</small>` : ''}`),
-      (s.className = `hud visible ${t}`),
+  /** Cartel breve en la parte superior. */
+  banner(text, kind = 'oro', ms = 1e3, sub = '') {
+    let el = this.$('#cb-cartel');
+    ((el.innerHTML = `${escapeHtml(text)}${sub ? `<small>${escapeHtml(sub)}</small>` : ''}`),
+      (el.className = `hud visible ${kind}`),
       clearTimeout(this._banner),
       (this._banner = setTimeout(() => {
-        s.className = `hud ${t}`;
-      }, a)));
+        el.className = `hud ${kind}`;
+      }, ms)));
   }
-  big(e, t = '', a = '', n = 2200) {
-    let s = this.$('#cb-gran');
+  /** Cartel grande (inicio de combate, ronda…); promesa al ocultarse. */
+  big(text, sub = '', kind = '', ms = 2200) {
+    let el = this.$('#cb-gran');
     return (
-      (s.innerHTML = `<b>${Kr(e)}</b>${t ? `<span>${Kr(t)}</span>` : ''}`),
-      (s.className = `hud visible ${a}`),
+      (el.innerHTML = `<b>${escapeHtml(text)}</b>${sub ? `<span>${escapeHtml(sub)}</span>` : ''}`),
+      (el.className = `hud visible ${kind}`),
       clearTimeout(this._big),
-      new Promise((i) => {
+      new Promise((resolve) => {
         this._big = setTimeout(() => {
-          ((s.className = `hud ${a}`), i());
-        }, n);
+          ((el.className = `hud ${kind}`), resolve());
+        }, ms);
       })
     );
   }
-  log(e) {
-    let t = document.createElement('p');
-    t.innerHTML = e;
-    let a = this.$('#cb-registro-lista');
-    for (a.appendChild(t); a.children.length > 160;) a.firstChild.remove();
-    a.scrollTop = a.scrollHeight;
+  /** Añade una línea al registro (máximo 160). */
+  log(html) {
+    let p = document.createElement('p');
+    p.innerHTML = html;
+    let list = this.$('#cb-registro-lista');
+    for (list.appendChild(p); list.children.length > 160;) list.firstChild.remove();
+    list.scrollTop = list.scrollHeight;
   }
-  turnBar(e, t) {
-    let a = this.$('#cb-turno');
-    if (!e) {
-      a.classList.remove('visible');
+  /** Barra del turno del jugador: recursos, movimiento y botones según `options` del núcleo. */
+  turnBar(creature, options) {
+    let bar = this.$('#cb-turno');
+    if (!creature) {
+      bar.classList.remove('visible');
       return;
     }
-    (a.classList.add('visible'), (this.$('#cb-turno-nombre').textContent = cr(e)));
-    let n = e.turn,
-      s = (u, h) => this.$(u).classList.toggle('gastado', !h);
-    (s('#cb-r-accion', n.action > 0 || n.attack_left > 0),
-      s('#cb-r-adicional', n.bonus > 0),
-      s('#cb-r-reaccion', n.reaction > 0));
-    let i = Math.max(0, n.movement);
-    ((this.$('#cb-r-mov').textContent = `${Ec((i / 5) * 1.5)} m`),
-      (this.$('#cb-mov-barra').style.width = `${Math.min(100, (i / Math.max(e.speed, 5)) * 100)}%`));
-    let r = n.action > 0 || n.attack_left > 0,
-      l = (u, h) => {
-        this.$(u).disabled = !h;
+    (bar.classList.add('visible'), (this.$('#cb-turno-nombre').textContent = shortName(creature)));
+    let turn = creature.turn,
+      setSpent = (selector, available) => this.$(selector).classList.toggle('gastado', !available);
+    (setSpent('#cb-r-accion', turn.action > 0 || turn.attack_left > 0),
+      setSpent('#cb-r-adicional', turn.bonus > 0),
+      setSpent('#cb-r-reaccion', turn.reaction > 0));
+    let movement = Math.max(0, turn.movement);
+    ((this.$('#cb-r-mov').textContent = `${formatNumber((movement / 5) * 1.5)} m`),
+      (this.$('#cb-mov-barra').style.width = `${Math.min(100, (movement / Math.max(creature.speed, 5)) * 100)}%`));
+    let hasAction = turn.action > 0 || turn.attack_left > 0,
+      enable = (selector, on) => {
+        this.$(selector).disabled = !on;
       };
-    l('#cb-b-atacar', r && (t.profiles || []).length > 0);
-    let c = t.spells || [];
-    ((this.$('#cb-b-conjuros').hidden = !c.length),
-      l(
+    enable('#cb-b-atacar', hasAction && (options.profiles || []).length > 0);
+    let spells = options.spells || [];
+    ((this.$('#cb-b-conjuros').hidden = !spells.length),
+      enable(
         '#cb-b-conjuros',
-        c.some((u) => u.usable),
+        spells.some((spell) => spell.usable),
       ));
-    let d = t.features || [];
-    ((this.$('#cb-b-habilidades').hidden = !d.length),
-      l(
+    let features = options.features || [];
+    ((this.$('#cb-b-habilidades').hidden = !features.length),
+      enable(
         '#cb-b-habilidades',
-        d.some((u) => u.enabled),
+        features.some((f) => f.enabled),
       ),
-      l(
+      enable(
         '#cb-b-acciones',
-        (t.actions || []).some((u) => u.enabled),
+        (options.actions || []).some((act) => act.enabled),
       ),
-      (this.$('#cb-b-objetos').hidden = !(t.items || []).length),
-      l(
+      (this.$('#cb-b-objetos').hidden = !(options.items || []).length),
+      enable(
         '#cb-b-objetos',
-        (t.items || []).some((u) => u.enabled),
+        (options.items || []).some((item) => item.enabled),
       ),
-      (this.$('#cb-b-deshacer').hidden = !t.can_undo),
-      this.$('#cb-b-fin').classList.toggle('pulsa', !!t.nothing_left || (!r && n.movement < 5)));
+      (this.$('#cb-b-deshacer').hidden = !options.can_undo),
+      this.$('#cb-b-fin').classList.toggle('pulsa', !!options.nothing_left || (!hasAction && turn.movement < 5)));
   }
-  sheet(e, t, a) {
+  /** Hoja de opciones (conjuros, habilidades, acciones, objetos) agrupadas. */
+  sheet(title, entries, onPick) {
     this.cursorNote('');
-    let n = this.$('#cb-hoja');
-    this.$('#cb-hoja-titulo').textContent = e;
-    let s = this.$('#cb-hoja-lista');
-    s.innerHTML = '';
-    let i = null;
-    for (let r of t) {
-      if (r.group && r.group !== i) {
-        i = r.group;
-        let c = document.createElement('div');
-        ((c.className = 'grupo-titulo'), (c.textContent = i), s.appendChild(c));
+    let panel = this.$('#cb-hoja');
+    this.$('#cb-hoja-titulo').textContent = title;
+    let list = this.$('#cb-hoja-lista');
+    list.innerHTML = '';
+    let group = null;
+    for (let entry of entries) {
+      if (entry.group && entry.group !== group) {
+        group = entry.group;
+        let heading = document.createElement('div');
+        ((heading.className = 'grupo-titulo'), (heading.textContent = group), list.appendChild(heading));
       }
-      let l = document.createElement('button');
-      ((l.type = 'button'),
-        (l.className = `opcion${r.magic ? ' magia' : ''}`),
-        (l.disabled = r.enabled === !1),
-        (l.innerHTML = `<span class="opcion-icono">${WS(r.icon || 'magic')}</span><span class="opcion-texto"><b>${r.title}</b><i>${r.desc || ''}</i></span><span class="opcion-coste">${r.cost || ''}${r.note ? `<em>${r.note}</em>` : ''}</span>`),
-        l.addEventListener('click', (c) => {
-          (c.stopPropagation(), this.closeSheet(), a(r));
+      let btn = document.createElement('button');
+      ((btn.type = 'button'),
+        (btn.className = `opcion${entry.magic ? ' magia' : ''}`),
+        (btn.disabled = entry.enabled === !1),
+        (btn.innerHTML = `<span class="opcion-icono">${iconSvg(entry.icon || 'magic')}</span><span class="opcion-texto"><b>${entry.title}</b><i>${entry.desc || ''}</i></span><span class="opcion-coste">${entry.cost || ''}${entry.note ? `<em>${entry.note}</em>` : ''}</span>`),
+        btn.addEventListener('click', (ev) => {
+          (ev.stopPropagation(), this.closeSheet(), onPick(entry));
         }),
-        s.appendChild(l));
+        list.appendChild(btn));
     }
-    ((n.hidden = !1), s.querySelector('button:not([disabled])')?.focus({ preventScroll: !0 }));
+    ((panel.hidden = !1), list.querySelector('button:not([disabled])')?.focus({ preventScroll: !0 }));
   }
   closeSheet() {
     this.$('#cb-hoja').hidden = !0;
@@ -573,34 +612,35 @@ const Hud = class {
   sheetOpen() {
     return !this.$('#cb-hoja').hidden;
   }
-  preview(e, t, a, n, s = [], i = !0, r = null) {
-    let l = this.$('#cb-prevista');
-    ((this.previewAt = e.clone ? e.clone() : new Vector3(e.x, e.y, e.z)),
+  /** Previsión junto al objetivo (líneas, probabilidad, armas alternativas y botón de confirmar). */
+  preview(at, lines, label, onConfirm, weapons = [], enabled = !0, chance = null) {
+    let panel = this.$('#cb-prevista');
+    ((this.previewAt = at.clone ? at.clone() : new Vector3(at.x, at.y, at.z)),
       (this.previewAt.y = Math.max(this.previewAt.y, 1.6)));
-    let c = t.map((h) => `<p class="${h.t || ''}">${h.s}</p>`).join('');
-    (r != null &&
-      (c = c.replace(
+    let html = lines.map((line) => `<p class="${line.t || ''}">${line.s}</p>`).join('');
+    (chance != null &&
+      (html = html.replace(
         /(<\/p>)/,
-        `$1<div class="probabilidad" title="Probabilidad de impacto"><span style="width:${Math.round(r * 100)}%"></span></div>`,
+        `$1<div class="probabilidad" title="Probabilidad de impacto"><span style="width:${Math.round(chance * 100)}%"></span></div>`,
       )),
-      (this.$('#cb-prevista-texto').innerHTML = c));
-    let d = this.$('#cb-prevista-ok');
-    ((d.textContent = a), (d.disabled = !i), (this.onConfirm = n), (d.onclick = () => this.confirmPreview()));
-    let u = this.$('#cb-prevista-armas');
-    u.innerHTML = '';
-    for (let h of s) {
-      let p = document.createElement('button');
-      ((p.type = 'button'),
-        (p.className = 'chip'),
-        (p.textContent = h.label),
-        (p.onclick = h.on),
-        u.appendChild(p));
+      (this.$('#cb-prevista-texto').innerHTML = html));
+    let ok = this.$('#cb-prevista-ok');
+    ((ok.textContent = label), (ok.disabled = !enabled), (this.onConfirm = onConfirm), (ok.onclick = () => this.confirmPreview()));
+    let weaponsEl = this.$('#cb-prevista-armas');
+    weaponsEl.innerHTML = '';
+    for (let weapon of weapons) {
+      let chip = document.createElement('button');
+      ((chip.type = 'button'),
+        (chip.className = 'chip'),
+        (chip.textContent = weapon.label),
+        (chip.onclick = weapon.on),
+        weaponsEl.appendChild(chip));
     }
-    ((u.hidden = !s.length), (l.hidden = !1));
+    ((weaponsEl.hidden = !weapons.length), (panel.hidden = !1));
   }
   confirmPreview() {
-    let e = this.onConfirm;
-    ((this.onConfirm = null), e && e());
+    let fn = this.onConfirm;
+    ((this.onConfirm = null), fn && fn());
   }
   hidePreview() {
     ((this.$('#cb-prevista').hidden = !0), (this.onConfirm = null));
@@ -608,178 +648,185 @@ const Hud = class {
   previewOpen() {
     return !this.$('#cb-prevista').hidden;
   }
-  prompt(e, t = !1, a = null) {
-    let n = this.$('#cb-indicacion');
-    ((this.$('#cb-indicacion-texto').textContent = e), (this.$('#cb-b-cancelar').hidden = !t));
-    let s = this.$('#cb-b-extra');
-    (a ? ((s.hidden = !1), (s.textContent = a.label), (s.onclick = a.on)) : (s.hidden = !0),
-      n.classList.toggle('visible', !!e));
+  /** Indicación inferior con botones de cancelar y extra opcionales. */
+  prompt(text, cancellable = !1, extra = null) {
+    let el = this.$('#cb-indicacion');
+    ((this.$('#cb-indicacion-texto').textContent = text), (this.$('#cb-b-cancelar').hidden = !cancellable));
+    let extraBtn = this.$('#cb-b-extra');
+    (extra ? ((extraBtn.hidden = !1), (extraBtn.textContent = extra.label), (extraBtn.onclick = extra.on)) : (extraBtn.hidden = !0),
+      el.classList.toggle('visible', !!text));
   }
-  tip(e, t, a, n = !1, s = '') {
-    let i = this.$('#cb-ficha'),
-      r =
-        e.team === 0
-          ? `${Math.max(0, e.hp)} / ${e.max_hp} PG`
-          : e.dead
+  /** Ficha de una criatura junto al cursor. */
+  tip(creature, x, y, autoHide = !1, extraHtml = '') {
+    let el = this.$('#cb-ficha'),
+      hpText =
+        creature.team === 0
+          ? `${Math.max(0, creature.hp)} / ${creature.max_hp} PG`
+          : creature.dead
             ? 'Muerto'
-            : e.hp <= 0
+            : creature.hp <= 0
               ? 'Ca\xEDdo'
-              : e.hp <= e.max_hp / 2
-                ? `Malherido \xB7 ${e.hp}/${e.max_hp} PG`
-                : `${e.hp}/${e.max_hp} PG`,
-      l = [...(e.conditions || []).map(Bm), ...(e.effects || []).map((c) => c.name)];
-    ((i.innerHTML = `<b>${Kr(e.name)}</b><span>CA ${e.ac} \xB7 ${r}</span>${l.length ? `<i>${l.join(' \xB7 ')}</i>` : ''}${s}`),
-      (i.style.transform = `translate(${Math.min(t + 18, innerWidth - 250)}px, ${Math.max(8, a - 70)}px)`),
-      i.classList.add('visible'),
+              : creature.hp <= creature.max_hp / 2
+                ? `Malherido \xB7 ${creature.hp}/${creature.max_hp} PG`
+                : `${creature.hp}/${creature.max_hp} PG`,
+      states = [...(creature.conditions || []).map(conditionName), ...(creature.effects || []).map((effect) => effect.name)];
+    ((el.innerHTML = `<b>${escapeHtml(creature.name)}</b><span>CA ${creature.ac} \xB7 ${hpText}</span>${states.length ? `<i>${states.join(' \xB7 ')}</i>` : ''}${extraHtml}`),
+      (el.style.transform = `translate(${Math.min(x + 18, innerWidth - 250)}px, ${Math.max(8, y - 70)}px)`),
+      el.classList.add('visible'),
       clearTimeout(this._tip),
-      n && (this._tip = setTimeout(() => this.hideTip(), 2600)));
+      autoHide && (this._tip = setTimeout(() => this.hideTip(), 2600)));
   }
   hideTip() {
     this.$('#cb-ficha').classList.remove('visible');
   }
-  cursorNote(e, t, a) {
-    let n = this.$('#cb-nota');
-    ((n.textContent = e), n.classList.toggle('visible', !!e), e && this.moveCursorNote(t, a));
+  /** Nota junto al cursor (coste de movimiento, objetivo…). */
+  cursorNote(text, x, y) {
+    let el = this.$('#cb-nota');
+    ((el.textContent = text), el.classList.toggle('visible', !!text), text && this.moveCursorNote(x, y));
   }
   cursorNoteVisible() {
     return this.$('#cb-nota').classList.contains('visible');
   }
-  moveCursorNote(e, t) {
-    this.$('#cb-nota').style.transform = `translate(${e + 16}px, ${t + 14}px)`;
+  moveCursorNote(x, y) {
+    this.$('#cb-nota').style.transform = `translate(${x + 16}px, ${y + 14}px)`;
   }
-  float(e, t, a = '', n = 1, s = '') {
-    let i = document.createElement('div');
-    ((i.className = `flota ${a}`),
-      (i.innerHTML = `${Kr(String(t))}${s ? `<small>${Kr(s)}</small>` : ''}`),
-      i.style.setProperty('--s', n),
-      this.$('#cb-flotantes').appendChild(i));
-    let r = this.floats.filter((u) => u.pos.distanceTo(e) < 0.6 && u.t < 0.5).length,
-      l = /dano|critico|cura/.test(a),
-      c = (i.offsetWidth || 80) * n,
-      d = (i.offsetHeight || 22) * n;
+  /** Número o texto flotante sobre un punto del mundo (daño, curación, fallo…). */
+  float(pos, text, kind = '', scale = 1, sub = '') {
+    let el = document.createElement('div');
+    ((el.className = `flota ${kind}`),
+      (el.innerHTML = `${escapeHtml(String(text))}${sub ? `<small>${escapeHtml(sub)}</small>` : ''}`),
+      el.style.setProperty('--s', scale),
+      this.$('#cb-flotantes').appendChild(el));
+    let lane = this.floats.filter((f) => f.pos.distanceTo(pos) < 0.6 && f.t < 0.5).length,
+      big = /dano|critico|cura/.test(kind),
+      w = (el.offsetWidth || 80) * scale,
+      h = (el.offsetHeight || 22) * scale;
     for (
       this.floats.push({
-        el: i,
-        pos: e.clone(),
+        el,
+        pos: pos.clone(),
         t: 0,
-        life: 1.5 + n * 0.3,
-        lane: r,
-        big: l,
-        side: l ? (Math.random() - 0.5) * 30 : 0,
-        scale: n,
-        w: c,
-        h: d,
+        life: 1.5 + scale * 0.3,
+        lane,
+        big,
+        side: big ? (Math.random() - 0.5) * 30 : 0,
+        scale,
+        w,
+        h,
         push: 0,
       });
       this.floats.length > 40;
     )
       this.floats.shift().el.remove();
   }
-  place(e, t, a = 1 / 60) {
-    let n = t.clientWidth || innerWidth,
-      s = t.clientHeight || innerHeight,
-      i = [];
-    for (let l of this.floats) {
-      ((l.t += a),
-        mn.copy(l.pos).project(e),
-        (l.x = (mn.x * 0.5 + 0.5) * n + l.side * Math.min(1, l.t * 3)),
-        (l.z = mn.z));
-      let c = (-mn.y * 0.5 + 0.5) * s - l.t * 46 - l.lane * 24 - l.push;
-      if (l.t < 0.6) {
-        for (let d of i)
-          if (Math.abs(d.x - l.x) < (d.w + l.w) * 0.5 - 4 && Math.abs(d.y - c) < (d.h + l.h) * 0.5) {
-            let u = c - (d.y - (d.h + l.h) * 0.5);
-            ((l.push += u), (c -= u));
+  /** Coloca flotantes (sin solaparse), rótulos y previsión en pantalla; se llama tras cada fotograma. */
+  place(camera, canvas, dt = 1 / 60) {
+    let width = canvas.clientWidth || innerWidth,
+      height = canvas.clientHeight || innerHeight,
+      placed = [];
+    for (let f of this.floats) {
+      ((f.t += dt),
+        tmpVec.copy(f.pos).project(camera),
+        (f.x = (tmpVec.x * 0.5 + 0.5) * width + f.side * Math.min(1, f.t * 3)),
+        (f.z = tmpVec.z));
+      let y = (-tmpVec.y * 0.5 + 0.5) * height - f.t * 46 - f.lane * 24 - f.push;
+      if (f.t < 0.6) {
+        for (let other of placed)
+          if (Math.abs(other.x - f.x) < (other.w + f.w) * 0.5 - 4 && Math.abs(other.y - y) < (other.h + f.h) * 0.5) {
+            let overlap = y - (other.y - (other.h + f.h) * 0.5);
+            ((f.push += overlap), (y -= overlap));
           }
       }
-      ((l.y = c), i.push(l));
+      ((f.y = y), placed.push(f));
     }
-    for (let l = this.floats.length - 1; l >= 0; l--) {
-      let c = this.floats[l];
-      mn.z = c.z;
-      let d = c.x,
-        u = c.y,
-        h = c.t < 0.12 ? c.t / 0.12 : Math.max(0, 1 - (c.t - c.life * 0.6) / (c.life * 0.4)),
-        p = c.big ? 1 + 0.7 * Math.exp(-c.t * 10) : 1;
-      ((c.el.style.transform = `translate(${d.toFixed(1)}px, ${u.toFixed(1)}px) translate(-50%, -100%) scale(${(c.scale * p).toFixed(3)})`),
-        (c.el.style.opacity = h.toFixed(3)),
-        (c.t >= c.life || mn.z > 1) && (c.el.remove(), this.floats.splice(l, 1)));
+    for (let k = this.floats.length - 1; k >= 0; k--) {
+      let f = this.floats[k];
+      tmpVec.z = f.z;
+      let x = f.x,
+        y = f.y,
+        opacity = f.t < 0.12 ? f.t / 0.12 : Math.max(0, 1 - (f.t - f.life * 0.6) / (f.life * 0.4)),
+        pop = f.big ? 1 + 0.7 * Math.exp(-f.t * 10) : 1;
+      ((f.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%) scale(${(f.scale * pop).toFixed(3)})`),
+        (f.el.style.opacity = opacity.toFixed(3)),
+        (f.t >= f.life || tmpVec.z > 1) && (f.el.remove(), this.floats.splice(k, 1)));
     }
     if (this.units)
-      for (let [l, c] of this.labels) {
-        let d = this.units.byId.get(l);
-        if (!d || !d.root.visible) {
-          c.style.visibility = 'hidden';
+      for (let [id, label] of this.labels) {
+        let unit = this.units.byId.get(id);
+        if (!unit || !unit.root.visible) {
+          label.style.visibility = 'hidden';
           continue;
         }
-        (d.headWorld(mn),
-          (mn.y += 0.38 * (d.scale || 1)),
-          mn.project(e),
-          (c.style.visibility = mn.z < 1 ? 'visible' : 'hidden'),
-          (c.style.transform = `translate(${((mn.x * 0.5 + 0.5) * n).toFixed(1)}px, ${((-mn.y * 0.5 + 0.5) * s).toFixed(1)}px) translate(-50%, -100%)`));
+        (unit.headWorld(tmpVec),
+          (tmpVec.y += 0.38 * (unit.scale || 1)),
+          tmpVec.project(camera),
+          (label.style.visibility = tmpVec.z < 1 ? 'visible' : 'hidden'),
+          (label.style.transform = `translate(${((tmpVec.x * 0.5 + 0.5) * width).toFixed(1)}px, ${((-tmpVec.y * 0.5 + 0.5) * height).toFixed(1)}px) translate(-50%, -100%)`));
       }
-    let r = this.$('#cb-prevista');
-    if (this.previewAt && !r.hidden) {
-      mn.copy(this.previewAt).project(e);
-      let l = r.offsetWidth,
-        c = r.offsetHeight,
-        d = (mn.x * 0.5 + 0.5) * n + 30,
-        u = (-mn.y * 0.5 + 0.5) * s - c / 2;
-      (d + l > n - 12 && (d = (mn.x * 0.5 + 0.5) * n - l - 30), (d = Math.max(12, Math.min(d, n - l - 12))));
-      let h = Math.max(70, Math.min(u, s - c - 150));
-      r.style.transform = `translate(${d.toFixed(0)}px, ${h.toFixed(0)}px)`;
+    let panel = this.$('#cb-prevista');
+    if (this.previewAt && !panel.hidden) {
+      tmpVec.copy(this.previewAt).project(camera);
+      let panelW = panel.offsetWidth,
+        panelH = panel.offsetHeight,
+        px = (tmpVec.x * 0.5 + 0.5) * width + 30,
+        py = (-tmpVec.y * 0.5 + 0.5) * height - panelH / 2;
+      (px + panelW > width - 12 && (px = (tmpVec.x * 0.5 + 0.5) * width - panelW - 30), (px = Math.max(12, Math.min(px, width - panelW - 12))));
+      let top = Math.max(70, Math.min(py, height - panelH - 150));
+      panel.style.transform = `translate(${px.toFixed(0)}px, ${top.toFixed(0)}px)`;
     }
   }
-  progress(e) {
-    let t = document.getElementById('carga-barra');
-    t && (t.style.transform = `scaleX(${Math.max(0.04, e)})`);
+  /** Pantalla de carga del banco de pruebas: barra, texto, aviso de atasco, fallo y listo. */
+  progress(frac) {
+    let bar = document.getElementById('carga-barra');
+    bar && (bar.style.transform = `scaleX(${Math.max(0.04, frac)})`);
   }
-  stage(e) {
-    let t = document.getElementById('carga-texto');
-    t && !this._stuck && (t.textContent = `${e}\u2026`);
+  stage(text) {
+    let el = document.getElementById('carga-texto');
+    el && !this._stuck && (el.textContent = `${text}\u2026`);
   }
-  stuck(e, t) {
+  stuck(text, details) {
     this._stuck = !0;
-    let a = document.getElementById('carga-texto');
-    if (a) {
-      a.textContent = e;
-      for (let n of t) {
-        let s = document.createElement('p');
-        ((s.className = 'carga-detalle'), (s.textContent = n), a.after(s));
+    let el = document.getElementById('carga-texto');
+    if (el) {
+      el.textContent = text;
+      for (let line of details) {
+        let p = document.createElement('p');
+        ((p.className = 'carga-detalle'), (p.textContent = line), el.after(p));
       }
     }
   }
-  fail(e) {
-    let t = document.getElementById('carga-texto');
-    t && (t.textContent = `No se ha podido preparar el combate: ${String(e.message).slice(0, 200)}`);
+  fail(err) {
+    let el = document.getElementById('carga-texto');
+    el && (el.textContent = `No se ha podido preparar el combate: ${String(err.message).slice(0, 200)}`);
   }
   ready() {
     (document.body.classList.add('lista'), setTimeout(() => document.getElementById('carga')?.remove(), 900));
   }
-  intro(e) {
-    let t = this.$('#cb-intro');
-    if (!t) return Promise.resolve();
-    ((this.$('#cb-intro-titulo').textContent = e.name),
-      (this.$('#cb-intro-lugar').textContent = e.place || ''));
-    let a = e.intro || [],
-      n = this.$('#cb-intro-texto'),
-      s = 0,
-      i = (e.tips || []).slice(0, 3),
-      r = matchMedia('(pointer: coarse)').matches,
-      l = () => {
-        ((n.innerHTML =
-          a
-            .slice(0, s + 1)
-            .map((c) => `<p>${c}</p>`)
+  /** Introducción del encuentro por párrafos con consejos (banco de pruebas). */
+  intro(encounter) {
+    let panel = this.$('#cb-intro');
+    if (!panel) return Promise.resolve();
+    ((this.$('#cb-intro-titulo').textContent = encounter.name),
+      (this.$('#cb-intro-lugar').textContent = encounter.place || ''));
+    let paras = encounter.intro || [],
+      textEl = this.$('#cb-intro-texto'),
+      step = 0,
+      tips = (encounter.tips || []).slice(0, 3),
+      touch = matchMedia('(pointer: coarse)').matches,
+      render = () => {
+        ((textEl.innerHTML =
+          paras
+            .slice(0, step + 1)
+            .map((p) => `<p>${p}</p>`)
             .join('') +
-          (s >= a.length - 1 && i.length
-            ? `<ul class="consejos">${i
+          (step >= paras.length - 1 && tips.length
+            ? `<ul class="consejos">${tips
                 .map(
-                  (c) =>
+                  (tip) =>
                     `<li>${
-                      r
-                        ? c
-                        : c
+                      touch
+                        ? tip
+                        : tip
                             .replace(/^Toca /, 'Haz clic en ')
                             .replace(/ Toca /g, ' Haz clic en ')
                             .replace('Vuelve a tocarlo', 'Vuelve a hacer clic')
@@ -787,51 +834,52 @@ const Hud = class {
                 )
                 .join('')}</ul>`
             : '')),
-          (this.$('#cb-intro-seguir').textContent = s < a.length - 1 ? 'Seguir' : '\xA1A las armas!'));
+          (this.$('#cb-intro-seguir').textContent = step < paras.length - 1 ? 'Seguir' : '\xA1A las armas!'));
       };
     return (
-      l(),
+      render(),
       this.testPicker(),
-      (t.hidden = !1),
-      new Promise((c) => {
+      (panel.hidden = !1),
+      new Promise((resolve) => {
         ((this.$('#cb-intro-seguir').onclick = () => {
-          if (s < a.length - 1) {
-            (s++, l());
+          if (step < paras.length - 1) {
+            (step++, render());
             return;
           }
-          ((t.hidden = !0), c());
+          ((panel.hidden = !0), resolve());
         }),
           (this.$('#cb-intro-saltar').onclick = () => {
-            ((t.hidden = !0), c());
+            ((panel.hidden = !0), resolve());
           }));
       })
     );
   }
+  /** Selector de encuentro, grupo y nivel del banco de pruebas (recarga con ?encuentro, ?grupo, ?nivel). */
   testPicker() {
-    let e = this.$('#cb-prueba .prueba-filas');
-    if (!e || e.childElementCount) return;
-    let t = new URLSearchParams(location.search),
-      a = [
+    let rows = this.$('#cb-prueba .prueba-filas');
+    if (!rows || rows.childElementCount) return;
+    let params = new URLSearchParams(location.search),
+      members = [
         ['brenna', 'Brenna (guerrera)'],
         ['pip', 'Pip (p\xEDcaro)'],
         ['ilyra', 'Ilyra (cl\xE9riga)'],
         ['odvar', 'Odvar (mago)'],
-        ...Object.entries(XS).map(([r, l]) => [r, l]),
+        ...Object.entries(CLASS_NAMES).map(([id, label]) => [id, label]),
       ],
-      n = (t.get('grupo') || 'brenna,pip,ilyra,odvar').split(','),
-      s = (r, l, c) =>
-        `<label>${r}<select>${l.map(([d, u]) => `<option value="${d}"${d === c ? ' selected' : ''}>${u}</option>`).join('')}</select></label>`,
-      i = s(
+      party = (params.get('grupo') || 'brenna,pip,ilyra,odvar').split(','),
+      select = (label, opts, selected) =>
+        `<label>${label}<select>${opts.map(([value, text]) => `<option value="${value}"${value === selected ? ' selected' : ''}>${text}</option>`).join('')}</select></label>`,
+      html = select(
         'Encuentro',
         [
           ['e1_prado', 'El toro que sangra'],
           ['e2_pinar', 'Lobos en Elderhal'],
           ['e3_tumulo', 'El t\xFAmulo'],
         ],
-        t.get('encuentro') || 'e1_prado',
+        params.get('encuentro') || 'e1_prado',
       );
-    for (let r = 0; r < 4; r++) i += s(`Miembro ${r + 1}`, [['', '\u2014'], ...a], n[r] || '');
-    ((i += s(
+    for (let k = 0; k < 4; k++) html += select(`Miembro ${k + 1}`, [['', '\u2014'], ...members], party[k] || '');
+    ((html += select(
       'Nivel',
       [
         ['', 'del encuentro'],
@@ -839,47 +887,48 @@ const Hud = class {
         ['2', '2'],
         ['3', '3'],
       ],
-      t.get('nivel') || '',
+      params.get('nivel') || '',
     )),
-      (i += '<button class="boton principal" type="button">Probar</button>'),
-      (e.innerHTML = i),
-      (e.querySelector('button').onclick = () => {
-        let r = [...e.querySelectorAll('select')].map((d) => d.value),
-          l = new URL(location.href);
-        l.searchParams.set('encuentro', r[0]);
-        let c = r.slice(1, 5).filter(Boolean);
-        (c.length ? l.searchParams.set('grupo', c.join(',')) : l.searchParams.delete('grupo'),
-          r[5] ? l.searchParams.set('nivel', r[5]) : l.searchParams.delete('nivel'),
-          l.searchParams.delete('semilla'),
-          (location.href = l.toString()));
+      (html += '<button class="boton principal" type="button">Probar</button>'),
+      (rows.innerHTML = html),
+      (rows.querySelector('button').onclick = () => {
+        let values = [...rows.querySelectorAll('select')].map((sel) => sel.value),
+          url = new URL(location.href);
+        url.searchParams.set('encuentro', values[0]);
+        let group = values.slice(1, 5).filter(Boolean);
+        (group.length ? url.searchParams.set('grupo', group.join(',')) : url.searchParams.delete('grupo'),
+          values[5] ? url.searchParams.set('nivel', values[5]) : url.searchParams.delete('nivel'),
+          url.searchParams.delete('semilla'),
+          (location.href = url.toString()));
       }));
   }
-  finish({ won: e, rounds: t, encounter: a, party: n }) {
-    let s = this.$('#cb-final');
-    if (!s) return;
-    ((this.$('#cb-final-titulo').textContent = e ? '\xA1Victoria!' : 'Derrota'),
-      s.classList.toggle('derrota', !e));
-    let i = a.outro,
-      r = [];
-    (e && i && (r = Array.isArray(i) ? i : typeof i == 'string' ? [i] : [i.win || '']),
-      e ||
-        (r = [
-          typeof i == 'object' && i?.lose
-            ? i.lose
+  /** Pantalla final del banco de pruebas. */
+  finish({ won, rounds, encounter, party }) {
+    let panel = this.$('#cb-final');
+    if (!panel) return;
+    ((this.$('#cb-final-titulo').textContent = won ? '\xA1Victoria!' : 'Derrota'),
+      panel.classList.toggle('derrota', !won));
+    let outro = encounter.outro,
+      paras = [];
+    (won && outro && (paras = Array.isArray(outro) ? outro : typeof outro == 'string' ? [outro] : [outro.win || '']),
+      won ||
+        (paras = [
+          typeof outro == 'object' && outro?.lose
+            ? outro.lose
             : 'El grupo cae. Esta vez nadie podr\xE1 contarlo en la posada.',
         ]),
-      (this.$('#cb-final-texto').innerHTML = `${r
+      (this.$('#cb-final-texto').innerHTML = `${paras
         .filter(Boolean)
-        .map((l) => `<p>${l}</p>`)
+        .map((p) => `<p>${p}</p>`)
         .join(
           '',
-        )}<p class="apagado">${t} ${t === 1 ? 'ronda' : 'rondas'} \xB7 ${n.map((l) => `${cr(l)} ${l.dead ? '(muerto)' : l.hp <= 0 ? '(ca\xEDdo)' : `${l.hp}/${l.max_hp}`}`).join(' \xB7 ')}</p>`),
-      (s.hidden = !1),
+        )}<p class="apagado">${rounds} ${rounds === 1 ? 'ronda' : 'rondas'} \xB7 ${party.map((c) => `${shortName(c)} ${c.dead ? '(muerto)' : c.hp <= 0 ? '(ca\xEDdo)' : `${c.hp}/${c.max_hp}`}`).join(' \xB7 ')}</p>`),
+      (panel.hidden = !1),
       (this.$('#cb-final-otra').onclick = () => {
-        let l = new URL(location.href);
-        (l.searchParams.delete('semilla'), (location.href = l.toString()));
+        let url = new URL(location.href);
+        (url.searchParams.delete('semilla'), (location.href = url.toString()));
       }));
   }
 };
 
-export { Bm, Ec, Hud, cr };
+export { conditionName, formatNumber, Hud, shortName };

@@ -10,7 +10,7 @@ import { o1 } from '../vfx/spells.js';
 import { DAMAGE_STYLE } from '../vfx/styles.js';
 import { FRAME } from '../vfx/atlas.js';
 import { makeBeast } from './creatures.js';
-import { Bm, cr, Ec } from './hud.js';
+import { conditionName, shortName, formatNumber } from './hud.js';
 
 const v1 = (o) => new Promise((e) => setTimeout(e, o));
 const fH = typeof matchMedia == 'function' && matchMedia('(pointer: coarse)').matches;
@@ -379,8 +379,8 @@ const Controller = class {
     if (e.hp > 0 && !e.dead) {
       (this.setActive(e.id),
         this.focusUnit(a, null, !this.comfortable(a.root.position, null)),
-        this.hud.thinking(`Turno de ${cr(e)}\u2026`),
-        t && !this.fast && !this.shotMode && this.hud.banner(cr(e), 'enemigo', 650),
+        this.hud.thinking(`Turno de ${shortName(e)}\u2026`),
+        t && !this.fast && !this.shotMode && this.hud.banner(shortName(e), 'enemigo', 650),
         await this.wait(t ? 420 : 260));
       let n = this.rules('ai_turn');
       (this.hud.thinking(''), await this.play(n.events || []), await this.wait(t ? 260 : 180));
@@ -393,7 +393,7 @@ const Controller = class {
         (this.speed = 1),
         (this.vfx.timeScale = this.turbo),
         this.focusUnit(this.unit(e.id), null, !1),
-        this.hud.banner(`Turno de ${cr(e)}`, 'oro', 900),
+        this.hud.banner(`Turno de ${shortName(e)}`, 'oro', 900),
         this.enterIdle(e));
     });
   }
@@ -585,7 +585,7 @@ const Controller = class {
             (this.board.route(a.cell, r.path, c), this.board.set('path', [t.cell], c));
             for (let d of l) this.unit(d)?.setRing('threat');
             this.hud.cursorNote(
-              `${Ec((r.ft / 5) * 1.5)} m${r.dash ? ' \xB7 corriendo' : ''}${l.length ? ' \xB7 \xA1ataque de oportunidad!' : ''}`,
+              `${formatNumber((r.ft / 5) * 1.5)} m${r.dash ? ' \xB7 corriendo' : ''}${l.length ? ' \xB7 \xA1ataque de oportunidad!' : ''}`,
               e.clientX,
               e.clientY,
             );
@@ -1016,7 +1016,7 @@ const Controller = class {
         icon: s.kind === 'melee' ? 'melee' : s.kind === 'thrown' ? 'thrown' : 'ranged',
         title: s.name,
         cost: `${s.bonus >= 0 ? '+' : ''}${s.bonus}`,
-        desc: `${s.damage_text.join(' + ')} \xB7 ${s.kind === 'melee' ? `alcance ${Ec(s.reach * 1.5)} m` : `distancia ${Ec(s.range[0] * 1.5)}/${Ec(s.range[1] * 1.5)} m`}${s.mastery_name ? ` \xB7 ${s.mastery_name}` : ''}${s.ammo_left >= 0 ? ` \xB7 quedan ${s.ammo_left}` : ''}`,
+        desc: `${s.damage_text.join(' + ')} \xB7 ${s.kind === 'melee' ? `alcance ${formatNumber(s.reach * 1.5)} m` : `distancia ${formatNumber(s.range[0] * 1.5)}/${formatNumber(s.range[1] * 1.5)} m`}${s.mastery_name ? ` \xB7 ${s.mastery_name}` : ''}${s.ammo_left >= 0 ? ` \xB7 quedan ${s.ammo_left}` : ''}`,
         enabled: t.turn.action > 0 || t.turn.attack_left > 0,
       }));
       if (!n.length) return;
@@ -1445,7 +1445,7 @@ const Controller = class {
           ((e.cond !== 'unconscious' || !n.down) &&
             t.float(
               n.headWorld(),
-              `${e.on ? '' : 'Ya no: '}${Bm(e.cond)}`,
+              `${e.on ? '' : 'Ya no: '}${conditionName(e.cond)}`,
               e.on ? 'malo' : 'apagado',
               0.9,
               [e._from, e._saveNote].filter(Boolean).join(' \xB7 '),

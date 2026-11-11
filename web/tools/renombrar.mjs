@@ -446,7 +446,8 @@ function aplicarMapa(mapaTotal, { enSeco, solo, abreviarTodo }) {
     }
     for (const ex of exportsCambiados) if (ex.abs === abs) ex.sp.exported.name = ex.nuevo;
     for (const im of st.importes) im.nodo.name = im.nuevo;
-    const { texto, n } = empalmar(codigo, ast, originales, abreviadas, especificadores, propiedades, abreviarTodo);
+    // En los archivos que no son del mapa solo cambian las líneas de import.
+    const { texto, n } = empalmar(codigo, ast, originales, abreviadas, especificadores, propiedades, abreviarTodo && propios.has(abs));
     if (n === 0) {
       if (st.aplicadas.length) informe.push(`${rel}: sin cambios (${st.aplicadas.length} ya aplicadas)`);
       continue;
