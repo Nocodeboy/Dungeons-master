@@ -6,7 +6,8 @@
 //   node tools/renombrar.mjs --listar src/actors/anims.js --detalle [--todos]
 //                         (una línea por enlace con aspecto minificado: su clave exacta y su código)
 //
-// Formato del mapa: { "src/actors/anims.js": { "Hb": "BONE_ALIASES", "play/e": "name", ... }, ... }
+// Formato del mapa: { "src/actors/anims.js": { "Hb": "LOOPING_ANIMS" }, "src/actors/character.js":
+//                     { "Character/play/e": "name", ... }, ... }
 //   - "nombre"            enlace del ámbito del programa (nivel superior del archivo).
 //   - "a/b/nombre"        enlace local: «a», «b»… son regiones con nombre (funciones, clases, métodos,
 //                         funciones asignadas a variables o propiedades y declaradores de nivel
@@ -20,10 +21,12 @@
 // imports y reexports de todo src/. En los archivos de --area (por defecto, los del mapa) también
 // se renombra el enlace local importado; fuera del área solo cambia la línea del import
 // (`import { nuevo as viejo }`). Los módulos que son espacios de nombres (destino de `import * as`,
-// de `import()` o cualquier `index.js`) conservan sus nombres exportados: renombrar uno es un error.
+// de `import()` o cualquier `index.js`) conservan sus nombres exportados: un `export { viejo }` pasa
+// a `export { nuevo as viejo }` y renombrar un `export function viejo` es un error.
 //
 // Comprobación: tras empalmar el texto se vuelve a analizar cada archivo y se exige que cada
-// identificador resuelva al mismo enlace (o al mismo global) que antes. Después se formatea con
+// identificador resuelva al mismo enlace (o al mismo global) que antes. En los archivos del área,
+// `{ a: a }` se contrae en `{ a }` (misma semántica) y se vuelve a comprobar. Después se formatea con
 // prettier (las mismas opciones que tools/05-partir-modulos.mjs). Con --seco no se escribe nada.
 // Con --solo se aplican solo las entradas de esos archivos (rutas relativas a web/, separadas por
 // comas): sirve para ir por tandas, porque las claves de cada archivo usan sus nombres de partida.
