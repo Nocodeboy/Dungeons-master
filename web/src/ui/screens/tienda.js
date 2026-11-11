@@ -10,205 +10,231 @@ import { ITEM_KINDS } from '../labels.js';
 function opcionesTienda() {
   return { width: '76rem', height: '46rem' };
 }
-function pantallaTienda(o, e, t, a) {
-  let n = t.R,
-    s = () => a.store.cp,
-    i = e.merchant || 'peddler',
-    r = null,
-    l = null,
-    c = 1,
-    d = 'comprar',
-    u = e.who && s()?.party.includes(e.who) ? e.who : '',
-    h = screenFrame(o, { title: 'Tienda', ic: 'shop' }),
-    p = elem('span.mg-gold');
-  h.head.insertBefore(p, h.head.querySelector('.mg-cerrar'));
-  let m = makeTabs(
+function pantallaTienda(screen, params, ui, game) {
+  let rules = ui.R,
+    currentCp = () => game.store.cp,
+    merchant = params.merchant || 'peddler',
+    shop = null,
+    picked = null,
+    qty = 1,
+    pane = 'comprar',
+    buyer = params.who && currentCp()?.party.includes(params.who) ? params.who : '',
+    frame = screenFrame(screen, { title: 'Tienda', ic: 'shop' }),
+    goldEl = elem('span.mg-gold');
+  frame.head.insertBefore(goldEl, frame.head.querySelector('.mg-cerrar'));
+  let tabs = makeTabs(
       [
         { id: 'comprar', label: 'Comprar', icon: 'coins' },
         { id: 'detalle', label: 'Detalle', icon: 'info' },
         { id: 'vender', label: 'Vender', icon: 'scales' },
       ],
-      d,
-      (M) => {
-        ((d = M), z());
+      pane,
+      (id) => {
+        ((pane = id), showPane());
       },
       { cls: 'mg-panes-tabs' },
     ),
-    _ = elem('div.mg-shop'),
-    b = elem('section.pane.mg-col', { 'data-pane': 'comprar' }),
-    f = elem('section.pane.mg-shop-detail.mg-col', { 'data-pane': 'detalle' }),
-    v = elem('section.pane.mg-col', { 'data-pane': 'vender' });
-  (_.append(b, f, v),
-    (h.body.style.gridTemplateRows = 'auto minmax(0, 1fr)'),
-    (m.style.gridRow = '1'),
-    (_.style.gridRow = '2'),
-    h.body.append(m, _));
-  function x() {
-    let M = n.shop(i);
-    return !M || M.error ? M?.error || 'sin respuesta' : ((r = M), null);
+    panes = elem('div.mg-shop'),
+    buyPane = elem('section.pane.mg-col', { 'data-pane': 'comprar' }),
+    detailPane = elem('section.pane.mg-shop-detail.mg-col', { 'data-pane': 'detalle' }),
+    sellPane = elem('section.pane.mg-col', { 'data-pane': 'vender' });
+  (panes.append(buyPane, detailPane, sellPane),
+    (frame.body.style.gridTemplateRows = 'auto minmax(0, 1fr)'),
+    (tabs.style.gridRow = '1'),
+    (panes.style.gridRow = '2'),
+    frame.body.append(tabs, panes));
+  function loadShop() {
+    let res = rules.shop(merchant);
+    return !res || res.error ? res?.error || 'sin respuesta' : ((shop = res), null);
   }
-  let g = (M) => String(s()?.members?.[M]?.name || M).split(' ')[0];
-  function y(M, R, A) {
-    let P = elem(`button.mg-shop-row${R === 'buy' && M.can_afford === !1 ? '.caro' : ''}`, {
-        'aria-pressed': String(l?.side === R && l.i === A),
+  let firstName = (id) => String(currentCp()?.members?.[id]?.name || id).split(' ')[0];
+  function itemRow(item, side, index) {
+    let row = elem(`button.mg-shop-row${side === 'buy' && item.can_afford === !1 ? '.caro' : ''}`, {
+        'aria-pressed': String(picked?.side === side && picked.i === index),
       }),
-      I = rarityClass(M),
-      U = R === 'buy' ? (M.unlimited || M.n < 0 ? '' : `${M.n} en venta`) : M.n > 1 ? `\xD7${M.n}` : '';
+      cls = rarityClass(item),
+      note =
+        side === 'buy'
+          ? item.unlimited || item.n < 0
+            ? ''
+            : `${item.n} en venta`
+          : item.n > 1
+            ? `\xD7${item.n}`
+            : '';
     return (
-      (P.innerHTML = `${iconHtml(itemIcon(M))}<span style="min-width:0"><b class="${I}">${escapeHtml(M.name)}</b><small>${escapeHtml([ITEM_KINDS[M.kind] || '', U].filter(Boolean).join(' \xB7 '))}</small></span><span class="precio">${escapeHtml(M.price)}${iconHtml('coins')}</span>`),
-      setTip(P, itemTip(t, M)),
-      P.addEventListener('click', () => {
-        ((l = { side: R, i: A }),
-          (c = 1),
-          matchMedia('(max-width: 900px)').matches && (m.set('detalle'), (d = 'detalle')),
-          w());
+      (row.innerHTML = `${iconHtml(itemIcon(item))}<span style="min-width:0"><b class="${cls}">${escapeHtml(item.name)}</b><small>${escapeHtml([ITEM_KINDS[item.kind] || '', note].filter(Boolean).join(' \xB7 '))}</small></span><span class="precio">${escapeHtml(item.price)}${iconHtml('coins')}</span>`),
+      setTip(row, itemTip(ui, item)),
+      row.addEventListener('click', () => {
+        ((picked = { side, i: index }),
+          (qty = 1),
+          matchMedia('(max-width: 900px)').matches && (tabs.set('detalle'), (pane = 'detalle')),
+          render());
       }),
-      P
+      row
     );
   }
-  function w() {
-    ((p.innerHTML = `${iconHtml('coins')}${escapeHtml(s()?.gold ?? r?.gold ?? 0)}<small>po</small>`),
-      (h.title.textContent = r?.name || 'Tienda'),
-      (b.innerHTML = ''),
-      b.append(elem('h3.mg-sec', 'Se vende')));
-    let M = elem('div.mg-shop-list.mg-scroll', { style: 'overflow-y:auto;min-height:0' });
-    ((r?.stock || []).forEach((P, I) => M.append(y(P, 'buy', I))),
-      (r?.stock || []).length ||
-        (M.innerHTML = `<div class="mg-vacio">${iconHtml('shop')}No le queda nada que vender.</div>`),
-      b.append(M),
-      (b.style.gridTemplateRows = 'auto minmax(0, 1fr)'),
-      (v.innerHTML = ''),
-      v.append(elem('h3.mg-sec', 'Lo que pod\xE9is vender')));
-    let R = elem('div.mg-shop-list.mg-scroll', { style: 'overflow-y:auto;min-height:0' }),
-      A = null;
-    ((r?.buys || []).forEach((P, I) => {
-      (P.who !== A && ((A = P.who), R.append(elem('div.mg-shop-who', g(P.who)))), R.append(y(P, 'sell', I)));
+  function render() {
+    ((goldEl.innerHTML = `${iconHtml('coins')}${escapeHtml(currentCp()?.gold ?? shop?.gold ?? 0)}<small>po</small>`),
+      (frame.title.textContent = shop?.name || 'Tienda'),
+      (buyPane.innerHTML = ''),
+      buyPane.append(elem('h3.mg-sec', 'Se vende')));
+    let buyList = elem('div.mg-shop-list.mg-scroll', { style: 'overflow-y:auto;min-height:0' });
+    ((shop?.stock || []).forEach((item, index) => buyList.append(itemRow(item, 'buy', index))),
+      (shop?.stock || []).length ||
+        (buyList.innerHTML = `<div class="mg-vacio">${iconHtml('shop')}No le queda nada que vender.</div>`),
+      buyPane.append(buyList),
+      (buyPane.style.gridTemplateRows = 'auto minmax(0, 1fr)'),
+      (sellPane.innerHTML = ''),
+      sellPane.append(elem('h3.mg-sec', 'Lo que pod\xE9is vender')));
+    let sellList = elem('div.mg-shop-list.mg-scroll', { style: 'overflow-y:auto;min-height:0' }),
+      lastWho = null;
+    ((shop?.buys || []).forEach((item, index) => {
+      (item.who !== lastWho &&
+        ((lastWho = item.who), sellList.append(elem('div.mg-shop-who', firstName(item.who)))),
+        sellList.append(itemRow(item, 'sell', index)));
     }),
-      (r?.buys || []).length ||
-        (R.innerHTML = `<div class="mg-vacio">${iconHtml('scales')}No llev\xE1is nada que le interese.</div>`),
-      v.append(R),
-      (v.style.gridTemplateRows = 'auto minmax(0, 1fr)'),
-      k(),
-      z());
+      (shop?.buys || []).length ||
+        (sellList.innerHTML = `<div class="mg-vacio">${iconHtml('scales')}No llev\xE1is nada que le interese.</div>`),
+      sellPane.append(sellList),
+      (sellPane.style.gridTemplateRows = 'auto minmax(0, 1fr)'),
+      renderDetail(),
+      showPane());
   }
-  function k() {
-    f.innerHTML = '';
-    let M = elem('div.mg-merchant'),
-      R = (r?.buys_kinds || []).some((K) => K === 'weapon' || K === 'armor'),
-      A = r?.npc || e.npc || null;
-    (M.append(faceBadge(t.portrait(A), { name: '', ic: R ? 'hammer' : 'shop', id: A })),
-      M.append(
+  function renderDetail() {
+    detailPane.innerHTML = '';
+    let merchantBox = elem('div.mg-merchant'),
+      isSmith = (shop?.buys_kinds || []).some((kind) => kind === 'weapon' || kind === 'armor'),
+      npc = shop?.npc || params.npc || null;
+    (merchantBox.append(faceBadge(ui.portrait(npc), { name: '', ic: isSmith ? 'hammer' : 'shop', id: npc })),
+      merchantBox.append(
         elem(
           'div',
-          elem('b.mg-h3', r?.name || ''),
+          elem('b.mg-h3', shop?.name || ''),
           elem(
             'div.mg-dim.mg-small',
-            'Compra: ' + (r?.buys_kinds || []).map((K) => (ITEM_KINDS[K] || K).toLowerCase()).join(', '),
+            'Compra: ' +
+              (shop?.buys_kinds || []).map((kind) => (ITEM_KINDS[kind] || kind).toLowerCase()).join(', '),
           ),
         ),
       ),
-      f.append(M));
-    let P = elem('div.mg-inv-detail.mg-inset.mg-scroll', { style: 'min-height:0;overflow-y:auto' });
-    (f.append(P), (f.style.gridTemplateRows = 'auto minmax(0, 1fr)'));
-    let I = l ? (l.side === 'buy' ? r?.stock : r?.buys)?.[l.i] : null;
-    if (!I) {
-      (P.append(
-        elem('p.mg-p', { style: 'font-style:italic;color:var(--pergamino-2)' }, EL[i] || 'Echad un vistazo.'),
+      detailPane.append(merchantBox));
+    let detail = elem('div.mg-inv-detail.mg-inset.mg-scroll', { style: 'min-height:0;overflow-y:auto' });
+    (detailPane.append(detail), (detailPane.style.gridTemplateRows = 'auto minmax(0, 1fr)'));
+    let item = picked ? (picked.side === 'buy' ? shop?.stock : shop?.buys)?.[picked.i] : null;
+    if (!item) {
+      (detail.append(
+        elem(
+          'p.mg-p',
+          { style: 'font-style:italic;color:var(--pergamino-2)' },
+          MERCHANT_GREETINGS[merchant] || 'Echad un vistazo.',
+        ),
       ),
-        P.append(elem('p.mg-dim.mg-small', 'Elige algo de la lista para verlo de cerca.')));
+        detail.append(elem('p.mg-dim.mg-small', 'Elige algo de la lista para verlo de cerca.')));
       return;
     }
-    let U = n.call('item_info', { id: I.id, unid: !!I.unid }),
-      j = U && !U.error ? U : {};
-    (P.append(elem(`div.mg-item-name.${rarityClass(I) || 'mg-r-comun'}`, I.name)),
-      (j.rarity_name || ITEM_KINDS[j.kind]) &&
-        P.append(
-          elem('div.mg-item-kind', [ITEM_KINDS[j.kind], j.rarity_name].filter(Boolean).join(' \xB7 ')),
+    let info = rules.call('item_info', { id: item.id, unid: !!item.unid }),
+      data = info && !info.error ? info : {};
+    (detail.append(elem(`div.mg-item-name.${rarityClass(item) || 'mg-r-comun'}`, item.name)),
+      (data.rarity_name || ITEM_KINDS[data.kind]) &&
+        detail.append(
+          elem('div.mg-item-kind', [ITEM_KINDS[data.kind], data.rarity_name].filter(Boolean).join(' \xB7 ')),
         ),
-      (j.props || []).length &&
-        P.append(elem('div.mg-item-props', ...j.props.map((K) => elem('span.mg-chip', K)))),
-      P.append(
+      (data.props || []).length &&
+        detail.append(elem('div.mg-item-props', ...data.props.map((prop) => elem('span.mg-chip', prop)))),
+      detail.append(
         elem(
           'div.mg-item-desc',
-          ...(j.lines?.length ? j.lines : [j.desc || I.desc || ''])
+          ...(data.lines?.length ? data.lines : [data.desc || item.desc || ''])
             .filter(Boolean)
-            .map((K) => elem('p.mg-p', K)),
+            .map((line) => elem('p.mg-p', line)),
         ),
       ));
-    let X = l.side === 'buy' ? (I.n < 0 || I.unlimited ? 20 : I.n) : I.where === 'stack' ? I.n : 1;
-    c = Math.max(1, Math.min(c, X));
-    let J = I.price * c,
-      Z = elem('div.mg-item-acts', { style: 'align-items:center' });
-    if (X > 1) {
-      let K = elem('span.mg-qty');
-      (K.append(
-        makeButton('\u2212', { size: 'sm', disabled: c <= 1, onclick: () => ((c -= 1), k()) }),
-        elem('b.mg-num', String(c)),
-        makeButton('+', { size: 'sm', disabled: c >= X, onclick: () => ((c += 1), k()) }),
+    let maxQty =
+      picked.side === 'buy'
+        ? item.n < 0 || item.unlimited
+          ? 20
+          : item.n
+        : item.where === 'stack'
+          ? item.n
+          : 1;
+    qty = Math.max(1, Math.min(qty, maxQty));
+    let total = item.price * qty,
+      acts = elem('div.mg-item-acts', { style: 'align-items:center' });
+    if (maxQty > 1) {
+      let qtyBox = elem('span.mg-qty');
+      (qtyBox.append(
+        makeButton('\u2212', { size: 'sm', disabled: qty <= 1, onclick: () => ((qty -= 1), renderDetail()) }),
+        elem('b.mg-num', String(qty)),
+        makeButton('+', { size: 'sm', disabled: qty >= maxQty, onclick: () => ((qty += 1), renderDetail()) }),
       ),
-        Z.append(K));
+        acts.append(qtyBox));
     }
-    if (l.side === 'buy') {
-      let K = s()?.party || [],
-        ve = elem('select', { 'aria-label': 'Para qui\xE9n' });
-      ((ve.innerHTML = `<option value="">Al que mejor le venga</option>${K.map((ue) => `<option value="${escapeHtml(ue)}">${escapeHtml(g(ue))}</option>`).join('')}`),
-        (ve.value = u),
-        ve.addEventListener('change', () => (u = ve.value)),
-        Z.append(elem('label.mg-who', 'Para: ', ve)));
-      let ge = (s()?.gold ?? 0) >= J;
-      (Z.append(
-        makeButton(`Comprar \xB7 ${J} po`, {
+    if (picked.side === 'buy') {
+      let party = currentCp()?.party || [],
+        whoSelect = elem('select', { 'aria-label': 'Para qui\xE9n' });
+      ((whoSelect.innerHTML = `<option value="">Al que mejor le venga</option>${party.map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(firstName(id))}</option>`).join('')}`),
+        (whoSelect.value = buyer),
+        whoSelect.addEventListener('change', () => (buyer = whoSelect.value)),
+        acts.append(elem('label.mg-who', 'Para: ', whoSelect)));
+      let canPay = (currentCp()?.gold ?? 0) >= total;
+      (acts.append(
+        makeButton(`Comprar \xB7 ${total} po`, {
           icon: 'coins',
           variant: 'primary',
-          disabled: !ge,
-          onclick: () => T(I),
+          disabled: !canPay,
+          onclick: () => buy(item),
         }),
       ),
-        ge || P.append(elem('p.mg-mal.mg-small', 'No ten\xE9is oro suficiente.')));
+        canPay || detail.append(elem('p.mg-mal.mg-small', 'No ten\xE9is oro suficiente.')));
     } else
-      Z.append(
-        makeButton(`Vender \xB7 ${J} po`, { icon: 'scales', variant: 'primary', onclick: () => E(I) }),
+      acts.append(
+        makeButton(`Vender \xB7 ${total} po`, {
+          icon: 'scales',
+          variant: 'primary',
+          onclick: () => sell(item),
+        }),
       );
-    P.append(Z);
+    detail.append(acts);
   }
-  function T(M) {
-    let R = n.buy(i, M.id, c, u || void 0);
-    if (!R || R.error || R.ok === !1)
-      return t.toast(R?.reason || R?.error || 'No se ha podido comprar.', 'mal');
-    (t.toast(R.text || `Comprado: ${M.name}.`, 'botin'),
-      a.bus?.emit('shop:buy', { merchant: i, item: M.id, n: c, who: R.who || u }),
-      a.bus?.emit('gold', { delta: -(M.price * c) }),
-      S());
+  function buy(item) {
+    let res = rules.buy(merchant, item.id, qty, buyer || void 0);
+    if (!res || res.error || res.ok === !1)
+      return ui.toast(res?.reason || res?.error || 'No se ha podido comprar.', 'mal');
+    (ui.toast(res.text || `Comprado: ${item.name}.`, 'botin'),
+      game.bus?.emit('shop:buy', { merchant, item: item.id, n: qty, who: res.who || buyer }),
+      game.bus?.emit('gold', { delta: -(item.price * qty) }),
+      afterTrade());
   }
-  function E(M) {
-    let R = n.sell(i, M.who, M.where === 'pack' ? { idx: M.idx } : M.id, c);
-    if (!R || R.error || R.ok === !1)
-      return t.toast(R?.reason || R?.error || 'No se ha podido vender.', 'mal');
-    (t.toast(R.text || `Vendido: ${M.name}.`, 'botin'),
-      a.bus?.emit('shop:sell', { merchant: i, item: M.id, n: c, who: M.who }),
-      a.bus?.emit('gold', { delta: R.price ?? M.price * c }),
-      S());
+  function sell(item) {
+    let res = rules.sell(merchant, item.who, item.where === 'pack' ? { idx: item.idx } : item.id, qty);
+    if (!res || res.error || res.ok === !1)
+      return ui.toast(res?.reason || res?.error || 'No se ha podido vender.', 'mal');
+    (ui.toast(res.text || `Vendido: ${item.name}.`, 'botin'),
+      game.bus?.emit('shop:sell', { merchant, item: item.id, n: qty, who: item.who }),
+      game.bus?.emit('gold', { delta: res.price ?? item.price * qty }),
+      afterTrade());
   }
-  function S() {
-    let M = l?.side;
-    ((l = null),
-      (c = 1),
-      x(),
-      w(),
-      M &&
+  function afterTrade() {
+    let side = picked?.side;
+    ((picked = null),
+      (qty = 1),
+      loadShop(),
+      render(),
+      side &&
         matchMedia('(max-width: 900px)').matches &&
-        ((d = M === 'buy' ? 'comprar' : 'vender'), m.set(d), z()));
+        ((pane = side === 'buy' ? 'comprar' : 'vender'), tabs.set(pane), showPane()));
   }
-  function z() {
-    let M = matchMedia('(max-width: 900px)').matches;
-    for (let R of _.querySelectorAll('.pane')) R.classList.toggle('on', !M || R.dataset.pane === d);
+  function showPane() {
+    let narrow = matchMedia('(max-width: 900px)').matches;
+    for (let paneEl of panes.querySelectorAll('.pane'))
+      paneEl.classList.toggle('on', !narrow || paneEl.dataset.pane === pane);
   }
-  let D = s() ? x() : 'no hay partida en curso';
-  D
-    ? (h.body.innerHTML = `<div class="mg-vacio">${iconHtml('shop')}No se puede comerciar ahora (${escapeHtml(D)}).</div>`)
-    : w();
+  let error = currentCp() ? loadShop() : 'no hay partida en curso';
+  error
+    ? (frame.body.innerHTML = `<div class="mg-vacio">${iconHtml('shop')}No se puede comerciar ahora (${escapeHtml(error)}).</div>`)
+    : render();
 }
-const EL = {
+const MERCHANT_GREETINGS = {
   smith:
     'Dagna deja el martillo sobre el yunque. \xABAcero bueno, precio justo. Lo que no se vende es lo que no se pide.\xBB',
   herbalist:

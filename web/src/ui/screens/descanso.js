@@ -9,190 +9,199 @@ import { CLASS_ICONS } from '../labels.js';
 function opcionesDescanso() {
   return { width: '46rem', auto: !0, full: !0 };
 }
-function pantallaDescanso(o, e, t, a) {
-  let n = t.R,
-    s = () => a.store.cp,
-    i = e.kind === 'corto' || e.kind === 'largo' ? e.kind : 'elegir',
-    r = e.where || '',
-    l = screenFrame(o, { title: 'Descanso', ic: 'campfire' });
-  if (((l.foot.hidden = !1), !s())) {
-    l.body.innerHTML = `<div class="mg-vacio">${iconHtml('campfire')}No hay ninguna partida en curso.</div>`;
+function pantallaDescanso(screen, params, ui, game) {
+  let rules = ui.R,
+    currentCp = () => game.store.cp,
+    kind = params.kind === 'corto' || params.kind === 'largo' ? params.kind : 'elegir',
+    where = params.where || '',
+    frame = screenFrame(screen, { title: 'Descanso', ic: 'campfire' });
+  if (((frame.foot.hidden = !1), !currentCp())) {
+    frame.body.innerHTML = `<div class="mg-vacio">${iconHtml('campfire')}No hay ninguna partida en curso.</div>`;
     return;
   }
-  let c = null,
-    d = async (_, b) => {
-      ((c = { k: _, report: b }), a.store.save('auto').catch(() => null));
+  let outcome = null,
+    finish = async (kind, report) => {
+      ((outcome = { k: kind, report }), game.store.save('auto').catch(() => null));
     },
-    u = () => {
-      if (!c) return o.close(null);
-      (o.close({ kind: c.k }),
-        a.bus?.emit(
-          c.k === 'corto' ? 'rest:short' : 'rest:long',
-          c.k === 'corto' ? { report: c.report, where: r } : { where: r },
+    leave = () => {
+      if (!outcome) return screen.close(null);
+      (screen.close({ kind: outcome.k }),
+        game.bus?.emit(
+          outcome.k === 'corto' ? 'rest:short' : 'rest:long',
+          outcome.k === 'corto' ? { report: outcome.report, where } : { where },
         ));
     };
-  function h() {
-    ((l.title.textContent = 'Descanso'),
-      (l.sub.textContent = r ? Mv[r] || r : ''),
-      (l.body.innerHTML = ''),
-      (l.foot.innerHTML = ''));
-    let _ = e.shortLeft ?? s().short_rests_left ?? 2,
-      b = _ > 0 && e.allowShort !== !1,
-      f = e.allowLong !== !1,
-      v = elem('div.mg-rest-choice'),
-      x = elem('button.mg-rest-card.corto', { disabled: !b }),
-      g =
-        _ <= 0
+  function showChoice() {
+    ((frame.title.textContent = 'Descanso'),
+      (frame.sub.textContent = where ? REST_PLACES[where] || where : ''),
+      (frame.body.innerHTML = ''),
+      (frame.foot.innerHTML = ''));
+    let shortLeft = params.shortLeft ?? currentCp().short_rests_left ?? 2,
+      canShort = shortLeft > 0 && params.allowShort !== !1,
+      canLong = params.allowLong !== !1,
+      choice = elem('div.mg-rest-choice'),
+      shortCard = elem('button.mg-rest-card.corto', { disabled: !canShort }),
+      shortNote =
+        shortLeft <= 0
           ? 'Ya no pod\xE9is hacer m\xE1s hasta un descanso largo'
-          : b
-            ? `Quedan ${plural(_, 'descanso corto', 'descansos cortos')} hasta el siguiente largo`
-            : `Ahora no: ${e.reason || 'no es un buen sitio'}`;
-    ((x.innerHTML = `${iconHtml('campfire')}<b>Descanso corto</b><p>Una hora para vendar heridas y recobrar el aliento. Cada uno puede gastar sus dados de golpe para curarse; algunos rasgos se recuperan.</p><small>${escapeHtml(g)}</small>`),
-      x.addEventListener('click', p));
-    let y = elem('button.mg-rest-card.largo', { disabled: !f }),
-      w = f
-        ? e.paid
+          : canShort
+            ? `Quedan ${plural(shortLeft, 'descanso corto', 'descansos cortos')} hasta el siguiente largo`
+            : `Ahora no: ${params.reason || 'no es un buen sitio'}`;
+    ((shortCard.innerHTML = `${iconHtml('campfire')}<b>Descanso corto</b><p>Una hora para vendar heridas y recobrar el aliento. Cada uno puede gastar sus dados de golpe para curarse; algunos rasgos se recuperan.</p><small>${escapeHtml(shortNote)}</small>`),
+      shortCard.addEventListener('click', shortRest));
+    let longCard = elem('button.mg-rest-card.largo', { disabled: !canLong }),
+      longNote = canLong
+        ? params.paid
           ? 'Ya est\xE1 pagado'
-          : r === 'posada'
+          : where === 'posada'
             ? 'La posadera os espera'
             : 'Pasa la noche: amanece un nuevo d\xEDa'
-        : `Ahora no: ${e.reason || 'solo en la posada o junto a una hoguera segura'}`;
-    ((y.innerHTML = `${iconHtml('night')}<b>Descanso largo</b><p>Una noche entera ${escapeHtml(Mv[r] || 'a resguardo')}. Recuper\xE1is todos los puntos de golpe, los espacios de conjuro, los rasgos y los dados de golpe.</p><small>${escapeHtml(w)}</small>`),
-      y.addEventListener('click', m),
-      v.append(x, y),
-      l.body.append(v),
-      l.foot.append(makeButton('Seguir sin descansar', { onclick: () => o.close(null) })),
-      (b ? x : f ? y : l.foot.querySelector('button'))?.focus());
+        : `Ahora no: ${params.reason || 'solo en la posada o junto a una hoguera segura'}`;
+    ((longCard.innerHTML = `${iconHtml('night')}<b>Descanso largo</b><p>Una noche entera ${escapeHtml(REST_PLACES[where] || 'a resguardo')}. Recuper\xE1is todos los puntos de golpe, los espacios de conjuro, los rasgos y los dados de golpe.</p><small>${escapeHtml(longNote)}</small>`),
+      longCard.addEventListener('click', longRest),
+      choice.append(shortCard, longCard),
+      frame.body.append(choice),
+      frame.foot.append(makeButton('Seguir sin descansar', { onclick: () => screen.close(null) })),
+      (canShort ? shortCard : canLong ? longCard : frame.foot.querySelector('button'))?.focus());
   }
-  function p() {
-    ((i = 'corto'),
-      (l.title.textContent = 'Descanso corto'),
-      (l.sub.textContent = 'Una hora'),
-      (l.body.innerHTML = ''),
-      (l.foot.innerHTML = ''));
-    let _ = n.partySummary();
-    n._lastParty = _;
-    let b = {},
-      f = elem('div.mg-rest-rows');
-    l.body.append(
+  function shortRest() {
+    ((kind = 'corto'),
+      (frame.title.textContent = 'Descanso corto'),
+      (frame.sub.textContent = 'Una hora'),
+      (frame.body.innerHTML = ''),
+      (frame.foot.innerHTML = ''));
+    let party = rules.partySummary();
+    rules._lastParty = party;
+    let spend = {},
+      rows = elem('div.mg-rest-rows');
+    frame.body.append(
       elem(
         'p.mg-p.mg-dim',
         { style: 'margin-bottom:.6rem' },
         'Elige cu\xE1ntos dados de golpe gasta cada uno. Cada dado cura lo que saque m\xE1s la Constituci\xF3n.',
       ),
-      f,
+      rows,
     );
-    for (let g of _) {
-      if (g.dead) continue;
-      let y = g.hit_dice || { cur: 0, max: 0, die: 8 },
-        w = { ...y, die: Number(String(y.die ?? 8).replace(/^d/i, '')) || 8 },
-        k = (g.max_hp || 0) - (g.hp || 0),
-        T = Math.max(1, Math.floor(w.die / 2) + 1 + (g.abilities?.con?.mod || 0));
-      b[g.id] = Math.min(w.cur, Math.ceil(Math.max(0, k) / T));
-      let E = elem('div.mg-rest-row', { 'data-id': g.id }),
-        S = Math.max(0, g.hp) / Math.max(1, g.max_hp);
-      (E.append(
-        faceBadge(t.portrait(g.id), { id: g.id, name: g.name, ic: CLASS_ICONS[g.class] || 'person' }),
+    for (let member of party) {
+      if (member.dead) continue;
+      let hd = member.hit_dice || { cur: 0, max: 0, die: 8 },
+        hitDice = { ...hd, die: Number(String(hd.die ?? 8).replace(/^d/i, '')) || 8 },
+        missing = (member.max_hp || 0) - (member.hp || 0),
+        perDie = Math.max(1, Math.floor(hitDice.die / 2) + 1 + (member.abilities?.con?.mod || 0));
+      spend[member.id] = Math.min(hitDice.cur, Math.ceil(Math.max(0, missing) / perDie));
+      let row = elem('div.mg-rest-row', { 'data-id': member.id }),
+        hpFrac = Math.max(0, member.hp) / Math.max(1, member.max_hp);
+      (row.append(
+        faceBadge(ui.portrait(member.id), {
+          id: member.id,
+          name: member.name,
+          ic: CLASS_ICONS[member.class] || 'person',
+        }),
       ),
-        E.append(
+        row.append(
           elem(
             'div.who',
-            elem('b', String(g.name).split(' ')[0]),
+            elem('b', String(member.name).split(' ')[0]),
             elem(
               'span',
-              `d${w.die} \xB7 Constituci\xF3n ${g.abilities?.con?.mod >= 0 ? '+' : '\u2212'}${Math.abs(g.abilities?.con?.mod || 0)}`,
+              `d${hitDice.die} \xB7 Constituci\xF3n ${member.abilities?.con?.mod >= 0 ? '+' : '\u2212'}${Math.abs(member.abilities?.con?.mod || 0)}`,
             ),
           ),
         ));
-      let z = elem('div.mg-hp', {
-        html: `<span class="mg-hp-fill" style="width:${S * 100}%"></span><span class="mg-hp-txt">${escapeHtml(g.hp)} / ${escapeHtml(g.max_hp)}</span>`,
+      let hpBar = elem('div.mg-hp', {
+        html: `<span class="mg-hp-fill" style="width:${hpFrac * 100}%"></span><span class="mg-hp-txt">${escapeHtml(member.hp)} / ${escapeHtml(member.max_hp)}</span>`,
       });
-      E.append(z);
-      let D = elem('div.mg-hd'),
-        M = elem('span.n'),
-        R = () => {
-          ((M.innerHTML = `${b[g.id]} de ${w.cur}<small>dados de golpe</small>`),
-            (A.disabled = b[g.id] <= 0),
-            (P.disabled = b[g.id] >= w.cur));
+      row.append(hpBar);
+      let hdBox = elem('div.mg-hd'),
+        count = elem('span.n'),
+        refresh = () => {
+          ((count.innerHTML = `${spend[member.id]} de ${hitDice.cur}<small>dados de golpe</small>`),
+            (minus.disabled = spend[member.id] <= 0),
+            (plus.disabled = spend[member.id] >= hitDice.cur));
         },
-        A = makeButton('\u2212', { size: 'sm', onclick: () => ((b[g.id] -= 1), R()) }),
-        P = makeButton('+', { size: 'sm', onclick: () => ((b[g.id] += 1), R()) });
-      (A.setAttribute('aria-label', `Un dado menos para ${g.name}`),
-        P.setAttribute('aria-label', `Un dado m\xE1s para ${g.name}`),
-        D.append(A, M, P),
-        R(),
-        E.append(D, elem('div.mg-rest-dice')),
-        f.append(E));
+        minus = makeButton('\u2212', { size: 'sm', onclick: () => ((spend[member.id] -= 1), refresh()) }),
+        plus = makeButton('+', { size: 'sm', onclick: () => ((spend[member.id] += 1), refresh()) });
+      (minus.setAttribute('aria-label', `Un dado menos para ${member.name}`),
+        plus.setAttribute('aria-label', `Un dado m\xE1s para ${member.name}`),
+        hdBox.append(minus, count, plus),
+        refresh(),
+        row.append(hdBox, elem('div.mg-rest-dice')),
+        rows.append(row));
     }
-    let v = makeButton('Descansar una hora', { icon: 'hourglass', variant: 'primary' });
-    v.addEventListener('click', async () => {
-      ((v.disabled = !0), (x.disabled = !0));
-      for (let T of f.querySelectorAll('button')) T.disabled = !0;
-      let g = n.shortRest(b);
-      if (!g || g.error || g.ok === !1) {
-        (t.toast(g?.reason || g?.error || 'No se ha podido descansar.', 'mal'),
-          (v.disabled = x.disabled = !1));
+    let restButton = makeButton('Descansar una hora', { icon: 'hourglass', variant: 'primary' });
+    restButton.addEventListener('click', async () => {
+      ((restButton.disabled = !0), (backButton.disabled = !0));
+      for (let button of rows.querySelectorAll('button')) button.disabled = !0;
+      let res = rules.shortRest(spend);
+      if (!res || res.error || res.ok === !1) {
+        (ui.toast(res?.reason || res?.error || 'No se ha podido descansar.', 'mal'),
+          (restButton.disabled = backButton.disabled = !1));
         return;
       }
-      c = { k: 'corto', report: g.report };
-      for (let [T, E] of Object.entries(g.report || {})) {
-        if (T.startsWith('_')) continue;
-        let S = f.querySelector(`[data-id="${CSS.escape(T)}"]`);
-        if (!S) continue;
-        let z = S.querySelector('.mg-rest-dice'),
-          D = (n._lastParty || []).find((P) => P.id === T),
-          M = Number(String(E.die || D?.hit_dice?.die || 8).replace(/^d/i, '')) || 8,
-          R = E.rolls || Array.from({ length: E.dice || 0 }, () => ''),
-          A = R.map(() => makeDie(M, '', { size: 'sm' }));
-        (z.append(...A),
-          await Promise.all(A.map((P, I) => rollDie(P, R[I] === '' ? '' : R[I], { ms: 450 + I * 90 }))),
-          E.healed
-            ? z.append(elem('span.mg-rest-res', `+${E.healed} PG`))
-            : E.dice || z.append(elem('span.mg-dim.mg-small', 'No gasta dados.')));
+      outcome = { k: 'corto', report: res.report };
+      for (let [id, entry] of Object.entries(res.report || {})) {
+        if (id.startsWith('_')) continue;
+        let row = rows.querySelector(`[data-id="${CSS.escape(id)}"]`);
+        if (!row) continue;
+        let diceBox = row.querySelector('.mg-rest-dice'),
+          member = (rules._lastParty || []).find((row) => row.id === id),
+          sides = Number(String(entry.die || member?.hit_dice?.die || 8).replace(/^d/i, '')) || 8,
+          rolls = entry.rolls || Array.from({ length: entry.dice || 0 }, () => ''),
+          dice = rolls.map(() => makeDie(sides, '', { size: 'sm' }));
+        (diceBox.append(...dice),
+          await Promise.all(
+            dice.map((die, index) =>
+              rollDie(die, rolls[index] === '' ? '' : rolls[index], { ms: 450 + index * 90 }),
+            ),
+          ),
+          entry.healed
+            ? diceBox.append(elem('span.mg-rest-res', `+${entry.healed} PG`))
+            : entry.dice || diceBox.append(elem('span.mg-dim.mg-small', 'No gasta dados.')));
       }
-      let y = n.partySummary();
-      for (let T of y) {
-        let E = f.querySelector(`[data-id="${CSS.escape(T.id)}"]`);
-        E &&
-          ((E.querySelector('.mg-hp-fill').style.width =
-            `${(Math.max(0, T.hp) / Math.max(1, T.max_hp)) * 100}%`),
-          (E.querySelector('.mg-hp-txt').textContent = `${T.hp} / ${T.max_hp}`));
+      let party = rules.partySummary();
+      for (let member of party) {
+        let row = rows.querySelector(`[data-id="${CSS.escape(member.id)}"]`);
+        row &&
+          ((row.querySelector('.mg-hp-fill').style.width =
+            `${(Math.max(0, member.hp) / Math.max(1, member.max_hp)) * 100}%`),
+          (row.querySelector('.mg-hp-txt').textContent = `${member.hp} / ${member.max_hp}`));
       }
-      let w = g.identified || g.report?._identified || [];
-      (w.length && t.toast(`Identific\xE1is: ${w.map((T) => T.name || T).join(', ')}.`, 'botin'),
-        g.text && t.hud?.visible && t.hud.log(g.text, 'bien'),
-        await d('corto', g.report),
-        (l.foot.innerHTML = ''));
-      let k = makeButton('Seguir', { icon: 'check', variant: 'primary', onclick: u });
-      (l.foot.append(k), k.focus());
+      let identified = res.identified || res.report?._identified || [];
+      (identified.length &&
+        ui.toast(`Identific\xE1is: ${identified.map((item) => item.name || item).join(', ')}.`, 'botin'),
+        res.text && ui.hud?.visible && ui.hud.log(res.text, 'bien'),
+        await finish('corto', res.report),
+        (frame.foot.innerHTML = ''));
+      let okButton = makeButton('Seguir', { icon: 'check', variant: 'primary', onclick: leave });
+      (frame.foot.append(okButton), okButton.focus());
     });
-    let x = makeButton(e.kind === 'corto' ? 'Cancelar' : 'Atr\xE1s', {
-      onclick: () => (e.kind === 'corto' ? o.close(null) : h()),
+    let backButton = makeButton(params.kind === 'corto' ? 'Cancelar' : 'Atr\xE1s', {
+      onclick: () => (params.kind === 'corto' ? screen.close(null) : showChoice()),
     });
-    (l.foot.append(x, v), v.focus());
+    (frame.foot.append(backButton, restButton), restButton.focus());
   }
-  async function m() {
-    ((i = 'largo'),
-      (l.title.textContent = 'Descanso largo'),
-      (l.sub.textContent = r ? Mv[r] || r : ''),
-      (l.body.innerHTML = ''),
-      (l.foot.innerHTML = ''));
-    let _ = n.longRest();
-    if (!_ || _.error || _.ok === !1)
-      return (t.toast(_?.reason || _?.error || 'No se ha podido descansar.', 'mal'), h());
-    let b = elem('div.mg-col', { style: 'justify-items:center;text-align:center;padding:1rem 0' }),
-      f = e.text ? richText(e.text) : 'La noche pasa sin sobresaltos.';
-    ((b.innerHTML = `${iconHtml('sunrise', 'mg-big')}<p class="mg-p" style="font-size:1.15rem;max-width:30rem">${f} Al amanecer del d\xEDa ${escapeHtml(s().day || '')}, el grupo se levanta descansado: puntos de golpe, espacios de conjuro y rasgos, recuperados.</p>`),
-      (b.querySelector('.mg-big').style.cssText =
+  async function longRest() {
+    ((kind = 'largo'),
+      (frame.title.textContent = 'Descanso largo'),
+      (frame.sub.textContent = where ? REST_PLACES[where] || where : ''),
+      (frame.body.innerHTML = ''),
+      (frame.foot.innerHTML = ''));
+    let res = rules.longRest();
+    if (!res || res.error || res.ok === !1)
+      return (ui.toast(res?.reason || res?.error || 'No se ha podido descansar.', 'mal'), showChoice());
+    let box = elem('div.mg-col', { style: 'justify-items:center;text-align:center;padding:1rem 0' }),
+      text = params.text ? richText(params.text) : 'La noche pasa sin sobresaltos.';
+    ((box.innerHTML = `${iconHtml('sunrise', 'mg-big')}<p class="mg-p" style="font-size:1.15rem;max-width:30rem">${text} Al amanecer del d\xEDa ${escapeHtml(currentCp().day || '')}, el grupo se levanta descansado: puntos de golpe, espacios de conjuro y rasgos, recuperados.</p>`),
+      (box.querySelector('.mg-big').style.cssText =
         'width:4.5rem;height:4.5rem;color:var(--oro);filter:drop-shadow(0 0 14px rgba(242,207,122,.5))'),
-      _.text && b.append(elem('p.mg-dim', _.text)),
-      l.body.append(b),
-      await d('largo'));
-    let v = makeButton('Seguir', { icon: 'check', variant: 'primary', onclick: u });
-    (l.foot.append(v), v.focus());
+      res.text && box.append(elem('p.mg-dim', res.text)),
+      frame.body.append(box),
+      await finish('largo'));
+    let okButton = makeButton('Seguir', { icon: 'check', variant: 'primary', onclick: leave });
+    (frame.foot.append(okButton), okButton.focus());
   }
-  return (i === 'corto' ? p() : i === 'largo' ? m() : h(), { onEscape: u });
+  return (kind === 'corto' ? shortRest() : kind === 'largo' ? longRest() : showChoice(), { onEscape: leave });
 }
-const Mv = { posada: 'en la posada', campamento: 'junto a la hoguera', templo: 'en el templo' };
+const REST_PLACES = { posada: 'en la posada', campamento: 'junto a la hoguera', templo: 'en el templo' };
 
 export { pantallaDescanso as default, opcionesDescanso as options };
