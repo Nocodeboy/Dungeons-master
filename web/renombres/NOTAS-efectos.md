@@ -11,7 +11,9 @@ arreglado nada**: el comportamiento es el del publicado. Los nombres son los nue
 
 - `playSpellFx`, fase `burst`: `let burstStyle = style === 'nature' ? 'nature' : style;` siempre vale
   `style` (ternario redundante; quizá se quería forzar otro estilo).
-- `SPELL_FX.hail_of_thorns` devuelve `null`, así que cae en la coreografía genérica (¿a propósito?).
+- `SPELL_FX.hail_of_thorns` (`() => null`) nunca se llega a usar: su ficha en
+  `datos/efectos/conjuros.json` tiene `r: 'ranged'`, así que `playSpellFx` sale antes (null fuera de
+  la fase `rider`; `smiteRider` con el estilo del conjuro en esa fase). Código muerto.
 - `smiteRider` llama a `getStyle(style)` dentro del bucle de objetivos (inofensivo, siempre igual).
 
 ## audio/
