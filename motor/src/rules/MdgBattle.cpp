@@ -483,6 +483,23 @@ void Battle::begin_turn(Creature* c)
 		return;
 	}
 	zone_turn_trigger(c, "start");
+	// Ampliación: recarga de las acciones de monstruo (solo criaturas con recharge, que el publicado no tiene)
+	for (const std::string& sid : c->recharge.keys())
+	{
+		if (c->free_casts.get(sid, 0) > 0 || c->dead || !c->is_active())
+		{
+			continue;
+		}
+		const int d = dice.roll("1d6").total;
+		const bool ok = d >= c->recharge.get(sid, 6);
+		if (ok)
+		{
+			c->free_casts[sid] = 1;
+		}
+		const std::string nombre = jstr(RulesDB::spell(sid), "name", sid);
+		emit(vdict({{"t", "recharge"}, {"who", c->id}, {"spell", sid}, {"name", nombre}, {"roll", d}, {"ok", ok}}));
+		log_msg(format("%s: %s %s (d6 = %d).", nm(c).c_str(), nombre.c_str(), ok ? "se recarga" : "no se recarga", d));
+	}
 	// Reconsidera velocidad tras expirar efectos
 	c->turn.movement = c->speed();
 	c->turn.undo_movement = c->turn.movement;
@@ -1166,6 +1183,11 @@ void Battle::zone_enter(Creature* c, const Cell& cell, const Cell& prev)
 
 void Battle::zone_save(Creature* c, Var z, const Var& trig)
 {
+	// Ampliación (Caminar por telarañas): la araña gigante del SRD no se queda pegada a las telarañas
+	if (c->template_id == "giant_spider_srd" && (z.gets("kind", "") == "web" || z.gets("spell", "") == "web"))
+	{
+		return;
+	}
 	const std::string fail = trig.gets("fail", "");
 	const std::string key = format("%d:%s", z.geti("id"), fail.c_str());
 	if (fail == "effect")

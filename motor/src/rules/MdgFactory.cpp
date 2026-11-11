@@ -463,6 +463,26 @@ CreaturePtr Factory::make_monster(const std::string& mid, int index)
 	c.xp = jint(m, "xp", 0);
 	c.cr = jstr(m, "cr", "");
 	c.weapons = monster_attacks(m, c);
+	// Ampliación: los monstruos nuevos (marcados con _ampliacion) usan sus acciones con recarga del
+	// SRD (como la telaraña de la araña gigante); los publicados las ignoran, como en el original.
+	if (jbool(m, "_ampliacion", false))
+	{
+		for (const Json& sp : jarr(m, "spells"))
+		{
+			const std::string sid = jstr(sp, "id", "");
+			if (sid.empty() || RulesDB::spell(sid).empty())
+			{
+				continue;
+			}
+			c.spell_ability[sid] = jstr(sp, "ability", "dex");
+			c.spell_source[sid] = "monster";
+			c.free_casts[sid] = jint(sp, "uses", 1);
+			if (jint(sp, "recharge", 0) > 0)
+			{
+				c.recharge[sid] = jint(sp, "recharge", 6);
+			}
+		}
+	}
 	return cp;
 }
 

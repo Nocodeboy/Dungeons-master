@@ -6,6 +6,7 @@
 //   --ver <n>       muestra hasta n diferencias por operación (por defecto 3)
 //   --op <op>       solo esa operación en el detalle
 //   --json <ruta>   guarda el resumen en JSON
+//   --oro <dir>     carpeta del oro (por defecto paridad/oro; las ampliaciones usan paridad/oro-ampliaciones)
 //
 // Cada petición grabada se reproduce con el mismo texto JSON y se clasifica la respuesta:
 //   idéntica     el mismo texto, byte a byte
@@ -32,9 +33,9 @@ const cli = opt('--cli', null);
 const ver = Number(opt('--ver', '3'));
 const soloOp = opt('--op', null);
 const salidaJson = opt('--json', null);
-const filtro = args[0] ?? '';
 
-const ORO = path.join(aqui, 'oro');
+const ORO = path.resolve(opt('--oro', path.join(aqui, 'oro')));
+const filtro = args[0] ?? '';
 const archivos = fs.readdirSync(ORO).filter((f) => /\.jsonl(\.gz)?$/.test(f) && f.includes(filtro)).sort();
 
 /** JSON con las claves ordenadas (para comparar sin orden de claves). */

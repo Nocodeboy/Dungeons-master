@@ -692,6 +692,56 @@ Var AIBrain::best_plan(Creature* c)
 			const double v_esc = p_ok * ((!adjacent || ranged_minded(c)) ? 6.0 : 2.5);
 			cands.push_back(Cand{v_esc, c->cell, vdict({{"kind", "escape"}}), 0.0});
 		}
+		// Ampliación: romper la telaraña de la araña gigante (la propia, o la de un aliado tras acercarse)
+		bool hay_tela = false;
+		for (Creature* x : b.allies_of(c))
+		{
+			hay_tela = hay_tela || x->has_effect("spider_web_srd");
+		}
+		if (hay_tela || c->has_effect("spider_web_srd"))
+		{
+			const Var mp = b.best_melee_profile(c);
+			const int bonus = mp.is_empty() ? c->mod("str") + c->prof_bonus : mp.geti("bonus");
+			double p_hit = Dice::p_success(bonus, 10);
+			if (c->has_condition("restrained"))
+			{
+				p_hit *= p_hit;
+			}
+			double dano = 0.0;
+			for (const Var& dd : mp.get("damage", Var::array()).arr())
+			{
+				dano += Dice::average(dd.get("dice").as_str());
+			}
+			const double p_romper = p_hit * std::min(1.0, std::max(1.0, dano) / 5.0);
+			// Lo que vale soltarlo: la ventaja que pierden los enemigos que lo tienen al lado (doble si
+			// pueden tumbarlo) y poder volver a moverse
+			const auto valor = [&](Creature* t) {
+				double v = 2.0 + (ranged_minded(t) ? 1.5 : 0.0);
+				for (Creature* e : b.enemies_of(t))
+				{
+					if (e->is_active() && BattleMap::dist(e->cell, t->cell) <= 1)
+					{
+						const double ap = attack_power(e);
+						v += 0.3 * ap * (t->hp <= 2.0 * ap ? 2.0 : 1.0);
+					}
+				}
+				return p_romper * v;
+			};
+			if (c->has_effect("spider_web_srd"))
+			{
+				cands.push_back(Cand{valor(c), c->cell, vdict({{"kind", "web"}, {"target", c->id}}), 0.0});
+			}
+			for (const Dest& d : dests)
+			{
+				for (Creature* ally : b.allies_of(c))
+				{
+					if (ally != c && ally->has_effect("spider_web_srd") && BattleMap::dist(d.cell, ally->cell) <= 1)
+					{
+						cands.push_back(Cand{valor(ally), d.cell, vdict({{"kind", "web"}, {"target", ally->id}}), 0.0});
+					}
+				}
+			}
+		}
 	}
 	// --- Ampliación: modo táctico de los compañeros (no cambia nada con el modo publicado)
 	if (modo == "tactico" && c->team == 0)
@@ -1063,6 +1113,11 @@ Var AIBrain::best_spell_use(Creature* c, const Var& s, const Cell& cell)
 			if (sid == "command" || sid == "hold_person")
 			{
 				v = pv.getf("control") * (2.0 + target_value(c, t)) - slot_cost_v;
+			}
+			else if (sid == "spider_web_srd")
+			{
+				// Ampliación (araña gigante): la telaraña vale más sobre lanzadores y los más peligrosos
+				v = pv.getf("control") * (2.5 + target_value(c, t)) - slot_cost_v;
 			}
 			else if (jstr(sp, "special", "") == "mark")
 			{
@@ -2675,6 +2730,10 @@ void AIBrain::execute(Creature* c, const Var& plan)
 	else if (kind == "escape")
 	{
 		b.do_escape(c);
+	}
+	else if (kind == "web")
+	{
+		b.break_web(c, b.get_creature(plan.gets("target")));
 	}
 	else if (kind == "stabilize")
 	{

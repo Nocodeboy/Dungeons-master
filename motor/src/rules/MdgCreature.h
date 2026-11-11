@@ -152,6 +152,8 @@ struct Creature
 	std::vector<int> slots;
 	/** Conjuro -> usos sin espacio. */
 	Dict<int> free_casts;
+	/** Ampliación: conjuro de monstruo -> mínimo del d6 para recargarlo al empezar su turno (Recarga 5-6). */
+	Dict<int> recharge;
 	Dict<int> resources;
 	Dict<int> resources_max;
 	Dict<int> items;
