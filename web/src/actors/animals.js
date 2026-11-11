@@ -14,7 +14,7 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLTF } from '../assets.js';
 import { Character } from './character.js';
 import { WILD_ANIMAL_CLIPS, FARM_ANIMAL_CLIPS } from './anims.js';
-import { Yn } from './appearance.js';
+import { seededRandom } from './appearance.js';
 import { addRimLight } from './materials.js';
 
 function uu(o) {
@@ -89,7 +89,7 @@ async function gv(o, { index: e = 0, tint: t = null } = {}) {
   let n = ANIMAL_DEFS[a],
     s = await loadGLTF(`assets/animals/${n.file}.json`),
     i = clone(s.scene),
-    r = Yn(e * 31 + a.length),
+    r = seededRandom(e * 31 + a.length),
     l = { ...(n.tint || {}), ...(t || {}) },
     c = 0.9 + r() * 0.2;
   if (
@@ -167,7 +167,7 @@ async function gv(o, { index: e = 0, tint: t = null } = {}) {
   );
 }
 function wander(o, e, { radius: t = 1.2, seed: a = 1, speed: n } = {}) {
-  let s = Yn(a),
+  let s = seededRandom(a),
     i = { mode: 'idle', t: 1 + s() * 4, home: e.clone(), radius: t },
     r = ['idle', 'eat', 'idle_alt', 'eat'];
   return (

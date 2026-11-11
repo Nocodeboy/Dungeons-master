@@ -1,7 +1,7 @@
 // actors/monsters.js
 // Reconstruido de publicado/juego.js (módulo __esm «pv»). Nombres locales aún minificados.
 
-import { Yn } from './appearance.js';
+import { seededRandom } from './appearance.js';
 
 function Wz(o, e) {
   let t = fi(o, $z);
@@ -44,7 +44,7 @@ function Wz(o, e) {
   };
 }
 function Xf(o, e = 0) {
-  let t = Yn(1e3 + e * 17 + o.length),
+  let t = seededRandom(1e3 + e * 17 + o.length),
     a = Wz(t, o);
   return (
     o === 'minion'
@@ -102,7 +102,7 @@ function Xf(o, e = 0) {
   );
 }
 function hv(o, e = 0) {
-  let t = Yn(2e3 + e * 13 + o.length),
+  let t = seededRandom(2e3 + e * 13 + o.length),
     a = fi(t, ['#d8ccae', '#cfc2a0', '#ddd2b8', '#c8bc9c']),
     n = {
       kind: 'monster',
@@ -170,7 +170,7 @@ function hv(o, e = 0) {
         };
 }
 function Xz(o = 0) {
-  let e = Yn(3e3 + o * 11);
+  let e = seededRandom(3e3 + o * 11);
   return {
     kind: 'monster',
     family: 'zombie',

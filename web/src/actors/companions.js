@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «vv»). Nombres locales aún minificados.
 
 import { shade, heroLook } from './look.js';
-import { Yn } from './appearance.js';
+import { seededRandom } from './appearance.js';
 
 function Jf(o, e = {}) {
   let t = COMPANIONS[o];
@@ -17,7 +17,7 @@ function tL(o, e) {
   return (e.posture && (o.posture = { ...(o.posture || {}), ...e.posture }), o);
 }
 function aL(o) {
-  let e = Yn(o),
+  let e = seededRandom(o),
     t = (r) => r[Math.floor(e() * r.length)],
     a = e() < 0.5 ? 'f' : 'm',
     n = t(['human', 'human', 'human', 'human', 'halfling', 'dwarf', 'half_elf']),

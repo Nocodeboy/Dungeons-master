@@ -20,7 +20,7 @@ import { makeGearMaterial } from './materials.js';
 import { paint, mergeParts, mat } from './geometry.js';
 import { taperedTube } from './sculpt.js';
 import { Character } from './character.js';
-import { Yn } from './appearance.js';
+import { seededRandom } from './appearance.js';
 
 function Kz(o) {
   let e = [],
@@ -76,7 +76,7 @@ function Kz(o) {
         { color: o.leg },
       ),
     );
-  let n = Yn(77);
+  let n = seededRandom(77);
   for (let s = 0; s < 40; s++) {
     let i = n() * Math.PI * 2,
       r = n() * 0.9,
@@ -119,7 +119,7 @@ function Jz(o) {
         matrix: mat.mul(mat.T(0, 0.05, -1.13), mat.R(-90, 0, 0)),
       }),
     ));
-  let l = Yn(91);
+  let l = seededRandom(91);
   for (let c = 0; c < 70; c++) {
     let d = l() * Math.PI * 2,
       u = l() * 1.3,
@@ -174,7 +174,7 @@ function du(o, e) {
   );
 }
 async function cT({ index: o = 0, scale: e = 1 } = {}) {
-  let t = Yn(500 + o * 7),
+  let t = seededRandom(500 + o * 7),
     a = {
       body: ['#2a221c', '#30261e', '#241e1a'][o % 3],
       leg: ['#3a2e24', '#40342a', '#342a22'][o % 3],
