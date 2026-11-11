@@ -16,299 +16,318 @@ import {
 function opcionesGrupo() {
   return { width: '80rem', height: '50rem' };
 }
-function pantallaGrupo(o, e, t, a) {
-  let n = t.R,
-    s = () => a.store.cp,
-    i = screenFrame(o, { title: 'Fichas del grupo', ic: 'person' });
-  if ((i.body.classList.add('mg-fill'), !s())) {
-    i.body.innerHTML = `<div class="mg-vacio">${iconHtml('person')}No hay ninguna partida en curso.</div>`;
+function pantallaGrupo(screen, params, ui, game) {
+  let rules = ui.R,
+    currentCp = () => game.store.cp,
+    frame = screenFrame(screen, { title: 'Fichas del grupo', ic: 'person' });
+  if ((frame.body.classList.add('mg-fill'), !currentCp())) {
+    frame.body.innerHTML = `<div class="mg-vacio">${iconHtml('person')}No hay ninguna partida en curso.</div>`;
     return;
   }
-  let r = n.partySummary(),
-    l = r.some((p) => p.id === e.who) ? e.who : r[0]?.id,
-    c = (() => {
+  let party = rules.partySummary(),
+    selected = party.some((member) => member.id === params.who) ? params.who : party[0]?.id,
+    companions = (() => {
       try {
-        return a.story?.companions?.() || [];
+        return game.story?.companions?.() || [];
       } catch {
         return [];
       }
     })(),
-    d = makeTabs(
-      r.map((p) => ({
-        id: p.id,
-        html: `<span class="mg-memtab">${faceBadge(t.portrait(p.id), { id: p.id, name: p.name, ic: CLASS_ICONS[p.class] || 'person' }).outerHTML}<span>${escapeHtml(p.short_name || String(p.name).split(' ')[0])}</span></span>`,
+    tabs = makeTabs(
+      party.map((member) => ({
+        id: member.id,
+        html: `<span class="mg-memtab">${faceBadge(ui.portrait(member.id), { id: member.id, name: member.name, ic: CLASS_ICONS[member.class] || 'person' }).outerHTML}<span>${escapeHtml(member.short_name || String(member.name).split(' ')[0])}</span></span>`,
       })),
-      l,
-      (p) => {
-        ((l = p), h());
+      selected,
+      (id) => {
+        ((selected = id), render());
       },
     );
-  ((i.tabs.hidden = !1),
-    i.tabs.append(d),
-    (i.foot.hidden = !1),
-    i.foot.append(
+  ((frame.tabs.hidden = !1),
+    frame.tabs.append(tabs),
+    (frame.foot.hidden = !1),
+    frame.foot.append(
       makeButton('Inventario', {
         icon: 'backpack',
-        onclick: () => t.open('inventario', { who: l }),
+        onclick: () => ui.open('inventario', { who: selected }),
         key: 'I',
       }),
     ));
-  let u = elem('div.mg-sheet.mg-scroll', { style: 'overflow-y:auto' });
-  i.body.append(u);
-  function h() {
-    let p = r.find((D) => D.id === l);
-    if (((u.innerHTML = ''), !p)) return;
-    let m = elem('div.mg-col'),
-      _ = elem('div.mg-sheet-head');
-    _.append(
-      faceBadge(t.portrait(p.id), {
-        id: p.id,
-        name: p.name,
-        ic: CLASS_ICONS[p.class] || 'person',
+  let sheet = elem('div.mg-sheet.mg-scroll', { style: 'overflow-y:auto' });
+  frame.body.append(sheet);
+  function render() {
+    let member = party.find((row) => row.id === selected);
+    if (((sheet.innerHTML = ''), !member)) return;
+    let mainCol = elem('div.mg-col'),
+      head = elem('div.mg-sheet-head');
+    head.append(
+      faceBadge(ui.portrait(member.id), {
+        id: member.id,
+        name: member.name,
+        ic: CLASS_ICONS[member.class] || 'person',
         cls: 'mg-sheet-face',
       }),
     );
-    let b = [
-      p.species_name,
-      `${p.class_name || ''}${p.subclass_name ? ` (${p.subclass_name})` : ''}`,
-      `nivel ${p.level}`,
+    let subLine = [
+      member.species_name,
+      `${member.class_name || ''}${member.subclass_name ? ` (${member.subclass_name})` : ''}`,
+      `nivel ${member.level}`,
     ]
       .filter(Boolean)
       .join(' \xB7 ');
-    (_.append(
+    (head.append(
       elem(
         'div',
-        elem('div.mg-sheet-name', p.name),
-        elem('div.mg-sheet-sub', b),
-        p.background_name ? elem('div.mg-sheet-sub', p.background_name) : null,
-        p.title ? elem('div.mg-sheet-title', p.title) : null,
+        elem('div.mg-sheet-name', member.name),
+        elem('div.mg-sheet-sub', subLine),
+        member.background_name ? elem('div.mg-sheet-sub', member.background_name) : null,
+        member.title ? elem('div.mg-sheet-title', member.title) : null,
       ),
     ),
-      m.append(_));
-    let f = c.find((D) => D.id === p.id),
-      v = f?.approval ?? (p.id !== 'hero' ? a.story?.approval?.(p.id) : null);
-    if (v != null && p.id !== 'hero') {
-      let D = Math.max(-100, Math.min(100, Number(v) || 0)),
-        M = elem('div.mg-col', { style: 'gap:.25rem' });
-      (M.append(
+      mainCol.append(head));
+    let companion = companions.find((entry) => entry.id === member.id),
+      approval = companion?.approval ?? (member.id !== 'hero' ? game.story?.approval?.(member.id) : null);
+    if (approval != null && member.id !== 'hero') {
+      let score = Math.max(-100, Math.min(100, Number(approval) || 0)),
+        meter = elem('div.mg-col', { style: 'gap:.25rem' });
+      (meter.append(
         elem(
           'div.mg-row-flex',
           { style: 'justify-content:space-between' },
           elem('span.mg-label', 'Opini\xF3n del grupo'),
-          elem('span.mg-num.mg-small', `${D > 0 ? '+' : ''}${D}`),
+          elem('span.mg-num.mg-small', `${score > 0 ? '+' : ''}${score}`),
         ),
       ),
-        M.append(
+        meter.append(
           elem('div.mg-approval', {
-            html: `<i style="left:${(D + 100) / 2}%"></i>`,
+            html: `<i style="left:${(score + 100) / 2}%"></i>`,
             role: 'meter',
             'aria-valuemin': '-100',
             'aria-valuemax': '100',
-            'aria-valuenow': String(D),
+            'aria-valuenow': String(score),
             'aria-label': 'Aprobaci\xF3n',
           }),
         ),
-        M.append(elem('div.mg-mood', f?.mood || RL(D))),
-        m.append(M));
+        meter.append(elem('div.mg-mood', companion?.mood || moodText(score))),
+        mainCol.append(meter));
     }
-    let x = elem('div.mg-stats'),
-      g = (D, M, R) => {
-        let A = elem('span.mg-stat', elem('b.mg-num', String(D)), elem('span', M));
-        (setTip(A, R), x.append(A));
+    let stats = elem('div.mg-stats'),
+      addStat = (value, label, tip) => {
+        let stat = elem('span.mg-stat', elem('b.mg-num', String(value)), elem('span', label));
+        (setTip(stat, tip), stats.append(stat));
       };
-    (g(p.ac, 'CA', {
+    (addStat(member.ac, 'CA', {
       title: 'Clase de Armadura',
-      body: (p.ac_parts || []).join(' \xB7 ') || 'Lo dif\xEDcil que es acertarte.',
+      body: (member.ac_parts || []).join(' \xB7 ') || 'Lo dif\xEDcil que es acertarte.',
     }),
-      g(`${p.hp}/${p.max_hp}`, 'PG', {
+      addStat(`${member.hp}/${member.max_hp}`, 'PG', {
         title: 'Puntos de golpe',
-        body: p.temp_hp ? `M\xE1s ${p.temp_hp} temporales.` : 'Si llegan a 0, caes inconsciente.',
+        body: member.temp_hp ? `M\xE1s ${member.temp_hp} temporales.` : 'Si llegan a 0, caes inconsciente.',
       }),
-      g(
-        p.speed_text || `${String((p.speed || 30) * 0.3).replace('.', ',')} m`,
+      addStat(
+        member.speed_text || `${String((member.speed || 30) * 0.3).replace('.', ',')} m`,
         'Velocidad',
         'Lo que avanzas en un turno.',
       ),
-      g(signed(p.initiative || 0), 'Iniciativa', 'Se suma a la tirada de iniciativa al empezar un combate.'),
-      m.append(x));
-    let y = elem('div.mg-abs');
-    for (let [D, M] of Object.entries(p.abilities || {})) {
-      let R = elem(
-        `span.mg-ab${M.save_prof ? '.prim' : ''}`,
-        elem('span.mg-ab-n', ABILITY_ABBR[D] || M.short || D.toUpperCase()),
-        elem('span.mg-ab-v.mg-num', String(M.score)),
-        elem('span.mg-ab-m', signed(M.mod)),
-        elem(`span.mg-ab-s${M.save_prof ? '.prof' : ''}`, `Salv. ${signed(M.save)}`),
+      addStat(
+        signed(member.initiative || 0),
+        'Iniciativa',
+        'Se suma a la tirada de iniciativa al empezar un combate.',
+      ),
+      mainCol.append(stats));
+    let abilities = elem('div.mg-abs');
+    for (let [key, ability] of Object.entries(member.abilities || {})) {
+      let box = elem(
+        `span.mg-ab${ability.save_prof ? '.prim' : ''}`,
+        elem('span.mg-ab-n', ABILITY_ABBR[key] || ability.short || key.toUpperCase()),
+        elem('span.mg-ab-v.mg-num', String(ability.score)),
+        elem('span.mg-ab-m', signed(ability.mod)),
+        elem(`span.mg-ab-s${ability.save_prof ? '.prof' : ''}`, `Salv. ${signed(ability.save)}`),
       );
-      (setTip(R, {
-        title: ABILITY_NAMES[D] || M.name || D,
-        body: ABILITY_HINTS[D] || '',
-        foot: M.save_prof ? 'Competente en sus salvaciones.' : '',
+      (setTip(box, {
+        title: ABILITY_NAMES[key] || ability.name || key,
+        body: ABILITY_HINTS[key] || '',
+        foot: ability.save_prof ? 'Competente en sus salvaciones.' : '',
       }),
-        y.append(R));
+        abilities.append(box));
     }
-    m.append(y);
-    let w = p.passive || {};
-    (m.append(
+    mainCol.append(abilities);
+    let passive = member.passive || {};
+    (mainCol.append(
       elem(
         'dl.mg-kv',
         elem('dt', 'Bonificador de competencia'),
-        elem('dd', signed(p.prof || 2)),
+        elem('dd', signed(member.prof || 2)),
         elem('dt', 'Percepci\xF3n pasiva'),
-        elem('dd', String(w.perception ?? '\u2014')),
+        elem('dd', String(passive.perception ?? '\u2014')),
         elem('dt', 'Investigaci\xF3n pasiva'),
-        elem('dd', String(w.investigation ?? '\u2014')),
+        elem('dd', String(passive.investigation ?? '\u2014')),
         elem('dt', 'Perspicacia pasiva'),
-        elem('dd', String(w.insight ?? '\u2014')),
-        p.darkvision ? elem('dt', 'Visi\xF3n en la oscuridad') : null,
-        p.darkvision ? elem('dd', p.darkvision_text || `${p.darkvision} pies`) : null,
+        elem('dd', String(passive.insight ?? '\u2014')),
+        member.darkvision ? elem('dt', 'Visi\xF3n en la oscuridad') : null,
+        member.darkvision ? elem('dd', member.darkvision_text || `${member.darkvision} pies`) : null,
         elem('dt', 'Dados de golpe'),
         elem(
           'dd',
-          `${p.hit_dice?.cur ?? '\u2014'} / ${p.hit_dice?.max ?? '\u2014'} (d${String(p.hit_dice?.die ?? '?').replace(/^d/, '')})`,
+          `${member.hit_dice?.cur ?? '\u2014'} / ${member.hit_dice?.max ?? '\u2014'} (d${String(member.hit_dice?.die ?? '?').replace(/^d/, '')})`,
         ),
       ),
     ),
-      (p.conditions || []).length &&
-        m.append(elem('p.mg-magia', (p.conditions || []).map(conditionName).join(' \xB7 '))));
-    let k = elem('div.mg-col');
-    k.append(elem('h3.mg-sec', 'Habilidades'));
-    let T = elem('div.mg-skill-list');
-    for (let D of p.skills || []) {
-      let M = elem(
-        `div.mg-skill${D.expert ? '.expert' : D.prof ? '.prof' : ''}${D.adv ? '.adv' : ''}`,
+      (member.conditions || []).length &&
+        mainCol.append(elem('p.mg-magia', (member.conditions || []).map(conditionName).join(' \xB7 '))));
+    let skillsCol = elem('div.mg-col');
+    skillsCol.append(elem('h3.mg-sec', 'Habilidades'));
+    let skillList = elem('div.mg-skill-list');
+    for (let skill of member.skills || []) {
+      let row = elem(
+        `div.mg-skill${skill.expert ? '.expert' : skill.prof ? '.prof' : ''}${skill.adv ? '.adv' : ''}`,
         elem('i'),
-        elem('span', D.name),
-        elem('small', D.ability_short || ''),
-        elem('b.mg-num', signed(D.mod)),
+        elem('span', skill.name),
+        elem('small', skill.ability_short || ''),
+        elem('b.mg-num', signed(skill.mod)),
       );
-      (setTip(M, {
-        title: D.name,
-        sub: D.ability_short,
-        body: D.expert
+      (setTip(row, {
+        title: skill.name,
+        sub: skill.ability_short,
+        body: skill.expert
           ? 'Pericia: duplica el bonificador por competencia.'
-          : D.prof
+          : skill.prof
             ? 'Competente.'
             : 'Sin competencia.',
       }),
-        T.append(M));
+        skillList.append(row));
     }
-    if ((k.append(T), (p.attacks || []).length)) {
-      k.append(elem('h3.mg-sec', 'Ataques'));
-      let D = elem('div.mg-inv-atk');
-      for (let M of p.attacks) {
-        let R = elem(
+    if ((skillsCol.append(skillList), (member.attacks || []).length)) {
+      skillsCol.append(elem('h3.mg-sec', 'Ataques'));
+      let attackList = elem('div.mg-inv-atk');
+      for (let attack of member.attacks) {
+        let row = elem(
           'div',
-          elem('b', M.name),
-          elem('span', `${M.to_hit_text ?? signed(M.to_hit)} \xB7 ${M.damage}`),
+          elem('b', attack.name),
+          elem('span', `${attack.to_hit_text ?? signed(attack.to_hit)} \xB7 ${attack.damage}`),
         );
-        (setTip(R, {
-          title: M.name,
+        (setTip(row, {
+          title: attack.name,
           body:
             [
-              M.range ? `Alcance: ${M.range}` : '',
-              M.mastery ? `Maestr\xEDa: ${M.mastery}` : '',
-              M.ammo != null ? `Munici\xF3n: ${M.ammo}` : '',
+              attack.range ? `Alcance: ${attack.range}` : '',
+              attack.mastery ? `Maestr\xEDa: ${attack.mastery}` : '',
+              attack.ammo != null ? `Munici\xF3n: ${attack.ammo}` : '',
             ].filter(Boolean).join(`
 `) || 'Ataque con arma.',
         }),
-          D.append(R));
+          attackList.append(row));
       }
-      k.append(D);
+      skillsCol.append(attackList);
     }
-    ((p.languages || []).length || (p.tools || []).length) &&
-      k.append(
+    ((member.languages || []).length || (member.tools || []).length) &&
+      skillsCol.append(
         elem('h3.mg-sec', 'Idiomas y herramientas'),
-        elem('p.mg-p.mg-small', [...(p.languages || []), ...(p.tools || [])].join(', ')),
+        elem('p.mg-p.mg-small', [...(member.languages || []), ...(member.tools || [])].join(', ')),
       );
-    let E = elem('div.mg-col.c3'),
-      S = p.spells;
-    if (S) {
-      (E.append(elem('h3.mg-sec', 'Conjuros')),
-        E.append(
+    let magicCol = elem('div.mg-col.c3'),
+      spells = member.spells;
+    if (spells) {
+      (magicCol.append(elem('h3.mg-sec', 'Conjuros')),
+        magicCol.append(
           elem(
             'p.mg-small.mg-dim',
             { style: 'margin:0' },
-            `${S.ability_name || ''} \xB7 CD ${S.dc} \xB7 ataque ${signed(S.attack)}`,
+            `${spells.ability_name || ''} \xB7 CD ${spells.dc} \xB7 ataque ${signed(spells.attack)}`,
           ),
         ));
-      for (let M of S.slots || []) {
-        let R = elem('div.mg-slots-row', elem('span.mg-small', `Nivel ${M.level}:`));
-        for (let A = 0; A < M.max; A++)
-          R.append(
-            elem(`span.mg-pip${A >= M.cur ? '.gastado' : ''}`, {
-              title: A < M.cur ? 'Disponible' : 'Gastado',
+      for (let slot of spells.slots || []) {
+        let row = elem('div.mg-slots-row', elem('span.mg-small', `Nivel ${slot.level}:`));
+        for (let pip = 0; pip < slot.max; pip++)
+          row.append(
+            elem(`span.mg-pip${pip >= slot.cur ? '.gastado' : ''}`, {
+              title: pip < slot.cur ? 'Disponible' : 'Gastado',
             }),
           );
-        E.append(R);
+        magicCol.append(row);
       }
-      let D = (M) => {
-        let R = elem('div.mg-cr-chips');
-        for (let A of M || []) {
-          let P = elem('span.mg-chip', { html: `${iconHtml(A.icon || 'magic')}${escapeHtml(A.name)}` });
-          (setTip(P, {
-            title: A.name,
-            sub: `${A.level ? `Nivel ${A.level}` : 'Truco'}${A.school_name ? ` \xB7 ${A.school_name}` : ''}`,
-            body: A.desc || '',
-            tags: (A.tags || []).map((I) => SPELL_ROLES[I]).filter(Boolean),
+      let spellChips = (list) => {
+        let chips = elem('div.mg-cr-chips');
+        for (let spell of list || []) {
+          let chip = elem('span.mg-chip', {
+            html: `${iconHtml(spell.icon || 'magic')}${escapeHtml(spell.name)}`,
+          });
+          (setTip(chip, {
+            title: spell.name,
+            sub: `${spell.level ? `Nivel ${spell.level}` : 'Truco'}${spell.school_name ? ` \xB7 ${spell.school_name}` : ''}`,
+            body: spell.desc || '',
+            tags: (spell.tags || []).map((tag) => SPELL_ROLES[tag]).filter(Boolean),
           }),
-            R.append(P));
+            chips.append(chip));
         }
-        return R;
+        return chips;
       };
-      (S.cantrips?.length && E.append(elem('div.mg-label', 'Trucos'), D(S.cantrips)),
-        S.prepared?.length && E.append(elem('div.mg-label', 'Preparados'), D(S.prepared)));
+      (spells.cantrips?.length &&
+        magicCol.append(elem('div.mg-label', 'Trucos'), spellChips(spells.cantrips)),
+        spells.prepared?.length &&
+          magicCol.append(elem('div.mg-label', 'Preparados'), spellChips(spells.prepared)));
     }
-    let z = [
-      ...(p.features || []),
-      ...(p.traits || []).filter((D) => typeof D == 'object'),
-      ...(p.feats || []),
+    let features = [
+      ...(member.features || []),
+      ...(member.traits || []).filter((trait) => typeof trait == 'object'),
+      ...(member.feats || []),
     ];
-    if (z.length) {
-      E.append(elem('h3.mg-sec', 'Rasgos y dotes'));
-      let D = elem('div'),
-        M = new Set();
-      for (let R of z) {
-        if (M.has(R.id)) continue;
-        M.add(R.id);
-        let A = p.resources?.[R.id],
-          P = R.uses != null && R.max != null ? `${R.uses}/${R.max}` : A ? `${A.cur}/${A.max}` : '';
-        D.append(
+    if (features.length) {
+      magicCol.append(elem('h3.mg-sec', 'Rasgos y dotes'));
+      let featureList = elem('div'),
+        seen = new Set();
+      for (let feature of features) {
+        if (seen.has(feature.id)) continue;
+        seen.add(feature.id);
+        let resource = member.resources?.[feature.id],
+          uses =
+            feature.uses != null && feature.max != null
+              ? `${feature.uses}/${feature.max}`
+              : resource
+                ? `${resource.cur}/${resource.max}`
+                : '';
+        featureList.append(
           elem(
             'div.mg-feature',
-            elem('b', R.name),
-            P ? elem('em', P) : null,
-            R.desc ? elem('span', R.desc) : null,
+            elem('b', feature.name),
+            uses ? elem('em', uses) : null,
+            feature.desc ? elem('span', feature.desc) : null,
           ),
         );
       }
-      E.append(D);
+      magicCol.append(featureList);
     }
-    u.append(m, k, E);
+    sheet.append(mainCol, skillsCol, magicCol);
   }
   return (
-    h(),
+    render(),
     {
-      onKey(p) {
-        if (p.key.toLowerCase() === 'p' && !p.target.closest?.('input,textarea')) return (o.close(null), !0);
-        if ((p.key === 'ArrowLeft' || p.key === 'ArrowRight') && !p.target.closest?.('.mg-tabs')) {
-          let m = r.map((b) => b.id),
-            _ = m.indexOf(l);
-          return ((l = m[(_ + (p.key === 'ArrowRight' ? 1 : m.length - 1)) % m.length]), d.set(l), h(), !0);
+      onKey(ev) {
+        if (ev.key.toLowerCase() === 'p' && !ev.target.closest?.('input,textarea'))
+          return (screen.close(null), !0);
+        if ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && !ev.target.closest?.('.mg-tabs')) {
+          let ids = party.map((member) => member.id),
+            index = ids.indexOf(selected);
+          return (
+            (selected = ids[(index + (ev.key === 'ArrowRight' ? 1 : ids.length - 1)) % ids.length]),
+            tabs.set(selected),
+            render(),
+            !0
+          );
         }
         return !1;
       },
     }
   );
 }
-const RL = (o) =>
-  o >= 60
+const moodText = (score) =>
+  score >= 60
     ? 'Os aprecia de verdad.'
-    : o >= 25
+    : score >= 25
       ? 'Est\xE1 a gusto en el grupo.'
-      : o > -25
+      : score > -25
         ? 'Os observa sin decidirse.'
-        : o > -50
+        : score > -50
           ? 'Empieza a dudar de vosotros.'
           : 'Est\xE1 a punto de marcharse.';
 

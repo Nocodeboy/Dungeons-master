@@ -10,448 +10,484 @@ import { RARITIES, ITEM_KINDS, CLASS_ICONS } from '../labels.js';
 function opcionesInventario() {
   return { width: '78rem', height: '48rem' };
 }
-function pantallaInventario(o, e, t, a) {
-  let n = t.R,
-    s = () => a.store.cp;
-  if (!s()) {
-    let A = screenFrame(o, { title: 'Inventario', ic: 'backpack' });
-    A.body.innerHTML = `<div class="mg-vacio">${iconHtml('backpack')}No hay ninguna partida en curso.</div>`;
+function pantallaInventario(screen, params, ui, game) {
+  let rules = ui.R,
+    currentCp = () => game.store.cp;
+  if (!currentCp()) {
+    let emptyFrame = screenFrame(screen, { title: 'Inventario', ic: 'backpack' });
+    emptyFrame.body.innerHTML = `<div class="mg-vacio">${iconHtml('backpack')}No hay ninguna partida en curso.</div>`;
     return;
   }
-  let i = s().party.includes(e.who) ? e.who : s().party[0],
-    r = null,
-    l = 'equipo',
-    c = null,
-    d = elem('span.mg-gold'),
-    u = screenFrame(o, { title: 'Inventario', ic: 'backpack', extra: null });
-  u.head.insertBefore(d, u.head.querySelector('.mg-cerrar'));
-  let h = () =>
-      s().party.map((A) => {
-        let P = s().members[A] || {};
-        return { id: A, label: String(P.name || A).split(' ')[0], cls: P.class };
+  let who = currentCp().party.includes(params.who) ? params.who : currentCp().party[0],
+    picked = null,
+    pane = 'equipo',
+    inv = null,
+    goldEl = elem('span.mg-gold'),
+    frame = screenFrame(screen, { title: 'Inventario', ic: 'backpack', extra: null });
+  frame.head.insertBefore(goldEl, frame.head.querySelector('.mg-cerrar'));
+  let members = () =>
+      currentCp().party.map((id) => {
+        let member = currentCp().members[id] || {};
+        return { id, label: String(member.name || id).split(' ')[0], cls: member.class };
       }),
-    p = makeTabs(
-      h().map((A) => ({ id: A.id, html: m(A) })),
-      i,
-      (A) => {
-        ((i = A), (r = null), R());
+    memberTabs = makeTabs(
+      members().map((member) => ({ id: member.id, html: memberTabHtml(member) })),
+      who,
+      (id) => {
+        ((who = id), (picked = null), refresh());
       },
     );
-  function m(A) {
-    return `<span class="mg-memtab">${faceBadge(t.portrait(A.id), { id: A.id, name: A.label, ic: CLASS_ICONS[A.cls] || 'person' }).outerHTML}<span>${escapeHtml(A.label)}</span></span>`;
+  function memberTabHtml(member) {
+    return `<span class="mg-memtab">${faceBadge(ui.portrait(member.id), { id: member.id, name: member.label, ic: CLASS_ICONS[member.cls] || 'person' }).outerHTML}<span>${escapeHtml(member.label)}</span></span>`;
   }
-  ((u.tabs.hidden = !1), u.tabs.append(p));
-  let _ = makeTabs(
+  ((frame.tabs.hidden = !1), frame.tabs.append(memberTabs));
+  let paneTabs = makeTabs(
       [
         { id: 'equipo', label: 'Equipo', icon: 'armor' },
         { id: 'detalle', label: 'Detalle', icon: 'info' },
         { id: 'mochila', label: 'Mochila', icon: 'backpack' },
       ],
-      l,
-      (A) => {
-        l = A;
-        for (let P of b.querySelectorAll('.pane')) P.classList.toggle('on', P.dataset.pane === A);
+      pane,
+      (id) => {
+        pane = id;
+        for (let paneEl of panes.querySelectorAll('.pane'))
+          paneEl.classList.toggle('on', paneEl.dataset.pane === id);
       },
       { cls: 'mg-panes-tabs' },
     ),
-    b = elem('div.mg-inv'),
-    f = elem('section.pane.mg-inv-col', { 'data-pane': 'equipo' }),
-    v = elem('section.pane.mg-inv-mid', { 'data-pane': 'detalle' }),
-    x = elem('section.pane.mg-inv-col', { 'data-pane': 'mochila' });
-  (b.append(f, v, x),
-    f.classList.add('on'),
-    (u.body.style.gridTemplateRows = 'auto minmax(0, 1fr)'),
-    (_.style.gridRow = '1'),
-    (b.style.gridRow = '2'),
-    u.body.append(_, b));
-  function g() {
-    let A = n.inv(i);
-    return !A || A.error ? ((c = null), A?.error || 'sin respuesta') : ((c = A), null);
+    panes = elem('div.mg-inv'),
+    equipPane = elem('section.pane.mg-inv-col', { 'data-pane': 'equipo' }),
+    detailPane = elem('section.pane.mg-inv-mid', { 'data-pane': 'detalle' }),
+    bagPane = elem('section.pane.mg-inv-col', { 'data-pane': 'mochila' });
+  (panes.append(equipPane, detailPane, bagPane),
+    equipPane.classList.add('on'),
+    (frame.body.style.gridTemplateRows = 'auto minmax(0, 1fr)'),
+    (paneTabs.style.gridRow = '1'),
+    (panes.style.gridRow = '2'),
+    frame.body.append(paneTabs, panes));
+  function loadInv() {
+    let res = rules.inv(who);
+    return !res || res.error ? ((inv = null), res?.error || 'sin respuesta') : ((inv = res), null);
   }
-  function y() {
-    ((f.innerHTML = ''), f.append(elem('h3.mg-sec', 'Equipo')));
-    let A = elem('div.mg-doll.mg-inset');
-    for (let [I, U, j] of wL) {
-      let X = c.slots?.[I] || { key: I, label: U, empty: !0 },
-        J = X.empty || !X.id,
-        Z = elem(`button.mg-slot.s-${I.replace(':', '')}`, {
-          'data-slot': I,
-          'aria-pressed': String(r?.where === 'slot' && r.key === I),
-          'aria-label': `${U}: ${J ? 'vac\xEDo' : X.name}`,
+  function renderEquip() {
+    ((equipPane.innerHTML = ''), equipPane.append(elem('h3.mg-sec', 'Equipo')));
+    let doll = elem('div.mg-doll.mg-inset');
+    for (let [slotKey, label, icon] of DOLL_SLOTS) {
+      let slot = inv.slots?.[slotKey] || { key: slotKey, label, empty: !0 },
+        empty = slot.empty || !slot.id,
+        button = elem(`button.mg-slot.s-${slotKey.replace(':', '')}`, {
+          'data-slot': slotKey,
+          'aria-pressed': String(picked?.where === 'slot' && picked.key === slotKey),
+          'aria-label': `${label}: ${empty ? 'vac\xEDo' : slot.name}`,
         });
-      (J ? Z.classList.add('vacio') : Z.classList.add(...[rarityClass(X)].filter(Boolean)),
-        (Z.innerHTML = `${iconHtml(J ? j : itemIcon(X))}<span class="mg-slot-n">${escapeHtml(J ? '' : X.name)}</span><span class="mg-slot-l">${escapeHtml(U)}</span>`),
-        J || setTip(Z, itemTip(t, X)),
-        Z.addEventListener('click', () => {
-          Z._dragged ||
-            ((r = { where: 'slot', key: I }),
-            matchMedia('(max-width: 860px)').matches && !J && (_.set('detalle'), (l = 'detalle'), D()),
-            M());
+      (empty ? button.classList.add('vacio') : button.classList.add(...[rarityClass(slot)].filter(Boolean)),
+        (button.innerHTML = `${iconHtml(empty ? icon : itemIcon(slot))}<span class="mg-slot-n">${escapeHtml(empty ? '' : slot.name)}</span><span class="mg-slot-l">${escapeHtml(label)}</span>`),
+        empty || setTip(button, itemTip(ui, slot)),
+        button.addEventListener('click', () => {
+          button._dragged ||
+            ((picked = { where: 'slot', key: slotKey }),
+            matchMedia('(max-width: 860px)').matches &&
+              !empty &&
+              (paneTabs.set('detalle'), (pane = 'detalle'), showPane()),
+            render());
         }),
-        J || S(Z, { from: 'slot', key: I, item: X }),
-        A.append(Z));
+        empty || makeDraggable(button, { from: 'slot', key: slotKey, item: slot }),
+        doll.append(button));
     }
-    let P = elem('div.mg-doll-extra');
-    for (let I of c.ammo || [])
-      P.append(
-        elem('span.mg-chip', { html: `${iconHtml('quiver')}${escapeHtml(I.name)} ${escapeHtml(I.n)}` }),
+    let extra = elem('div.mg-doll-extra');
+    for (let ammo of inv.ammo || [])
+      extra.append(
+        elem('span.mg-chip', { html: `${iconHtml('quiver')}${escapeHtml(ammo.name)} ${escapeHtml(ammo.n)}` }),
       );
-    (c.attuned &&
-      P.append(
+    (inv.attuned &&
+      extra.append(
         elem(
           'span.mg-chip',
           { title: 'Objetos m\xE1gicos que requieren sinton\xEDa' },
-          `Sinton\xEDa ${c.attuned.n}/${c.attuned.max}`,
+          `Sinton\xEDa ${inv.attuned.n}/${inv.attuned.max}`,
         ),
       ),
-      A.append(P),
-      f.append(A));
+      doll.append(extra),
+      equipPane.append(doll));
   }
-  function w() {
-    v.innerHTML = '';
-    let A = c.stats || {},
-      P = elem('div.mg-inv-stats.mg-inset'),
-      I = elem('div.mg-stats');
-    for (let [j, X, J] of [
-      [A.ac, 'CA', 'Clase de Armadura'],
-      [`${A.hp ?? '\u2014'}/${A.max_hp ?? '\u2014'}`, 'PG', 'Puntos de golpe'],
-      [A.speed_text || '', 'Velocidad', 'Velocidad'],
+  function renderStats() {
+    detailPane.innerHTML = '';
+    let stats = inv.stats || {},
+      box = elem('div.mg-inv-stats.mg-inset'),
+      statsRow = elem('div.mg-stats');
+    for (let [value, label, tip] of [
+      [stats.ac, 'CA', 'Clase de Armadura'],
+      [`${stats.hp ?? '\u2014'}/${stats.max_hp ?? '\u2014'}`, 'PG', 'Puntos de golpe'],
+      [stats.speed_text || '', 'Velocidad', 'Velocidad'],
     ]) {
-      let Z = elem('span.mg-stat', elem('b.mg-num', String(j ?? '\u2014')), elem('span', X));
-      (setTip(Z, J), I.append(Z));
+      let stat = elem('span.mg-stat', elem('b.mg-num', String(value ?? '\u2014')), elem('span', label));
+      (setTip(stat, tip), statsRow.append(stat));
     }
-    P.append(I);
-    let U = elem('div.mg-inv-atk');
-    for (let j of A.attacks || [])
-      U.append(
-        elem('div', elem('b', j.name), elem('span', `${j.to_hit_text ?? signed(j.to_hit)} \xB7 ${j.damage}`)),
+    box.append(statsRow);
+    let attacks = elem('div.mg-inv-atk');
+    for (let attack of stats.attacks || [])
+      attacks.append(
+        elem(
+          'div',
+          elem('b', attack.name),
+          elem('span', `${attack.to_hit_text ?? signed(attack.to_hit)} \xB7 ${attack.damage}`),
+        ),
       );
-    ((A.attacks || []).length && P.append(elem('div.mg-label', { style: 'margin-top:.2rem' }, 'Ataques'), U),
-      v.append(P, T()));
+    ((stats.attacks || []).length &&
+      box.append(elem('div.mg-label', { style: 'margin-top:.2rem' }, 'Ataques'), attacks),
+      detailPane.append(box, itemDetail()));
   }
-  function k() {
-    if (!r) return null;
-    if (r.where === 'slot') {
-      let P = c.slots?.[r.key];
-      return P && !P.empty && P.id ? { ...P, where: 'slot' } : null;
+  function pickedItem() {
+    if (!picked) return null;
+    if (picked.where === 'slot') {
+      let slot = inv.slots?.[picked.key];
+      return slot && !slot.empty && slot.id ? { ...slot, where: 'slot' } : null;
     }
-    let A = c.bag?.[r.i];
-    return A ? { ...A, bagIndex: r.i } : null;
+    let entry = inv.bag?.[picked.i];
+    return entry ? { ...entry, bagIndex: picked.i } : null;
   }
-  function T() {
-    let A = elem('div.mg-inv-detail.mg-inset.mg-scroll'),
-      P = k();
-    if (!P)
+  function itemDetail() {
+    let box = elem('div.mg-inv-detail.mg-inset.mg-scroll'),
+      item = pickedItem();
+    if (!item)
       return (
-        (A.innerHTML = `<div class="mg-vacio">${iconHtml('hand')}<span>Toca un objeto para ver qu\xE9 hace.<br>${matchMedia('(pointer: fine)').matches ? 'Tambi\xE9n puedes arrastrarlo a un hueco, a la mochila o a otro personaje.' : ''}</span></div>`),
-        A
+        (box.innerHTML = `<div class="mg-vacio">${iconHtml('hand')}<span>Toca un objeto para ver qu\xE9 hace.<br>${matchMedia('(pointer: fine)').matches ? 'Tambi\xE9n puedes arrastrarlo a un hueco, a la mochila o a otro personaje.' : ''}</span></div>`),
+        box
       );
-    let I = n.call('item_info', { id: P.id, unid: !!P.unid }),
-      U = I && !I.error ? I : {};
-    A.append(
+    let info = rules.call('item_info', { id: item.id, unid: !!item.unid }),
+      data = info && !info.error ? info : {};
+    box.append(
       elem(
-        `div.mg-item-name.${rarityClass(P) || 'mg-r-comun'}`,
-        P.label && P.where !== 'slot' ? P.label : P.name,
+        `div.mg-item-name.${rarityClass(item) || 'mg-r-comun'}`,
+        item.label && item.where !== 'slot' ? item.label : item.name,
       ),
     );
-    let j = [
-      ITEM_KINDS[U.kind || P.kind] || '',
-      U.rarity_name || RARITIES[P.rarity]?.[0] || '',
-      U.attune ? 'requiere sinton\xEDa' : '',
+    let kindLine = [
+      ITEM_KINDS[data.kind || item.kind] || '',
+      data.rarity_name || RARITIES[item.rarity]?.[0] || '',
+      data.attune ? 'requiere sinton\xEDa' : '',
     ]
       .filter(Boolean)
       .join(' \xB7 ');
-    (j && A.append(elem('div.mg-item-kind', P.unid ? 'Sin identificar' : j)),
-      (U.props || []).length &&
-        A.append(elem('div.mg-item-props', ...U.props.map((K) => elem('span.mg-chip', K)))));
-    let X = P.unid
+    (kindLine && box.append(elem('div.mg-item-kind', item.unid ? 'Sin identificar' : kindLine)),
+      (data.props || []).length &&
+        box.append(elem('div.mg-item-props', ...data.props.map((prop) => elem('span.mg-chip', prop)))));
+    let lines = item.unid
       ? ['No sab\xE9is qu\xE9 es. Un descanso corto (o el conjuro Identificar) lo revelar\xE1.']
-      : U.lines?.length
-        ? U.lines
-        : [U.desc || ''];
-    A.append(elem('div.mg-item-desc', ...X.filter(Boolean).map((K) => elem('p.mg-p', K))));
-    let J = elem('div.mg-item-meta');
+      : data.lines?.length
+        ? data.lines
+        : [data.desc || ''];
+    box.append(elem('div.mg-item-desc', ...lines.filter(Boolean).map((line) => elem('p.mg-p', line))));
+    let meta = elem('div.mg-item-meta');
     if (
-      ((U.sell || P.value) &&
-        J.insertAdjacentHTML(
+      ((data.sell || item.value) &&
+        meta.insertAdjacentHTML(
           'beforeend',
-          `<span>${iconHtml('coins')} Se vende por ${escapeHtml(U.sell ?? P.value)} po</span>`,
+          `<span>${iconHtml('coins')} Se vende por ${escapeHtml(data.sell ?? item.value)} po</span>`,
         ),
-      U.weight && J.append(elem('span', `${String(U.weight).replace('.', ',')} lb`)),
-      A.append(J),
-      P.where === 'pack' && P.equippable)
+      data.weight && meta.append(elem('span', `${String(data.weight).replace('.', ',')} lb`)),
+      box.append(meta),
+      item.where === 'pack' && item.equippable)
     ) {
-      let K = n.invPreview(i, { idx: P.idx });
-      if (K && !K.error) {
-        let ve = elem('div.mg-preview');
-        ve.append(elem('div.mg-label', 'Si te lo equipas'));
-        let ge = K.changes || [];
-        if (ge.length) {
-          let ue = { ac: 'CA', attack: 'Ataque', speed: 'Velocidad', max_hp: 'PG m\xE1ximos' };
-          for (let Q of ge) {
-            let oe = (ie) =>
-              Q.what === 'attack'
-                ? signed(ie)
-                : Q.what === 'speed'
-                  ? `${String(Math.round(ie * 3) / 10).replace('.', ',')} m`
-                  : ie;
-            ve.append(
+      let preview = rules.invPreview(who, { idx: item.idx });
+      if (preview && !preview.error) {
+        let previewBox = elem('div.mg-preview');
+        previewBox.append(elem('div.mg-label', 'Si te lo equipas'));
+        let changes = preview.changes || [];
+        if (changes.length) {
+          let statNames = { ac: 'CA', attack: 'Ataque', speed: 'Velocidad', max_hp: 'PG m\xE1ximos' };
+          for (let change of changes) {
+            let fmt = (v) =>
+              change.what === 'attack'
+                ? signed(v)
+                : change.what === 'speed'
+                  ? `${String(Math.round(v * 3) / 10).replace('.', ',')} m`
+                  : v;
+            previewBox.append(
               elem(
                 'div.fila',
-                elem('span', ue[Q.what] || Q.what),
+                elem('span', statNames[change.what] || change.what),
                 elem('span', {
-                  html: `${escapeHtml(oe(Q.from))} \u2192 <b class="${Q.better ? 'mg-delta-up' : 'mg-delta-down'}">${escapeHtml(oe(Q.to))}</b>`,
+                  html: `${escapeHtml(fmt(change.from))} \u2192 <b class="${change.better ? 'mg-delta-up' : 'mg-delta-down'}">${escapeHtml(fmt(change.to))}</b>`,
                 }),
               ),
             );
           }
         }
-        for (let ue of (K.lines || []).filter((Q) => !ge.length || !/^(CA|Ataque|Velocidad|PG máx)/.test(Q)))
-          ve.append(elem('div', ue));
-        if (!ge.length && !(K.lines || []).length) {
-          let ue = K.before?.ac,
-            Q = K.after?.ac;
-          ue != null && Q != null && Q !== ue
-            ? ve.append(
+        for (let line of (preview.lines || []).filter(
+          (line) => !changes.length || !/^(CA|Ataque|Velocidad|PG máx)/.test(line),
+        ))
+          previewBox.append(elem('div', line));
+        if (!changes.length && !(preview.lines || []).length) {
+          let acBefore = preview.before?.ac,
+            acAfter = preview.after?.ac;
+          acBefore != null && acAfter != null && acAfter !== acBefore
+            ? previewBox.append(
                 elem(
                   'div.fila',
                   elem('span', 'CA'),
                   elem('span', {
-                    html: `${ue} \u2192 <b class="${Q > ue ? 'mg-delta-up' : 'mg-delta-down'}">${Q}</b>`,
+                    html: `${acBefore} \u2192 <b class="${acAfter > acBefore ? 'mg-delta-up' : 'mg-delta-down'}">${acAfter}</b>`,
                   }),
                 ),
               )
-            : ve.append(elem('div.mg-dim', 'Sin cambios en CA ni ataques.'));
+            : previewBox.append(elem('div.mg-dim', 'Sin cambios en CA ni ataques.'));
         }
-        (K.ok === !1 && K.reason && ve.append(elem('div.aviso', K.reason)), A.append(ve));
+        (preview.ok === !1 && preview.reason && previewBox.append(elem('div.aviso', preview.reason)),
+          box.append(previewBox));
       }
     }
-    let Z = elem('div.mg-item-acts');
+    let acts = elem('div.mg-item-acts');
     if (
-      (P.where === 'slot' &&
-        Z.append(makeButton('Quitar', { icon: 'undo', size: 'sm', onclick: () => z(n.unequip(i, r.key)) })),
-      P.where === 'pack' &&
-        P.equippable &&
-        (P.slot === 'ring'
-          ? (Z.append(
+      (item.where === 'slot' &&
+        acts.append(
+          makeButton('Quitar', {
+            icon: 'undo',
+            size: 'sm',
+            onclick: () => applyResult(rules.unequip(who, picked.key)),
+          }),
+        ),
+      item.where === 'pack' &&
+        item.equippable &&
+        (item.slot === 'ring'
+          ? (acts.append(
               makeButton('Anillo izquierdo', {
                 icon: 'ring',
                 size: 'sm',
                 variant: 'primary',
-                onclick: () => z(n.equip(i, { idx: P.idx }, 'ring1')),
+                onclick: () => applyResult(rules.equip(who, { idx: item.idx }, 'ring1')),
               }),
             ),
-            Z.append(
+            acts.append(
               makeButton('Anillo derecho', {
                 icon: 'ring',
                 size: 'sm',
                 variant: 'primary',
-                onclick: () => z(n.equip(i, { idx: P.idx }, 'ring2')),
+                onclick: () => applyResult(rules.equip(who, { idx: item.idx }, 'ring2')),
               }),
             ))
-          : Z.append(
+          : acts.append(
               makeButton('Equipar', {
                 icon: 'check',
                 size: 'sm',
                 variant: 'primary',
-                onclick: () => z(n.equip(i, { idx: P.idx })),
+                onclick: () => applyResult(rules.equip(who, { idx: item.idx })),
               }),
             )),
-      P.usable)
+      item.usable)
     )
-      for (let K of s().party) {
-        let ve = s().members[K];
-        Z.append(
-          makeButton(K === i ? 'Beber' : `Dar de beber a ${String(ve?.name || K).split(' ')[0]}`, {
-            icon: 'potion',
-            size: 'sm',
-            onclick: () => z(n.use(i, P.id, K), { toastOk: !0 }),
-          }),
-        );
-      }
-    if (P.where !== 'slot') {
-      for (let K of s().party.filter((ve) => ve !== i)) {
-        let ve = s().members[K];
-        Z.append(
+      for (let memberId of currentCp().party) {
+        let member = currentCp().members[memberId];
+        acts.append(
           makeButton(
-            `Dar ${P.where === 'stack' && P.n > 1 ? 'uno ' : ''}a ${String(ve?.name || K).split(' ')[0]}`,
+            memberId === who ? 'Beber' : `Dar de beber a ${String(member?.name || memberId).split(' ')[0]}`,
             {
-              icon: 'hand',
+              icon: 'potion',
               size: 'sm',
-              variant: 'ghost',
-              onclick: () => z(n.giveTo(i, K, P.where === 'pack' ? { idx: P.idx } : P.id, 1)),
+              onclick: () => applyResult(rules.use(who, item.id, memberId), { toastOk: !0 }),
             },
           ),
         );
       }
-      P.kind !== 'key' &&
-        P.kind !== 'quest' &&
-        Z.append(
+    if (item.where !== 'slot') {
+      for (let memberId of currentCp().party.filter((id) => id !== who)) {
+        let member = currentCp().members[memberId];
+        acts.append(
+          makeButton(
+            `Dar ${item.where === 'stack' && item.n > 1 ? 'uno ' : ''}a ${String(member?.name || memberId).split(' ')[0]}`,
+            {
+              icon: 'hand',
+              size: 'sm',
+              variant: 'ghost',
+              onclick: () =>
+                applyResult(
+                  rules.giveTo(who, memberId, item.where === 'pack' ? { idx: item.idx } : item.id, 1),
+                ),
+            },
+          ),
+        );
+      }
+      item.kind !== 'key' &&
+        item.kind !== 'quest' &&
+        acts.append(
           makeButton('Tirar', {
             icon: 'trash',
             size: 'sm',
             variant: 'danger',
             onclick: async () => {
-              (await t.confirm(
-                `\xBFTirar ${P.name}${P.n > 1 ? ` (\xD7${P.n})` : ''}? No podr\xE1s recuperarlo.`,
+              (await ui.confirm(
+                `\xBFTirar ${item.name}${item.n > 1 ? ` (\xD7${item.n})` : ''}? No podr\xE1s recuperarlo.`,
                 { titulo: 'Tirar objeto', si: 'Tirar', peligro: !0 },
-              )) && z(n.drop(i, P.where === 'pack' ? { idx: P.idx } : P.id, P.n || 1));
+              )) &&
+                applyResult(
+                  rules.drop(who, item.where === 'pack' ? { idx: item.idx } : item.id, item.n || 1),
+                );
             },
           }),
         );
     }
     return (
-      P.where === 'stack' &&
-        ['scroll', 'wand'].includes(P.kind) &&
-        A.append(elem('p.mg-cr-note', 'Se usa en combate, desde el bot\xF3n Objetos.')),
-      A.append(Z),
-      A
+      item.where === 'stack' &&
+        ['scroll', 'wand'].includes(item.kind) &&
+        box.append(elem('p.mg-cr-note', 'Se usa en combate, desde el bot\xF3n Objetos.')),
+      box.append(acts),
+      box
     );
   }
-  function E() {
-    ((x.innerHTML = ''),
-      x.append(
+  function renderBag() {
+    ((bagPane.innerHTML = ''),
+      bagPane.append(
         elem(
           'div.mg-bag-head',
           elem('h3.mg-sec', { style: 'flex:1;margin:0' }, 'Mochila'),
-          elem('span.mg-dim.mg-small', `${(c.bag || []).length} objetos`),
+          elem('span.mg-dim.mg-small', `${(inv.bag || []).length} objetos`),
         ),
       ));
-    let A = elem('div.mg-bag.mg-inset.mg-scroll', { 'data-drop': 'bag' });
-    (c.bag || []).forEach((I, U) => {
-      let j = elem('button.mg-tile', {
-          'aria-pressed': String(r?.where === 'bag' && r.i === U),
-          'aria-label': `${I.name}${I.n > 1 ? `, ${I.n}` : ''}`,
+    let grid = elem('div.mg-bag.mg-inset.mg-scroll', { 'data-drop': 'bag' });
+    (inv.bag || []).forEach((item, index) => {
+      let tile = elem('button.mg-tile', {
+          'aria-pressed': String(picked?.where === 'bag' && picked.i === index),
+          'aria-label': `${item.name}${item.n > 1 ? `, ${item.n}` : ''}`,
         }),
-        X = rarityClass(I);
-      (X && j.classList.add(X),
-        (j.innerHTML = `${iconHtml(itemIcon(I))}<span class="mg-tile-n">${escapeHtml(I.name)}</span>${I.n > 1 ? `<span class="mg-badge">${escapeHtml(I.n)}</span>` : ''}`),
-        setTip(j, itemTip(t, I)),
-        j.addEventListener('click', () => {
-          j._dragged ||
-            ((r = { where: 'bag', i: U }),
-            matchMedia('(max-width: 860px)').matches && (_.set('detalle'), (l = 'detalle'), D()),
-            M());
+        cls = rarityClass(item);
+      (cls && tile.classList.add(cls),
+        (tile.innerHTML = `${iconHtml(itemIcon(item))}<span class="mg-tile-n">${escapeHtml(item.name)}</span>${item.n > 1 ? `<span class="mg-badge">${escapeHtml(item.n)}</span>` : ''}`),
+        setTip(tile, itemTip(ui, item)),
+        tile.addEventListener('click', () => {
+          tile._dragged ||
+            ((picked = { where: 'bag', i: index }),
+            matchMedia('(max-width: 860px)').matches &&
+              (paneTabs.set('detalle'), (pane = 'detalle'), showPane()),
+            render());
         }),
-        S(j, { from: 'bag', i: U, item: I }),
-        A.append(j));
+        makeDraggable(tile, { from: 'bag', i: index, item }),
+        grid.append(tile));
     });
-    let P = (c.bag || []).length;
-    for (let I = P; I < Math.max(24, P + 4 - (P % 4)); I++)
-      A.append(elem('div.mg-tile.hueco', { 'aria-hidden': 'true' }));
-    (P ||
-      A.prepend(
+    let count = (inv.bag || []).length;
+    for (let cell = count; cell < Math.max(24, count + 4 - (count % 4)); cell++)
+      grid.append(elem('div.mg-tile.hueco', { 'aria-hidden': 'true' }));
+    (count ||
+      grid.prepend(
         elem('div.mg-vacio', { style: 'grid-column:1/-1;padding:1rem 0' }, 'La mochila est\xE1 vac\xEDa.'),
       ),
-      x.append(A));
+      bagPane.append(grid));
   }
-  function S(A, P) {
-    A.addEventListener('pointerdown', (I) => {
-      if (I.pointerType !== 'mouse' || I.button !== 0) return;
-      let U = [I.clientX, I.clientY],
-        j = null,
-        X = null,
-        J = () => [...o.el.querySelectorAll('[data-slot], [data-drop], .mg-tab[data-id]')],
-        Z = (ge) =>
-          ge.dataset.slot
-            ? P.from === 'bag' && P.item.equippable && TL(ge.dataset.slot, P.item.slot)
-            : ge.dataset.drop === 'bag'
-              ? P.from === 'slot'
-              : ge.dataset.id
-                ? P.from === 'bag' && ge.dataset.id !== i
+  function makeDraggable(el, drag) {
+    el.addEventListener('pointerdown', (ev) => {
+      if (ev.pointerType !== 'mouse' || ev.button !== 0) return;
+      let start = [ev.clientX, ev.clientY],
+        ghost = null,
+        over = null,
+        targets = () => [...screen.el.querySelectorAll('[data-slot], [data-drop], .mg-tab[data-id]')],
+        accepts = (target) =>
+          target.dataset.slot
+            ? drag.from === 'bag' && drag.item.equippable && slotFits(target.dataset.slot, drag.item.slot)
+            : target.dataset.drop === 'bag'
+              ? drag.from === 'slot'
+              : target.dataset.id
+                ? drag.from === 'bag' && target.dataset.id !== who
                 : !1,
-        K = (ge) => {
-          if (!j && Math.hypot(ge.clientX - U[0], ge.clientY - U[1]) > 7) {
-            ((j = elem('div.mg-ghost', { html: iconHtml(itemIcon(P.item)) })), document.body.append(j));
-            for (let oe of J()) Z(oe) && oe.classList.add('blanco');
-            t.tips.hide();
+        onMove = (ev) => {
+          if (!ghost && Math.hypot(ev.clientX - start[0], ev.clientY - start[1]) > 7) {
+            ((ghost = elem('div.mg-ghost', { html: iconHtml(itemIcon(drag.item)) })),
+              document.body.append(ghost));
+            for (let target of targets()) accepts(target) && target.classList.add('blanco');
+            ui.tips.hide();
           }
-          if (!j) return;
-          j.style.transform = `translate(${ge.clientX - 28}px, ${ge.clientY - 28}px)`;
-          let ue = document
-              .elementFromPoint(ge.clientX, ge.clientY)
+          if (!ghost) return;
+          ghost.style.transform = `translate(${ev.clientX - 28}px, ${ev.clientY - 28}px)`;
+          let hit = document
+              .elementFromPoint(ev.clientX, ev.clientY)
               ?.closest('[data-slot], [data-drop], .mg-tab[data-id]'),
-            Q = ue && Z(ue) ? ue : null;
-          Q !== X && (X?.classList.remove('encima'), (X = Q), X?.classList.add('encima'));
+            target = hit && accepts(hit) ? hit : null;
+          target !== over &&
+            (over?.classList.remove('encima'), (over = target), over?.classList.add('encima'));
         },
-        ve = () => {
+        onUp = () => {
           if (
-            (removeEventListener('pointermove', K),
-            removeEventListener('pointerup', ve),
-            removeEventListener('pointercancel', ve),
-            !j)
+            (removeEventListener('pointermove', onMove),
+            removeEventListener('pointerup', onUp),
+            removeEventListener('pointercancel', onUp),
+            !ghost)
           )
             return;
-          j.remove();
-          for (let ue of J()) ue.classList.remove('blanco', 'encima');
-          if (((A._dragged = !0), setTimeout(() => (A._dragged = !1), 50), !X)) return;
-          let ge = P.item;
-          if (X.dataset.slot) {
-            let ue = ge.slot === 'ring' ? X.dataset.slot : void 0;
-            z(n.equip(i, { idx: ge.idx }, ue));
+          ghost.remove();
+          for (let target of targets()) target.classList.remove('blanco', 'encima');
+          if (((el._dragged = !0), setTimeout(() => (el._dragged = !1), 50), !over)) return;
+          let item = drag.item;
+          if (over.dataset.slot) {
+            let slot = item.slot === 'ring' ? over.dataset.slot : void 0;
+            applyResult(rules.equip(who, { idx: item.idx }, slot));
           } else
-            X.dataset.drop === 'bag'
-              ? z(n.unequip(i, P.key))
-              : X.dataset.id &&
-                z(
-                  n.giveTo(
-                    i,
-                    X.dataset.id,
-                    ge.where === 'pack' ? { idx: ge.idx } : ge.id,
-                    ge.where === 'stack' ? ge.n : 1,
+            over.dataset.drop === 'bag'
+              ? applyResult(rules.unequip(who, drag.key))
+              : over.dataset.id &&
+                applyResult(
+                  rules.giveTo(
+                    who,
+                    over.dataset.id,
+                    item.where === 'pack' ? { idx: item.idx } : item.id,
+                    item.where === 'stack' ? item.n : 1,
                   ),
                 );
         };
-      (addEventListener('pointermove', K),
-        addEventListener('pointerup', ve),
-        addEventListener('pointercancel', ve));
+      (addEventListener('pointermove', onMove),
+        addEventListener('pointerup', onUp),
+        addEventListener('pointercancel', onUp));
     });
   }
-  function z(A, { toastOk: P } = {}) {
-    if (!A || A.error || A.ok === !1)
-      return t.toast(A?.reason || A?.error || 'No se ha podido hacer.', 'mal');
-    if (A.ok === !1) return t.toast(A.reason || A.text || 'No se puede.', 'mal');
-    ((P || A.text) && t.hud?.visible && t.hud.log(A.text || 'Hecho.', 'info'),
-      P && A.text && t.toast(A.text, 'bien'),
-      a.bus?.emit('inv:changed', { who: i }),
-      (r = null),
-      R());
+  function applyResult(res, { toastOk } = {}) {
+    if (!res || res.error || res.ok === !1)
+      return ui.toast(res?.reason || res?.error || 'No se ha podido hacer.', 'mal');
+    if (res.ok === !1) return ui.toast(res.reason || res.text || 'No se puede.', 'mal');
+    ((toastOk || res.text) && ui.hud?.visible && ui.hud.log(res.text || 'Hecho.', 'info'),
+      toastOk && res.text && ui.toast(res.text, 'bien'),
+      game.bus?.emit('inv:changed', { who }),
+      (picked = null),
+      refresh());
   }
-  function D() {
-    for (let A of b.querySelectorAll('.pane')) A.classList.toggle('on', A.dataset.pane === l);
+  function showPane() {
+    for (let paneEl of panes.querySelectorAll('.pane'))
+      paneEl.classList.toggle('on', paneEl.dataset.pane === pane);
   }
-  function M() {
-    c &&
-      ((d.innerHTML = `${iconHtml('coins')}${escapeHtml(s().gold ?? c.gold ?? 0)}<small>po</small>`),
-      y(),
-      w(),
-      E(),
-      D());
+  function render() {
+    inv &&
+      ((goldEl.innerHTML = `${iconHtml('coins')}${escapeHtml(currentCp().gold ?? inv.gold ?? 0)}<small>po</small>`),
+      renderEquip(),
+      renderStats(),
+      renderBag(),
+      showPane());
   }
-  function R() {
-    (p.update(h().map((P) => ({ id: P.id, html: m(P) }))), p.set(i));
-    let A = g();
-    if (A) {
-      b.innerHTML = `<div class="mg-vacio" style="grid-column:1/-1">${iconHtml('info')}No se ha podido abrir el inventario (${escapeHtml(A)}).</div>`;
+  function refresh() {
+    (memberTabs.update(members().map((member) => ({ id: member.id, html: memberTabHtml(member) }))),
+      memberTabs.set(who));
+    let error = loadInv();
+    if (error) {
+      panes.innerHTML = `<div class="mg-vacio" style="grid-column:1/-1">${iconHtml('info')}No se ha podido abrir el inventario (${escapeHtml(error)}).</div>`;
       return;
     }
-    M();
+    render();
   }
   return (
-    R(),
+    refresh(),
     {
-      onKey(A) {
-        if ((A.key === 'ArrowLeft' || A.key === 'ArrowRight') && !A.target.closest?.('.mg-tabs')) {
-          let P = s().party,
-            I = P.indexOf(i);
-          return ((i = P[(I + (A.key === 'ArrowRight' ? 1 : P.length - 1)) % P.length]), (r = null), R(), !0);
+      onKey(ev) {
+        if ((ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') && !ev.target.closest?.('.mg-tabs')) {
+          let party = currentCp().party,
+            index = party.indexOf(who);
+          return (
+            (who = party[(index + (ev.key === 'ArrowRight' ? 1 : party.length - 1)) % party.length]),
+            (picked = null),
+            refresh(),
+            !0
+          );
         }
-        return A.key.toLowerCase() === 'i' ? (o.close(null), !0) : !1;
+        return ev.key.toLowerCase() === 'i' ? (screen.close(null), !0) : !1;
       },
     }
   );
 }
-const wL = [
+const DOLL_SLOTS = [
   ['ring1', 'Anillo', 'ring'],
   ['amulet', 'Amuleto', 'amulet'],
   ['cloak', 'Capa', 'cloak'],
@@ -465,9 +501,9 @@ const wL = [
   ['weapon:2', 'Arma de repuesto', 'sword2'],
   ['weapon:3', 'Arma de repuesto', 'sword2'],
 ];
-const TL = (o, e) =>
-  e === o ||
-  (e === 'weapon' && o.startsWith('weapon:')) ||
-  (e === 'ring' && (o === 'ring1' || o === 'ring2'));
+const slotFits = (slot, itemSlot) =>
+  itemSlot === slot ||
+  (itemSlot === 'weapon' && slot.startsWith('weapon:')) ||
+  (itemSlot === 'ring' && (slot === 'ring1' || slot === 'ring2'));
 
 export { pantallaInventario as default, opcionesInventario as options };
