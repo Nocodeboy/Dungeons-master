@@ -437,9 +437,10 @@ Json terminar(const Json& req)
 	Pcg32 local;
 	Pcg32& rng = rng_de(req, local);
 	auto anadir_botin = [&](const std::string& id, int n, bool unid) {
+		// Se juntan el oro y lo que se apila; las armas y demás objetos van uno a uno
 		for (Json& l : loot)
 		{
-			if (jstr(l, "id", "") == id && jbool(l, "unid", false) == unid)
+			if ((id == "gold" || Items::stackable(id)) && jstr(l, "id", "") == id && jbool(l, "unid", false) == unid)
 			{
 				l["n"] = jint(l, "n", 0) + n;
 				return;
