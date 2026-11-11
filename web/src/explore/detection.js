@@ -5,7 +5,7 @@ import { Vector3 } from 'three';
 import { hexDistance } from './hex.js';
 import { Wu, Xu } from './interact.js';
 import { Uo } from './battle.js';
-import { wu } from './checks.js';
+import { SKILL_LABELS } from './checks.js';
 
 function Lc(o, e) {
   return (o.pp || (o.pp = o.rules.passive('perception')), o.pp[e] ?? 10);
@@ -39,7 +39,7 @@ async function search(o) {
         n.push(s.actor.once('kneel', { speed: 1.4 })),
         o.overlay.float(
           (l) => s.actor.head(l).add(new Vector3(0, 0.25, 0)),
-          `${wu[i]} ${r.total}`,
+          `${SKILL_LABELS[i]} ${r.total}`,
           'apagado',
           { dur: 1.8 },
         ));
@@ -49,7 +49,7 @@ async function search(o) {
         let d = hexDistance(s.cell, c.cell);
         d > Pk ||
           (d > 1 && !o.xmap.los(s.cell, c.cell)) ||
-          (r.total >= (c.hidden.dc ?? 15) && (Xu(o, l, s.id, `${wu[i]} ${r.total}`), (a = !0)));
+          (r.total >= (c.hidden.dc ?? 15) && (Xu(o, l, s.id, `${SKILL_LABELS[i]} ${r.total}`), (a = !0)));
       }
       for (let [l, c] of o.groups) {
         if (!c.hidden) continue;

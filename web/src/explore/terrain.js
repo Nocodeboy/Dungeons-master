@@ -90,7 +90,7 @@ const ExploreMap = class {
     if ((this.stats.path++, from[0] === to[0] && from[1] === to[1])) return [from.slice()];
     if (this.native) {
       let blockedCells = blocked ? [...blocked].map((key) => key.split(',').map(Number)) : void 0,
-        res = this.api.call('xmap_path', { from: from, to: to, blocked: blockedCells });
+        res = this.api.call('xmap_path', { from, to, blocked: blockedCells });
       if (res && !res.error && Array.isArray(res.path)) return res.path;
     }
     return this._astar(from, to, blocked, maxSteps);
@@ -175,7 +175,7 @@ const ExploreMap = class {
     this.stats.los++;
     let visible;
     if (this.native) {
-      let res = this.api.call('xmap_los', { from: from, to: to });
+      let res = this.api.call('xmap_los', { from, to });
       visible = res && !res.error ? !!res.los : this._coverHex(from, to) < 3;
     } else visible = this._coverHex(from, to) < 3;
     return (this.losCache.size > 2e4 && this.losCache.clear(), this.losCache.set(key, visible), visible);
@@ -229,7 +229,7 @@ const ExploreMap = class {
     return !0;
   }
   /** Hasta `count` casillas transitables y libres cerca de `center` (búsqueda en anchura). */
-  freeNear(center, count, blocked = null, { maxR: maxR = 12 } = {}) {
+  freeNear(center, count, blocked = null, { maxR = 12 } = {}) {
     let out = [],
       seen = new Set([cellKey(center[0], center[1])]),
       queue = [center];

@@ -1,24 +1,32 @@
-// explore/checks.js
-// Reconstruido de publicado/juego.js (módulo __esm «Mu»). Nombres locales aún minificados.
+// explore/checks.js — Reglas de la exploración (ExploreRules): pruebas de característica, habilidad,
+// salvación y herramientas, pasivas, daño, objetos, oro, monstruos y botín. Llama al núcleo de reglas
+// (check, group_check, passive, best, cp_damage, cp_give, cp_gold, has_item, item_info, data…) y, si
+// una operación no existe, la recuerda y usa un sustituto en JS con las tablas de este módulo.
+// También rollDice («2d6+1») y las etiquetas de habilidades. Lo usan explore/index.js, battle.js y
+// detection.js.
+// Reconstruido de publicado/juego.js (módulo __esm «Mu»).
 
-function rollDice(o, e = Math.random) {
-  let t = String(o ?? '0').replace(/\s+/g, ''),
-    a = /^(\d*)d(\d+)([+-]\d+)?$/.exec(t);
-  if (!a) return Number(t) || 0;
-  let n = Number(a[1] || 1),
-    s = Number(a[2]),
-    i = Number(a[3] || 0);
-  for (let r = 0; r < n; r++) i += 1 + Math.floor(e() * s);
-  return Math.max(0, i);
+/** Tira una expresión de dados «NdM±K» (o un número); nunca devuelve menos de 0. */
+function rollDice(expr, rng = Math.random) {
+  let text = String(expr ?? '0').replace(/\s+/g, ''),
+    m = /^(\d*)d(\d+)([+-]\d+)?$/.exec(text);
+  if (!m) return Number(text) || 0;
+  let count = Number(m[1] || 1),
+    sides = Number(m[2]),
+    total = Number(m[3] || 0);
+  for (let i = 0; i < count; i++) total += 1 + Math.floor(rng() * sides);
+  return Math.max(0, total);
 }
-function wI(o) {
+/** Generador pseudoaleatorio con semilla (mulberry32) en [0, 1). */
+function seededRng(seed) {
   return () => {
-    ((o |= 0), (o = (o + 1831565813) | 0));
-    let e = Math.imul(o ^ (o >>> 15), 1 | o);
-    return ((e = (e + Math.imul(e ^ (e >>> 7), 61 | e)) ^ e), ((e ^ (e >>> 14)) >>> 0) / 4294967296);
+    ((seed |= 0), (seed = (seed + 1831565813) | 0));
+    let x = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    return ((x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x), ((x ^ (x >>> 14)) >>> 0) / 4294967296);
   };
 }
-const Zv = {
+/** Característica de cada habilidad (para los modificadores del sustituto). */
+const SKILL_ABILITY = {
   athletics: 'str',
   acrobatics: 'dex',
   sleight_of_hand: 'dex',
@@ -38,7 +46,8 @@ const Zv = {
   performance: 'cha',
   persuasion: 'cha',
 };
-const wu = {
+/** Nombres en español de las habilidades y herramientas. */
+const SKILL_LABELS = {
   athletics: 'Atletismo',
   acrobatics: 'Acrobacias',
   sleight_of_hand: 'Juego de manos',
@@ -59,7 +68,7 @@ const wu = {
   persuasion: 'Persuasi\xF3n',
   thieves_tools: 'Herramientas de ladr\xF3n',
 };
-const wS = {
+const ABILITY_LABELS = {
   str: 'Fuerza',
   dex: 'Destreza',
   con: 'Constituci\xF3n',
@@ -67,7 +76,8 @@ const wS = {
   wis: 'Sabidur\xEDa',
   cha: 'Carisma',
 };
-const vI = {
+/** Dado de golpe por clase (para estimar los PG máximos). */
+const HIT_DIE = {
   barbarian: 12,
   fighter: 10,
   paladin: 10,
@@ -81,7 +91,8 @@ const vI = {
   sorcerer: 6,
   wizard: 6,
 };
-const yI = {
+/** Salvaciones competentes por clase. */
+const SAVE_PROFICIENCIES = {
   barbarian: ['str', 'con'],
   bard: ['dex', 'cha'],
   cleric: ['wis', 'cha'],
@@ -95,7 +106,8 @@ const yI = {
   warlock: ['wis', 'cha'],
   wizard: ['int', 'wis'],
 };
-const xI = {
+/** Datos mínimos de monstruos (percepción pasiva, sigilo, tamaño, botín) si el núcleo no los da. */
+const FALLBACK_MONSTERS = {
   goblin_minion: {
     name: 'Trasgo esbirro',
     pp: 9,
@@ -174,7 +186,8 @@ const xI = {
   swarm_of_rats: { name: 'Enjambre de ratas', pp: 10, stealth: 0, size: 'medium', drops: [] },
   mastiff: { name: 'Mast\xEDn', pp: 15, stealth: 0, size: 'medium', drops: [] },
 };
-const _I = {
+/** Nombres de objetos si el núcleo no responde a item_info. */
+const ITEM_NAMES = {
   gold: 'Oro',
   potion_healing: 'Poci\xF3n de curaci\xF3n',
   potion_greater_healing: 'Poci\xF3n de curaci\xF3n mayor',
@@ -205,319 +218,365 @@ const _I = {
   crowbar: 'Palanca',
   healers_kit: 'Kit de curandero',
 };
-const Mm = (o) => 1 + Math.floor(o() * 20);
-const Em = class {
-  constructor(e) {
-    ((this.game = e), (this.missing = new Set()), (this.used = new Set()));
-    let t = Number(e.params?.get?.('semilla'));
-    ((this.rng = Number.isFinite(t) && t ? wI(t) : Math.random),
+const rollD20 = (rng) => 1 + Math.floor(rng() * 20);
+/**
+ * Reglas de exploración sobre la campaña activa (`game.store.cp`). Con ?semilla=N las tiradas del
+ * sustituto son reproducibles.
+ */
+const ExploreRules = class {
+  constructor(game) {
+    ((this.game = game), (this.missing = new Set()), (this.used = new Set()));
+    let seed = Number(game.params?.get?.('semilla'));
+    ((this.rng = Number.isFinite(seed) && seed ? seededRng(seed) : Math.random),
       (this.summaryCache = null),
-      e.bus?.on?.('cp:changed', () => (this.summaryCache = null)));
+      game.bus?.on?.('cp:changed', () => (this.summaryCache = null)));
   }
   get cp() {
     return this.game.store.cp;
   }
-  call(e, t = {}) {
-    if (this.missing.has(e) || typeof this.game.rules != 'function') return null;
-    let a;
+  /** Llama a una operación del núcleo; null si falla o no existe (y no la vuelve a intentar). */
+  call(op, args = {}) {
+    if (this.missing.has(op) || typeof this.game.rules != 'function') return null;
+    let res;
     try {
-      a = this.game.rules(e, t);
-    } catch (n) {
-      return (console.warn(`[exploraci\xF3n] ${e}:`, n), null);
+      res = this.game.rules(op, args);
+    } catch (err) {
+      return (console.warn(`[exploraci\xF3n] ${op}:`, err), null);
     }
-    return a && a.error && /op desconocida|sin combate|desconocid/i.test(String(a.error))
-      ? (this.missing.add(e), null)
-      : (a && a.error && console.warn(`[exploraci\xF3n] ${e}: ${a.error}`), a);
+    return res && res.error && /op desconocida|sin combate|desconocid/i.test(String(res.error))
+      ? (this.missing.add(op), null)
+      : (res && res.error && console.warn(`[exploraci\xF3n] ${op}: ${res.error}`), res);
   }
-  fallback(e) {
-    this.used.has(e) || (this.used.add(e), console.info(`[exploraci\xF3n] sustituto en JS: ${e}`));
+  /** Anota en consola (una vez por operación) que se usa el sustituto en JS. */
+  fallback(op) {
+    this.used.has(op) || (this.used.add(op), console.info(`[exploraci\xF3n] sustituto en JS: ${op}`));
   }
-  apply(e) {
-    return (e?.cp && !e.cp.error && this.game.store.set(e.cp), e);
+  /** Si la respuesta trae campaña (`cp`), la guarda en el almacén. */
+  apply(res) {
+    return (res?.cp && !res.cp.error && this.game.store.set(res.cp), res);
   }
-  sheet(e) {
-    return this.cp?.members?.[e] || {};
+  sheet(id) {
+    return this.cp?.members?.[id] || {};
   }
-  state(e) {
-    let t = this.cp;
-    return t ? ((t.state ??= {}), (t.state[e] ??= {}), t.state[e]) : {};
+  state(id) {
+    let cp = this.cp;
+    return cp ? ((cp.state ??= {}), (cp.state[id] ??= {}), cp.state[id]) : {};
   }
-  name(e) {
-    return this.sheet(e).name || e;
+  name(id) {
+    return this.sheet(id).name || id;
   }
-  shortName(e) {
-    let t = this.name(e);
-    return t.startsWith('Maese ') ? t.slice(6) : t.split(' ')[0];
+  /** Nombre corto de un miembro («Maese Odvar…» → «Odvar Stonebrow», si no el primer nombre). */
+  shortName(id) {
+    let full = this.name(id);
+    return full.startsWith('Maese ') ? full.slice(6) : full.split(' ')[0];
   }
+  /** Ids de los miembros del grupo que no han muerto. */
   alive() {
-    return (this.cp?.party || []).filter((t) => !this.state(t).dead);
+    return (this.cp?.party || []).filter((id) => !this.state(id).dead);
   }
   level() {
     return this.cp?.party_level || 1;
   }
+  /** Bonificador de competencia según el nivel del grupo. */
   prof() {
     return 2 + Math.floor((this.level() - 1) / 4);
   }
-  abilityMod(e, t) {
-    let a = this.sheet(e),
-      n = a.final_abilities?.[t] ?? a.abilities?.[t] ?? 10;
-    return Math.floor((n - 10) / 2);
+  abilityMod(id, ability) {
+    let sheet = this.sheet(id),
+      score = sheet.final_abilities?.[ability] ?? sheet.abilities?.[ability] ?? 10;
+    return Math.floor((score - 10) / 2);
   }
-  skillMod(e, t) {
-    let n = this.summary(e)?.skills?.find?.((d) => d.id === t);
-    if (n) return n.mod;
-    let s = this.sheet(e),
-      i = Zv[t] || 'wis',
-      r = this.abilityMod(e, i),
-      l = s.skills || [],
-      c = t === 'perception' && (s.species === 'elf' || /elf/.test(s.lineage || ''));
+  /** Modificador de habilidad: el del resumen del núcleo o uno calculado (competencia, pericia, sentidos agudos). */
+  skillMod(id, skill) {
+    let entry = this.summary(id)?.skills?.find?.((s) => s.id === skill);
+    if (entry) return entry.mod;
+    let sheet = this.sheet(id),
+      ability = SKILL_ABILITY[skill] || 'wis',
+      mod = this.abilityMod(id, ability),
+      skills = sheet.skills || [],
+      keenSenses = skill === 'perception' && (sheet.species === 'elf' || /elf/.test(sheet.lineage || ''));
     return (
-      (l.includes(t) || c) && (r += this.prof()),
-      (s.expertise || []).includes(t) && (r += this.prof()),
-      r
+      (skills.includes(skill) || keenSenses) && (mod += this.prof()),
+      (sheet.expertise || []).includes(skill) && (mod += this.prof()),
+      mod
     );
   }
-  saveMod(e, t) {
-    let a = this.summary(e);
-    if (a?.abilities?.[t]?.save !== void 0) return a.abilities[t].save;
-    let n = this.sheet(e),
-      s = this.abilityMod(e, t);
-    return ((yI[n.class] || []).includes(t) && (s += this.prof()), s);
+  saveMod(id, ability) {
+    let sum = this.summary(id);
+    if (sum?.abilities?.[ability]?.save !== void 0) return sum.abilities[ability].save;
+    let sheet = this.sheet(id),
+      mod = this.abilityMod(id, ability);
+    return ((SAVE_PROFICIENCIES[sheet.class] || []).includes(ability) && (mod += this.prof()), mod);
   }
-  toolMod(e, t) {
-    let a = this.sheet(e),
-      n = this.abilityMod(e, 'dex');
+  /** Modificador con herramientas (de ladrón: competencia del pícaro/criminal y +5 con guantes de latrocinio). */
+  toolMod(id, tool) {
+    let sheet = this.sheet(id),
+      mod = this.abilityMod(id, 'dex');
     return (
-      t === 'thieves_tools' &&
-        (a.class === 'rogue' || a.background === 'criminal' || (a.tools || []).includes(t)) &&
-        (n += this.prof()),
-      this.count(e, 'gloves_thievery') > 0 && (n += 5),
-      n
+      tool === 'thieves_tools' &&
+        (sheet.class === 'rogue' || sheet.background === 'criminal' || (sheet.tools || []).includes(tool)) &&
+        (mod += this.prof()),
+      this.count(id, 'gloves_thievery') > 0 && (mod += 5),
+      mod
     );
   }
-  summary(e) {
+  /** Resumen del miembro según party_summary (en caché hasta el siguiente «cp:changed»). */
+  summary(id) {
     if (!this.summaryCache) {
-      let t = this.cp ? this.call('party_summary', { cp: this.cp }) : null;
+      let res = this.cp ? this.call('party_summary', { cp: this.cp }) : null;
       this.summaryCache = new Map();
-      let a = Array.isArray(t) ? t : t?.party || t?.members || [];
-      for (let n of a) n?.id && this.summaryCache.set(n.id, n);
+      let list = Array.isArray(res) ? res : res?.party || res?.members || [];
+      for (let entry of list) entry?.id && this.summaryCache.set(entry.id, entry);
     }
-    return this.summaryCache.get(e) || null;
+    return this.summaryCache.get(id) || null;
   }
-  hp(e) {
-    let t = this.state(e),
-      n = this.summary(e)?.max_hp ?? t.max_hp ?? this.maxHpGuess(e);
-    return { hp: t.hp ?? n, max: n, temp: t.temp_hp || 0 };
+  /** PG actuales, máximos y temporales de un miembro. */
+  hp(id) {
+    let st = this.state(id),
+      max = this.summary(id)?.max_hp ?? st.max_hp ?? this.maxHpGuess(id);
+    return { hp: st.hp ?? max, max, temp: st.temp_hp || 0 };
   }
-  maxHpGuess(e) {
-    let t = this.sheet(e),
-      a = vI[t.class] || 8,
-      n = this.abilityMod(e, 'con'),
-      s = this.level();
-    return Math.max(1, a + n + (s - 1) * (a / 2 + 1 + n));
+  maxHpGuess(id) {
+    let sheet = this.sheet(id),
+      die = HIT_DIE[sheet.class] || 8,
+      conMod = this.abilityMod(id, 'con'),
+      level = this.level();
+    return Math.max(1, die + conMod + (level - 1) * (die / 2 + 1 + conMod));
   }
-  passive(e = 'perception') {
-    let t = this.cp,
-      a = t ? this.call('passive', { cp: t, skill: e }) : null;
-    if (a && !a.error && typeof a == 'object') return a;
+  /** Puntuación pasiva de cada miembro vivo: {id: valor}. */
+  passive(skill = 'perception') {
+    let cp = this.cp,
+      res = cp ? this.call('passive', { cp, skill }) : null;
+    if (res && !res.error && typeof res == 'object') return res;
     this.fallback('passive');
-    let n = {};
-    for (let s of this.alive()) n[s] = 10 + this.skillMod(s, e);
-    return n;
+    let out = {};
+    for (let id of this.alive()) out[id] = 10 + this.skillMod(id, skill);
+    return out;
   }
-  best(e) {
-    let t = this.cp,
-      a = t
+  /** El miembro con mejor modificador para una habilidad, característica o herramienta: {who, mod}. */
+  best(what) {
+    let cp = this.cp,
+      res = cp
         ? this.call(
             'best',
-            e === 'thieves_tools' ? { cp: t, tool: e } : Zv[e] ? { cp: t, skill: e } : { cp: t, ability: e },
+            what === 'thieves_tools'
+              ? { cp, tool: what }
+              : SKILL_ABILITY[what]
+                ? { cp, skill: what }
+                : { cp, ability: what },
           )
         : null;
-    if (a && !a.error && a.who) return a;
-    let n = null;
-    for (let s of this.alive()) {
-      let i =
-        e === 'thieves_tools' ? this.toolMod(s, e) : Zv[e] ? this.skillMod(s, e) : this.abilityMod(s, e);
-      (!n || i > n.mod) && (n = { who: s, mod: i });
+    if (res && !res.error && res.who) return res;
+    let top = null;
+    for (let id of this.alive()) {
+      let mod =
+        what === 'thieves_tools'
+          ? this.toolMod(id, what)
+          : SKILL_ABILITY[what]
+            ? this.skillMod(id, what)
+            : this.abilityMod(id, what);
+      (!top || mod > top.mod) && (top = { who: id, mod });
     }
-    return n || { who: null, mod: 0 };
+    return top || { who: null, mod: 0 };
   }
-  check(e) {
-    let t = this.cp,
-      a = { cp: t, ...e };
-    if (t) {
-      let m = this.call('check', a);
-      if (m && !m.error && m.total !== void 0) return m;
+  /**
+   * Prueba individual. `req`: {who, skill|ability|save|tool, dc, adv, dis}; `who` puede ser «best».
+   * Devuelve {who, label, d20, mod, total, dc, success, crit, text}.
+   */
+  check(req) {
+    let cp = this.cp,
+      args = { cp, ...req };
+    if (cp) {
+      let res = this.call('check', args);
+      if (res && !res.error && res.total !== void 0) return res;
     }
     this.fallback('check');
-    let n = e.who,
-      s = e.tool || e.skill || e.save || e.ability;
-    (!n || n === 'best') && (n = this.best(s).who || this.alive()[0]);
-    let i, r;
-    e.tool
-      ? ((i = this.toolMod(n, e.tool)), (r = wu[e.tool] || e.tool))
-      : e.skill
-        ? ((i = this.skillMod(n, e.skill)), (r = wu[e.skill] || e.skill))
-        : e.save
-          ? ((i = this.saveMod(n, e.save)), (r = `Salvaci\xF3n de ${wS[e.save] || e.save}`))
-          : ((i = this.abilityMod(n, e.ability)), (r = wS[e.ability] || e.ability));
-    let l = Mm(this.rng),
-      c = [l],
-      d = l;
-    e.adv && !e.dis
-      ? (c.push(Mm(this.rng)), (d = Math.max(...c)))
-      : e.dis && !e.adv && (c.push(Mm(this.rng)), (d = Math.min(...c)));
-    let u = d + i,
-      h = e.dc ?? null,
-      p = h == null ? !0 : u >= h;
+    let who = req.who,
+      what = req.tool || req.skill || req.save || req.ability;
+    (!who || who === 'best') && (who = this.best(what).who || this.alive()[0]);
+    let mod, label;
+    req.tool
+      ? ((mod = this.toolMod(who, req.tool)), (label = SKILL_LABELS[req.tool] || req.tool))
+      : req.skill
+        ? ((mod = this.skillMod(who, req.skill)), (label = SKILL_LABELS[req.skill] || req.skill))
+        : req.save
+          ? ((mod = this.saveMod(who, req.save)),
+            (label = `Salvaci\xF3n de ${ABILITY_LABELS[req.save] || req.save}`))
+          : ((mod = this.abilityMod(who, req.ability)), (label = ABILITY_LABELS[req.ability] || req.ability));
+    let first = rollD20(this.rng),
+      rolls = [first],
+      kept = first;
+    req.adv && !req.dis
+      ? (rolls.push(rollD20(this.rng)), (kept = Math.max(...rolls)))
+      : req.dis && !req.adv && (rolls.push(rollD20(this.rng)), (kept = Math.min(...rolls)));
+    let total = kept + mod,
+      dc = req.dc ?? null,
+      success = dc == null ? !0 : total >= dc;
     return {
-      who: n,
-      label: r,
-      d20: c,
-      mod: i,
-      total: u,
-      dc: h,
-      success: p,
-      crit: d === 20,
-      text: `${this.shortName(n)}: ${r} ${u}${h != null ? ` contra CD ${h}` : ''}`,
+      who,
+      label,
+      d20: rolls,
+      mod,
+      total,
+      dc,
+      success,
+      crit: kept === 20,
+      text: `${this.shortName(who)}: ${label} ${total}${dc != null ? ` contra CD ${dc}` : ''}`,
     };
   }
-  groupCheck(e, t) {
-    let a = this.cp,
-      n = a ? this.call('group_check', { cp: a, skill: e, dc: t }) : null;
-    if (n && !n.error && Array.isArray(n.results)) return n;
+  /** Prueba de grupo (éxito si al menos la mitad supera la CD); sigilo con desventaja en armadura pesada. */
+  groupCheck(skill, dc) {
+    let cp = this.cp,
+      res = cp ? this.call('group_check', { cp, skill, dc }) : null;
+    if (res && !res.error && Array.isArray(res.results)) return res;
     this.fallback('group_check');
-    let s = this.alive().map((r) => {
-        let l = this.sheet(r),
-          c = e === 'stealth' && ['chain_mail', 'splint', 'plate', 'ring_mail'].includes(l.armor);
-        return this.check({ who: r, skill: e, dc: t, dis: c });
+    let results = this.alive().map((id) => {
+        let sheet = this.sheet(id),
+          heavyArmor =
+            skill === 'stealth' && ['chain_mail', 'splint', 'plate', 'ring_mail'].includes(sheet.armor);
+        return this.check({ who: id, skill, dc, dis: heavyArmor });
       }),
-      i = s.filter((r) => r.success).length;
-    return { results: s, success: i * 2 >= s.length };
+      passed = results.filter((r) => r.success).length;
+    return { results, success: passed * 2 >= results.length };
   }
-  damage(e, t, a = 'piercing') {
-    let n = this.cp,
-      s = n ? this.call('cp_damage', { cp: n, id: e, amount: t, type: a }) : null;
-    if (s && !s.error && s.cp) return (this.apply(s), s);
+  /** Daño fuera de combate (trampas…). El sustituto nunca deja a nadie por debajo de 1 PG. */
+  damage(id, amount, type = 'piercing') {
+    let cp = this.cp,
+      res = cp ? this.call('cp_damage', { cp, id, amount, type }) : null;
+    if (res && !res.error && res.cp) return (this.apply(res), res);
     this.fallback('cp_damage');
-    let i = this.state(e),
-      { hp: r, max: l } = this.hp(e),
-      c = t,
-      d = Math.min(i.temp_hp || 0, c);
+    let st = this.state(id),
+      { hp, max } = this.hp(id),
+      left = amount,
+      absorbed = Math.min(st.temp_hp || 0, left);
     return (
-      (i.temp_hp = (i.temp_hp || 0) - d),
-      (c -= d),
-      (i.hp = Math.max(1, r - c)),
-      (i.max_hp ??= l),
-      this.game.store.set(n),
-      { hp: i.hp, down: !1, dead: !1 }
+      (st.temp_hp = (st.temp_hp || 0) - absorbed),
+      (left -= absorbed),
+      (st.hp = Math.max(1, hp - left)),
+      (st.max_hp ??= max),
+      this.game.store.set(cp),
+      { hp: st.hp, down: !1, dead: !1 }
     );
   }
-  count(e, t) {
-    let a = this.sheet(e),
-      n = Number(a.items?.[t] || 0);
-    for (let s of a.pack || []) s.id === t && (n += Number(s.n || 1));
-    return (t === 'thieves_tools' && n === 0 && (a.kit?.items || []).includes?.(t) && (n = 1), n);
+  /** Unidades de un objeto que lleva un miembro. */
+  count(id, item) {
+    let sheet = this.sheet(id),
+      n = Number(sheet.items?.[item] || 0);
+    for (let entry of sheet.pack || []) entry.id === item && (n += Number(entry.n || 1));
+    return (item === 'thieves_tools' && n === 0 && (sheet.kit?.items || []).includes?.(item) && (n = 1), n);
   }
-  holder(e) {
-    let t = this.cp,
-      a = t ? this.call('has_item', { cp: t, item: e }) : null;
-    if (a && !a.error && 'who' in a) {
-      let s =
-        (a.holders || []).find((i) => !i.dead && this.alive().includes(i.id))?.id ||
-        (a.who && this.alive().includes(a.who) ? a.who : null);
-      if (s || e !== 'thieves_tools') return s;
-    } else for (let n of this.alive()) if (this.count(n, e) > 0) return n;
-    if (e === 'thieves_tools') {
-      for (let n of this.alive())
-        if (this.sheet(n).class === 'rogue' || this.sheet(n).background === 'criminal') return n;
+  /** Quién del grupo (vivo) lleva el objeto; las herramientas de ladrón se suponen en el pícaro. */
+  holder(item) {
+    let cp = this.cp,
+      res = cp ? this.call('has_item', { cp, item }) : null;
+    if (res && !res.error && 'who' in res) {
+      let who =
+        (res.holders || []).find((h) => !h.dead && this.alive().includes(h.id))?.id ||
+        (res.who && this.alive().includes(res.who) ? res.who : null);
+      if (who || item !== 'thieves_tools') return who;
+    } else for (let id of this.alive()) if (this.count(id, item) > 0) return id;
+    if (item === 'thieves_tools') {
+      for (let id of this.alive())
+        if (this.sheet(id).class === 'rogue' || this.sheet(id).background === 'criminal') return id;
     }
     return null;
   }
-  give(e, t = 1, a = !1, n = void 0) {
-    let s = this.cp;
-    if (!s) return null;
-    if (e === 'gold') return (this.gold(t), null);
-    let i = this.call('cp_give', { cp: s, item: e, n: t, unid: a, to: n });
-    if (i && !i.error && i.cp)
-      return (this.apply(i), this.game.bus.emit('item:gain', { id: e, n: t, who: i.who }), i.who);
+  /** Da un objeto al grupo (o a `to`) y emite «item:gain»; devuelve quién lo recibe. */
+  give(item, count = 1, unid = !1, to = void 0) {
+    let cp = this.cp;
+    if (!cp) return null;
+    if (item === 'gold') return (this.gold(count), null);
+    let res = this.call('cp_give', { cp, item, n: count, unid, to });
+    if (res && !res.error && res.cp)
+      return (
+        this.apply(res),
+        this.game.bus.emit('item:gain', { id: item, n: count, who: res.who }),
+        res.who
+      );
     this.fallback('cp_give');
-    let r = n || this.alive()[0] || 'hero',
-      l = s.members[r] || (s.members[r] = {});
+    let who = to || this.alive()[0] || 'hero',
+      sheet = cp.members[who] || (cp.members[who] = {});
     return (
-      (l.items ??= {}),
-      (l.items[e] = (l.items[e] || 0) + t),
-      this.game.store.set(s),
-      this.game.bus.emit('item:gain', { id: e, n: t, who: r }),
-      r
+      (sheet.items ??= {}),
+      (sheet.items[item] = (sheet.items[item] || 0) + count),
+      this.game.store.set(cp),
+      this.game.bus.emit('item:gain', { id: item, n: count, who }),
+      who
     );
   }
-  gold(e) {
-    let t = this.cp;
-    if (!t) return !1;
-    let a = this.call('cp_gold', { cp: t, delta: e });
-    return a && !a.error && a.cp
-      ? (this.apply(a), a.ok !== !1 && this.game.bus.emit('gold', { delta: e }), a.ok !== !1)
+  /** Suma o resta oro; false si no alcanza. Emite «gold». */
+  gold(delta) {
+    let cp = this.cp;
+    if (!cp) return !1;
+    let res = this.call('cp_gold', { cp, delta });
+    return res && !res.error && res.cp
+      ? (this.apply(res), res.ok !== !1 && this.game.bus.emit('gold', { delta }), res.ok !== !1)
       : (this.fallback('cp_gold'),
-        (t.gold || 0) + e < 0
+        (cp.gold || 0) + delta < 0
           ? !1
-          : ((t.gold = (t.gold || 0) + e),
-            this.game.store.set(t),
-            this.game.bus.emit('gold', { delta: e }),
+          : ((cp.gold = (cp.gold || 0) + delta),
+            this.game.store.set(cp),
+            this.game.bus.emit('gold', { delta }),
             !0));
   }
-  info(e) {
-    if (((this._info ??= new Map()), !this._info.has(e))) {
-      let t = this.call('item_info', { id: e });
-      this._info.set(e, t && !t.error ? t : null);
+  /** Ficha del objeto según item_info (en caché). */
+  info(id) {
+    if (((this._info ??= new Map()), !this._info.has(id))) {
+      let res = this.call('item_info', { id });
+      this._info.set(id, res && !res.error ? res : null);
     }
-    return this._info.get(e);
+    return this._info.get(id);
   }
-  itemName(e) {
-    let t = this.info(e);
-    return t?.name ? t.name : _I[e] || e.replace(/_/g, ' ');
+  itemName(id) {
+    let info = this.info(id);
+    return info?.name ? info.name : ITEM_NAMES[id] || id.replace(/_/g, ' ');
   }
-  unidentified(e) {
-    let t = this.info(e);
-    return t
-      ? !!(t.magic && ['weapon', 'armor', 'shield', 'wondrous'].includes(t.kind))
+  /** ¿Se recibe sin identificar? (objetos mágicos de equipo). */
+  unidentified(id) {
+    let info = this.info(id);
+    return info
+      ? !!(info.magic && ['weapon', 'armor', 'shield', 'wondrous'].includes(info.kind))
       : /_p1$|^cloak_|^ring_|^boots_|^gloves_|^gauntlets_|^bracers_|^periapt_|^amulet_|^brooch_|^stone_/.test(
-          e,
+          id,
         );
   }
-  monster(e) {
+  /** Datos de exploración de un monstruo: nombre, percepción pasiva, sigilo, tamaño y botín. */
+  monster(id) {
     if (!this._monsters) {
-      let a = this.call('data', { name: 'monsters' });
-      this._monsters = a && !a.error && typeof a == 'object' ? a : null;
+      let res = this.call('data', { name: 'monsters' });
+      this._monsters = res && !res.error && typeof res == 'object' ? res : null;
     }
-    let t = this._monsters?.[e];
-    return t
+    let m = this._monsters?.[id];
+    return m
       ? {
-          name: t.name,
-          pp: t.passive_perception ?? 10,
-          stealth: t.skills?.stealth ?? 0,
-          size: t.size,
-          drops: t.drops || [],
-          hp: t.hp,
-          ac: t.ac,
+          name: m.name,
+          pp: m.passive_perception ?? 10,
+          stealth: m.skills?.stealth ?? 0,
+          size: m.size,
+          drops: m.drops || [],
+          hp: m.hp,
+          ac: m.ac,
         }
-      : xI[e] || { name: e, pp: 10, stealth: 0, size: 'medium', drops: [] };
+      : FALLBACK_MONSTERS[id] || { name: id, pp: 10, stealth: 0, size: 'medium', drops: [] };
   }
-  drops(e) {
-    let t = [];
-    for (let a of this.monster(e).drops || []) {
-      if (this.rng() > (a.chance ?? 1)) continue;
-      let n = typeof a.n == 'string' ? rollDice(a.n, this.rng) : Number(a.n ?? 1);
-      n > 0 && t.push({ id: a.id, n });
+  /** Tira el botín de un monstruo: [{id, n}]. */
+  drops(id) {
+    let out = [];
+    for (let drop of this.monster(id).drops || []) {
+      if (this.rng() > (drop.chance ?? 1)) continue;
+      let n = typeof drop.n == 'string' ? rollDice(drop.n, this.rng) : Number(drop.n ?? 1);
+      n > 0 && out.push({ id: drop.id, n });
     }
-    return t;
+    return out;
   }
+  /** Tira 1d20 con el generador de la exploración. */
   d20() {
-    return Mm(this.rng);
+    return rollD20(this.rng);
   }
-  roll(e) {
-    return rollDice(e, this.rng);
+  /** Tira una expresión de dados con el generador de la exploración. */
+  roll(expr) {
+    return rollDice(expr, this.rng);
   }
 };
 
-export { Em, rollDice, wu };
+export { ExploreRules, rollDice, SKILL_LABELS };

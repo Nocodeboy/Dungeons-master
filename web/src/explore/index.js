@@ -14,15 +14,15 @@ import {
 } from 'three';
 import { cellToPlane, cellKey, hexDistance, HEX_SIZE } from './hex.js';
 import { ExploreMap } from './terrain.js';
-import { Em } from './checks.js';
+import { ExploreRules } from './checks.js';
 import { ensureCampaign } from './campaign.js';
 import { loadLevel } from './levels.js';
 import { loadAreaModules } from './areas.js';
 import { mk } from './fallback-world.js';
 import { yk } from './actors.js';
 import { ExploreInput } from './input.js';
-import { i0 } from './floaters.js';
-import { r0 } from './marks.js';
+import { Floaters } from './floaters.js';
+import { ExploreMarks } from './marks.js';
 import { kk, Rk } from './hud.js';
 import { Ju, Xu, cy, Xk, Yk, m0, uy, Zk } from './interact.js';
 import { perceive, search, toggleStealth, detect, checkTriggers } from './detection.js';
@@ -50,7 +50,7 @@ const Explore = class {
         a.location?.cell &&
         ((this.startCell ??= a.location.cell.slice()), (this.spawn = 'saved')),
       (this.three = new Scene()),
-      (this.rules = new Em(e)),
+      (this.rules = new ExploreRules(e)),
       (this.xmap = new ExploreMap({ call: (n, s) => this.rules.call(n, s) })),
       (this.members = []),
       (this.dead = []),
@@ -138,8 +138,8 @@ const Explore = class {
         onLongPress: (c, d) => this.onLongPress(c, d),
         onHover: (c, d) => (this.mouse = c == null ? null : { x: c, y: d }),
       })),
-      (this.overlay = new i0(e.stage.camera, t.root)),
-      (this.marks = new r0(this.three, this.world)),
+      (this.overlay = new Floaters(e.stage.camera, t.root)),
+      (this.marks = new ExploreMarks(this.three, this.world)),
       this.spawnGroups(),
       await this.spawnParty(await r),
       s('grupo', 'Saludando a los vecinos', 0.85),
