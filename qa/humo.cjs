@@ -10,7 +10,10 @@ const { Sesion, argumentos, espera } = require('./lib/mdg.cjs');
 const A = argumentos();
 const BASE = A.base || process.env.MDG_BASE || 'http://localhost:8751/';
 const SALIDA = path.resolve(A.salida || path.join(__dirname, 'salida', 'humo'));
-const LIMITE_MS = Number(A.limite || 150000);
+// Objetivo: < 120 s hasta el combate (en una máquina libre tarda 80–95 s). Con la máquina cargada
+// puede pasar; entonces avisa pero no falla. El límite duro solo evita que se quede colgada.
+const OBJETIVO_S = 120;
+const LIMITE_MS = Number(A.limite || 300000);
 
 async function principal() {
   const s = new Sesion({ base: BASE, salida: SALIDA, nombre: 'humo' });
@@ -31,9 +34,7 @@ async function principal() {
     await s.esperar(() => window.__mdg.scenes.name === 'explore' && window.__mdg.scenes.current?.explore?.entered, null, { timeout: 120000, desc: 'llegada a Merrowick' });
     await s.calma();
     await espera(800);
-    const obs = await observar(s);
-    await s.etapa('merrowick', { observaciones: obs });
-    console.log('observaciones:', JSON.stringify(obs));
+    await s.etapa('merrowick');
 
     // El encuentro e1 salta al acercarse al toro.
     await s.libre({ timeout: 60000 });
@@ -41,8 +42,14 @@ async function principal() {
     await s.mover([21, 18]);
     const inicio = await s.esperar(() => window.__mdg.scenes.current?.explore?.inBattle, null, { timeout: 60000, desc: 'inicio del combate e1' }).then(() => true, () => false);
     if (!inicio) fallos.push('No empieza el combate e1 al acercarse al toro');
+    const tCombate = Math.round((Date.now() - s.t0) / 1000);
+    // window.__combate aparece cuando el núcleo ya ha hecho battle_start (con ?depurar).
+    await s.esperar(() => window.__combate?.ctl && !window.__combate.ctl.disposed, null, { timeout: 60000, desc: 'controlador de combate' }).catch(() => null);
     await espera(1500);
-    await s.etapa('combate_e1', { ok: inicio });
+    const obs = await observar(s);
+    console.log('observaciones:', JSON.stringify(obs));
+    await s.etapa('combate_e1', { ok: inicio, observaciones: obs, segundosHastaCombate: tCombate });
+    if (inicio && tCombate > OBJETIVO_S) console.log(`AVISO: ${tCombate} s hasta el primer combate (objetivo < ${OBJETIVO_S} s; máquina cargada?)`);
     if (A.entero && inicio) {
       const c = await s.combate({ timeout: 900000, empezar: 60000, n0 });
       await s.etapa('combate_e1_fin', { ok: !!c?.ganado, combate: c });
@@ -66,11 +73,13 @@ async function principal() {
 }
 
 // Observaciones baratas para comparar publicado/ y la reconstrucción (no hacen fallar la prueba).
+// Se toman con el combate e1 en marcha: fuera de combate el núcleo responde «sin combate» también a
+// las operaciones que no existen. Solo se prueban operaciones de consulta, que no cambian nada.
 async function observar(s) {
   return await s.pagina.evaluate(() => {
     const g = window.__mdg;
     const tip = document.getElementById('mg-tip');
-    const candidatas = ['reactions', 'set_manual', 'react', 'retreat_info', 'retreat', 'zone', 'knock'];
+    const candidatas = ['retreat_info', 'reactions'];
     const ops = candidatas.filter((op) => { try { return !/op desconocida/.test(String(g.rules(op, {})?.error || '')); } catch { return false; } });
     const pantallas = ['inventario', 'tienda', 'descanso', 'grupo', 'diario', 'guardar', 'cargar', 'ajustes', 'nivel', 'botin', 'viaje', 'pausa', 'creador', 'creditos', 'ayuda', 'relato', 'derrota', 'saber', 'tutorial', 'mercenarios'].filter((n) => g.ui.has?.(n));
     const ex = g.scenes.current?.explore;
@@ -78,7 +87,7 @@ async function observar(s) {
     return {
       escenas: [...g.scenes.registry.keys()],
       pantallas,
-      opsNuevasNucleo: ops,
+      opsConsultaNuevas: ops, // [] en publicado/: no hay retirada ni reacciones elegidas
       tooltipPointerEvents: tip ? getComputedStyle(tip).pointerEvents : null,
       e1: e1 ? e1.enemies.map((x) => x.monster) : null,
       niveles: ['merrowick', 'posada', 'elderhal', 'kesh', 'tumulo'],
