@@ -1,5 +1,15 @@
 // vfx/index.js
-// Reconstruido de publicado/juego.js (módulo __esm «p1»). Nombres locales aún minificados.
+// Director de efectos visuales del combate. `createVfx` crea, sobre la escena, dos sistemas de
+// partículas (aditivo y normal), una reserva de luces puntuales, las piezas con sombreador de
+// shaders.js, las auras (conditions.js) y las zonas (zones.js), y devuelve el objeto `vfx` con la API
+// que usan las coreografías de spells.js y el controlador de combate: partículas (p, burst, glow),
+// piezas (ring, dome, pillar, hexwave, runes, slash, decal, beam, ribbon), proyectiles, impactos
+// (hit, element, crit, miss, heal, death, blood), lanzamiento (castStart), temporización (wait,
+// after, stream), cámara (shake, flash) y conjuros/rasgos (spell, feature). `vfx.onFx` recibe los
+// avisos de efecto (cast, launch, impact, area…): combat/controller.js los reenvía al bus como
+// 'battle:fx' y audio/reactions.js los convierte en sonidos.
+// Lo crea combat/index.js (runBattle). Es un área cargable: sus exports son públicos.
+// Reconstruido de publicado/juego.js (módulo __esm «p1»).
 
 import {
   BoxGeometry,
@@ -22,292 +32,317 @@ import { playSpellFx, playFeatureFx } from './spells.js';
 import { AuraEffects } from './conditions.js';
 import { ZoneEffects } from './zones.js';
 
-function rsphere(o = 1, e = Oa()) {
-  let t, a, n;
-  do ((t = Math.random() * 2 - 1), (a = Math.random() * 2 - 1), (n = Math.random() * 2 - 1));
-  while (t * t + a * a + n * n > 1);
-  return e.set(t * o, a * o, n * o);
+/** Punto al azar dentro de una esfera de radio `radius` (escrito en `target`). */
+function rsphere(radius = 1, target = vec3()) {
+  let x, y, z;
+  do ((x = Math.random() * 2 - 1), (y = Math.random() * 2 - 1), (z = Math.random() * 2 - 1));
+  while (x * x + y * y + z * z > 1);
+  return target.set(x * radius, y * radius, z * radius);
 }
-function rcone(o, e, t = Oa()) {
-  let a = o.clone().normalize(),
-    n = Math.abs(a.y) < 0.95 ? Oa(0, 1, 0) : Oa(1, 0, 0),
-    s = Oa().crossVectors(a, n).normalize(),
-    i = Oa().crossVectors(s, a).normalize(),
-    r = Math.random() * Math.PI * 2,
-    l = Math.tan(e) * Math.sqrt(Math.random());
-  return t
-    .copy(a)
-    .addScaledVector(s, Math.cos(r) * l)
-    .addScaledVector(i, Math.sin(r) * l)
+/** Dirección unitaria al azar dentro de un cono de semiángulo `angle` alrededor de `dir`. */
+function rcone(dir, angle, target = vec3()) {
+  let axis = dir.clone().normalize(),
+    ref = Math.abs(axis.y) < 0.95 ? vec3(0, 1, 0) : vec3(1, 0, 0),
+    u = vec3().crossVectors(axis, ref).normalize(),
+    w = vec3().crossVectors(u, axis).normalize(),
+    theta = Math.random() * Math.PI * 2,
+    spread = Math.tan(angle) * Math.sqrt(Math.random());
+  return target
+    .copy(axis)
+    .addScaledVector(u, Math.cos(theta) * spread)
+    .addScaledVector(w, Math.sin(theta) * spread)
     .normalize();
 }
-function QI(o) {
-  if (!d1) {
-    let i = new MeshStandardMaterial({ color: 6965802, roughness: 0.8 }),
-      r = new MeshStandardMaterial({ color: 10132128, metalness: 0.7, roughness: 0.35 }),
-      l = new MeshStandardMaterial({ color: 15261904, side: DoubleSide, roughness: 0.9 }),
-      c = new MeshStandardMaterial({ color: 13684952, metalness: 0.85, roughness: 0.25 }),
-      d = new MeshStandardMaterial({ color: 3810322, roughness: 0.9 });
-    d1 = { wood: i, iron: r, fletch: l, steel: c, leather: d };
+/** Malla de munición física: 'dagger', 'bolt', 'javelin' o flecha (cualquier otro valor). */
+function buildAmmoMesh(kind) {
+  if (!ammoMaterials) {
+    let wood = new MeshStandardMaterial({ color: 6965802, roughness: 0.8 }),
+      iron = new MeshStandardMaterial({ color: 10132128, metalness: 0.7, roughness: 0.35 }),
+      fletch = new MeshStandardMaterial({ color: 15261904, side: DoubleSide, roughness: 0.9 }),
+      steel = new MeshStandardMaterial({ color: 13684952, metalness: 0.85, roughness: 0.25 }),
+      leather = new MeshStandardMaterial({ color: 3810322, roughness: 0.9 });
+    ammoMaterials = { wood, iron, fletch, steel, leather };
   }
-  let e = d1,
-    t = new Group();
-  if (o === 'dagger') {
-    let i = new Mesh(new BoxGeometry(0.035, 0.008, 0.24), e.steel);
-    i.position.z = 0.09;
-    let r = new Mesh(new BoxGeometry(0.026, 0.026, 0.1), e.leather);
-    r.position.z = -0.07;
-    let l = new Mesh(new BoxGeometry(0.09, 0.02, 0.02), e.iron);
-    return ((l.position.z = -0.02), t.add(i, r, l), t);
+  let mats = ammoMaterials,
+    group = new Group();
+  if (kind === 'dagger') {
+    let blade = new Mesh(new BoxGeometry(0.035, 0.008, 0.24), mats.steel);
+    blade.position.z = 0.09;
+    let grip = new Mesh(new BoxGeometry(0.026, 0.026, 0.1), mats.leather);
+    grip.position.z = -0.07;
+    let guard = new Mesh(new BoxGeometry(0.09, 0.02, 0.02), mats.iron);
+    return ((guard.position.z = -0.02), group.add(blade, grip, guard), group);
   }
-  let a = o === 'bolt' ? 0.42 : o === 'javelin' ? 1.25 : 0.72,
-    n = new Mesh(
-      new CylinderGeometry(o === 'javelin' ? 0.02 : 0.011, o === 'javelin' ? 0.02 : 0.011, a, 5),
-      e.wood,
+  let length = kind === 'bolt' ? 0.42 : kind === 'javelin' ? 1.25 : 0.72,
+    shaft = new Mesh(
+      new CylinderGeometry(kind === 'javelin' ? 0.02 : 0.011, kind === 'javelin' ? 0.02 : 0.011, length, 5),
+      mats.wood,
     );
-  n.rotation.x = Math.PI / 2;
-  let s = new Mesh(
-    new ConeGeometry(o === 'javelin' ? 0.04 : 0.024, o === 'javelin' ? 0.16 : 0.08, 5),
-    e.iron,
+  shaft.rotation.x = Math.PI / 2;
+  let head = new Mesh(
+    new ConeGeometry(kind === 'javelin' ? 0.04 : 0.024, kind === 'javelin' ? 0.16 : 0.08, 5),
+    mats.iron,
   );
-  if (((s.rotation.x = Math.PI / 2), (s.position.z = a / 2 + 0.03), t.add(n, s), o !== 'javelin'))
-    for (let i of [0, Math.PI / 2]) {
-      let r = new Mesh(new PlaneGeometry(0.05, 0.12), e.fletch);
-      (r.rotation.set(Math.PI / 2, i, 0), (r.position.z = -a / 2 + 0.06), t.add(r));
+  if (
+    ((head.rotation.x = Math.PI / 2),
+    (head.position.z = length / 2 + 0.03),
+    group.add(shaft, head),
+    kind !== 'javelin')
+  )
+    for (let angle of [0, Math.PI / 2]) {
+      let fin = new Mesh(new PlaneGeometry(0.05, 0.12), mats.fletch);
+      (fin.rotation.set(Math.PI / 2, angle, 0), (fin.position.z = -length / 2 + 0.06), group.add(fin));
     }
-  return t;
+  return group;
 }
-function createVfx({
-  scene: o,
-  camera: e,
-  quality: t = { level: 1 },
-  cellToWorld: a = null,
-  grade: n = null,
-} = {}) {
-  let s = t.level ?? 1,
-    i = [0.45, 0.75, 1][s] ?? 0.75,
-    r = new Group();
-  ((r.name = 'vfx'), o.add(r));
-  let l = new ParticleSystem(s === 0 ? 1400 : s === 1 ? 2600 : 4e3, 'add'),
-    c = new ParticleSystem(s === 0 ? 500 : s === 1 ? 900 : 1400, 'alpha');
-  r.add(c.mesh, l.mesh);
-  let d = new u1(r, s === 0 ? 1 : s === 1 ? 2 : 4),
-    u = [],
-    h = [],
-    p = 0,
-    m = 0,
-    _ = 0,
-    b = 0,
-    f = typeof matchMedia == 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
-    v = {
-      root: r,
-      camera: e,
-      quality: i,
-      level: s,
-      add: l,
-      alp: c,
-      lights: d,
-      cellToWorld: a || ((x) => Oa(x[0], 0, x[1])),
+/**
+ * Crea el director de efectos. `quality.level` (0–2) fija el número de partículas y luces;
+ * `cellToWorld` pasa casillas a posiciones; `grade` es el pase de gradación (uniforme uFlash).
+ */
+function createVfx({ scene, camera, quality = { level: 1 }, cellToWorld = null, grade = null } = {}) {
+  let level = quality.level ?? 1,
+    qualityScale = [0.45, 0.75, 1][level] ?? 0.75,
+    root = new Group();
+  ((root.name = 'vfx'), scene.add(root));
+  let addParticles = new ParticleSystem(level === 0 ? 1400 : level === 1 ? 2600 : 4e3, 'add'),
+    alphaParticles = new ParticleSystem(level === 0 ? 500 : level === 1 ? 900 : 1400, 'alpha');
+  root.add(alphaParticles.mesh, addParticles.mesh);
+  let lights = new LightPool(root, level === 0 ? 1 : level === 1 ? 2 : 4),
+    pieces = [],
+    timers = [],
+    clock = 0,
+    shakeAmount = 0,
+    shakeTime = 0,
+    flashAmount = 0,
+    reducedMotion = typeof matchMedia == 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
+    vfx = {
+      root,
+      camera,
+      quality: qualityScale,
+      level,
+      add: addParticles,
+      alp: alphaParticles,
+      lights,
+      cellToWorld: cellToWorld || ((cell) => vec3(cell[0], 0, cell[1])),
       onFx: null,
       timeScale: 1,
-      setLevel(x) {
-        ((i = [0.45, 0.75, 1][x] ?? i), (this.quality = i), (this.level = x));
+      setLevel(newLevel) {
+        ((qualityScale = [0.45, 0.75, 1][newLevel] ?? qualityScale),
+          (this.quality = qualityScale),
+          (this.level = newLevel));
       },
-      wait(x) {
-        return new Promise((g) => h.push({ at: p + x, fn: g }));
+      /** Promesa que se resuelve tras `seconds` del reloj de efectos (afectado por timeScale). */
+      wait(seconds) {
+        return new Promise((resolve) => timers.push({ at: clock + seconds, fn: resolve }));
       },
-      after(x, g) {
-        h.push({ at: p + x, fn: g });
+      /** Llama a `fn` tras `seconds`. */
+      after(seconds, fn) {
+        timers.push({ at: clock + seconds, fn });
       },
-      stream(x, g) {
-        u.push({
+      /** Llama a `fn(dt, progreso, transcurrido)` en cada fotograma durante `duration` s. */
+      stream(duration, fn) {
+        pieces.push({
           t: 0,
-          update(y) {
-            return ((this.t += y), g(y, Math.min(1, this.t / x), this.t), this.t < x);
+          update(dt) {
+            return ((this.t += dt), fn(dt, Math.min(1, this.t / duration), this.t), this.t < duration);
           },
           dispose() {},
         });
       },
-      fx(x, g = {}) {
+      /** Avisa a `onFx` (sonido) de un efecto; `at` se pasa como [x, y, z]. */
+      fx(name, data = {}) {
         if (this.onFx)
           try {
-            let y = g.at ? (g.at.isVector3 ? [g.at.x, g.at.y, g.at.z] : g.at) : void 0;
-            this.onFx(x, { ...g, at: y });
-          } catch (y) {
-            console.error('[vfx] onFx', y);
+            let at = data.at ? (data.at.isVector3 ? [data.at.x, data.at.y, data.at.z] : data.at) : void 0;
+            this.onFx(name, { ...data, at });
+          } catch (err) {
+            console.error('[vfx] onFx', err);
           }
       },
-      p(x) {
-        return (x.blend === 'alpha' ? c : l).spawn(x);
+      /** Crea una partícula (en el sistema normal si `blend` es 'alpha'). */
+      p(opts) {
+        return (opts.blend === 'alpha' ? alphaParticles : addParticles).spawn(opts);
       },
+      /** Estallido de `n` partículas (escalado por calidad) desde `pos`. */
       burst(
-        x,
+        pos,
         {
-          n: g = 20,
-          col: y = 16777215,
-          col1: w,
-          speed: k = 3,
-          speedMin: T = null,
-          up: E = 0,
-          life: S = 0.6,
-          lifeVar: z = 0.4,
-          size: D = 0.12,
-          size1: M,
-          frame: R = FRAME.spark,
-          grav: A = 0,
-          drag: P = 1.5,
-          stretch: I = 0,
-          blend: U = 'add',
-          glow: j = 1.5,
-          a: X = 1,
-          a1: J = 0,
-          dir: Z = null,
-          cone: K = 0.6,
-          radius: ve = 0,
-          spin: ge = 0,
-          fadeIn: ue = 0.05,
-          flicker: Q = 0,
-          flat: oe = !1,
+          n = 20,
+          col = 16777215,
+          col1,
+          speed = 3,
+          speedMin = null,
+          up = 0,
+          life = 0.6,
+          lifeVar = 0.4,
+          size = 0.12,
+          size1,
+          frame = FRAME.spark,
+          grav = 0,
+          drag = 1.5,
+          stretch = 0,
+          blend = 'add',
+          glow = 1.5,
+          a = 1,
+          a1 = 0,
+          dir = null,
+          cone = 0.6,
+          radius = 0,
+          spin = 0,
+          fadeIn = 0.05,
+          flicker = 0,
+          flat = !1,
         } = {},
       ) {
-        let ie = Math.max(1, Math.round(g * i)),
-          we = Oa(),
-          ce = Oa();
-        for (let ke = 0; ke < ie; ke++) {
-          (Z ? rcone(Z, K, we) : rsphere(1, we).normalize(),
-            oe && ((we.y = Math.abs(we.y) * 0.15), we.normalize()));
-          let Qe = T !== null ? ps(T, k) : k * (0.35 + 0.65 * Math.random());
-          (ce.copy(x),
-            ve > 0 && ce.add(rsphere(ve, Oa())),
+        let count = Math.max(1, Math.round(n * qualityScale)),
+          dirVec = vec3(),
+          origin = vec3();
+        for (let i = 0; i < count; i++) {
+          (dir ? rcone(dir, cone, dirVec) : rsphere(1, dirVec).normalize(),
+            flat && ((dirVec.y = Math.abs(dirVec.y) * 0.15), dirVec.normalize()));
+          let s = speedMin !== null ? randRange(speedMin, speed) : speed * (0.35 + 0.65 * Math.random());
+          (origin.copy(pos),
+            radius > 0 && origin.add(rsphere(radius, vec3())),
             this.p({
-              p: ce,
-              v: [we.x * Qe, we.y * Qe + E, we.z * Qe],
-              life: S * (1 - z / 2 + Math.random() * z),
-              size: D * ps(0.7, 1.3),
-              size1: M ?? D * 0.3,
-              col: y,
-              col1: w ?? y,
-              a: X,
-              a1: J,
-              frame: R,
-              grav: A,
-              drag: P,
-              stretch: I,
-              blend: U,
-              glow: j,
-              spin: ge ? ps(-ge, ge) : 0,
-              fadeIn: ue,
-              flicker: Q,
+              p: origin,
+              v: [dirVec.x * s, dirVec.y * s + up, dirVec.z * s],
+              life: life * (1 - lifeVar / 2 + Math.random() * lifeVar),
+              size: size * randRange(0.7, 1.3),
+              size1: size1 ?? size * 0.3,
+              col,
+              col1: col1 ?? col,
+              a,
+              a1,
+              frame,
+              grav,
+              drag,
+              stretch,
+              blend,
+              glow,
+              spin: spin ? randRange(-spin, spin) : 0,
+              fadeIn,
+              flicker,
             }));
         }
       },
-      glow(x, g = 16777215, y = 1.5, w = 0.25, k = 2.5) {
+      glow(pos, color = 16777215, size = 1.5, life = 0.25, glow = 2.5) {
         this.p({
-          p: x,
-          life: w,
-          size: y * 0.6,
-          size1: y,
-          col: g,
+          p: pos,
+          life,
+          size: size * 0.6,
+          size1: size,
+          col: color,
           a: 1,
           a1: 0,
           frame: FRAME.glow,
-          glow: k,
+          glow,
           fadeIn: 0.02,
         });
       },
-      ring(x, g = {}) {
-        return this.piece(new RingWave(x, g));
+      ring(pos, opts = {}) {
+        return this.piece(new RingWave(pos, opts));
       },
-      dome(x, g = {}) {
-        return this.piece(new Dome(x, g));
+      dome(pos, opts = {}) {
+        return this.piece(new Dome(pos, opts));
       },
-      pillar(x, g = {}) {
-        return this.piece(new LightPillar(x, g));
+      pillar(pos, opts = {}) {
+        return this.piece(new LightPillar(pos, opts));
       },
-      hexwave(x, g = {}) {
-        return !x || !x.length ? null : this.piece(new HexWave(x, this.cellToWorld, g));
+      hexwave(cells, opts = {}) {
+        return !cells || !cells.length ? null : this.piece(new HexWave(cells, this.cellToWorld, opts));
       },
-      runes(x, g = {}) {
-        return this.piece(new RuneCircle(x, g));
+      runes(pos, opts = {}) {
+        return this.piece(new RuneCircle(pos, opts));
       },
-      slash(x, g = {}) {
-        return this.piece(new SlashArc(x, e, g));
+      slash(pos, opts = {}) {
+        return this.piece(new SlashArc(pos, camera, opts));
       },
-      decal(x, g = {}) {
-        return this.piece(new Decal(x, g));
+      decal(pos, opts = {}) {
+        return this.piece(new Decal(pos, opts));
       },
       beam(
-        x,
-        g,
+        from,
+        to,
         {
-          col: y = 16777215,
-          width: w = 0.16,
-          life: k = 0.45,
-          mode: T = 'beam',
-          glow: E = 2.2,
-          speed: S = 8,
-          jitter: z = 0.3,
-          alpha: D = 1,
-          hot: M = null,
+          col = 16777215,
+          width = 0.16,
+          life = 0.45,
+          mode = 'beam',
+          glow = 2.2,
+          speed = 8,
+          jitter = 0.3,
+          alpha = 1,
+          hot = null,
         } = {},
       ) {
-        let R = new Beam({
-          width: w,
-          color: y,
-          life: k,
-          mode: T,
-          glow: E,
-          speed: S,
-          jitter: z,
-          alpha: D,
-          hot: M,
+        let beam = new Beam({
+          width,
+          color: col,
+          life,
+          mode,
+          glow,
+          speed,
+          jitter,
+          alpha,
+          hot,
         });
-        return (R.setLine(x, g, T === 'bolt' ? 18 : 14), this.piece(R));
+        return (beam.setLine(from, to, mode === 'bolt' ? 18 : 14), this.piece(beam));
       },
-      ribbon(x, g = {}) {
-        let y = new Beam({
-          width: g.width ?? 0.12,
-          color: g.col ?? 16777215,
-          life: g.life ?? 0.5,
-          mode: g.mode ?? 'beam',
-          glow: g.glow ?? 2,
-          speed: g.speed ?? 6,
-          alpha: g.alpha ?? 1,
+      ribbon(points, opts = {}) {
+        let beam = new Beam({
+          width: opts.width ?? 0.12,
+          color: opts.col ?? 16777215,
+          life: opts.life ?? 0.5,
+          mode: opts.mode ?? 'beam',
+          glow: opts.glow ?? 2,
+          speed: opts.speed ?? 6,
+          alpha: opts.alpha ?? 1,
         });
-        return (y.setPoints(x), this.piece(y));
+        return (beam.setPoints(points), this.piece(beam));
       },
-      light(x, g, y = 6, w = 6, k = 0.4, T = null) {
-        return d.flash(x, g, y, w, k, T);
+      light(pos, color, intensity = 6, distance = 6, life = 0.4, follow = null) {
+        return lights.flash(pos, color, intensity, distance, life, follow);
       },
-      piece(x) {
-        return (r.add(x.mesh), u.push(x), x);
+      piece(piece) {
+        return (root.add(piece.mesh), pieces.push(piece), piece);
       },
-      remove(x) {
-        let g = u.indexOf(x);
-        (g >= 0 && u.splice(g, 1), r.remove(x.mesh), x.dispose());
+      remove(piece) {
+        let index = pieces.indexOf(piece);
+        (index >= 0 && pieces.splice(index, 1), root.remove(piece.mesh), piece.dispose());
       },
-      shake(x = 0.006, g = 0.3) {
-        f || this.noShake || (s === 0 && (x *= 0.6), (m = Math.max(m, x)), (_ = Math.max(_, g)));
+      shake(amount = 0.006, duration = 0.3) {
+        reducedMotion ||
+          this.noShake ||
+          (level === 0 && (amount *= 0.6),
+          (shakeAmount = Math.max(shakeAmount, amount)),
+          (shakeTime = Math.max(shakeTime, duration)));
       },
-      flash(x = 0.45) {
-        (f && (x *= 0.4), (b = Math.max(b, x)));
+      flash(amount = 0.45) {
+        (reducedMotion && (amount *= 0.4), (flashAmount = Math.max(flashAmount, amount)));
       },
-      castStart(x, g, y, { radius: w = 0.9, big: k = !1 } = {}) {
-        let T = getStyle(x),
-          E = this.runes(g, { color: T.c, radius: k ? w * 1.5 : w, life: 0, spin: 1.2, alpha: 0.85 }),
-          S = (D) => {
-            if (!y) return;
-            let M = Math.max(1, Math.round(60 * D * i));
-            for (let R = 0; R < M; R++) {
-              let A = rsphere(0.55, Oa()).add(Oa(0, 0.1, 0));
+      /** Círculo de runas y chispas hacia la mano al empezar a lanzar; devuelve `{ release() }`. */
+      castStart(style, pos, hand, { radius = 0.9, big = !1 } = {}) {
+        let def = getStyle(style),
+          runes = this.runes(pos, {
+            color: def.c,
+            radius: big ? radius * 1.5 : radius,
+            life: 0,
+            spin: 1.2,
+            alpha: 0.85,
+          }),
+          emitSparks = (dt) => {
+            if (!hand) return;
+            let count = Math.max(1, Math.round(60 * dt * qualityScale));
+            for (let i = 0; i < count; i++) {
+              let offset = rsphere(0.55, vec3()).add(vec3(0, 0.1, 0));
               this.p({
-                p: y.clone().add(A),
-                v: A.clone().multiplyScalar(-2.2),
+                p: hand.clone().add(offset),
+                v: offset.clone().multiplyScalar(-2.2),
                 life: 0.28,
                 size: 0.07,
                 size1: 0.02,
-                col: T.c2,
-                col1: T.c,
+                col: def.c2,
+                col1: def.c,
                 frame: FRAME.spark,
                 glow: 2,
                 a: 0.9,
@@ -317,134 +352,127 @@ function createVfx({
             }
             Math.random() < 0.5 &&
               this.p({
-                p: y,
+                p: hand,
                 life: 0.12,
                 size: 0.28,
                 size1: 0.34,
-                col: T.c,
+                col: def.c,
                 frame: FRAME.glow,
                 glow: 1.8,
                 a: 0.8,
               });
           },
-          z = !0;
+          active = !0;
         return (
-          this.stream(1.2, (D) => z && S(D)),
-          this.fx('cast', { style: x, at: g }),
+          this.stream(1.2, (dt) => active && emitSparks(dt)),
+          this.fx('cast', { style, at: pos }),
           {
             release: () => {
-              ((z = !1), E.close(0.35));
+              ((active = !1), runes.close(0.35));
             },
           }
         );
       },
+      /** Lanza un proyectil de `from` a `to`; la promesa se resuelve con el punto de llegada. */
       projectile(
-        x,
-        g,
-        y,
-        {
-          kind: w = 'orb',
-          speed: k = 16,
-          arc: T = null,
-          miss: E = !1,
-          size: S = 1,
-          trail: z = !0,
-          curve: D = 0,
-          light: M = !0,
-        } = {},
+        style,
+        from,
+        to,
+        { kind = 'orb', speed = 16, arc = null, miss = !1, size = 1, trail = !0, curve = 0, light = !0 } = {},
       ) {
-        let R = getStyle(x),
-          A = y.clone();
-        if (E) {
-          let oe = y.clone().sub(g).setY(0).normalize(),
-            ie = Oa(-oe.z, 0, oe.x).multiplyScalar(ps(-1, 1) * 0.9);
-          ((A = y.clone().addScaledVector(oe, 2.6).add(ie)), (A.y = Math.max(0.05, y.y - 1.2)));
+        let def = getStyle(style),
+          end = to.clone();
+        if (miss) {
+          let dir = to.clone().sub(from).setY(0).normalize(),
+            side = vec3(-dir.z, 0, dir.x).multiplyScalar(randRange(-1, 1) * 0.9);
+          ((end = to.clone().addScaledVector(dir, 2.6).add(side)), (end.y = Math.max(0.05, to.y - 1.2)));
         }
-        let P = g.distanceTo(A),
-          I = Math.max(0.12, P / k),
-          U = w !== 'orb' && w !== 'dart',
-          j = T ?? (U ? Math.min(1.4, P * 0.06) : P * 0.02),
-          X = Oa().subVectors(A, g).setY(0).normalize();
-        X.set(-X.z, 0, X.x).multiplyScalar(D * P * 0.25);
-        let J = null;
-        U && ((J = QI(w === 'dart' ? 'arrow' : w)), r.add(J));
-        let Z = z
+        let dist = from.distanceTo(end),
+          duration = Math.max(0.12, dist / speed),
+          isAmmo = kind !== 'orb' && kind !== 'dart',
+          arcHeight = arc ?? (isAmmo ? Math.min(1.4, dist * 0.06) : dist * 0.02),
+          bend = vec3().subVectors(end, from).setY(0).normalize();
+        bend.set(-bend.z, 0, bend.x).multiplyScalar(curve * dist * 0.25);
+        let ammo = null;
+        isAmmo && ((ammo = buildAmmoMesh(kind === 'dart' ? 'arrow' : kind)), root.add(ammo));
+        let trailBeam = trail
           ? new Beam({
-              width: U ? 0.05 : 0.34 * S,
-              color: U ? 16774368 : R.c,
-              glow: U ? 0.8 : 1.5,
+              width: isAmmo ? 0.05 : 0.34 * size,
+              color: isAmmo ? 16774368 : def.c,
+              glow: isAmmo ? 0.8 : 1.5,
               life: 0,
               mode: 'trail',
-              alpha: U ? 0.35 : 0.85,
+              alpha: isAmmo ? 0.35 : 0.85,
               speed: 10,
-              hot: U ? 0.2 : 0.3,
+              hot: isAmmo ? 0.2 : 0.3,
             })
           : null;
-        Z && this.piece(Z);
-        let K = [],
-          ve = g.clone(),
-          ge = Oa(),
-          ue = M && !U ? d.flash(g, R.c, 5 * S, 5, 0, () => ve) : null;
-        this.fx('launch', { style: U ? w : x, at: g });
-        let Q = this;
-        return new Promise((oe) => {
-          let ie = !1;
-          u.push({
+        trailBeam && this.piece(trailBeam);
+        let trailPts = [],
+          pos = from.clone(),
+          ahead = vec3(),
+          glowLight = light && !isAmmo ? lights.flash(from, def.c, 5 * size, 5, 0, () => pos) : null;
+        this.fx('launch', { style: isAmmo ? kind : style, at: from });
+        let self = this;
+        return new Promise((resolve) => {
+          let done = !1;
+          pieces.push({
             t: 0,
-            update(we) {
-              this.t += we;
-              let ce = Math.min(1, this.t / I),
-                ke = (Qe, N) => (
-                  N.copy(g).lerp(A, Qe),
-                  (N.y += Math.sin(Qe * Math.PI) * j),
-                  N.addScaledVector(X, Math.sin(Qe * Math.PI)),
-                  N
+            update(dt) {
+              this.t += dt;
+              let progress = Math.min(1, this.t / duration),
+                pointAt = (f, out) => (
+                  out.copy(from).lerp(end, f),
+                  (out.y += Math.sin(f * Math.PI) * arcHeight),
+                  out.addScaledVector(bend, Math.sin(f * Math.PI)),
+                  out
                 );
-              if ((ke(ce, ve), ke(Math.min(1, ce + 0.02), ge), J))
-                (J.position.copy(ve), w === 'dagger' ? (J.lookAt(ge), J.rotateX(this.t * 22)) : J.lookAt(ge));
+              if ((pointAt(progress, pos), pointAt(Math.min(1, progress + 0.02), ahead), ammo))
+                (ammo.position.copy(pos),
+                  kind === 'dagger' ? (ammo.lookAt(ahead), ammo.rotateX(this.t * 22)) : ammo.lookAt(ahead));
               else {
-                (Q.p({
-                  p: ve,
+                (self.p({
+                  p: pos,
                   life: 0.06,
-                  size: 0.3 * S,
-                  size1: 0.26 * S,
-                  col: R.c2,
+                  size: 0.3 * size,
+                  size1: 0.26 * size,
+                  col: def.c2,
                   frame: FRAME.glow,
                   glow: 2.4,
                   a: 1,
                 }),
-                  Q.p({
-                    p: ve,
+                  self.p({
+                    p: pos,
                     life: 0.1,
-                    size: 0.75 * S,
-                    size1: 0.6 * S,
-                    col: R.c,
+                    size: 0.75 * size,
+                    size1: 0.6 * size,
+                    col: def.c,
                     frame: FRAME.glow,
                     glow: 1.4,
                     a: 0.6,
                   }));
-                let Qe = Math.max(1, Math.round(90 * we * i * S));
-                for (let N = 0; N < Qe; N++) {
-                  let L = rsphere(0.1 * S, Oa()).add(ve);
-                  Q.p({
-                    p: L,
-                    v: rsphere(0.7, Oa()),
-                    life: ps(0.2, 0.5),
-                    size: (x === 'fire' ? 0.24 : 0.13) * S,
+                let count = Math.max(1, Math.round(90 * dt * qualityScale * size));
+                for (let i = 0; i < count; i++) {
+                  let p = rsphere(0.1 * size, vec3()).add(pos);
+                  self.p({
+                    p,
+                    v: rsphere(0.7, vec3()),
+                    life: randRange(0.2, 0.5),
+                    size: (style === 'fire' ? 0.24 : 0.13) * size,
                     size1: 0.03,
-                    col: R.c2,
-                    col1: R.c,
-                    frame: R.p,
+                    col: def.c2,
+                    col1: def.c,
+                    frame: def.p,
                     glow: 1.6,
                     a: 0.85,
-                    grav: x === 'fire' ? 1.4 : x === 'acid' ? -3 : 0,
+                    grav: style === 'fire' ? 1.4 : style === 'acid' ? -3 : 0,
                     spin: 3,
                   });
                 }
-                (x === 'fire' &&
+                (style === 'fire' &&
                   Math.random() < 0.6 &&
-                  Q.p({
-                    p: ve,
+                  self.p({
+                    p: pos,
                     v: [0, 0.6, 0],
                     life: 0.7,
                     size: 0.2,
@@ -455,11 +483,11 @@ function createVfx({
                     blend: 'alpha',
                     fadeIn: 0.2,
                   }),
-                  x === 'necrotic' &&
+                  style === 'necrotic' &&
                     Math.random() < 0.7 &&
-                    Q.p({
-                      p: ve,
-                      v: rsphere(0.3, Oa()),
+                    self.p({
+                      p: pos,
+                      v: rsphere(0.3, vec3()),
                       life: 0.6,
                       size: 0.25,
                       size1: 0.45,
@@ -471,67 +499,74 @@ function createVfx({
                     }));
               }
               return (
-                Z && (K.push(ve.clone()), K.length > 14 && K.shift(), Z.setPoints(K)),
-                ce >= 1 &&
-                  !ie &&
-                  ((ie = !0),
-                  J && (E ? (J.position.copy(A), Q.after(1.4, () => r.remove(J))) : r.remove(J)),
-                  Z && ((Z.life = 0.18), (Z.t = 0)),
-                  ue && d.release(ue, 0.15),
-                  E && Q.fx('whiff', { style: x, at: A }),
-                  oe(A)),
-                !ie
+                trailBeam &&
+                  (trailPts.push(pos.clone()),
+                  trailPts.length > 14 && trailPts.shift(),
+                  trailBeam.setPoints(trailPts)),
+                progress >= 1 &&
+                  !done &&
+                  ((done = !0),
+                  ammo &&
+                    (miss
+                      ? (ammo.position.copy(end), self.after(1.4, () => root.remove(ammo)))
+                      : root.remove(ammo)),
+                  trailBeam && ((trailBeam.life = 0.18), (trailBeam.t = 0)),
+                  glowLight && lights.release(glowLight, 0.15),
+                  miss && self.fx('whiff', { style, at: end }),
+                  resolve(end)),
+                !done
               );
             },
             dispose() {
-              J && r.remove(J);
+              ammo && root.remove(ammo);
             },
           });
         });
       },
-      hit(x, g, { crit: y = !1, dir: w = null, small: k = !1, blood: T = !0 } = {}) {
-        let E = y ? 1.6 : k ? 0.6 : 1,
-          S = w ? w.clone().normalize() : null;
-        switch (((this._noBlood = !T), this.fx('impact', { type: x, crit: y, at: g }), x)) {
+      /** Impacto de arma según el tipo de daño (cortante, perforante, contundente o elemental). */
+      hit(type, pos, { crit = !1, dir = null, small = !1, blood = !0 } = {}) {
+        let scale = crit ? 1.6 : small ? 0.6 : 1,
+          hitDir = dir ? dir.clone().normalize() : null;
+        switch (((this._noBlood = !blood), this.fx('impact', { type, crit, at: pos }), type)) {
           case 'slashing':
-            (this.slash(g, { color: 16773852, size: 1.2 * E, life: 0.26 }),
-              this.burst(g, {
-                n: 10 * E,
+            (this.slash(pos, { color: 16773852, size: 1.2 * scale, life: 0.26 }),
+              this.burst(pos, {
+                n: 10 * scale,
                 col: 16769712,
                 speed: 4,
                 life: 0.3,
                 size: 0.06,
                 stretch: 0.08,
-                dir: S,
+                dir: hitDir,
                 cone: 1.2,
               }),
-              this.blood(g, E, S));
+              this.blood(pos, scale, hitDir));
             break;
           case 'piercing':
-            (this.burst(g, {
-              n: 12 * E,
+            (this.burst(pos, {
+              n: 12 * scale,
               col: 16773328,
               speed: 6,
               life: 0.22,
               size: 0.05,
               stretch: 0.12,
-              dir: S,
+              dir: hitDir,
               cone: 0.5,
             }),
-              this.glow(g, 16771264, 0.5 * E, 0.12, 2),
-              this.blood(g, E * 0.8, S));
+              this.glow(pos, 16771264, 0.5 * scale, 0.12, 2),
+              this.blood(pos, scale * 0.8, hitDir));
             break;
           case 'bludgeoning':
-            (this.ring(g.clone().setY(g.y - 0.2), {
+            (this.ring(pos.clone().setY(pos.y - 0.2), {
               color: 16773336,
-              radius: 0.9 * E,
+              radius: 0.9 * scale,
               life: 0.3,
               thick: 0.3,
-              vertical: e.position.clone().sub(g),
+              vertical: camera.position.clone().sub(pos),
               y: 0,
             }),
-              this.burst(g, {
-                n: 14 * E,
+              this.burst(pos, {
+                n: 14 * scale,
                 col: 11575440,
                 speed: 2.2,
                 life: 0.6,
@@ -542,18 +577,25 @@ function createVfx({
                 a: 0.5,
                 drag: 3,
               }),
-              this.burst(g, { n: 6 * E, col: 16773328, speed: 4, life: 0.2, size: 0.06, stretch: 0.06 }),
-              this.blood(g, E * 0.6, S));
+              this.burst(pos, {
+                n: 6 * scale,
+                col: 16773328,
+                speed: 4,
+                life: 0.2,
+                size: 0.06,
+                stretch: 0.06,
+              }),
+              this.blood(pos, scale * 0.6, hitDir));
             break;
           default:
-            this.element(DAMAGE_STYLE[x] || 'arcane', g, { k: E, dir: S });
+            this.element(DAMAGE_STYLE[type] || 'arcane', pos, { k: scale, dir: hitDir });
         }
-        y && this.crit(g);
+        crit && this.crit(pos);
       },
-      blood(x, g = 1, y = null, w = 7998728) {
+      blood(pos, amount = 1, dir = null, color = 7998728) {
         if (this._noBlood) {
-          (this.burst(x, {
-            n: 7 * g,
+          (this.burst(pos, {
+            n: 7 * amount,
             col: 15261900,
             speed: 2.6,
             up: 1,
@@ -565,8 +607,8 @@ function createVfx({
             blend: 'alpha',
             a: 1,
           }),
-            this.burst(x, {
-              n: 4 * g,
+            this.burst(pos, {
+              n: 4 * amount,
               col: 13616816,
               speed: 0.8,
               life: 0.8,
@@ -579,9 +621,9 @@ function createVfx({
           return;
         }
         this.bloodless ||
-          this.burst(x, {
-            n: 8 * g,
-            col: w,
+          this.burst(pos, {
+            n: 8 * amount,
+            col: color,
             speed: 2.4,
             up: 1.2,
             life: 0.55,
@@ -593,18 +635,19 @@ function createVfx({
             blend: 'alpha',
             a: 0.95,
             a1: 0.8,
-            dir: y ? y.clone().setY(0.3) : null,
+            dir: dir ? dir.clone().setY(0.3) : null,
             cone: 1,
             stretch: 0.05,
           });
       },
-      element(x, g, { k: y = 1, dir: w = null } = {}) {
-        let k = getStyle(x);
-        switch (x) {
+      /** Impacto elemental del estilo `style` con fuerza `power`. */
+      element(style, pos, { k: power = 1, dir = null } = {}) {
+        let def = getStyle(style);
+        switch (style) {
           case 'fire':
-            (this.glow(g, 16752704, 1.4 * y, 0.22, 3),
-              this.burst(g, {
-                n: 26 * y,
+            (this.glow(pos, 16752704, 1.4 * power, 0.22, 3),
+              this.burst(pos, {
+                n: 26 * power,
                 col: 16765562,
                 col1: 16726536,
                 speed: 2.6,
@@ -616,8 +659,8 @@ function createVfx({
                 glow: 2,
                 grav: 2,
               }),
-              this.burst(g, {
-                n: 14 * y,
+              this.burst(pos, {
+                n: 14 * power,
                 col: 16760928,
                 speed: 5,
                 life: 0.5,
@@ -626,8 +669,8 @@ function createVfx({
                 grav: -4,
                 glow: 2.5,
               }),
-              this.burst(g, {
-                n: 8 * y,
+              this.burst(pos, {
+                n: 8 * power,
                 col: 2628628,
                 speed: 0.8,
                 up: 0.9,
@@ -639,12 +682,12 @@ function createVfx({
                 a: 0.4,
                 fadeIn: 0.2,
               }),
-              this.light(g, 16742954, 9 * y, 7, 0.45));
+              this.light(pos, 16742954, 9 * power, 7, 0.45));
             break;
           case 'frost':
-            (this.glow(g, 12577023, 1.1 * y, 0.2, 2.4),
-              this.burst(g, {
-                n: 16 * y,
+            (this.glow(pos, 12577023, 1.1 * power, 0.2, 2.4),
+              this.burst(pos, {
+                n: 16 * power,
                 col: 15268607,
                 col1: 8377599,
                 speed: 4,
@@ -656,8 +699,8 @@ function createVfx({
                 grav: -6,
                 spin: 6,
               }),
-              this.burst(g, {
-                n: 12 * y,
+              this.burst(pos, {
+                n: 12 * power,
                 col: 16777215,
                 speed: 1.5,
                 life: 1,
@@ -668,8 +711,8 @@ function createVfx({
                 grav: -0.6,
                 spin: 2,
               }),
-              this.burst(g, {
-                n: 6 * y,
+              this.burst(pos, {
+                n: 6 * power,
                 col: 13625599,
                 speed: 0.6,
                 life: 1.2,
@@ -680,21 +723,21 @@ function createVfx({
                 a: 0.3,
                 fadeIn: 0.2,
               }),
-              this.decal(g.clone().setY(0), {
+              this.decal(pos.clone().setY(0), {
                 frame: FRAME.flake,
                 color: 12577023,
-                size: 1.2 * y,
+                size: 1.2 * power,
                 life: 2.2,
                 alpha: 0.5,
                 glow: 1.2,
               }),
-              this.light(g, 9427199, 6 * y, 6, 0.4));
+              this.light(pos, 9427199, 6 * power, 6, 0.4));
             break;
           case 'lightning': {
-            let T = g.clone();
-            for (let E = 0; E < 4 * y; E++)
-              this.after(E * 0.03, () =>
-                this.beam(T, T.clone().add(rsphere(1.1, Oa()).setY(ps(-0.6, 0.8))), {
+            let from = pos.clone();
+            for (let i = 0; i < 4 * power; i++)
+              this.after(i * 0.03, () =>
+                this.beam(from, from.clone().add(rsphere(1.1, vec3()).setY(randRange(-0.6, 0.8))), {
                   col: 12112127,
                   width: 0.07,
                   life: 0.26,
@@ -703,9 +746,9 @@ function createVfx({
                   glow: 3,
                 }),
               );
-            (this.glow(g, 14674175, 1.2 * y, 0.15, 3.5),
-              this.burst(g, {
-                n: 18 * y,
+            (this.glow(pos, 14674175, 1.2 * power, 0.15, 3.5),
+              this.burst(pos, {
+                n: 18 * power,
                 col: 15791871,
                 speed: 6,
                 life: 0.3,
@@ -713,15 +756,27 @@ function createVfx({
                 stretch: 0.1,
                 glow: 3,
               }),
-              this.light(g, 11061503, 10 * y, 7, 0.25));
+              this.light(pos, 11061503, 10 * power, 7, 0.25));
             break;
           }
           case 'thunder':
           case 'shatter':
-            (this.ring(g.clone().setY(0), { color: k.c, radius: 2.2 * y, life: 0.5, thick: 0.15, fill: 0.6 }),
-              this.dome(g.clone().setY(0), { color: k.c2, radius: 1.3 * y, life: 0.4, alpha: 0.7, half: !0 }),
-              this.burst(g, {
-                n: 14 * y,
+            (this.ring(pos.clone().setY(0), {
+              color: def.c,
+              radius: 2.2 * power,
+              life: 0.5,
+              thick: 0.15,
+              fill: 0.6,
+            }),
+              this.dome(pos.clone().setY(0), {
+                color: def.c2,
+                radius: 1.3 * power,
+                life: 0.4,
+                alpha: 0.7,
+                half: !0,
+              }),
+              this.burst(pos, {
+                n: 14 * power,
                 col: 11049608,
                 speed: 2.5,
                 life: 0.8,
@@ -733,9 +788,9 @@ function createVfx({
                 drag: 2.5,
                 flat: !0,
               }),
-              x === 'shatter' &&
-                this.burst(g, {
-                  n: 16 * y,
+              style === 'shatter' &&
+                this.burst(pos, {
+                  n: 16 * power,
                   col: 15261439,
                   speed: 5,
                   life: 0.6,
@@ -745,13 +800,13 @@ function createVfx({
                   spin: 8,
                   glow: 1.6,
                 }),
-              this.shake(0.007 * y, 0.3));
+              this.shake(0.007 * power, 0.3));
             break;
           case 'radiant':
           case 'moon':
-            (this.glow(g, 16773312, 1.6 * y, 0.3, 3),
-              this.burst(g, {
-                n: 18 * y,
+            (this.glow(pos, 16773312, 1.6 * power, 0.3, 3),
+              this.burst(pos, {
+                n: 18 * power,
                 col: 16774864,
                 col1: 16760896,
                 speed: 3,
@@ -763,8 +818,8 @@ function createVfx({
                 spin: 3,
                 drag: 2,
               }),
-              this.burst(g, {
-                n: 10 * y,
+              this.burst(pos, {
+                n: 10 * power,
                 col: 16769168,
                 speed: 6,
                 life: 0.3,
@@ -772,14 +827,14 @@ function createVfx({
                 stretch: 0.12,
                 glow: 3,
               }),
-              this.light(g, 16766842, 8 * y, 7, 0.5));
+              this.light(pos, 16766842, 8 * power, 7, 0.5));
             break;
           case 'necrotic': {
-            for (let E = 0; E < Math.round(18 * y * i); E++) {
-              let S = rsphere(1.1, Oa());
+            for (let i = 0; i < Math.round(18 * power * qualityScale); i++) {
+              let offset = rsphere(1.1, vec3());
               this.p({
-                p: g.clone().add(S),
-                v: S.clone().multiplyScalar(-2.6),
+                p: pos.clone().add(offset),
+                v: offset.clone().multiplyScalar(-2.6),
                 life: 0.4,
                 size: 0.12,
                 size1: 0.03,
@@ -790,20 +845,20 @@ function createVfx({
                 stretch: 0.05,
               });
             }
-            let T = g.clone();
+            let at = pos.clone();
             (this.after(0.12, () => {
-              (this.glow(T, 10514656, 1.1 * y, 0.3, 2.2),
-                this.ring(T, {
+              (this.glow(at, 10514656, 1.1 * power, 0.3, 2.2),
+                this.ring(at, {
                   color: 10119896,
-                  radius: 0.7 * y,
+                  radius: 0.7 * power,
                   life: 0.4,
                   thick: 0.25,
-                  vertical: e.position.clone().sub(T),
+                  vertical: camera.position.clone().sub(at),
                   y: 0,
                 }));
             }),
-              this.burst(g, {
-                n: 10 * y,
+              this.burst(pos, {
+                n: 10 * power,
                 col: 1706532,
                 speed: 0.9,
                 up: 0.5,
@@ -815,8 +870,8 @@ function createVfx({
                 a: 0.55,
                 fadeIn: 0.15,
               }),
-              this.burst(g, {
-                n: 6 * y,
+              this.burst(pos, {
+                n: 6 * power,
                 col: 9067208,
                 speed: 0.6,
                 up: 1.4,
@@ -828,12 +883,12 @@ function createVfx({
                 a: 0.7,
                 drag: 1,
               }),
-              this.light(g, 8014591, 4 * y, 5, 0.5));
+              this.light(pos, 8014591, 4 * power, 5, 0.5));
             break;
           }
           case 'poison':
-            (this.burst(g, {
-              n: 12 * y,
+            (this.burst(pos, {
+              n: 12 * power,
               col: 3828244,
               speed: 1,
               up: 0.4,
@@ -845,8 +900,8 @@ function createVfx({
               a: 0.5,
               fadeIn: 0.1,
             }),
-              this.burst(g, {
-                n: 14 * y,
+              this.burst(pos, {
+                n: 14 * power,
                 col: 12124010,
                 speed: 1.4,
                 up: 1,
@@ -859,8 +914,8 @@ function createVfx({
               }));
             break;
           case 'acid':
-            (this.burst(g, {
-              n: 18 * y,
+            (this.burst(pos, {
+              n: 18 * power,
               col: 13172554,
               speed: 3,
               up: 1.5,
@@ -872,8 +927,8 @@ function createVfx({
               grav: -9,
               stretch: 0.05,
             }),
-              this.burst(g, {
-                n: 8 * y,
+              this.burst(pos, {
+                n: 8 * power,
                 col: 6982170,
                 speed: 0.6,
                 up: 0.6,
@@ -885,28 +940,28 @@ function createVfx({
                 a: 0.35,
                 fadeIn: 0.2,
               }),
-              this.decal(g.clone().setY(0), {
+              this.decal(pos.clone().setY(0), {
                 frame: FRAME.drop,
                 color: 10288954,
-                size: 0.9 * y,
+                size: 0.9 * power,
                 life: 2.5,
                 alpha: 0.45,
               }));
             break;
           case 'psychic':
-            for (let T = 0; T < 3; T++)
-              this.after(T * 0.08, () =>
-                this.ring(g, {
+            for (let i = 0; i < 3; i++)
+              this.after(i * 0.08, () =>
+                this.ring(pos, {
                   color: 16743128,
-                  radius: (0.8 + T * 0.4) * y,
+                  radius: (0.8 + i * 0.4) * power,
                   life: 0.45,
                   thick: 0.12,
-                  vertical: e.position.clone().sub(g),
+                  vertical: camera.position.clone().sub(pos),
                   y: 0,
                 }),
               );
-            this.burst(g, {
-              n: 10 * y,
+            this.burst(pos, {
+              n: 10 * power,
               col: 16756968,
               speed: 1.6,
               life: 0.7,
@@ -921,30 +976,30 @@ function createVfx({
           case 'missile':
           case 'eldritch':
           case 'arcane':
-            (this.glow(g, k.c2, 1 * y, 0.18, 2.6),
-              this.ring(g, {
-                color: k.c,
-                radius: 0.8 * y,
+            (this.glow(pos, def.c2, 1 * power, 0.18, 2.6),
+              this.ring(pos, {
+                color: def.c,
+                radius: 0.8 * power,
                 life: 0.3,
                 thick: 0.2,
-                vertical: e.position.clone().sub(g),
+                vertical: camera.position.clone().sub(pos),
                 y: 0,
               }),
-              this.burst(g, {
-                n: 16 * y,
-                col: k.c2,
-                col1: k.c,
+              this.burst(pos, {
+                n: 16 * power,
+                col: def.c2,
+                col1: def.c,
                 speed: 4.5,
                 life: 0.35,
                 size: 0.07,
                 stretch: 0.08,
                 glow: 2.4,
               }),
-              this.light(g, k.c, 5 * y, 5, 0.3));
+              this.light(pos, def.c, 5 * power, 5, 0.3));
             break;
           case 'nature':
-            (this.burst(g, {
-              n: 14 * y,
+            (this.burst(pos, {
+              n: 14 * power,
               col: 9424992,
               col1: 4885034,
               speed: 2.2,
@@ -959,8 +1014,8 @@ function createVfx({
               a: 0.95,
               a1: 0.6,
             }),
-              this.burst(g, {
-                n: 8 * y,
+              this.burst(pos, {
+                n: 8 * power,
                 col: 14221210,
                 speed: 3,
                 life: 0.3,
@@ -970,26 +1025,26 @@ function createVfx({
               }));
             break;
           default:
-            (this.glow(g, k.c2, 0.9 * y, 0.2, 2.2),
-              this.burst(g, {
-                n: 14 * y,
-                col: k.c2,
-                col1: k.c,
+            (this.glow(pos, def.c2, 0.9 * power, 0.2, 2.2),
+              this.burst(pos, {
+                n: 14 * power,
+                col: def.c2,
+                col1: def.c,
                 speed: 3,
                 life: 0.5,
                 size: 0.12,
                 size1: 0.03,
-                frame: k.p,
+                frame: def.p,
                 glow: 1.8,
                 spin: 3,
-                blend: k.blend || 'add',
+                blend: def.blend || 'add',
               }));
         }
       },
-      crit(x) {
-        (this.glow(x, 16765056, 2.6, 0.3, 3.2),
+      crit(pos) {
+        (this.glow(pos, 16765056, 2.6, 0.3, 3.2),
           this.p({
-            p: x,
+            p: pos,
             life: 0.4,
             size: 1.2,
             size1: 2.2,
@@ -999,13 +1054,13 @@ function createVfx({
             rot: Math.random(),
             spin: 2,
           }),
-          this.burst(x, { n: 18, col: 16767120, speed: 7, life: 0.35, size: 0.06, stretch: 0.12, glow: 3 }),
+          this.burst(pos, { n: 18, col: 16767120, speed: 7, life: 0.35, size: 0.06, stretch: 0.12, glow: 3 }),
           this.shake(0.01, 0.32),
-          this.fx('crit', { at: x }));
+          this.fx('crit', { at: pos }));
       },
-      miss(x) {
-        (this.burst(x, { n: 6, col: 16773328, speed: 3, life: 0.2, size: 0.04, stretch: 0.08 }),
-          this.burst(x.clone().setY(0.2), {
+      miss(pos) {
+        (this.burst(pos, { n: 6, col: 16773328, speed: 3, life: 0.2, size: 0.04, stretch: 0.08 }),
+          this.burst(pos.clone().setY(0.2), {
             n: 4,
             col: 11049608,
             speed: 0.8,
@@ -1018,19 +1073,23 @@ function createVfx({
             flat: !0,
           }));
       },
-      heal(x, g = 8) {
-        let y = Math.min(1.6, 0.7 + g / 20);
-        (this.ring(x, { color: 7339936, radius: 0.9, life: 0.7, thick: 0.25, fill: 0.5 }),
-          this.stream(0.6, (w) => {
-            let k = Math.max(1, Math.round(45 * w * i * y));
-            for (let T = 0; T < k; T++) {
-              let E = Math.random() * Math.PI * 2,
-                S = ps(0.15, 0.45);
+      heal(pos, amount = 8) {
+        let scale = Math.min(1.6, 0.7 + amount / 20);
+        (this.ring(pos, { color: 7339936, radius: 0.9, life: 0.7, thick: 0.25, fill: 0.5 }),
+          this.stream(0.6, (dt) => {
+            let count = Math.max(1, Math.round(45 * dt * qualityScale * scale));
+            for (let i = 0; i < count; i++) {
+              let angle = Math.random() * Math.PI * 2,
+                dist = randRange(0.15, 0.45);
               this.p({
-                p: [x.x + Math.cos(E) * S, x.y + ps(0, 0.4), x.z + Math.sin(E) * S],
-                v: [0, ps(1, 2.2), 0],
-                life: ps(0.6, 1),
-                size: ps(0.06, 0.13),
+                p: [
+                  pos.x + Math.cos(angle) * dist,
+                  pos.y + randRange(0, 0.4),
+                  pos.z + Math.sin(angle) * dist,
+                ],
+                v: [0, randRange(1, 2.2), 0],
+                life: randRange(0.6, 1),
+                size: randRange(0.06, 0.13),
                 size1: 0.02,
                 col: Math.random() < 0.3 ? 16774336 : 9437104,
                 frame: Math.random() < 0.3 ? FRAME.star : FRAME.spark,
@@ -1041,7 +1100,7 @@ function createVfx({
             }
           }),
           this.p({
-            p: x.clone().setY(x.y + 1),
+            p: pos.clone().setY(pos.y + 1),
             life: 0.6,
             size: 1.2,
             size1: 1.6,
@@ -1050,13 +1109,14 @@ function createVfx({
             glow: 1.2,
             a: 0.5,
           }),
-          this.light(x.clone().setY(x.y + 1), 8388520, 4, 4, 0.7),
-          this.fx('heal', { at: x, amount: g }));
+          this.light(pos.clone().setY(pos.y + 1), 8388520, 4, 4, 0.7),
+          this.fx('heal', { at: pos, amount }));
       },
-      death(x, { undead: g = !1, pc: y = !1 } = {}) {
-        let w = x.clone().setY(x.y + 0.9);
-        if ((this.fx('death', { at: x, undead: g, pc: y }), g)) {
-          (this.burst(w, {
+      /** Efecto de muerte (no muerto: humo y alma que sube). */
+      death(pos, { undead = !1, pc = !1 } = {}) {
+        let center = pos.clone().setY(pos.y + 0.9);
+        if ((this.fx('death', { at: pos, undead, pc }), undead)) {
+          (this.burst(center, {
             n: 22,
             col: 14209216,
             speed: 1.6,
@@ -1070,7 +1130,7 @@ function createVfx({
             grav: -0.5,
             drag: 2,
           }),
-            this.burst(w, {
+            this.burst(center, {
               n: 10,
               col: 10289072,
               speed: 0.6,
@@ -1083,14 +1143,14 @@ function createVfx({
               a: 0.8,
               drag: 0.8,
             }),
-            this.light(w, 9109424, 3, 4, 0.8));
+            this.light(center, 9109424, 3, 4, 0.8));
           return;
         }
-        if (y) {
-          (this.flash(0.6), this.ring(x, { color: 16728112, radius: 1.4, life: 0.8, thick: 0.15 }));
+        if (pc) {
+          (this.flash(0.6), this.ring(pos, { color: 16728112, radius: 1.4, life: 0.8, thick: 0.15 }));
           return;
         }
-        (this.burst(w, {
+        (this.burst(center, {
           n: 10,
           col: 3814448,
           speed: 0.8,
@@ -1105,7 +1165,7 @@ function createVfx({
         }),
           this.after(0.25, () => {
             (this.p({
-              p: w,
+              p: center,
               v: [0, 1.2, 0],
               life: 1.4,
               size: 0.35,
@@ -1115,7 +1175,7 @@ function createVfx({
               glow: 1.5,
               a: 0.6,
             }),
-              this.burst(w, {
+              this.burst(center, {
                 n: 8,
                 col: 14215423,
                 speed: 0.5,
@@ -1128,166 +1188,194 @@ function createVfx({
               }));
           }));
       },
-      spell(x, g = {}) {
-        let y = efectosConjuros[x] || {},
-          w = resolveStyleKey(g.fx ?? y.fx, g.dtype || y.d);
-        return playSpellFx(this, x, y, w, g);
+      /** Reproduce la coreografía de un conjuro (ver spells.js). */
+      spell(spellId, ev = {}) {
+        let def = efectosConjuros[spellId] || {},
+          style = resolveStyleKey(ev.fx ?? def.fx, ev.dtype || def.d);
+        return playSpellFx(this, spellId, def, style, ev);
       },
-      feature(x, g = {}) {
-        return playFeatureFx(this, x, g);
+      /** Reproduce la coreografía de un rasgo de clase (ver spells.js). */
+      feature(featureId, ev = {}) {
+        return playFeatureFx(this, featureId, ev);
       },
-      update(x) {
-        ((x *= this.timeScale), (p += x));
-        for (let g = h.length - 1; g >= 0; g--)
-          if (h[g].at <= p) {
-            let y = h[g];
-            h.splice(g, 1);
+      /** Avanza temporizadores, piezas, auras, zonas, partículas, luces, temblor y destello. */
+      update(dt) {
+        ((dt *= this.timeScale), (clock += dt));
+        for (let i = timers.length - 1; i >= 0; i--)
+          if (timers[i].at <= clock) {
+            let timer = timers[i];
+            timers.splice(i, 1);
             try {
-              y.fn();
-            } catch (w) {
-              console.error('[vfx]', w);
+              timer.fn();
+            } catch (err) {
+              console.error('[vfx]', err);
             }
           }
-        for (let g = u.length - 1; g >= 0; g--) {
-          let y = u[g],
-            w = !1;
+        for (let i = pieces.length - 1; i >= 0; i--) {
+          let piece = pieces[i],
+            alive = !1;
           try {
-            w = y.update(x, e);
-          } catch (k) {
-            console.error('[vfx] pieza', k);
+            alive = piece.update(dt, camera);
+          } catch (err) {
+            console.error('[vfx] pieza', err);
           }
-          w || (u.splice(g, 1), y.mesh && r.remove(y.mesh), y.dispose?.());
+          alive || (pieces.splice(i, 1), piece.mesh && root.remove(piece.mesh), piece.dispose?.());
         }
-        if ((this.auras.update(x), this.zones.update(x), l.update(x), c.update(x), d.update(x), _ > 0)) {
-          _ -= x;
-          let g = m * Math.max(0, _ / 0.3),
-            y = 1e3,
-            w = y / e.aspect;
-          (e.setViewOffset(y, w, (Math.random() - 0.5) * 2 * g * y, (Math.random() - 0.5) * 2 * g * w, y, w),
-            _ <= 0 && ((m = 0), e.clearViewOffset()));
+        if (
+          (this.auras.update(dt),
+          this.zones.update(dt),
+          addParticles.update(dt),
+          alphaParticles.update(dt),
+          lights.update(dt),
+          shakeTime > 0)
+        ) {
+          shakeTime -= dt;
+          let amp = shakeAmount * Math.max(0, shakeTime / 0.3),
+            viewW = 1e3,
+            viewH = viewW / camera.aspect;
+          (camera.setViewOffset(
+            viewW,
+            viewH,
+            (Math.random() - 0.5) * 2 * amp * viewW,
+            (Math.random() - 0.5) * 2 * amp * viewH,
+            viewW,
+            viewH,
+          ),
+            shakeTime <= 0 && ((shakeAmount = 0), camera.clearViewOffset()));
         }
-        n &&
-          n.uniforms.uFlash &&
-          b > 0 &&
-          ((n.uniforms.uFlash.value = b),
-          (b = Math.max(0, b - x * 1.6)),
-          b === 0 && (n.uniforms.uFlash.value = 0));
+        grade &&
+          grade.uniforms.uFlash &&
+          flashAmount > 0 &&
+          ((grade.uniforms.uFlash.value = flashAmount),
+          (flashAmount = Math.max(0, flashAmount - dt * 1.6)),
+          flashAmount === 0 && (grade.uniforms.uFlash.value = 0));
       },
-      async prewarm(x, g = o) {
-        let y = new Vector3(0, -50, 0),
-          w = [
-            new Beam({ life: 0 }).setLine(y, y.clone().add(new Vector3(1, 0, 0)), 2),
+      /** Compila de antemano los sombreadores de todas las piezas para evitar tirones. */
+      async prewarm(renderer, target = scene) {
+        let hidden = new Vector3(0, -50, 0),
+          samples = [
+            new Beam({ life: 0 }).setLine(hidden, hidden.clone().add(new Vector3(1, 0, 0)), 2),
             new Beam({ life: 0, mode: 'trail' }),
-            new RingWave(y, { life: 1 }),
-            new Dome(y, { life: 0 }),
-            new LightPillar(y, { life: 0 }),
-            new HexWave([[0, 0]], () => y.clone(), { life: 1 }),
-            new HexWave([[0, 0]], () => y.clone(), { life: 1, blend: 'alpha' }),
-            new RuneCircle(y, { life: 0 }),
-            new SlashArc(y, e, {}),
-            new Decal(y, { life: 0 }),
-            new Decal(y, { life: 0, blend: 'alpha' }),
+            new RingWave(hidden, { life: 1 }),
+            new Dome(hidden, { life: 0 }),
+            new LightPillar(hidden, { life: 0 }),
+            new HexWave([[0, 0]], () => hidden.clone(), { life: 1 }),
+            new HexWave([[0, 0]], () => hidden.clone(), { life: 1, blend: 'alpha' }),
+            new RuneCircle(hidden, { life: 0 }),
+            new SlashArc(hidden, camera, {}),
+            new Decal(hidden, { life: 0 }),
+            new Decal(hidden, { life: 0, blend: 'alpha' }),
           ];
-        for (let k of w) r.add(k.mesh);
-        (l.spawn({ p: y, life: 0.01, size: 0.01 }), c.spawn({ p: y, life: 0.01, size: 0.01 }));
+        for (let piece of samples) root.add(piece.mesh);
+        (addParticles.spawn({ p: hidden, life: 0.01, size: 0.01 }),
+          alphaParticles.spawn({ p: hidden, life: 0.01, size: 0.01 }));
         try {
-          x.compileAsync ? await x.compileAsync(g, e) : x.compile(g, e);
-        } catch (k) {
-          console.warn('[vfx] prewarm', k);
+          renderer.compileAsync
+            ? await renderer.compileAsync(target, camera)
+            : renderer.compile(target, camera);
+        } catch (err) {
+          console.warn('[vfx] prewarm', err);
         }
-        for (let k of w) (r.remove(k.mesh), k.dispose());
+        for (let piece of samples) (root.remove(piece.mesh), piece.dispose());
       },
       stats() {
         return {
-          add: l.alive,
-          alpha: c.alive,
-          pieces: u.length,
+          add: addParticles.alive,
+          alpha: alphaParticles.alive,
+          pieces: pieces.length,
           auras: this.auras.count(),
           zones: this.zones.count(),
         };
       },
+      /** Quita las piezas no permanentes (`keep`) y las partículas no fijadas. */
       clearTransient() {
-        for (let x = u.length - 1; x >= 0; x--) {
-          let g = u[x];
-          g.keep || (u.splice(x, 1), g.mesh && r.remove(g.mesh), g.dispose?.());
+        for (let i = pieces.length - 1; i >= 0; i--) {
+          let piece = pieces[i];
+          piece.keep || (pieces.splice(i, 1), piece.mesh && root.remove(piece.mesh), piece.dispose?.());
         }
-        (l.clear(!0), c.clear(!0));
+        (addParticles.clear(!0), alphaParticles.clear(!0));
       },
       dispose() {
         (this.clearTransient(),
           this.auras.dispose(),
           this.zones.dispose(),
-          (h.length = 0),
-          _ > 0 && e.clearViewOffset(),
-          n && n.uniforms.uFlash && (n.uniforms.uFlash.value = 0),
-          o.remove(r),
-          l.dispose(),
-          c.dispose());
+          (timers.length = 0),
+          shakeTime > 0 && camera.clearViewOffset(),
+          grade && grade.uniforms.uFlash && (grade.uniforms.uFlash.value = 0),
+          scene.remove(root),
+          addParticles.dispose(),
+          alphaParticles.dispose());
       },
     };
   return (
-    (v.auras = new AuraEffects(v)),
-    (v.zones = new ZoneEffects(v)),
-    (v.aura = (x, g, y, w) => v.auras.set(x, g, y, w)),
-    (v.zone = (x, g, y, w) => v.zones.zone(x, g, y, w)),
-    (v.zoneOff = (x) => v.zones.zoneOff(x)),
-    (v.token = (x, g, y) => v.zones.token(x, g, y)),
-    (v.tokenMove = (x, g) => v.zones.tokenMove(x, g)),
-    (v.tokenStrike = (x, g) => v.zones.tokenStrike(x, g)),
-    (v.tokenOff = (x) => v.zones.tokenOff(x)),
-    v
+    (vfx.auras = new AuraEffects(vfx)),
+    (vfx.zones = new ZoneEffects(vfx)),
+    (vfx.aura = (id, anchor, key, on) => vfx.auras.set(id, anchor, key, on)),
+    (vfx.zone = (id, kind, cells, color) => vfx.zones.zone(id, kind, cells, color)),
+    (vfx.zoneOff = (id) => vfx.zones.zoneOff(id)),
+    (vfx.token = (id, kind, pos) => vfx.zones.token(id, kind, pos)),
+    (vfx.tokenMove = (id, to) => vfx.zones.tokenMove(id, to)),
+    (vfx.tokenStrike = (id, target) => vfx.zones.tokenStrike(id, target)),
+    (vfx.tokenOff = (id) => vfx.zones.tokenOff(id)),
+    vfx
   );
 }
-const Oa = (o = 0, e = 0, t = 0) => new Vector3(o, e, t);
-const ps = (o, e) => o + Math.random() * (e - o);
-const u1 = class {
-  constructor(e, t) {
+/** Atajo de `new Vector3`. */
+const vec3 = (x = 0, y = 0, z = 0) => new Vector3(x, y, z);
+/** Número al azar en [min, max). */
+const randRange = (min, max) => min + Math.random() * (max - min);
+/** Reserva fija de PointLight que se reutilizan para destellos (la más débil si no hay libres). */
+const LightPool = class {
+  constructor(root, count) {
     this.list = [];
-    for (let a = 0; a < t; a++) {
-      let n = new PointLight(16777215, 0, 6, 2);
-      ((n.userData = { life: 0, t: 0, base: 0, follow: null }), e.add(n), this.list.push(n));
+    for (let i = 0; i < count; i++) {
+      let light = new PointLight(16777215, 0, 6, 2);
+      ((light.userData = { life: 0, t: 0, base: 0, follow: null }), root.add(light), this.list.push(light));
     }
   }
-  flash(e, t, a = 6, n = 6, s = 0.4, i = null) {
+  /** Enciende una luz en `pos` que se apaga en `life` s (0 = fija); `follow()` la mueve. */
+  flash(pos, color, intensity = 6, distance = 6, life = 0.4, follow = null) {
     if (!this.list.length) return null;
-    let r = this.list.filter((d) => !(d.userData.base > 0 && d.userData.life === 0)),
-      l = r.length ? r : this.list,
-      c = l[0];
-    for (let d of l) d.intensity < c.intensity && (c = d);
+    let free = this.list.filter((light) => !(light.userData.base > 0 && light.userData.life === 0)),
+      candidates = free.length ? free : this.list,
+      pick = candidates[0];
+    for (let light of candidates) light.intensity < pick.intensity && (pick = light);
     return (
-      c.position.copy(e),
-      c.color.set(t),
-      (c.distance = n),
-      (c.intensity = a),
-      Object.assign(c.userData, { life: s, t: 0, base: a, follow: i }),
-      c
+      pick.position.copy(pos),
+      pick.color.set(color),
+      (pick.distance = distance),
+      (pick.intensity = intensity),
+      Object.assign(pick.userData, { life, t: 0, base: intensity, follow }),
+      pick
     );
   }
-  update(e) {
-    for (let t of this.list) {
-      let a = t.userData;
-      if (!(a.base <= 0)) {
-        if (((a.t += e), a.follow)) {
-          let n = a.follow();
-          n && t.position.copy(n);
+  update(dt) {
+    for (let light of this.list) {
+      let data = light.userData;
+      if (!(data.base <= 0)) {
+        if (((data.t += dt), data.follow)) {
+          let pos = data.follow();
+          pos && light.position.copy(pos);
         }
-        if (a.life > 0) {
-          let n = a.t / a.life;
-          ((t.intensity = a.base * Math.max(0, 1 - n) ** 1.5),
-            n >= 1 && ((a.base = 0), (a.follow = null), (t.intensity = 0)));
+        if (data.life > 0) {
+          let progress = data.t / data.life;
+          ((light.intensity = data.base * Math.max(0, 1 - progress) ** 1.5),
+            progress >= 1 && ((data.base = 0), (data.follow = null), (light.intensity = 0)));
         }
       }
     }
   }
-  release(e, t = 0.2) {
-    e &&
-      ((e.userData.follow = null),
-      (e.userData.life = t),
-      (e.userData.t = 0),
-      (e.userData.base = e.intensity));
+  /** Apaga en `fade` segundos una luz fija. */
+  release(light, fade = 0.2) {
+    light &&
+      ((light.userData.follow = null),
+      (light.userData.life = fade),
+      (light.userData.t = 0),
+      (light.userData.base = light.intensity));
   }
 };
-let d1 = null;
+// Materiales de la munición, creados la primera vez.
+let ammoMaterials = null;
 
 export { DAMAGE_STYLE, STYLE } from './styles.js';
 export { FRAME } from './atlas.js';
