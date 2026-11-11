@@ -81,8 +81,9 @@ const RUIDO = [/GPU stall due to ReadPixels/, /GL Driver Message/, /WebGL-.*Perf
   };
 
   try {
-    // En modo victoria la IA lleva también al héroe (autocombate) y se salta la subida de nivel.
-    const extra = hasta === 'victoria' ? '&autocombate&autonivel' : '';
+    // En modo victoria la IA lleva también al héroe (autocombate), se salta la subida de nivel y
+    // se acelera (turbo): con SwiftShader van pocos fotogramas/s y el dt limitado frena el combate.
+    const extra = hasta === 'victoria' ? '&autocombate&autonivel&turbo' : '';
     await pagina.goto(base.replace(/\/?$/, '/') + 'index.html?depurar&calidad=baja' + extra);
     await pagina.waitForSelector('[data-k=nueva]', { state: 'visible', timeout: 180000 });
     await espera(2500);
@@ -155,10 +156,9 @@ const RUIDO = [/GPU stall due to ReadPixels/, /GL Driver Message/, /WebGL-.*Perf
         fin = await pagina.evaluate(() => ({
           e1: !!window.__mdg?.store?.cp?.flags?.e1_done,
           escena: window.__mdg?.scenes?.name,
-          ronda: document.querySelector('.mdg-combate')?.textContent?.match(/Ronda\s*(\d+)/)?.[1] ?? null,
         }));
         if (fin.e1) break;
-        if (i % 12 === 0) hito('combate en curso', fin);
+        if (i % 12 === 0) { hito('combate en curso', fin); await captura('06b-combate-en-curso'); }
         await avanzarTexto();
         await espera(5000);
       }
