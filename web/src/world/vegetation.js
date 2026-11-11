@@ -14,7 +14,7 @@ import {
 import { pa, ur, Gm, xt, gn } from './kit.js';
 import { Zn } from './materials.js';
 import { Le } from './ground.js';
-import { qt, ho, po, ot } from './grid.js';
+import { cellToWorld, worldToCell, neighbors, HEX_SIZE } from './grid.js';
 import { fs } from './water.js';
 
 function I3(o, e) {
@@ -112,19 +112,19 @@ function H3(o) {
       p(P ? u : h, D, J);
     },
     f = (D, M) => t.inside(D, M) && t.tile(D, M) !== 'T',
-    v = (D, M) => po(D, M).some(([R, A]) => f(R, A) || po(R, A).some(([P, I]) => f(P, I)));
+    v = (D, M) => neighbors(D, M).some(([R, A]) => f(R, A) || neighbors(R, A).some(([P, I]) => f(P, I)));
   t.each((D, M, R) => {
     if (R !== 'T') return;
-    qt(D, M, d);
+    cellToWorld(D, M, d);
     let A = I3(n, r),
       P = (i === 'forest' ? 0.6 : i === 'kesh' ? 0.72 : 0.8) + n() * 0.26,
       I = s.level >= 2 || v(D, M);
     (b(A, d.x + (n() - 0.5) * 0.4, d.z + (n() - 0.5) * 0.4, P, I, !I), a.blob(Le.ao, d.x, d.z, 1.6, 0.35));
   });
-  let x = -ot * 0.5,
+  let x = -HEX_SIZE * 0.5,
     g = t.sizeX,
-    y = -ot * 0.5,
-    w = t.sizeZ + ot * 0.5,
+    y = -HEX_SIZE * 0.5,
+    w = t.sizeZ + HEX_SIZE * 0.5,
     k = { dusk: 0.42, day: 0.42, forest: 0.85, kesh: 0.5, crypt: 0, inn: 0 }[i] ?? 0.4,
     T = s.level === 0 ? 110 : s.level === 1 ? 190 : 280,
     E = 0,
@@ -179,7 +179,7 @@ function H3(o) {
   let z = { Bush_Common: [], Bush_Common_Flowers: [], Fern_1: [], Plant_7_Big: [], Rock_Medium_2: [] };
   t.each((D, M, R) => {
     if (R !== 'b') return;
-    qt(D, M, d);
+    cellToWorld(D, M, d);
     let A =
         i === 'forest' || i === 'kesh'
           ? n() < 0.45
@@ -214,7 +214,7 @@ function FH(o, e) {
       let h = u + (n() - 0.5) * r,
         p = d + (n() - 0.5) * r;
       if (a.waterAt(h, p) < 0.06) continue;
-      let [_, b] = ho(h, p),
+      let [_, b] = worldToCell(h, p),
         f = t.tile(_, b);
       if (f === '~' || f === ':' || f === '=' || f === 'P' || o.blocked?.(h, p, !0)) continue;
       let v = fs - a.heightAt(h, p),
@@ -251,10 +251,10 @@ function OH(o) {
       Pebble_Round_4: [],
       Pebble_Square_3: [],
     },
-    h = -ot * 0.5,
+    h = -HEX_SIZE * 0.5,
     p = t.sizeX,
-    m = -ot * 0.5,
-    _ = t.sizeZ + ot * 0.5,
+    m = -HEX_SIZE * 0.5,
+    _ = t.sizeZ + HEX_SIZE * 0.5,
     b = i === 'forest';
   for (let y = a.z0 + 0.4; y < a.z1 - 0.4; y += l)
     for (let w = a.x0 + 0.4; w < a.x1 - 0.4; w += l) {

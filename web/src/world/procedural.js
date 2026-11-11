@@ -25,7 +25,7 @@ import {
 } from 'three';
 import { pa, S1, hr, gn } from './kit.js';
 import { Fo } from './materials.js';
-import { qt, fo } from './grid.js';
+import { cellToWorld, degToRad } from './grid.js';
 import { Le } from './ground.js';
 
 function mo() {
@@ -470,11 +470,11 @@ function ok(o) {
   let l = [];
   function c(v) {
     if (!v.cell || n.has(v.id)) return null;
-    qt(v.cell[0], v.cell[1], i);
+    cellToWorld(v.cell[0], v.cell[1], i);
     let x = new Group();
     ((x.name = `obj:${v.id}`),
       x.position.set(i.x, a.heightAt(i.x, i.z), i.z),
-      (x.rotation.y = fo(v.rot ?? v.face ?? 0)),
+      (x.rotation.y = degToRad(v.rot ?? v.face ?? 0)),
       (x.userData = { id: v.id, type: v.type, def: v, state: null }));
     let g = null;
     switch (v.type) {

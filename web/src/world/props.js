@@ -29,7 +29,7 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { pa, ur, xt, Hu } from './kit.js';
 import { Fo } from './materials.js';
 import { z3, Le } from './ground.js';
-import { qt, po, ot, zt, fo } from './grid.js';
+import { cellToWorld, neighbors, HEX_SIZE, cellKey, degToRad } from './grid.js';
 import { loadGLTF, loadProp, pbrMaterial } from '../assets.js';
 import { D1 } from './interiors.js';
 
@@ -55,12 +55,12 @@ async function J3(o) {
     };
   for (let f of a.props || []) {
     if (f.foot != null) continue;
-    qt(f.cell[0], f.cell[1], c);
-    let v = c.x + (f.offset ? f.offset[0] * ot : 0),
-      x = c.z + (f.offset ? f.offset[1] * ot : 0),
-      g = fo(f.rot || 0);
+    cellToWorld(f.cell[0], f.cell[1], c);
+    let v = c.x + (f.offset ? f.offset[0] * HEX_SIZE : 0),
+      x = c.z + (f.offset ? f.offset[1] * HEX_SIZE : 0),
+      g = degToRad(f.rot || 0);
     if (f.key === 'footbridge') {
-      b9(o, v, x, g, (f.length || 2.8) * ot, (f.width || 1.15) * ot);
+      b9(o, v, x, g, (f.length || 2.8) * HEX_SIZE, (f.width || 1.15) * HEX_SIZE);
       continue;
     }
     if (f.key === 'shrine') {
@@ -75,10 +75,10 @@ async function J3(o) {
       n.blob(Le.ao, v, x, 0.9, 0.35));
   }
   for (let f of a.decor || []) {
-    qt(f.cell[0], f.cell[1], c);
-    let v = c.x + (f.offset ? f.offset[0] * ot : 0),
-      x = c.z + (f.offset ? f.offset[1] * ot : 0),
-      g = fo(f.rot ?? s() * 360);
+    cellToWorld(f.cell[0], f.cell[1], c);
+    let v = c.x + (f.offset ? f.offset[0] * HEX_SIZE : 0),
+      x = c.z + (f.offset ? f.offset[1] * HEX_SIZE : 0),
+      g = degToRad(f.rot ?? s() * 360);
     if (f.key === 'wheat_patch') {
       for (let k = 0; k < 4; k++)
         for (let T = 0; T < 4; T++) {
@@ -119,11 +119,11 @@ async function J3(o) {
     ...(a.decor || []),
     ...(a.objects || []).filter((v) => v.type && v.type !== 'npc' && v.type !== 'inspect'),
   ])
-    f.cell && p.add(zt(f.cell[0], f.cell[1]));
+    f.cell && p.add(cellKey(f.cell[0], f.cell[1]));
   let m = [],
     _ = [];
   (t.each((f, v, x) => {
-    qt(f, v, c);
+    cellToWorld(f, v, c);
     let g = c.x + (s() - 0.5) * 0.25,
       y = c.z + (s() - 0.5) * 0.25;
     switch (x) {
@@ -186,11 +186,11 @@ async function J3(o) {
         }
         break;
       case 'o':
-        if (p.has(zt(f, v)) || i === 'inn') break;
+        if (p.has(cellKey(f, v)) || i === 'inn') break;
         (f9(o, h, u, c, i), n.blob(Le.ao, c.x, c.z, 0.8, 0.35));
         break;
       case 'O':
-        if (p.has(zt(f, v)) || i === 'inn') break;
+        if (p.has(cellKey(f, v)) || i === 'inn') break;
         (m9(o, h, c, i), n.blob(Le.ao, c.x, c.z, 1, 0.4));
         break;
       case 'P':
@@ -211,10 +211,10 @@ async function J3(o) {
       case '.':
         if (i === 'kesh' && x === '=') {
           let w = Cc();
-          for (let [k, T] of po(f, v)) {
+          for (let [k, T] of neighbors(f, v)) {
             let E = t.tile(k, T);
             if (E !== 'w' && E !== '~') continue;
-            let S = qt(k, T),
+            let S = cellToWorld(k, T),
               z = S.x - c.x,
               D = S.z - c.z,
               M = c.x + z * 0.45,
@@ -229,7 +229,7 @@ async function J3(o) {
               ));
           }
         }
-        if (l && s() < 0.09 && po(f, v).some(([w, k]) => t.tile(w, k) === '#')) {
+        if (l && s() < 0.09 && neighbors(f, v).some(([w, k]) => t.tile(w, k) === '#')) {
           let w =
             s() < 0.3
               ? 'skull'
@@ -314,7 +314,7 @@ function u9(o, e, t, a, n, s) {
     }
     case 'clothesline': {
       let u = new MeshStandardMaterial({ color: 6966838, roughness: 0.9 }),
-        h = (e.length || 2) * ot * 0.5,
+        h = (e.length || 2) * HEX_SIZE * 0.5,
         p = (g, y, w) =>
           xt(t + Math.cos(n) * g + Math.sin(n) * w, d + y, a - Math.sin(n) * g + Math.cos(n) * w, n);
       for (let g of [-h, h]) {
@@ -535,31 +535,31 @@ function Cc() {
 function g9(o, e, t) {
   let { map: a, ground: n } = o,
     s = o.static,
-    i = new Set(e.map(([m, _]) => zt(m, _))),
+    i = new Set(e.map(([m, _]) => cellKey(m, _))),
     r = [],
     l = new Map();
   for (let [m, _] of e)
-    for (let [b, f] of po(m, _))
-      i.has(zt(b, f)) &&
+    for (let [b, f] of neighbors(m, _))
+      i.has(cellKey(b, f)) &&
         (f < _ ||
           (f === _ && b < m) ||
           (r.push([
             [m, _],
             [b, f],
           ]),
-          l.set(zt(m, _), (l.get(zt(m, _)) || 0) + 1),
-          l.set(zt(b, f), (l.get(zt(b, f)) || 0) + 1)));
+          l.set(cellKey(m, _), (l.get(cellKey(m, _)) || 0) + 1),
+          l.set(cellKey(b, f), (l.get(cellKey(b, f)) || 0) + 1)));
   let c = new Set();
   for (let [m, _] of r)
-    for (let b of po(...m)) {
-      if (!i.has(zt(...b))) continue;
+    for (let b of neighbors(...m)) {
+      if (!i.has(cellKey(...b))) continue;
       if (
-        po(..._)
-          .map(([v, x]) => zt(v, x))
-          .includes(zt(...b)) &&
-        !c.has(zt(...m) + zt(..._))
+        neighbors(..._)
+          .map(([v, x]) => cellKey(v, x))
+          .includes(cellKey(...b)) &&
+        !c.has(cellKey(...m) + cellKey(..._))
       ) {
-        c.add(zt(...m) + zt(..._));
+        c.add(cellKey(...m) + cellKey(..._));
         break;
       }
     }
@@ -569,8 +569,8 @@ function g9(o, e, t) {
     let m = Cc(),
       _ = o.rnd;
     for (let [b, f] of r) {
-      if (c.has(zt(...b) + zt(...f))) continue;
-      (qt(...b, d), qt(...f, u));
+      if (c.has(cellKey(...b) + cellKey(...f))) continue;
+      (cellToWorld(...b, d), cellToWorld(...f, u));
       let v = 4;
       for (let x = 0; x < v; x++) {
         let g = (x + 0.5) / v,
@@ -593,8 +593,8 @@ function g9(o, e, t) {
   let [h] = Uu(t),
     p = pa(h) ? ur(h).max.x - ur(h).min.x : 2;
   for (let [m, _] of r) {
-    if (c.has(zt(...m) + zt(..._))) continue;
-    (qt(...m, d), qt(..._, u));
+    if (c.has(cellKey(...m) + cellKey(..._))) continue;
+    (cellToWorld(...m, d), cellToWorld(..._, u));
     let b = (d.x + u.x) / 2,
       f = (d.z + u.z) / 2,
       v = Math.atan2(-(u.z - d.z), u.x - d.x),
@@ -701,7 +701,7 @@ async function x9(o, e, t) {
   let { scene: a, ground: n } = o,
     s = new Vector3(),
     i = new Vector3();
-  for (let [h, p] of e) s.add(qt(h, p, i));
+  for (let [h, p] of e) s.add(cellToWorld(h, p, i));
   s.divideScalar(e.length);
   let r = n.heightAt(s.x, s.z),
     l = new Group();

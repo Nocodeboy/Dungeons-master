@@ -4,7 +4,7 @@
 import { Group, InstancedMesh, Matrix4, Mesh, Vector3 } from 'three';
 import { pa, dr } from './kit.js';
 import { Zn } from './materials.js';
-import { ot, Fu } from './grid.js';
+import { HEX_SIZE, ROW_STEP } from './grid.js';
 
 const H9 = [
   ['wall', 58],
@@ -49,14 +49,14 @@ const n0 = class {
     return this.floor(a, t);
   }
   rowZ(e) {
-    return e * Fu + 0.5;
+    return e * ROW_STEP + 0.5;
   }
   segments() {
     let e = [],
       t = this.map,
       a = -4,
       n = t.w * 2 + 4,
-      s = Fu * 0.5,
+      s = ROW_STEP * 0.5,
       i = {};
     for (let r = -1; r <= t.h; r++) {
       let l = [];
@@ -142,14 +142,14 @@ const n0 = class {
     let r = Math.max(1, Math.round(i / 1.1)),
       l = i / r;
     for (let c = 0; c < r; c++) {
-      let d = (e[0] + (n / i) * l * (c + 0.5) - a[0] * Pc * 0.5 - 0.5) * ot,
-        u = (e[1] + (s / i) * l * (c + 0.5) - a[1] * Pc * 0.5 - 0.5) * ot;
+      let d = (e[0] + (n / i) * l * (c + 0.5) - a[0] * Pc * 0.5 - 0.5) * HEX_SIZE,
+        u = (e[1] + (s / i) * l * (c + 0.5) - a[1] * Pc * 0.5 - 0.5) * HEX_SIZE;
       this.pieces.push({
         variant: this.pick(),
         center: new Vector3(d, 0, u),
         normal: new Vector3(a[0], 0, a[1]),
-        w: l * 1.02 * ot,
-        h: this.fullH * ot,
+        w: l * 1.02 * HEX_SIZE,
+        h: this.fullH * HEX_SIZE,
         deco: [],
       });
     }
@@ -160,7 +160,7 @@ const n0 = class {
       i = new Matrix4().makeBasis(
         s.multiplyScalar(e.w / F9),
         new Vector3(0, t / O9, 0),
-        n.clone().multiplyScalar((Pc * ot) / 1),
+        n.clone().multiplyScalar((Pc * HEX_SIZE) / 1),
       );
     return a.copy(i).setPosition(e.center);
   }
@@ -189,7 +189,7 @@ const n0 = class {
       if (a.variant !== 'wall' && a.variant !== 'wall_cracked') continue;
       let n = a.center,
         s = a.normal,
-        i = ((Math.floor((n.x * 7) / ot + (n.z * 13) / ot) % 9) + 9) % 9;
+        i = ((Math.floor((n.x * 7) / HEX_SIZE + (n.z * 13) / HEX_SIZE) % 9) + 9) % 9;
       if (this.torches) {
         if (i === 0 && t < 14 && pa('torch_wall')) {
           t++;
@@ -201,7 +201,7 @@ const n0 = class {
           (r.scale.setScalar(0.42),
             r.position
               .copy(n)
-              .addScaledVector(s, Pc * ot * 0.5)
+              .addScaledVector(s, Pc * HEX_SIZE * 0.5)
               .add(new Vector3(0, 1.35, 0)),
             (r.rotation.y = Math.atan2(s.x, s.z)),
             this.group.add(r),
@@ -234,7 +234,7 @@ const n0 = class {
           (r.scale.setScalar(0.42),
             r.position
               .copy(n)
-              .addScaledVector(s, Pc * ot * 0.5 + 0.02)
+              .addScaledVector(s, Pc * HEX_SIZE * 0.5 + 0.02)
               .add(new Vector3(0, 0.15, 0)),
             (r.rotation.y = Math.atan2(s.x, s.z)),
             this.group.add(r),
@@ -250,14 +250,14 @@ const n0 = class {
     let n = new Matrix4();
     for (let s of this.pieces) {
       let i = s.normal.dot(a.clone().negate()),
-        r = (i > 0.35 ? this.fullH : i < -0.35 ? this.lowH : this.midH) * ot;
+        r = (i > 0.35 ? this.fullH : i < -0.35 ? this.lowH : this.midH) * HEX_SIZE;
       ((s.h = r), this.xform(s, r, n));
       for (let l of this.meshes.get(s.variant)) l.setMatrixAt(s.i, n);
-      for (let l of s.deco) l.visible = r >= this.fullH * ot - 0.01;
-      s.flame && this.ctx.fx.setFlame(s.flame, r >= this.fullH * ot - 0.01);
+      for (let l of s.deco) l.visible = r >= this.fullH * HEX_SIZE - 0.01;
+      s.flame && this.ctx.fx.setFlame(s.flame, r >= this.fullH * HEX_SIZE - 0.01);
     }
     for (let [, s] of this.meshes) for (let i of s) i.instanceMatrix.needsUpdate = !0;
-    for (let s of this.ctx.fx.lampSources) s.piece && (s.on = s.piece.h >= this.fullH * ot - 0.01);
+    for (let s of this.ctx.fx.lampSources) s.piece && (s.on = s.piece.h >= this.fullH * HEX_SIZE - 0.01);
   }
 };
 

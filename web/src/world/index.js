@@ -14,7 +14,7 @@ import { ok } from './procedural.js';
 import { L3, fs } from './water.js';
 import { n0 } from './crypt.js';
 import { o0 } from './particles.js';
-import { Ou, C3, qt, ho, ot, $m } from './grid.js';
+import { makeRng, hashString, cellToWorld, worldToCell, HEX_SIZE, TileMap } from './grid.js';
 
 async function buildLevel(
   o,
@@ -25,9 +25,9 @@ async function buildLevel(
     r = i === 'crypt',
     l = i === 'inn',
     c = r || l,
-    d = C3(e.id || 'nivel'),
-    u = Ou(d),
-    h = new $m(e),
+    d = hashString(e.id || 'nivel'),
+    u = makeRng(d),
+    h = new TileMap(e),
     p = new Set((e.rows || []).join('')),
     m = [...(e.props || []), ...(e.decor || [])].map((L) => K3(L.key)),
     _ = ['atrezo'];
@@ -59,9 +59,9 @@ async function buildLevel(
     S = new Map();
   for (let L of e.props || []) L.key === 'lantern' && S.set(`${L.cell[0]},${L.cell[1]}`, L);
   for (let L of e.lights || []) {
-    let O = qt(L.cell[0], L.cell[1]);
-    L.offset && ((O.x += L.offset[0] * ot), (O.z += L.offset[1] * ot));
-    let B = f.heightAt(O.x, O.z) + (L.height ?? 1.2) * ot,
+    let O = cellToWorld(L.cell[0], L.cell[1]);
+    L.offset && ((O.x += L.offset[0] * HEX_SIZE), (O.z += L.offset[1] * HEX_SIZE));
+    let B = f.heightAt(O.x, O.z) + (L.height ?? 1.2) * HEX_SIZE,
       $ = S.get(`${L.cell[0]},${L.cell[1]}`);
     if ($ && !r) {
       let be = MathUtils.degToRad($.rot || 0);
@@ -72,13 +72,13 @@ async function buildLevel(
       (y.addLamp({
         pos: new Vector3(O.x, B, O.z),
         color: L.color || '#ffb060',
-        range: (L.range ?? 4) * ot,
+        range: (L.range ?? 4) * HEX_SIZE,
         energy: ee,
         kind: 'lamp',
         haloSize: 1.1 + ee * 0.5,
         haloAlpha: 0.45,
       }),
-      f.blob(Le.light, O.x, O.z, (L.range ?? 4) * ot * 0.45, Math.min(1, 0.55 + ee * 0.3)));
+      f.blob(Le.light, O.x, O.z, (L.range ?? 4) * HEX_SIZE * 0.45, Math.min(1, 0.55 + ee * 0.3)));
   }
   for (let L of T) {
     for (let O of L.lamps)
@@ -98,7 +98,7 @@ async function buildLevel(
   let z = new Set('BH#wcSPOgr'.split('')),
     D = T.map((L) => ({ c: L.center, r2: (Math.max(L.W, L.D) / 2 + 0.6) ** 2 }));
   w.blocked = (L, O, B = !1) => {
-    let [$, ee] = ho(L, O),
+    let [$, ee] = worldToCell(L, O),
       be = h.inside($, ee) ? h.tile($, ee) : null;
     if (be && z.has(be) && !(B && be === 'w')) return !0;
     for (let Ce of D) if ((L - Ce.c.x) ** 2 + (O - Ce.c.z) ** 2 < Ce.r2) return !0;
@@ -115,7 +115,7 @@ async function buildLevel(
     c &&
       h.each((L, O, B) => {
         if (B !== '#') return;
-        let $ = qt(L, O);
+        let $ = cellToWorld(L, O);
         f.blob(Le.ao, $.x, $.z, 1.2, 1);
       }),
     f.build(b));
@@ -139,7 +139,7 @@ async function buildLevel(
     for (let O = 0; O < 60 && L.length < (i === 'forest' ? 14 : 7); O++) {
       let B = u() * h.sizeX,
         $ = u() * h.sizeZ,
-        [ee, be] = ho(B, $);
+        [ee, be] = worldToCell(B, $);
       h.tile(ee, be) === 'T' || h.tile(ee, be) === 'w' || L.push(new Vector3(B, f.heightAt(B, $), $));
     }
     y.sunShafts(L, g.cur.sunDir, i === 'forest' ? 16770728 : 16765600);
@@ -148,7 +148,10 @@ async function buildLevel(
   b.traverse((L) => {
     L.isMesh && L.material?.userData?.window && j.add(L.material);
   });
-  let X = new Box3(new Vector3(-ot, -1, -ot), new Vector3(h.sizeX + ot, 12, h.sizeZ + ot)),
+  let X = new Box3(
+      new Vector3(-HEX_SIZE, -1, -HEX_SIZE),
+      new Vector3(h.sizeX + HEX_SIZE, 12, h.sizeZ + HEX_SIZE),
+    ),
     J = [
       ...M.occluders,
       ...T.filter((L) => L.idx > 0).map((L) => ({
@@ -172,17 +175,19 @@ async function buildLevel(
     ce = new Raycaster(),
     ke = {
       animals: (e.animals || []).map((L) => {
-        let O = qt(L.cell[0], L.cell[1]);
+        let O = cellToWorld(L.cell[0], L.cell[1]);
         return ((O.y = f.heightAt(O.x, O.z)), { ...L, pos: O });
       }),
-      spawns: Object.fromEntries(Object.entries(e.spawns || {}).map(([L, O]) => [L, qt(O[0], O[1])])),
+      spawns: Object.fromEntries(
+        Object.entries(e.spawns || {}).map(([L, O]) => [L, cellToWorld(O[0], O[1])]),
+      ),
       sounds: [],
     };
   {
     let L = [];
     h.each((O, B, $) => {
       if ($ !== 'w') return;
-      let ee = qt(O, B);
+      let ee = cellToWorld(O, B);
       L.some((be) => be.distanceTo(ee) < 7) ||
         (L.push(ee), ke.sounds.push({ kind: e.ambient === 'forest' ? 'pond' : 'river', pos: ee.setY(fs) }));
     });
@@ -223,18 +228,18 @@ async function buildLevel(
     objects: R.anchors,
     timeOfDay: x,
     cellToWorld([L, O], B = new Vector3()) {
-      (qt(L, O, B), (B.y = f.heightAt(B.x, B.z)));
+      (cellToWorld(L, O, B), (B.y = f.heightAt(B.x, B.z)));
       let $ = h.tile(L, O);
       return (($ === 'w' || $ === '~') && I && (B.y = Math.max(B.y, fs)), B);
     },
     worldToCell(L) {
-      return ho(L.x, L.z);
+      return worldToCell(L.x, L.z);
     },
     heightAt: (L, O) => f.heightAt(L, O),
     pick(L) {
       let O = L.ray || L,
         B = f.raycast(O);
-      return B ? { point: B, cell: ho(B.x, B.z) } : null;
+      return B ? { point: B, cell: worldToCell(B.x, B.z) } : null;
     },
     setObjectState(L, O) {
       if (L === 'bull' && w.statue) {

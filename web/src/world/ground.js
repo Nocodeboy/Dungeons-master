@@ -24,7 +24,16 @@ import {
   Vector3,
   Vector4,
 } from 'three';
-import { Ou, qt, ho, po, Wm, P3, ot, zt } from './grid.js';
+import {
+  makeRng,
+  cellToWorld,
+  worldToCell,
+  neighbors,
+  smoothstep,
+  makeNoise,
+  HEX_SIZE,
+  cellKey,
+} from './grid.js';
 import { No } from './materials.js';
 
 function z3(o, e = !0) {
@@ -119,13 +128,13 @@ const Ym = class {
       (this.inn = a === 'inn'),
       (this.crypt = a === 'crypt' || this.inn),
       (this.quality = n),
-      (this.rnd = Ou(s)),
-      (this.noise = P3(s + 7)),
+      (this.rnd = makeRng(s)),
+      (this.noise = makeNoise(s + 7)),
       (this.margin = i),
-      (this.x0 = -ot * 0.5 - i),
-      (this.z0 = -ot * 0.5 - i),
+      (this.x0 = -HEX_SIZE * 0.5 - i),
+      (this.z0 = -HEX_SIZE * 0.5 - i),
       (this.x1 = e.sizeX + i),
-      (this.z1 = e.sizeZ + ot * 0.5 + i),
+      (this.z1 = e.sizeZ + HEX_SIZE * 0.5 + i),
       (this.S = n.level === 0 ? 4 : 6),
       (this.cw = Math.ceil((this.x1 - this.x0) * this.S)),
       (this.chh = Math.ceil((this.z1 - this.z0) * this.S)),
@@ -144,7 +153,7 @@ const Ym = class {
   kindOf(e, t) {
     let a = this.map,
       n = a.tile(e, t),
-      s = a.paint.get(zt(e, t));
+      s = a.paint.get(cellKey(e, t));
     if (s) return s === 'dirt' ? 'field' : s === 'paved' ? 'pave' : s;
     if (this.groundKind[n]) {
       let i = this.groundKind[n];
@@ -188,7 +197,7 @@ const Ym = class {
       i = new Vector3();
     (e.each((m, _, b) => {
       if (b !== 'w' && b !== '~') return;
-      qt(m, _, i);
+      cellToWorld(m, _, i);
       let f = b === 'w' ? n : s,
         v = b === 'w' ? 1.05 : 0.95,
         x = Math.floor((i.x - v - this.x0) / t),
@@ -214,33 +223,33 @@ const Ym = class {
         _ = [];
       for (
         e.each((b, f, v) => {
-          v !== '#' && (m.set(zt(b, f), 0), _.push([b, f]));
+          v !== '#' && (m.set(cellKey(b, f), 0), _.push([b, f]));
         });
         _.length;
       ) {
         let [b, f] = _.shift(),
-          v = m.get(zt(b, f));
-        for (let [x, g] of po(b, f))
-          !e.inside(x, g) || m.has(zt(x, g)) || (m.set(zt(x, g), v + 1), _.push([x, g]));
+          v = m.get(cellKey(b, f));
+        for (let [x, g] of neighbors(b, f))
+          !e.inside(x, g) || m.has(cellKey(x, g)) || (m.set(cellKey(x, g), v + 1), _.push([x, g]));
       }
       this.hillDist = m;
       for (let b = 0; b < this.hh; b++)
         for (let f = 0; f < this.hw; f++) {
-          let [v, x] = ho(this.x0 + f * t, this.z0 + b * t);
-          e.tile(v, x) === '#' && (r[b * this.hw + f] = Wm(0.5, 3, m.get(zt(v, x)) || 0));
+          let [v, x] = worldToCell(this.x0 + f * t, this.z0 + b * t);
+          e.tile(v, x) === '#' && (r[b * this.hw + f] = smoothstep(0.5, 3, m.get(cellKey(v, x)) || 0));
         }
       A1(r, this.hw, this.hh, 1);
       for (let b = 0; b < this.hh; b++)
         for (let f = 0; f < this.hw; f++) {
-          let [v, x] = ho(this.x0 + f * t, this.z0 + b * t);
+          let [v, x] = worldToCell(this.x0 + f * t, this.z0 + b * t);
           e.inside(v, x) && e.tile(v, x) !== '#' && (r[b * this.hw + f] = 0);
         }
     }
     let l = this.noise,
-      c = -ot * 0.5,
+      c = -HEX_SIZE * 0.5,
       d = e.sizeX,
-      u = -ot * 0.5,
-      h = e.sizeZ + ot * 0.5,
+      u = -HEX_SIZE * 0.5,
+      h = e.sizeZ + HEX_SIZE * 0.5,
       p = this.edgeWater();
     for (let m = 0; m < this.hh; m++)
       for (let _ = 0; _ < this.hw; _++) {
@@ -253,7 +262,7 @@ const Ym = class {
           continue;
         }
         if (v > 0) {
-          let y = Wm(0.5, 9, v) * (0.9 + 1.6 * (0.5 + l.fbm(b * 0.045, f * 0.045, 3)));
+          let y = smoothstep(0.5, 9, v) * (0.9 + 1.6 * (0.5 + l.fbm(b * 0.045, f * 0.045, 3)));
           x += y * (this.ambient === 'kesh' ? 1.4 : 1);
           let w = p(b, f);
           ((x *= 1 - w.path * 0.85), (x -= w.water * 0.55));
@@ -278,7 +287,7 @@ const Ym = class {
               ? 'path'
               : null;
         if (!l) return;
-        qt(n, s, a);
+        cellToWorld(n, s, a);
         let c = new Vector2(n === 0 ? -1 : n === e.w - 1 ? 1 : 0, s === 0 ? -1 : s === e.h - 1 ? 1 : 0);
         (c.lengthSq() > 1 && c.normalize(), t.push({ x: a.x, z: a.z, dx: c.x, dz: c.y, kind: l }));
       }),
@@ -293,7 +302,13 @@ const Ym = class {
           if (u < 0) continue;
           let h = Math.abs(c * -l.dz + d * l.dx),
             p = this.noise(u * 0.15 + l.x, l.z) * 1.2,
-            m = 1 - Wm(l.kind === 'water' ? 0.6 : 0.8, l.kind === 'water' ? 1.6 : 2.4, Math.abs(h - p * 0.3));
+            m =
+              1 -
+              smoothstep(
+                l.kind === 'water' ? 0.6 : 0.8,
+                l.kind === 'water' ? 1.6 : 2.4,
+                Math.abs(h - p * 0.3),
+              );
           l.kind === 'water' ? (i = Math.max(i, m)) : (r = Math.max(r, m));
         }
         return { water: i, path: r };
@@ -366,8 +381,8 @@ const Ym = class {
   }
   hexFill(e, t, a, n = 1, s = 1.08, i = 2) {
     let r = this.layers[e].g,
-      l = qt(t, a),
-      c = 0.5773503 * ot * s;
+      l = cellToWorld(t, a),
+      c = 0.5773503 * HEX_SIZE * s;
     (r.save(), (r.filter = `blur(${i}px)`));
     let d = Math.round(n * 255);
     ((r.fillStyle = `rgb(${d},${d},${d})`), r.beginPath());
@@ -387,15 +402,15 @@ const Ym = class {
       s = new Set();
     e.each((r, l, c) => {
       let d = this.kindOf(r, l);
-      if ((qt(r, l, t), d === 'path' || d === 'dirt')) {
+      if ((cellToWorld(r, l, t), d === 'path' || d === 'dirt')) {
         let u = d === 'path' ? 1.55 : 1.9;
         this.blob(Le.path, t.x, t.z, u * 0.62, d === 'path' ? 0.9 : 0.75);
-        for (let [h, p] of po(r, l)) {
+        for (let [h, p] of neighbors(r, l)) {
           let m = this.kindOf(h, p);
           if (m !== 'path' && m !== 'dirt') continue;
-          let _ = [zt(r, l), zt(h, p)].sort().join('|');
+          let _ = [cellKey(r, l), cellKey(h, p)].sort().join('|');
           if (s.has(_)) continue;
-          (s.add(_), qt(h, p, a));
+          (s.add(_), cellToWorld(h, p, a));
           let b = (t.x + a.x) / 2 + (n() - 0.5) * 0.35,
             f = (t.z + a.z) / 2 + (n() - 0.5) * 0.35;
           this.stroke(
@@ -732,7 +747,7 @@ vec3 gHex(vec2 p){
   totalEmissiveRadiance += uLampColor * m2.b * m2.b * uLamp * 0.55 * gcol * 2.2;
   // rejilla de hex\xE1gonos (solo dentro del tablero)
   if (uGrid > 0.001) {
-    vec3 hx = gHex(w / ${ot.toFixed(2)});
+    vec3 hx = gHex(w / ${HEX_SIZE.toFixed(2)});
     vec2 cuv = (hx.xy + 0.5) / uBoard;
     float inside = step(0.0, hx.x) * step(0.0, hx.y) * step(hx.x, uBoard.x - 1.0) * step(hx.y, uBoard.y - 1.0);
     float on = inside * texture2D(tCells, cuv).r;

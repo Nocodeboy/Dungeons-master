@@ -23,7 +23,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { pa, ur, xt, hr } from './kit.js';
 import { Zn } from './materials.js';
 import { Le } from './ground.js';
-import { qt, ho, ot, zt, fo } from './grid.js';
+import { cellToWorld, worldToCell, HEX_SIZE, cellKey, degToRad } from './grid.js';
 
 function BH(o, e, t) {
   let a = (o._bRegions ??= o.regions(['B', 'H'])),
@@ -54,7 +54,7 @@ function qH(o, e, t, a, n, s = 0.55) {
     [-l, 0],
   ])
     d.push([e.x + u * i + h * r, e.z - u * r + h * i]);
-  return d.every(([u, h]) => o.has(zt(...ho(u, h))));
+  return d.every(([u, h]) => o.has(cellKey(...worldToCell(u, h))));
 }
 function Zm(o, e) {
   let t = [];
@@ -261,7 +261,7 @@ function j3(o) {
     i = new Set(),
     r = [],
     l = new Map();
-  for (let u of t.objects || []) u.type === 'door' && u.target && l.set(zt(...u.target), u);
+  for (let u of t.objects || []) u.type === 'door' && u.target && l.set(cellKey(...u.target), u);
   let c = 1,
     d = new Vector3();
   for (let u of t.props || []) {
@@ -269,14 +269,14 @@ function j3(o) {
     let h = BH(e, u.cell, i);
     h && i.add(h);
     let p = h || [u.cell],
-      m = new Set(p.map(([w, k]) => zt(w, k))),
+      m = new Set(p.map(([w, k]) => cellKey(w, k))),
       _ = new Vector3();
-    for (let [w, k] of p) _.add(qt(w, k, d));
+    for (let [w, k] of p) _.add(cellToWorld(w, k, d));
     _.divideScalar(p.length);
-    let b = fo(u.rot || 0),
-      f = l.get(zt(...u.cell));
+    let b = degToRad(u.rot || 0),
+      f = l.get(cellKey(...u.cell));
     if (f) {
-      let w = qt(f.cell[0], f.cell[1]);
+      let w = cellToWorld(f.cell[0], f.cell[1]);
       b = Math.atan2(w.x - _.x, w.z - _.z);
     }
     let v = {
@@ -310,7 +310,11 @@ function j3(o) {
               ]
             : [[2, 2]],
       y = null;
-    for (let w of [b, Math.round(b / fo(30)) * fo(30), Math.round(b / fo(60)) * fo(60)])
+    for (let w of [
+      b,
+      Math.round(b / degToRad(30)) * degToRad(30),
+      Math.round(b / degToRad(60)) * degToRad(60),
+    ])
       for (let [k, T] of g)
         if (qH(m, _, w, k, T)) {
           (!y || k * T > y.W * y.D) && (y = { W: k, D: T, ry: w });
@@ -321,7 +325,7 @@ function j3(o) {
       (v.idx = u.key === 'well' || u.key === 'market' ? 0 : c++),
       B3(o, v));
     for (let [w, k] of p)
-      (qt(w, k, d), s.blob(Le.ao, d.x, d.z, 1.5, 0.5), s.blob(Le.path, d.x, d.z, 1.4, 0.5));
+      (cellToWorld(w, k, d), s.blob(Le.ao, d.x, d.z, 1.5, 0.5), s.blob(Le.path, d.x, d.z, 1.4, 0.5));
     r.push(v);
   }
   if (((o._nextBld = c), o.ambient === 'dusk' || o.ambient === 'day'))
@@ -355,10 +359,10 @@ function j3(o) {
 function VH(o) {
   let { map: e, ground: t, rnd: a } = o,
     n = [],
-    s = -ot * 0.5,
+    s = -HEX_SIZE * 0.5,
     i = e.sizeX,
-    r = -ot * 0.5,
-    l = e.sizeZ + ot * 0.5,
+    r = -HEX_SIZE * 0.5,
+    l = e.sizeZ + HEX_SIZE * 0.5,
     c = 160;
   for (let d = 0; d < c && n.length < 7; d++) {
     let u = t.x0 + 3 + a() * (t.x1 - t.x0 - 6),
@@ -567,7 +571,7 @@ function $H(o, e, t) {
       p = c === 0 ? i / 2 + u : c === 1 ? -i / 2 - u : d;
     if (c === 0 && Math.abs(h) < 1.4) continue;
     let m = t.world(h, 0, p);
-    if (!e.set.has(zt(...ho(m.x, m.z)))) continue;
+    if (!e.set.has(cellKey(...worldToCell(m.x, m.z)))) continue;
     let _ = n[Math.floor(a() * n.length)];
     (t.put(_, h, 0, p, a() * 6.28, { s: 0.85 + a() * 0.25 }), r++);
   }

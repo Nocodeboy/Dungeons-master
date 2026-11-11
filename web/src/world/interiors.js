@@ -21,7 +21,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadProp, pbrMaterial } from '../assets.js';
 import { Hu, gn } from './kit.js';
 import { Le } from './ground.js';
-import { qt, ot, Nu, zt, fo } from './grid.js';
+import { cellToWorld, HEX_SIZE, HEX_RADIUS, cellKey, degToRad } from './grid.js';
 
 function V3() {
   if (Qm) return Qm;
@@ -163,7 +163,7 @@ async function $3(o) {
   ((d.name = 'interior'), e.add(d));
   let u = new Vector3(),
     h = new Set();
-  for (let E of a.exits || []) for (let S of E.cells) h.add(zt(S[0], S[1]));
+  for (let E of a.exits || []) for (let S of E.cells) h.add(cellKey(S[0], S[1]));
   let p = 1 / 0,
     m = -1 / 0,
     _ = 1 / 0,
@@ -171,18 +171,18 @@ async function $3(o) {
   t.each((E, S, z) => {
     z === '#' ||
       z === ' ' ||
-      h.has(zt(E, S)) ||
-      (qt(E, S, u),
-      (p = Math.min(p, u.x - ot / 2)),
-      (m = Math.max(m, u.x + ot / 2)),
-      (_ = Math.min(_, u.z - Nu * ot)),
-      (b = Math.max(b, u.z + Nu * ot)));
+      h.has(cellKey(E, S)) ||
+      (cellToWorld(E, S, u),
+      (p = Math.min(p, u.x - HEX_SIZE / 2)),
+      (m = Math.max(m, u.x + HEX_SIZE / 2)),
+      (_ = Math.min(_, u.z - HEX_RADIUS * HEX_SIZE)),
+      (b = Math.max(b, u.z + HEX_RADIUS * HEX_SIZE)));
   });
   let f = { x0: p, x1: m, z0: _, z1: b },
     v = a.decor || [],
     x = (E) => {
-      let S = qt(E.cell[0], E.cell[1]);
-      return (E.offset && ((S.x += E.offset[0] * ot), (S.z += E.offset[1] * ot)), S);
+      let S = cellToWorld(E.cell[0], E.cell[1]);
+      return (E.offset && ((S.x += E.offset[0] * HEX_SIZE), (S.z += E.offset[1] * HEX_SIZE)), S);
     },
     g = {
       n: { n: new Vector3(0, 0, -1), u0: p, u1: m, fixed: _, along: 'x' },
@@ -196,7 +196,7 @@ async function $3(o) {
   for (let E of Object.values(g)) E.open = [];
   for (let E of a.exits || [])
     for (let S of E.cells) {
-      qt(S[0], S[1], u);
+      cellToWorld(S[0], S[1], u);
       let z = { n: Math.abs(u.z - _), s: Math.abs(u.z - b), w: Math.abs(u.x - p), e: Math.abs(u.x - m) },
         D = Object.keys(z).sort((A, P) => z[A] - z[P])[0],
         M = g[D],
@@ -334,7 +334,7 @@ async function $3(o) {
             new PlaneGeometry(z, D),
             new MeshStandardMaterial({ map: n9(E.colors), roughness: 0.95, name: 'alfombra' }),
           );
-        (M.rotation.set(-Math.PI / 2, 0, fo(E.rot || 0)),
+        (M.rotation.set(-Math.PI / 2, 0, degToRad(E.rot || 0)),
           M.position.set(S.x, 0.008, S.z),
           (M.receiveShadow = !0),
           d.add(M));

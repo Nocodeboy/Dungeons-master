@@ -1,48 +1,61 @@
-// world/grid.js
-// Reconstruido de publicado/juego.js (módulo __esm «Mi»). Nombres locales aún minificados.
+// world/grid.js — utilidades básicas del mundo: rejilla hexagonal odd-r (vértice arriba, K = 1,5 m),
+// azar con semilla, hash de textos, ruido de valor 2D y el mapa de casillas del nivel (`TileMap`).
+// Reconstruido de publicado/juego.js (módulo __esm «Mi»). Lo usan todos los módulos de world/.
+// Las fórmulas de rejilla son las mismas que explore/hex.js (copia propia del área).
 
 import { MathUtils, Vector3 } from 'three';
 
-function Ou(o = 1) {
-  let e = o >>> 0,
-    t = () => {
-      e = (e + 1831565813) | 0;
-      let a = Math.imul(e ^ (e >>> 15), 1 | e);
-      return ((a = (a + Math.imul(a ^ (a >>> 7), 61 | a)) ^ a), ((a ^ (a >>> 14)) >>> 0) / 4294967296);
+/**
+ * Generador pseudoaleatorio con semilla (mulberry32). Devuelve `rnd()` en [0, 1) con ayudantes
+ * `rnd.range(min, max)`, `rnd.int(n)`, `rnd.pick(lista)` y `rnd.chance(p)`.
+ */
+function makeRng(seed = 1) {
+  let state = seed >>> 0,
+    rnd = () => {
+      state = (state + 1831565813) | 0;
+      let x = Math.imul(state ^ (state >>> 15), 1 | state);
+      return ((x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x), ((x ^ (x >>> 14)) >>> 0) / 4294967296);
     };
   return (
-    (t.range = (a, n) => a + (n - a) * t()),
-    (t.int = (a) => Math.floor(t() * a)),
-    (t.pick = (a) => a[Math.floor(t() * a.length)]),
-    (t.chance = (a) => t() < a),
-    t
+    (rnd.range = (min, max) => min + (max - min) * rnd()),
+    (rnd.int = (n) => Math.floor(rnd() * n)),
+    (rnd.pick = (list) => list[Math.floor(rnd() * list.length)]),
+    (rnd.chance = (p) => rnd() < p),
+    rnd
   );
 }
-function C3(o) {
-  let e = 2166136261;
-  for (let t = 0; t < o.length; t++) e = Math.imul(e ^ o.charCodeAt(t), 16777619);
-  return e >>> 0;
+/** Hash FNV-1a de 32 bits de un texto (semilla estable a partir del id del nivel). */
+function hashString(text) {
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+  return hash >>> 0;
 }
-function qt(o, e, t = new Vector3()) {
-  return t.set((o + (e & 1 ? 0.5 : 0)) * ot, 0, e * Fu * ot);
+/** Centro de la casilla (col, row) en coordenadas del mundo (y = 0). */
+function cellToWorld(col, row, out = new Vector3()) {
+  return out.set((col + (row & 1 ? 0.5 : 0)) * HEX_SIZE, 0, row * ROW_STEP * HEX_SIZE);
 }
-function ho(o, e) {
-  let t = o / ot,
-    a = e / ot,
-    n = ((Math.sqrt(3) / 3) * t - a / 3) / Nu,
-    s = ((2 / 3) * a) / Nu,
-    i = Math.round(n),
-    r = Math.round(s),
-    l = -n - s,
-    c = Math.round(l),
-    d = Math.abs(i - n),
-    u = Math.abs(r - s),
-    h = Math.abs(c - l);
-  return (d > h && d > u ? (i = -c - r) : u > h && (r = -i - c), [i + ((r - (r & 1)) >> 1), r]);
-}
-function po(o, e) {
+/** Casilla [col, row] que contiene el punto (wx, wz) del mundo (redondeo cúbico). */
+function worldToCell(wx, wz) {
+  let px = wx / HEX_SIZE,
+    py = wz / HEX_SIZE,
+    qf = ((Math.sqrt(3) / 3) * px - py / 3) / HEX_RADIUS,
+    rf = ((2 / 3) * py) / HEX_RADIUS,
+    qi = Math.round(qf),
+    ri = Math.round(rf),
+    sf = -qf - rf,
+    si = Math.round(sf),
+    dq = Math.abs(qi - qf),
+    dr = Math.abs(ri - rf),
+    ds = Math.abs(si - sf);
   return (
-    e & 1
+    dq > ds && dq > dr ? (qi = -si - ri) : dr > ds && (ri = -qi - si),
+    [qi + ((ri - (ri & 1)) >> 1), ri]
+  );
+}
+/** Las seis casillas vecinas de (col, row) en la rejilla odd-r. */
+function neighbors(col, row) {
+  return (
+    row & 1
       ? [
           [1, 0],
           [-1, 0],
@@ -59,97 +72,129 @@ function po(o, e) {
           [-1, 1],
           [0, 1],
         ]
-  ).map(([a, n]) => [o + a, e + n]);
+  ).map(([dc, dr]) => [col + dc, row + dr]);
 }
-function Wm(o, e, t) {
-  let a = Math.min(1, Math.max(0, (t - o) / (e - o)));
-  return a * a * (3 - 2 * a);
+/** Interpolación suave de Hermite entre edge0 y edge1, como el `smoothstep` de GLSL. */
+function smoothstep(edge0, edge1, x) {
+  let k = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
+  return k * k * (3 - 2 * k);
 }
-function P3(o = 1) {
-  let e = Ou(o),
-    t = new Uint8Array(512),
-    a = new Float32Array(256);
-  for (let i = 0; i < 256; i++) ((t[i] = i), (a[i] = e() * 2 - 1));
+/**
+ * Ruido de valor 2D con semilla: `noise(x, y)` en [-1, 1] interpolado suave en una red entera y
+ * `noise.fbm(x, y, octavas)` (suma fractal de octavas).
+ */
+function makeNoise(seed = 1) {
+  let rnd = makeRng(seed),
+    perm = new Uint8Array(512),
+    values = new Float32Array(256);
+  for (let i = 0; i < 256; i++) ((perm[i] = i), (values[i] = rnd() * 2 - 1));
   for (let i = 255; i > 0; i--) {
-    let r = Math.floor(e() * (i + 1));
-    [t[i], t[r]] = [t[r], t[i]];
+    let j = Math.floor(rnd() * (i + 1));
+    [perm[i], perm[j]] = [perm[j], perm[i]];
   }
-  for (let i = 0; i < 256; i++) t[i + 256] = t[i];
-  let n = (i, r) => a[t[(t[i & 255] + r) & 511] & 255],
-    s = (i, r) => {
-      let l = Math.floor(i),
-        c = Math.floor(r),
-        d = i - l,
-        u = r - c,
-        h = d * d * (3 - 2 * d),
-        p = u * u * (3 - 2 * u),
-        m = n(l, c),
-        _ = n(l + 1, c),
-        b = n(l, c + 1),
-        f = n(l + 1, c + 1);
-      return m + (_ - m) * h + (b - m) * p + (m - _ - b + f) * h * p;
+  for (let i = 0; i < 256; i++) perm[i + 256] = perm[i];
+  let lattice = (ix, iy) => values[perm[(perm[ix & 255] + iy) & 511] & 255],
+    noise = (x, y) => {
+      let x0 = Math.floor(x),
+        y0 = Math.floor(y),
+        fx = x - x0,
+        fy = y - y0,
+        sx = fx * fx * (3 - 2 * fx),
+        sy = fy * fy * (3 - 2 * fy),
+        v00 = lattice(x0, y0),
+        v10 = lattice(x0 + 1, y0),
+        v01 = lattice(x0, y0 + 1),
+        v11 = lattice(x0 + 1, y0 + 1);
+      return v00 + (v10 - v00) * sx + (v01 - v00) * sy + (v00 - v10 - v01 + v11) * sx * sy;
     };
   return (
-    (s.fbm = (i, r, l = 4) => {
-      let c = 0,
-        d = 0.5,
-        u = 1;
-      for (let h = 0; h < l; h++) ((c += d * s(i * u, r * u)), (u *= 2.03), (d *= 0.5));
-      return c;
+    (noise.fbm = (x, y, octaves = 4) => {
+      let sum = 0,
+        amp = 0.5,
+        freq = 1;
+      for (let octave = 0; octave < octaves; octave++)
+        ((sum += amp * noise(x * freq, y * freq)), (freq *= 2.03), (amp *= 0.5));
+      return sum;
     }),
-    s
+    noise
   );
 }
-const ot = 1.5;
-const Fu = 0.8660254;
-const Nu = 0.5773503;
-const zt = (o, e) => `${o},${e}`;
-const $m = class {
-  constructor(e) {
-    ((this.rows = e.rows || []),
+/** Tamaño de casilla (K = 1,5 m): unidad de longitud de los niveles. */
+const HEX_SIZE = 1.5;
+/** Separación entre filas, en casillas (√3/2). */
+const ROW_STEP = 0.8660254;
+/** Radio del hexágono, en casillas (1/√3). */
+const HEX_RADIUS = 0.5773503;
+/** Clave de texto «col,row» de una casilla para Map/Set. */
+const cellKey = (col, row) => `${col},${row}`;
+/**
+ * Mapa de casillas del nivel: filas de caracteres (`level.rows`, ver explore/terrain.js) y
+ * pintura de suelo por casilla (`level.paint`). Tamaño del mundo en `sizeX`/`sizeZ`.
+ */
+const TileMap = class {
+  constructor(level) {
+    ((this.rows = level.rows || []),
       (this.h = this.rows.length),
-      (this.w = e.width || Math.max(0, ...this.rows.map((t) => t.length))),
+      (this.w = level.width || Math.max(0, ...this.rows.map((row) => row.length))),
       (this.paint = new Map()));
-    for (let t of e.paint || []) for (let a of t.cells) this.paint.set(zt(a[0], a[1]), t.ground);
+    for (let patch of level.paint || [])
+      for (let cell of patch.cells) this.paint.set(cellKey(cell[0], cell[1]), patch.ground);
   }
-  inside(e, t) {
-    return e >= 0 && t >= 0 && e < this.w && t < this.h;
+  inside(col, row) {
+    return col >= 0 && row >= 0 && col < this.w && row < this.h;
   }
-  tile(e, t) {
-    return this.inside(e, t) ? (this.rows[t][e] ?? ' ') : ' ';
+  tile(col, row) {
+    return this.inside(col, row) ? (this.rows[row][col] ?? ' ') : ' ';
   }
-  each(e) {
-    for (let t = 0; t < this.h; t++) for (let a = 0; a < this.w; a++) e(a, t, this.rows[t][a] ?? ' ');
+  each(fn) {
+    for (let row = 0; row < this.h; row++)
+      for (let col = 0; col < this.w; col++) fn(col, row, this.rows[row][col] ?? ' ');
   }
-  regions(e) {
-    let t = new Set(e),
-      a = new Set(),
-      n = [];
+  /** Regiones conexas de casillas cuyo carácter está en `chars` (relleno por inundación). */
+  regions(chars) {
+    let wanted = new Set(chars),
+      seen = new Set(),
+      regions = [];
     return (
-      this.each((s, i, r) => {
-        if (!t.has(r) || a.has(zt(s, i))) return;
-        let l = [],
-          c = [[s, i]];
-        for (; c.length;) {
-          let [d, u] = c.pop(),
-            h = zt(d, u);
-          if (!(a.has(h) || !t.has(this.tile(d, u)))) {
-            (a.add(h), l.push([d, u]));
-            for (let p of po(d, u)) c.push(p);
+      this.each((col, row, ch) => {
+        if (!wanted.has(ch) || seen.has(cellKey(col, row))) return;
+        let region = [],
+          stack = [[col, row]];
+        for (; stack.length;) {
+          let [curCol, curRow] = stack.pop(),
+            key = cellKey(curCol, curRow);
+          if (!(seen.has(key) || !wanted.has(this.tile(curCol, curRow)))) {
+            (seen.add(key), region.push([curCol, curRow]));
+            for (let next of neighbors(curCol, curRow)) stack.push(next);
           }
         }
-        n.push(l);
+        regions.push(region);
       }),
-      n
+      regions
     );
   }
   get sizeX() {
-    return (this.w + 0.5) * ot;
+    return (this.w + 0.5) * HEX_SIZE;
   }
   get sizeZ() {
-    return (this.h - 1) * Fu * ot;
+    return (this.h - 1) * ROW_STEP * HEX_SIZE;
   }
 };
-const fo = MathUtils.degToRad;
+/** Grados a radianes (alias de MathUtils.degToRad). */
+const degToRad = MathUtils.degToRad;
 
-export { $m, C3, Fu, Nu, Ou, P3, Wm, fo, ho, ot, po, qt, zt };
+export {
+  TileMap,
+  hashString,
+  ROW_STEP,
+  HEX_RADIUS,
+  makeRng,
+  makeNoise,
+  smoothstep,
+  degToRad,
+  worldToCell,
+  HEX_SIZE,
+  neighbors,
+  cellToWorld,
+  cellKey,
+};
