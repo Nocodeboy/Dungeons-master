@@ -3,7 +3,7 @@
 
 import { MathUtils, Raycaster, Vector2, Vector3 } from 'three';
 import { worldToPlane, planeToCell, cellKey, hexDistance, HEX_SIZE } from '../explore/hex.js';
-import { Um, QS } from './hands.js';
+import { handWorld, anchorsOf } from './hands.js';
 import { BS } from '../vfx/conditions.js';
 import efectosConjuros from '../datos/efectos/conjuros.json';
 import { o1 } from '../vfx/spells.js';
@@ -128,7 +128,7 @@ const Controller = class {
     for (let e of this.state.creatures) {
       let t = this.unit(e.id);
       if (!t) continue;
-      this.vfx.auras.sync(e.id, QS(t), t.dead ? new Set() : BS(e));
+      this.vfx.auras.sync(e.id, anchorsOf(t), t.dead ? new Set() : BS(e));
       let a = new Set((e.effects || []).map((s) => s.kind)),
         n = a.has('enlarged') ? 1.35 : a.has('reduced') ? 0.7 : 1;
       (t.sizeK === void 0 && (t.sizeK = 1),
@@ -148,7 +148,7 @@ const Controller = class {
       pos: a,
       chest: t.chest(),
       head: t.headWorld(),
-      hand: Um(t),
+      hand: handWorld(t),
       fwd: new Vector3(Math.sin(n), 0, Math.cos(n)),
       ally: t.team === 0,
     };
@@ -1631,7 +1631,7 @@ const Controller = class {
         n &&
           (t.float(n.headWorld(), e.item && e.item.includes('potion') ? 'Poci\xF3n' : 'Objeto', 'cura'),
           n.once('use', { speed: 1.2 }),
-          a.burst(Um(n), {
+          a.burst(handWorld(n), {
             n: 10,
             col: 16738954,
             speed: 1,

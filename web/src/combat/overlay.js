@@ -1,5 +1,8 @@
-// combat/overlay.js
-// Reconstruido de publicado/juego.js (módulo __esm «GS»). Nombres locales aún minificados.
+// combat/overlay.js — Superposición del tablero de combate: casillas resaltadas y ruta de movimiento.
+// Cada capa (move, dash, range, path, target, area, hover, threat) son dos InstancedMesh (relleno hexagonal y
+// borde) a una altura propia; la ruta es una cinta con un sombreador de trazos animados y un anillo en la
+// meta. También convierte rayos y puntos del mundo en casillas. La crea combat/index.js (runBattle) y la
+// usa combat/controller.js.
 
 import {
   BufferAttribute,
@@ -21,7 +24,8 @@ import {
 } from 'three';
 import { cellToWorld, planeToCell, hexShape, HEX_SIZE, HEX_RADIUS } from '../explore/hex.js';
 
-const eH = {
+/** Capas de resaltado: altura sobre el suelo y opacidad del relleno y del borde. */
+const LAYERS = {
   move: { y: 0.035, fill: 0.1, line: 0.42 },
   dash: { y: 0.034, fill: 0, line: 0.16 },
   range: { y: 0.036, fill: 0.07, line: 0.26 },
@@ -31,9 +35,10 @@ const eH = {
   hover: { y: 0.046, fill: 0.18, line: 1 },
   threat: { y: 0.043, fill: 0.16, line: 0.8 },
 };
-const tH =
+/** Sombreadores de la cinta de la ruta (trazos que avanzan y se apagan hacia la meta). */
+const PATH_VERTEX_SHADER =
   'attribute float aD; varying float vD; varying vec2 vUv; void main(){ vD = aD; vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
-const aH = `
+const PATH_FRAGMENT_SHADER = `
 uniform vec3 uColor; uniform float uTime; uniform float uLen;
 varying float vD; varying vec2 vUv;
 void main(){
@@ -44,61 +49,62 @@ void main(){
   float a = edge * (0.35 + 0.55 * dash) * (1.0 - head * 0.6);
   gl_FragColor = vec4(uColor * (1.0 + dash * 0.6), a);
 }`;
-const Om = class {
-  constructor(e, t, { cellToWorld: a = null, pick: n = null } = {}) {
-    ((this.scene = e),
-      (this.w = t.w),
-      (this.h = t.h),
-      (this.rows = t.rows),
-      (this.cellToWorld = a || ((p) => cellToWorld(p[0], p[1]))),
-      (this.pickFn = n));
-    let s = HEX_RADIUS * HEX_SIZE,
-      i = new ShapeGeometry(hexShape(s * 0.93));
-    i.rotateX(-Math.PI / 2);
-    let r = hexShape(s * 0.95);
-    r.holes.push(hexShape(s * 0.84));
-    let l = new ShapeGeometry(r);
-    (l.rotateX(-Math.PI / 2), (this.layers = {}), (this.meshes = []));
-    let c = this.w * this.h;
-    for (let [p, m] of Object.entries(eH)) {
-      let _ = (b, f) => {
-        let v = new InstancedMesh(
-          b,
-          new MeshBasicMaterial({ transparent: !0, opacity: f, depthWrite: !1, toneMapped: !1 }),
-          c,
+/** Resaltado de casillas y ruta sobre el mapa del combate ({w, h, rows}). */
+const Overlay = class {
+  constructor(scene, map, { cellToWorld: toWorld = null, pick = null } = {}) {
+    ((this.scene = scene),
+      (this.w = map.w),
+      (this.h = map.h),
+      (this.rows = map.rows),
+      (this.cellToWorld = toWorld || ((cell) => cellToWorld(cell[0], cell[1]))),
+      (this.pickFn = pick));
+    let radius = HEX_RADIUS * HEX_SIZE,
+      fillGeo = new ShapeGeometry(hexShape(radius * 0.93));
+    fillGeo.rotateX(-Math.PI / 2);
+    let ringShape = hexShape(radius * 0.95);
+    ringShape.holes.push(hexShape(radius * 0.84));
+    let lineGeo = new ShapeGeometry(ringShape);
+    (lineGeo.rotateX(-Math.PI / 2), (this.layers = {}), (this.meshes = []));
+    let capacity = this.w * this.h;
+    for (let [name, cfg] of Object.entries(LAYERS)) {
+      let makeMesh = (geo, opacity) => {
+        let mesh = new InstancedMesh(
+          geo,
+          new MeshBasicMaterial({ transparent: !0, opacity, depthWrite: !1, toneMapped: !1 }),
+          capacity,
         );
         return (
-          (v.count = 0),
-          (v.renderOrder = 3),
-          (v.frustumCulled = !1),
-          (v.instanceColor = new InstancedBufferAttribute(new Float32Array(c * 3), 3)),
-          e.add(v),
-          this.meshes.push(v),
-          v
+          (mesh.count = 0),
+          (mesh.renderOrder = 3),
+          (mesh.frustumCulled = !1),
+          (mesh.instanceColor = new InstancedBufferAttribute(new Float32Array(capacity * 3), 3)),
+          scene.add(mesh),
+          this.meshes.push(mesh),
+          mesh
         );
       };
-      this.layers[p] = { cfg: m, fill: _(i, m.fill), line: _(l, m.line) };
+      this.layers[name] = { cfg, fill: makeMesh(fillGeo, cfg.fill), line: makeMesh(lineGeo, cfg.line) };
     }
-    ((this.geos = [i, l]),
+    ((this.geos = [fillGeo, lineGeo]),
       (this.plane = new Plane(new Vector3(0, 1, 0), 0)),
       (this.tmp = new Matrix4()),
       (this.col = new Color()),
       (this.pathU = { uColor: { value: new Vector3(1, 1, 1) }, uTime: { value: 0 }, uLen: { value: 1 } }));
-    let d = new BufferGeometry(),
-      u = 160;
-    (d.setAttribute('position', new BufferAttribute(new Float32Array(u * 6), 3).setUsage(DynamicDrawUsage)),
-      d.setAttribute('uv', new BufferAttribute(new Float32Array(u * 4), 2).setUsage(DynamicDrawUsage)),
-      d.setAttribute('aD', new BufferAttribute(new Float32Array(u * 2), 1).setUsage(DynamicDrawUsage)));
-    let h = [];
-    for (let p = 0; p < u - 1; p++) h.push(p * 2, p * 2 + 1, p * 2 + 2, p * 2 + 1, p * 2 + 3, p * 2 + 2);
-    (d.setIndex(h),
-      d.setDrawRange(0, 0),
+    let pathGeo = new BufferGeometry(),
+      maxPoints = 160;
+    (pathGeo.setAttribute('position', new BufferAttribute(new Float32Array(maxPoints * 6), 3).setUsage(DynamicDrawUsage)),
+      pathGeo.setAttribute('uv', new BufferAttribute(new Float32Array(maxPoints * 4), 2).setUsage(DynamicDrawUsage)),
+      pathGeo.setAttribute('aD', new BufferAttribute(new Float32Array(maxPoints * 2), 1).setUsage(DynamicDrawUsage)));
+    let indices = [];
+    for (let k = 0; k < maxPoints - 1; k++) indices.push(k * 2, k * 2 + 1, k * 2 + 2, k * 2 + 1, k * 2 + 3, k * 2 + 2);
+    (pathGeo.setIndex(indices),
+      pathGeo.setDrawRange(0, 0),
       (this.pathMesh = new Mesh(
-        d,
+        pathGeo,
         new ShaderMaterial({
           uniforms: this.pathU,
-          vertexShader: tH,
-          fragmentShader: aH,
+          vertexShader: PATH_VERTEX_SHADER,
+          fragmentShader: PATH_FRAGMENT_SHADER,
           transparent: !0,
           depthWrite: !1,
           side: DoubleSide,
@@ -106,8 +112,8 @@ const Om = class {
       )),
       (this.pathMesh.frustumCulled = !1),
       (this.pathMesh.renderOrder = 4),
-      (this.pathMax = u),
-      e.add(this.pathMesh),
+      (this.pathMax = maxPoints),
+      scene.add(this.pathMesh),
       (this.goal = new Mesh(
         new RingGeometry(0.32, 0.42, 6),
         new MeshBasicMaterial({
@@ -123,94 +129,104 @@ const Om = class {
       (this.goal.rotation.z = Math.PI / 6),
       (this.goal.visible = !1),
       (this.goal.renderOrder = 4),
-      e.add(this.goal));
+      scene.add(this.goal));
   }
-  inBounds(e, t) {
-    return e >= 0 && t >= 0 && e < this.w && t < this.h;
+  /** ¿Está la casilla dentro del mapa? */
+  inBounds(x, y) {
+    return x >= 0 && y >= 0 && x < this.w && y < this.h;
   }
-  set(e, t, a = 16777215) {
-    let n = this.layers[e],
-      s = 0;
-    for (let i = 0; i < t.length; i++) {
-      let [r, l] = t[i];
-      if (!this.inBounds(r, l)) continue;
-      let c = this.cellToWorld([r, l]);
-      (this.tmp.makeTranslation(c.x, c.y + n.cfg.y, c.z),
-        this.col.setHex(typeof a == 'function' ? a(t[i], i) : a));
-      for (let d of [n.fill, n.line]) (d.setMatrixAt(s, this.tmp), d.setColorAt(s, this.col));
-      s++;
+  /** Resalta `cells` en una capa; `color` puede ser una función (casilla, índice) → color. */
+  set(layerName, cells, color = 16777215) {
+    let layer = this.layers[layerName],
+      count = 0;
+    for (let idx = 0; idx < cells.length; idx++) {
+      let [x, y] = cells[idx];
+      if (!this.inBounds(x, y)) continue;
+      let pos = this.cellToWorld([x, y]);
+      (this.tmp.makeTranslation(pos.x, pos.y + layer.cfg.y, pos.z),
+        this.col.setHex(typeof color == 'function' ? color(cells[idx], idx) : color));
+      for (let mesh of [layer.fill, layer.line]) (mesh.setMatrixAt(count, this.tmp), mesh.setColorAt(count, this.col));
+      count++;
     }
-    for (let i of [n.fill, n.line])
-      ((i.count = s),
-        (i.instanceMatrix.needsUpdate = !0),
-        i.instanceColor && (i.instanceColor.needsUpdate = !0));
+    for (let mesh of [layer.fill, layer.line])
+      ((mesh.count = count),
+        (mesh.instanceMatrix.needsUpdate = !0),
+        mesh.instanceColor && (mesh.instanceColor.needsUpdate = !0));
   }
-  clear(...e) {
-    for (let t of e.length ? e : Object.keys(this.layers))
-      ((this.layers[t].fill.count = 0), (this.layers[t].line.count = 0));
-    (!e.length || e.includes('path')) && this.clearRoute();
+  /** Vacía las capas dadas (todas si no se da ninguna, incluida la ruta). */
+  clear(...names) {
+    for (let name of names.length ? names : Object.keys(this.layers))
+      ((this.layers[name].fill.count = 0), (this.layers[name].line.count = 0));
+    (!names.length || names.includes('path')) && this.clearRoute();
   }
-  route(e, t, a = 15397631) {
-    let n = [e, ...t].map((b) => this.cellToWorld(b).add(new Vector3(0, 0.07, 0)));
-    if (n.length < 2) {
+  /** Dibuja la ruta desde `from` por las casillas de `path`. */
+  route(from, path, color = 15397631) {
+    let points = [from, ...path].map((cell) => this.cellToWorld(cell).add(new Vector3(0, 0.07, 0)));
+    if (points.length < 2) {
       this.clearRoute();
       return;
     }
-    let s = new CatmullRomCurve3(n, !1, 'centripetal', 0.3),
-      i = Math.min(this.pathMax, Math.max(8, n.length * 8)),
-      r = s.getSpacedPoints(i - 1),
-      l = this.pathMesh.geometry.attributes.position.array,
-      c = this.pathMesh.geometry.attributes.uv.array,
-      d = this.pathMesh.geometry.attributes.aD.array,
-      u = 0,
-      h = 0.13;
-    for (let b = 0; b < r.length; b++) {
-      b > 0 && (u += r[b].distanceTo(r[b - 1]));
-      let f = r[Math.max(0, b - 1)],
-        v = r[Math.min(r.length - 1, b + 1)],
-        x = v.x - f.x,
-        g = v.z - f.z,
-        y = Math.hypot(x, g) || 1,
-        w = (-g / y) * h,
-        k = (x / y) * h;
-      (l.set([r[b].x + w, r[b].y, r[b].z + k, r[b].x - w, r[b].y, r[b].z - k], b * 6),
-        c.set([0, 0, 0, 1], b * 4),
-        (d[b * 2] = d[b * 2 + 1] = u));
+    let curve = new CatmullRomCurve3(points, !1, 'centripetal', 0.3),
+      samples = Math.min(this.pathMax, Math.max(8, points.length * 8)),
+      spaced = curve.getSpacedPoints(samples - 1),
+      positions = this.pathMesh.geometry.attributes.position.array,
+      uvs = this.pathMesh.geometry.attributes.uv.array,
+      dists = this.pathMesh.geometry.attributes.aD.array,
+      length = 0,
+      halfWidth = 0.13;
+    for (let i = 0; i < spaced.length; i++) {
+      i > 0 && (length += spaced[i].distanceTo(spaced[i - 1]));
+      let prev = spaced[Math.max(0, i - 1)],
+        next = spaced[Math.min(spaced.length - 1, i + 1)],
+        dx = next.x - prev.x,
+        dz = next.z - prev.z,
+        len = Math.hypot(dx, dz) || 1,
+        ox = (-dz / len) * halfWidth,
+        oz = (dx / len) * halfWidth;
+      (positions.set([spaced[i].x + ox, spaced[i].y, spaced[i].z + oz, spaced[i].x - ox, spaced[i].y, spaced[i].z - oz], i * 6),
+        uvs.set([0, 0, 0, 1], i * 4),
+        (dists[i * 2] = dists[i * 2 + 1] = length));
     }
-    let p = this.pathMesh.geometry;
-    ((p.attributes.position.needsUpdate = !0),
-      (p.attributes.uv.needsUpdate = !0),
-      (p.attributes.aD.needsUpdate = !0),
-      p.setDrawRange(0, (r.length - 1) * 6));
-    let m = new Color(a);
-    (this.pathU.uColor.value.set(m.r, m.g, m.b), (this.pathU.uLen.value = u));
-    let _ = r[r.length - 1];
-    (this.goal.position.set(_.x, _.y, _.z), this.goal.material.color.copy(m), (this.goal.visible = !0));
+    let geo = this.pathMesh.geometry;
+    ((geo.attributes.position.needsUpdate = !0),
+      (geo.attributes.uv.needsUpdate = !0),
+      (geo.attributes.aD.needsUpdate = !0),
+      geo.setDrawRange(0, (spaced.length - 1) * 6));
+    let col = new Color(color);
+    (this.pathU.uColor.value.set(col.r, col.g, col.b), (this.pathU.uLen.value = length));
+    let end = spaced[spaced.length - 1];
+    (this.goal.position.set(end.x, end.y, end.z), this.goal.material.color.copy(col), (this.goal.visible = !0));
   }
+  /** Oculta la ruta. */
   clearRoute() {
     (this.pathMesh.geometry.setDrawRange(0, 0), (this.goal.visible = !1));
   }
-  update(e) {
-    ((this.pathU.uTime.value += e), this.goal.visible && (this.goal.rotation.z += e * 1.2));
+  /** Anima los trazos de la ruta y el giro del anillo de meta. */
+  update(dt) {
+    ((this.pathU.uTime.value += dt), this.goal.visible && (this.goal.rotation.z += dt * 1.2));
   }
-  ground(e) {
+  /** Punto del suelo bajo el rayo (con el selector del mundo si lo hay, o el plano y = 0). */
+  ground(raycaster) {
     if (this.pickFn) {
-      let a = this.pickFn(e);
-      if (a) return a.point;
+      let hit = this.pickFn(raycaster);
+      if (hit) return hit.point;
     }
-    let t = new Vector3();
-    return e.ray.intersectPlane(this.plane, t) ? t : null;
+    let point = new Vector3();
+    return raycaster.ray.intersectPlane(this.plane, point) ? point : null;
   }
-  cellAtWorld(e) {
-    let t = planeToCell(e.x / HEX_SIZE, e.z / HEX_SIZE);
-    return this.inBounds(t[0], t[1]) ? t : null;
+  /** Casilla del mapa bajo un punto del mundo, o null. */
+  cellAtWorld(point) {
+    let cell = planeToCell(point.x / HEX_SIZE, point.z / HEX_SIZE);
+    return this.inBounds(cell[0], cell[1]) ? cell : null;
   }
-  tile(e, t) {
-    return this.inBounds(e, t) ? this.rows[t][e] : ' ';
+  /** Carácter de terreno de una casilla (' ' fuera del mapa). */
+  tile(x, y) {
+    return this.inBounds(x, y) ? this.rows[y][x] : ' ';
   }
+  /** Libera mallas, geometrías y materiales. */
   dispose() {
-    for (let e of this.meshes) (this.scene.remove(e), e.material.dispose(), e.dispose?.());
-    for (let e of this.geos) e.dispose();
+    for (let mesh of this.meshes) (this.scene.remove(mesh), mesh.material.dispose(), mesh.dispose?.());
+    for (let geo of this.geos) geo.dispose();
     (this.scene.remove(this.pathMesh, this.goal),
       this.pathMesh.geometry.dispose(),
       this.pathMesh.material.dispose(),
@@ -219,4 +235,4 @@ const Om = class {
   }
 };
 
-export { Om };
+export { Overlay };

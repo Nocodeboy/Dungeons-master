@@ -1,160 +1,173 @@
-// combat/index.js
-// Reconstruido de publicado/juego.js (módulo __esm «b3»). Nombres locales aún minificados.
+// combat/index.js — Entrada del área de combate: `runBattle` monta un combate sobre el mundo actual.
+// A partir del estado inicial del núcleo (battle_start), crea los efectos (vfx), las unidades (figuras de la
+// exploración o monstruos nuevos), la superposición del tablero, el HUD y el controlador de turnos; ejecuta el
+// combate hasta el final y lo desmonta. No cambia de escena. Lo carga explore/battle.js con loadArea('combat');
+// sus exports conservan el nombre original (módulo con espacio de nombres). Con ?depurar expone
+// window.__combate = {ctl, vfx, units, board, hud}.
 
 import { Vector3 } from 'three';
 import { createVfx } from '../vfx/index.js';
 import { cellToWorld, planeToCell, HEX_SIZE } from '../explore/hex.js';
-import { Om } from './overlay.js';
+import { Overlay } from './overlay.js';
 import { Hud } from './hud.js';
 import { Controller } from './controller.js';
 import { p3 } from './units.js';
 
-function boardBounds(o, e) {
-  let t = [
+/** Rectángulo en el mundo (minX, maxX, minZ, maxZ) que ocupan las esquinas del mapa. */
+function boardBounds(map, toWorld) {
+  let corners = [
     [0, 0],
-    [o.w - 1, 0],
-    [0, o.h - 1],
-    [o.w - 1, o.h - 1],
-  ].map((a) => e(a));
+    [map.w - 1, 0],
+    [0, map.h - 1],
+    [map.w - 1, map.h - 1],
+  ].map((cell) => toWorld(cell));
   return {
-    minX: Math.min(...t.map((a) => a.x)),
-    maxX: Math.max(...t.map((a) => a.x)),
-    minZ: Math.min(...t.map((a) => a.z)),
-    maxZ: Math.max(...t.map((a) => a.z)),
+    minX: Math.min(...corners.map((p) => p.x)),
+    maxX: Math.max(...corners.map((p) => p.x)),
+    minZ: Math.min(...corners.map((p) => p.z)),
+    maxZ: Math.max(...corners.map((p) => p.z)),
   };
 }
-function kH(o, e) {
-  if (Array.isArray(o.surprised)) return o.surprised;
-  let t = o.surprise;
-  return t === !0 || t === 'enemies' || t === 'enemigos'
-    ? e.filter((a) => a.team !== 0).map((a) => a.id)
-    : t === 'party' || t === 'grupo'
-      ? e.filter((a) => a.team === 0).map((a) => a.id)
+/** Ids de las criaturas sorprendidas: lista explícita o «enemies»/«party» (también en español). */
+function surprisedIds(opts, creatures) {
+  if (Array.isArray(opts.surprised)) return opts.surprised;
+  let surprise = opts.surprise;
+  return surprise === !0 || surprise === 'enemies' || surprise === 'enemigos'
+    ? creatures.filter((c) => c.team !== 0).map((c) => c.id)
+    : surprise === 'party' || surprise === 'grupo'
+      ? creatures.filter((c) => c.team === 0).map((c) => c.id)
       : [];
 }
-async function runBattle(o, e = {}) {
-  let { three: t, world: a = null, actors: n = null, init: s } = e;
-  if (!s || !s.state) throw new Error('runBattle: falta init.state');
-  let i = o.stage,
-    r = a?.cellToWorld ? (A) => a.cellToWorld(A, new Vector3()) : (A) => cellToWorld(A[0], A[1]),
-    l = a?.pick ? (A) => a.pick(A) : null,
-    c = s.state.map || { w: 0, h: 0, rows: [] };
-  !c.w && c.rows?.length && ((c.h = c.rows.length), (c.w = c.rows[0].length));
-  let d = c.w
-    ? boardBounds(c, r)
-    : a?.bounds
-      ? { minX: a.bounds.min.x, maxX: a.bounds.max.x, minZ: a.bounds.min.z, maxZ: a.bounds.max.z }
+/**
+ * Ejecuta un combate completo sobre el mundo.
+ * @param {object} game contexto del juego
+ * @param {object} opts three (escena), world, actors (figuras existentes), init (respuesta de battle_start),
+ *   group/groups, surprise, level, auto, mount, portrait, makeMonster, makeForm, manageWorld, emitStartEnd
+ * @returns {Promise<object>} resultado de Controller.run (won, fled…)
+ */
+async function runBattle(game, opts = {}) {
+  let { three: scene, world = null, actors = null, init } = opts;
+  if (!init || !init.state) throw new Error('runBattle: falta init.state');
+  let stage = game.stage,
+    toWorld = world?.cellToWorld ? (cell) => world.cellToWorld(cell, new Vector3()) : (cell) => cellToWorld(cell[0], cell[1]),
+    pick = world?.pick ? (raycaster) => world.pick(raycaster) : null,
+    map = init.state.map || { w: 0, h: 0, rows: [] };
+  !map.w && map.rows?.length && ((map.h = map.rows.length), (map.w = map.rows[0].length));
+  let bounds = map.w
+    ? boardBounds(map, toWorld)
+    : world?.bounds
+      ? { minX: world.bounds.min.x, maxX: world.bounds.max.x, minZ: world.bounds.min.z, maxZ: world.bounds.max.z }
       : null;
-  e.manageWorld && (a?.setGrid?.(0.35), a?.setCombatView?.(!0));
-  let u = createVfx({
-      scene: t,
-      camera: i.camera,
-      quality: o.quality || i.quality,
-      cellToWorld: r,
-      grade: i.grade,
+  opts.manageWorld && (world?.setGrid?.(0.35), world?.setCombatView?.(!0));
+  let vfx = createVfx({
+      scene,
+      camera: stage.camera,
+      quality: game.quality || stage.quality,
+      cellToWorld: toWorld,
+      grade: stage.grade,
     }),
-    h = new Map(),
-    p = (A) => {
-      let P = h.get(A) || 0;
-      return (h.set(A, P + 1), P);
+    monsterCounts = new Map(),
+    nextIndex = (template) => {
+      let count = monsterCounts.get(template) || 0;
+      return (monsterCounts.set(template, count + 1), count);
     },
-    m =
-      e.makeMonster || o.actors?.makeMonster
-        ? async (A) => {
-            let I = await (
-              e.makeMonster || ((U) => o.actors.makeMonster(U.template, { index: p(U.template) }))
-            )(A);
-            if (I?.root) {
-              let U = r(A.cell);
-              I.root.position.copy(U);
+    makeMissing =
+      opts.makeMonster || game.actors?.makeMonster
+        ? async (creature) => {
+            let form = await (
+              opts.makeMonster || ((c) => game.actors.makeMonster(c.template, { index: nextIndex(c.template) }))
+            )(creature);
+            if (form?.root) {
+              let pos = toWorld(creature.cell);
+              form.root.position.copy(pos);
             }
-            return I;
+            return form;
           }
         : null,
-    _ = await p3(t, s.state.creatures, n, { cellToWorld: r, makeMissing: m });
-  if (a?.cellToWorld) {
-    let A = (P, I) => r(planeToCell(P / HEX_SIZE, I / HEX_SIZE)).y;
-    for (let P of _.list) P.groundAt = A;
+    units = await p3(scene, init.state.creatures, actors, { cellToWorld: toWorld, makeMissing });
+  if (world?.cellToWorld) {
+    let groundAt = (x, z) => toWorld(planeToCell(x / HEX_SIZE, z / HEX_SIZE)).y;
+    for (let unit of units.list) unit.groundAt = groundAt;
   }
-  let b = new Om(t, c, { cellToWorld: r, pick: l });
-  await u.prewarm(i.renderer, t);
-  let f = e.mount || o.ui?.root || document.body,
-    v =
-      e.portrait ||
-      (o.actors?.portrait ? (A) => o.actors.portrait(A.inner || A.ch || A.id, { size: 96 }) : null),
-    x = new Hud(f, { standalone: !1, portrait: v }),
-    g = o.ui?.keys,
-    y = g ? g.disabled : void 0;
-  g && (g.disabled = !0);
-  let w = new Controller({
-    rules: o.rules,
-    stage: i,
-    scene: t,
-    hud: x,
-    units: _,
-    board: b,
-    vfx: u,
-    bus: o.bus,
-    init: s,
-    cellToWorld: r,
-    bounds: d,
+  let board = new Overlay(scene, map, { cellToWorld: toWorld, pick });
+  await vfx.prewarm(stage.renderer, scene);
+  let mount = opts.mount || game.ui?.root || document.body,
+    portrait =
+      opts.portrait ||
+      (game.actors?.portrait ? (unit) => game.actors.portrait(unit.inner || unit.ch || unit.id, { size: 96 }) : null),
+    hud = new Hud(mount, { standalone: !1, portrait }),
+    keys = game.ui?.keys,
+    keysDisabled = keys ? keys.disabled : void 0;
+  keys && (keys.disabled = !0);
+  let controller = new Controller({
+    rules: game.rules,
+    stage,
+    scene,
+    hud,
+    units,
+    board,
+    vfx,
+    bus: game.bus,
+    init,
+    cellToWorld: toWorld,
+    bounds,
     standalone: !1,
-    shotMode: o.params?.has?.('captura'),
-    surprised: kH(e, s.state.creatures),
+    shotMode: game.params?.has?.('captura'),
+    surprised: surprisedIds(opts, init.state.creatures),
     meta: {
-      group: e.group,
-      groups: e.groups,
-      surprise: e.surprise,
-      level: e.level,
-      auto: e.auto,
+      group: opts.group,
+      groups: opts.groups,
+      surprise: opts.surprise,
+      level: opts.level,
+      auto: opts.auto,
       makeForm:
-        e.makeForm || (o.actors?.makeMonster ? (A) => o.actors.makeMonster(A, { index: p(A) }) : null),
+        opts.makeForm || (game.actors?.makeMonster ? (template) => game.actors.makeMonster(template, { index: nextIndex(template) }) : null),
       skipIntro: !0,
-      emitStartEnd: !!e.emitStartEnd,
-      ui: o.ui,
+      emitStartEnd: !!opts.emitStartEnd,
+      ui: game.ui,
     },
   });
-  o.params?.has?.('turbo') && (w.turbo = 5);
-  let k = o.bus?.on?.('quality:changed', ({ level: A }) => u.setLevel(A));
-  o.params?.has?.('depurar') && (window.__combate = { ctl: w, vfx: u, units: _, board: b, hud: x });
-  let T = 0,
-    E = 0,
-    S = performance.now(),
-    z = {
-      controller: w,
-      vfx: u,
-      update(A) {
-        ((T = performance.now()), D(A));
+  game.params?.has?.('turbo') && (controller.turbo = 5);
+  let offQuality = game.bus?.on?.('quality:changed', ({ level }) => vfx.setLevel(level));
+  game.params?.has?.('depurar') && (window.__combate = { ctl: controller, vfx, units, board, hud });
+  let lastUpdate = 0,
+    rafId = 0,
+    lastFrame = performance.now(),
+    battle = {
+      controller,
+      vfx,
+      update(dt) {
+        ((lastUpdate = performance.now()), step(dt));
       },
-      afterRender(A) {
-        x.place(i.camera, i.renderer.domElement, Math.min(A, 0.1));
+      afterRender(dt) {
+        hud.place(stage.camera, stage.renderer.domElement, Math.min(dt, 0.1));
       },
     };
-  function D(A) {
-    ((A = Math.min(A, w.turbo > 1 ? 0.3 : 1 / 20)), _.update(A), w.update(A), u.update(A));
+  function step(dt) {
+    ((dt = Math.min(dt, controller.turbo > 1 ? 0.3 : 1 / 20)), units.update(dt), controller.update(dt), vfx.update(dt));
   }
-  let M = () => {
-    if (!E) return;
-    let A = performance.now(),
-      P = (A - S) / 1e3;
-    ((S = A),
-      A - T > 150 && (D(P), x.place(i.camera, i.renderer.domElement, Math.min(P, 0.1))),
-      (E = requestAnimationFrame(M)));
+  let tick = () => {
+    if (!rafId) return;
+    let now = performance.now(),
+      dt = (now - lastFrame) / 1e3;
+    ((lastFrame = now),
+      now - lastUpdate > 150 && (step(dt), hud.place(stage.camera, stage.renderer.domElement, Math.min(dt, 0.1))),
+      (rafId = requestAnimationFrame(tick)));
   };
-  ((E = requestAnimationFrame(M)), (o.battle = z));
-  let R;
+  ((rafId = requestAnimationFrame(tick)), (game.battle = battle));
+  let result;
   try {
-    R = await w.run();
+    result = await controller.run();
   } finally {
-    (cancelAnimationFrame(E), (E = 0), k?.(), w.dispose(), b.dispose());
-    for (let A of _.list) (A.detach(), A.owns && t.remove(A.root));
-    (u.dispose(),
-      x.dispose(),
-      g && (g.disabled = y),
-      e.manageWorld && (a?.setGrid?.(0), a?.setCombatView?.(!1)),
-      o.battle === z && (o.battle = null));
+    (cancelAnimationFrame(rafId), (rafId = 0), offQuality?.(), controller.dispose(), board.dispose());
+    for (let unit of units.list) (unit.detach(), unit.owns && scene.remove(unit.root));
+    (vfx.dispose(),
+      hud.dispose(),
+      keys && (keys.disabled = keysDisabled),
+      opts.manageWorld && (world?.setGrid?.(0), world?.setCombatView?.(!1)),
+      game.battle === battle && (game.battle = null));
   }
-  return R;
+  return result;
 }
 
 export { Controller } from './controller.js';
