@@ -1,21 +1,27 @@
-// story/tips.js
-// Reconstruido de publicado/juego.js (módulo __esm «hS»). Nombres locales aún minificados.
+// story/tips.js — Consejos para el jugador (story.tips).
+// Escucha el bus (pasos, diálogos, combate, botín, tienda, viaje…) y encola consejos de
+// datos/historia/consejos.json, cada uno una sola vez por partida. Los muestra de uno en uno con una
+// separación mínima (`gap`), como pista del HUD o, si hay una pantalla o diálogo abierto, como aviso.
+// Los textos tienen versión táctil y de ratón. Lo crea story/index.js.
 
 import historiaConsejos from '../datos/historia/consejos.json';
 
-const pI = () => {
+/** ¿Pantalla táctil (puntero grueso)? */
+const isTouchDevice = () => {
   try {
     return !!globalThis.matchMedia?.('(pointer: coarse)')?.matches;
   } catch {
     return !1;
   }
 };
-const fI = (o) => String(o || '').split(/\s+/)[0];
+/** Primera palabra de un nombre. */
+const firstWord = (name) => String(name || '').split(/\s+/)[0];
+/** Cola de consejos con caducidad (`ttl`) y prioridad para los urgentes (`now`). */
 const Tips = class {
-  constructor(e, t = historiaConsejos) {
-    ((this.story = e),
-      (this.game = e.game),
-      (this.data = t || { tips: {} }),
+  constructor(story, data = historiaConsejos) {
+    ((this.story = story),
+      (this.game = story.game),
+      (this.data = data || { tips: {} }),
       (this.queue = []),
       (this.last = -1e9),
       (this.timer = 0),
@@ -24,251 +30,267 @@ const Tips = class {
       (this._weightT = 0),
       (this._weights = new Map()),
       (this.now = () => Date.now()),
-      (this.coarse = pI));
+      (this.coarse = isTouchDevice));
   }
+  /** Consejos ya vistos en la partida (st.tips). */
   get store() {
-    let e = this.story.st;
-    return ((e.tips ??= {}), e.tips);
+    let st = this.story.st;
+    return ((st.tips ??= {}), st.tips);
   }
+  /** ¿Consejos activados en los ajustes? */
   enabled() {
     return this.game.store?.settings?.tips !== !1;
   }
-  seen(e) {
-    return !!this.store[e];
+  /** ¿Ya se mostró el consejo? */
+  seen(id) {
+    return !!this.store[id];
   }
+  /** Olvida los consejos vistos y vacía la cola. */
   reset() {
     (this.story.cp?.story && (this.story.cp.story.tips = {}), (this.queue.length = 0));
   }
+  /** Todos los consejos con su texto y si se han visto (pantalla de ayuda). */
   list() {
-    return Object.keys(this.data.tips || {}).map((e) => ({ id: e, text: this.text(e), seen: this.seen(e) }));
+    return Object.keys(this.data.tips || {}).map((id) => ({ id, text: this.text(id), seen: this.seen(id) }));
   }
-  text(e, t = {}) {
-    let a = this.data.tips?.[e];
-    if (!a) return '';
-    let s = ((this.coarse() ? a.touch : a.mouse) || a.text || '').replace(/\{name\}/g, t.name || 'Alguien');
-    return this.story.text ? this.story.text(s) : s;
+  /** Texto del consejo para el dispositivo actual, con {name} sustituido. */
+  text(id, vars = {}) {
+    let tip = this.data.tips?.[id];
+    if (!tip) return '';
+    let text = ((this.coarse() ? tip.touch : tip.mouse) || tip.text || '').replace(/\{name\}/g, vars.name || 'Alguien');
+    return this.story.text ? this.story.text(text) : text;
   }
-  fire(e, t = {}) {
-    let a = this.data.tips?.[e];
-    return !a || !this.story.cp || !this.enabled() || this.seen(e) || this.queue.some((n) => n.id === e)
+  /** Encola un consejo de los datos si no se ha visto ni está en cola; devuelve si se encoló. */
+  fire(id, vars = {}) {
+    let tip = this.data.tips?.[id];
+    return !tip || !this.story.cp || !this.enabled() || this.seen(id) || this.queue.some((queued) => queued.id === id)
       ? !1
-      : (this.queue.push({ id: e, vars: t, at: this.now(), now: !!a.now, ttl: (a.ttl ?? 40) * 1e3 }),
+      : (this.queue.push({ id, vars, at: this.now(), now: !!tip.now, ttl: (tip.ttl ?? 40) * 1e3 }),
         this.pump(),
         !0);
   }
-  hint(e, t = null) {
-    return !e || !this.enabled() || (t && this.store[t])
+  /** Encola un texto suelto (si se da `id`, solo una vez por partida). */
+  hint(text, id = null) {
+    return !text || !this.enabled() || (id && this.store[id])
       ? !1
-      : (t && (this.store[t] = 1),
-        this.queue.push({ id: t, text: e, at: this.now(), now: !1, ttl: 6e4 }),
+      : (id && (this.store[id] = 1),
+        this.queue.push({ id, text, at: this.now(), now: !1, ttl: 6e4 }),
         this.pump(),
         !0);
   }
+  /** 'dialog' o 'screen' si hay un diálogo o una pantalla abiertos; si no, ''. */
   busy() {
-    let e = this.game.ui;
+    let ui = this.game.ui;
     try {
-      if (e?.dialogOpen?.()) return 'dialog';
-      if (e?.isOpen?.()) return 'screen';
+      if (ui?.dialogOpen?.()) return 'dialog';
+      if (ui?.isOpen?.()) return 'screen';
     } catch {}
     return '';
   }
+  /** Muestra el siguiente consejo si toca (o programa otro intento). */
   pump() {
     (clearTimeout(this.timer), (this.timer = 0));
-    let e = this.now();
-    if (((this.queue = this.queue.filter((r) => e - r.at <= r.ttl)), !this.queue.length)) return;
-    let t = (this.data.gap ?? 7) * 1e3,
-      a = this.busy(),
-      n = this.queue.findIndex((r) => r.now),
-      s = n >= 0 ? this.queue[n] : a ? null : this.queue[0],
-      i = t - (e - this.last);
-    if (!s || (i > 0 && !(s.now && e - this.last > 2500))) {
-      this.timer = setTimeout(() => this.pump(), Math.max(400, Math.min(i > 0 ? i : 800, 3e3)));
+    let now = this.now();
+    if (((this.queue = this.queue.filter((tip) => now - tip.at <= tip.ttl)), !this.queue.length)) return;
+    let gap = (this.data.gap ?? 7) * 1e3,
+      busy = this.busy(),
+      urgentIndex = this.queue.findIndex((tip) => tip.now),
+      next = urgentIndex >= 0 ? this.queue[urgentIndex] : busy ? null : this.queue[0],
+      wait = gap - (now - this.last);
+    if (!next || (wait > 0 && !(next.now && now - this.last > 2500))) {
+      this.timer = setTimeout(() => this.pump(), Math.max(400, Math.min(wait > 0 ? wait : 800, 3e3)));
       return;
     }
-    (this.queue.splice(this.queue.indexOf(s), 1),
-      this.show(s),
-      this.queue.length && (this.timer = setTimeout(() => this.pump(), t)));
+    (this.queue.splice(this.queue.indexOf(next), 1),
+      this.show(next),
+      this.queue.length && (this.timer = setTimeout(() => this.pump(), gap)));
   }
-  show(e) {
+  /** Muestra un consejo (pista del HUD o aviso), lo marca como visto y emite «tip». */
+  show(tip) {
     if (!this.enabled()) return;
-    let t = e.text || this.text(e.id, e.vars);
-    if (!t) return;
-    (e.id && this.data.tips?.[e.id] && (this.store[e.id] = 1), (this.last = this.now()));
-    let a = this.game.ui,
-      n = 'toast';
+    let text = tip.text || this.text(tip.id, tip.vars);
+    if (!text) return;
+    (tip.id && this.data.tips?.[tip.id] && (this.store[tip.id] = 1), (this.last = this.now()));
+    let ui = this.game.ui,
+      how = 'toast';
     try {
-      !this.busy() && typeof a?.hud?.hint == 'function'
-        ? (a.hud.hint(t), (n = 'hint'))
-        : a?.toast?.(t, 'info');
+      !this.busy() && typeof ui?.hud?.hint == 'function'
+        ? (ui.hud.hint(text), (how = 'hint'))
+        : ui?.toast?.(text, 'info');
     } catch {
       try {
-        a?.toast?.(t, 'info');
+        ui?.toast?.(text, 'info');
       } catch {}
     }
-    (this.shown.push({ id: e.id, text: t, how: n }), this.game.bus?.emit('tip', { id: e.id, text: t }));
+    (this.shown.push({ id: tip.id, text, how }), this.game.bus?.emit('tip', { id: tip.id, text }));
   }
-  isPc(e) {
-    if (!e) return !1;
-    let t = this.story.cp;
-    return this.pcs.has(e) || !!t?.party?.includes(e);
+  /** ¿Es un personaje del jugador? */
+  isPc(id) {
+    if (!id) return !1;
+    let cp = this.story.cp;
+    return this.pcs.has(id) || !!cp?.party?.includes(id);
   }
-  nameOf(e) {
-    let t = this.story.cp?.members?.[e];
-    return fI(
-      t?.short_name ||
-        t?.name ||
-        this.story.data.companions?.[e]?.short ||
-        this.story.data.companions?.[e]?.name ||
-        e,
+  /** Nombre corto de un miembro del grupo o compañero. */
+  nameOf(id) {
+    let member = this.story.cp?.members?.[id];
+    return firstWord(
+      member?.short_name ||
+        member?.name ||
+        this.story.data.companions?.[id]?.short ||
+        this.story.data.companions?.[id]?.name ||
+        id,
     );
   }
-  weightOf(e) {
-    if (!e) return 0;
-    if (this._weights.has(e)) return this._weights.get(e);
-    let t = 0;
+  /** Peso de un objeto según el núcleo (`item_info`), cacheado. */
+  weightOf(id) {
+    if (!id) return 0;
+    if (this._weights.has(id)) return this._weights.get(id);
+    let weight = 0;
     try {
-      let a = this.story.rules('item_info', { id: e });
-      t = Number(a?.weight) || 0;
+      let info = this.story.rules('item_info', { id });
+      weight = Number(info?.weight) || 0;
     } catch {
-      t = 0;
+      weight = 0;
     }
-    return (this._weights.set(e, t), t);
+    return (this._weights.set(id, weight), weight);
   }
+  /** Comprueba la carga del grupo y avisa («heavy») si alguien supera Fuerza × 15. */
   checkWeight() {
     (clearTimeout(this._weightT),
       (this._weightT = setTimeout(() => {
-        let e = this.story.cp;
-        if (!(!e || this.seen('heavy')))
-          for (let t of e.party || []) {
-            let a = e.members?.[t];
-            if (!a) continue;
-            let n = 0;
-            for (let i of a.pack || []) n += this.weightOf(i?.id || i);
-            for (let [i, r] of Object.entries(a.items || {})) n += this.weightOf(i) * (Number(r) || 0);
-            for (let i of a.weapons || []) n += this.weightOf(i);
-            (a.armor && (n += this.weightOf(a.armor)), a.shield && (n += 6));
-            let s = (a.abilities?.str ?? 10) * 15;
-            if (n > s) return void this.fire('heavy', { name: this.nameOf(t) });
+        let cp = this.story.cp;
+        if (!(!cp || this.seen('heavy')))
+          for (let id of cp.party || []) {
+            let member = cp.members?.[id];
+            if (!member) continue;
+            let load = 0;
+            for (let item of member.pack || []) load += this.weightOf(item?.id || item);
+            for (let [item, count] of Object.entries(member.items || {})) load += this.weightOf(item) * (Number(count) || 0);
+            for (let weapon of member.weapons || []) load += this.weightOf(weapon);
+            (member.armor && (load += this.weightOf(member.armor)), member.shield && (load += 6));
+            let capacity = (member.abilities?.str ?? 10) * 15;
+            if (load > capacity) return void this.fire('heavy', { name: this.nameOf(id) });
           }
       }, 300)));
   }
+  /** Engancha los oyentes del bus que disparan cada consejo. */
   attach() {
-    let e = this.game.bus;
-    if (!e || this._attached) return;
+    let bus = this.game.bus;
+    if (!bus || this._attached) return;
     this._attached = !0;
-    let t = (n, s) =>
-        e.on(n, (i) => {
+    let on = (name, fn) =>
+        bus.on(name, (data) => {
           try {
-            s(i || {});
-          } catch (r) {
-            console.warn('[historia] consejo', n, r);
+            fn(data || {});
+          } catch (err) {
+            console.warn('[historia] consejo', name, err);
           }
         }),
-      a = !1;
-    (t('step', (n) => {
-      a || !this.isPc(n.who) || ((a = !0), setTimeout(() => this.fire('move'), 2500));
+      movedOnce = !1;
+    (on('step', (data) => {
+      movedOnce || !this.isPc(data.who) || ((movedOnce = !0), setTimeout(() => this.fire('move'), 2500));
     }),
-      t('story:options', (n) => {
-        n.checks
+      on('story:options', (data) => {
+        data.checks
           ? this.fire('dialog_check')
-          : n.specials
+          : data.specials
             ? this.fire('dialog_special')
-            : n.tones && this.fire('dialog_tone');
+            : data.tones && this.fire('dialog_tone');
       }),
-      t('quest:update', (n) => n.state === 'active' && !n.step && this.fire('journal')),
-      t('codex:unlock', () => this.fire('codex')),
-      t('companion:join', (n) => this.fire('companion_talk', { name: this.nameOf(n.id) })),
-      t('approval', (n) => {
-        n.delta < 0
-          ? this.fire('approval_down', { name: this.nameOf(n.who) })
-          : n.delta > 0 && this.fire('approval_up', { name: this.nameOf(n.who) });
+      on('quest:update', (data) => data.state === 'active' && !data.step && this.fire('journal')),
+      on('codex:unlock', () => this.fire('codex')),
+      on('companion:join', (data) => this.fire('companion_talk', { name: this.nameOf(data.id) })),
+      on('approval', (data) => {
+        data.delta < 0
+          ? this.fire('approval_down', { name: this.nameOf(data.who) })
+          : data.delta > 0 && this.fire('approval_up', { name: this.nameOf(data.who) });
       }),
-      t('interact', (n) => {
-        let s = n.object;
-        s &&
-          typeof s == 'object' &&
-          s.lock &&
-          (s.type === 'chest' || s.type === 'door' || s.type === 'cache') &&
+      on('interact', (data) => {
+        let object = data.object;
+        object &&
+          typeof object == 'object' &&
+          object.lock &&
+          (object.type === 'chest' || object.type === 'door' || object.type === 'cache') &&
           this.fire('locked');
       }),
-      t('hidden:found', (n) => {
-        let s = n.object?.type;
-        s === 'trap'
+      on('hidden:found', (data) => {
+        let type = data.object?.type;
+        type === 'trap'
           ? this.fire('trap_found')
-          : s === 'group' || n.group
+          : type === 'group' || data.group
             ? this.fire('ambush_found')
-            : this.fire('hidden_found', { name: this.nameOf(n.by) });
+            : this.fire('hidden_found', { name: this.nameOf(data.by) });
       }),
-      t('trap:triggered', () => this.fire('trap_hit')),
-      t('stealth:on', () => this.fire('stealth')),
-      t('spotted', (n) => (n.ambush ? this.fire('ambushed') : this.fire('spotted'))),
-      t('loot:taken', (n) => {
-        let s = n.items || [];
-        ((s.length || n.gold) && this.fire('loot'),
-          s.some((i) => i && (i.unid || i.unidentified)) && this.fire('unidentified'),
+      on('trap:triggered', () => this.fire('trap_hit')),
+      on('stealth:on', () => this.fire('stealth')),
+      on('spotted', (data) => (data.ambush ? this.fire('ambushed') : this.fire('spotted'))),
+      on('loot:taken', (data) => {
+        let items = data.items || [];
+        ((items.length || data.gold) && this.fire('loot'),
+          items.some((item) => item && (item.unid || item.unidentified)) && this.fire('unidentified'),
           this.checkWeight());
       }),
-      t('item:gain', () => this.checkWeight()),
-      t('ui:open', (n) => n.name === 'tienda' && this.fire('shop')),
-      t('scene:enter', (n) => n.name === 'travel' && this.fire('travel')),
-      t('rest:short', () => this.fire('rest_short')),
-      t('rest:long', () => this.fire('rest_long')),
-      t('levelup', () => this.fire('levelup')),
-      t('battle:start', (n) => {
+      on('item:gain', () => this.checkWeight()),
+      on('ui:open', (data) => data.name === 'tienda' && this.fire('shop')),
+      on('scene:enter', (data) => data.name === 'travel' && this.fire('travel')),
+      on('rest:short', () => this.fire('rest_short')),
+      on('rest:long', () => this.fire('rest_long')),
+      on('levelup', () => this.fire('levelup')),
+      on('battle:start', (data) => {
         (this.fire('battle'),
-          n.surprise ? this.fire('surprise') : n.surprisedParty?.length && this.fire('ambushed'));
+          data.surprise ? this.fire('surprise') : data.surprisedParty?.length && this.fire('ambushed'));
       }),
-      t('battle:turn', (n) => {
-        n.isPc && (this.pcs.add(n.creature), this.fire('turn'));
+      on('battle:turn', (data) => {
+        data.isPc && (this.pcs.add(data.creature), this.fire('turn'));
       }),
-      t('battle:event', ({ ev: n }) => {
-        if (!n?.t) return;
-        let s = this.isPc(n.who),
-          i = () => this.nameOf(n.who);
-        switch (n.t) {
+      on('battle:event', ({ ev }) => {
+        if (!ev?.t) return;
+        let mine = this.isPc(ev.who),
+          whoName = () => this.nameOf(ev.who);
+        switch (ev.t) {
           case 'attack':
-            if ((n.oa && this.isPc(n.target) && this.fire('opportunity'), !s)) break;
-            (this.fire('attack'), n.mode && this.fire('advantage'));
+            if ((ev.oa && this.isPc(ev.target) && this.fire('opportunity'), !mine)) break;
+            (this.fire('attack'), ev.mode && this.fire('advantage'));
             break;
           case 'cast':
-            s && this.fire('spell');
+            mine && this.fire('spell');
             break;
           case 'concentration':
-            s && n.on !== !1 && this.fire('concentration', { name: i() });
+            mine && ev.on !== !1 && this.fire('concentration', { name: whoName() });
             break;
           case 'condition':
-            s && n.on && n.cond !== 'unconscious' && this.fire('condition', { name: i() });
+            mine && ev.on && ev.cond !== 'unconscious' && this.fire('condition', { name: whoName() });
             break;
           case 'downed':
-            s && this.fire('downed', { name: i() });
+            mine && this.fire('downed', { name: whoName() });
             break;
           case 'death':
-            s && this.fire('dead', { name: i() });
+            mine && this.fire('dead', { name: whoName() });
             break;
           case 'sneak':
-            s && this.fire('sneak');
+            mine && this.fire('sneak');
             break;
           case 'hide':
-            s && n.success !== !1 && this.fire('hide');
+            mine && ev.success !== !1 && this.fire('hide');
             break;
           case 'dash':
-            s && this.fire('dash');
+            mine && this.fire('dash');
             break;
           case 'disengage':
-            s && this.fire('disengage');
+            mine && this.fire('disengage');
             break;
           case 'item':
-            s && this.fire('potion');
+            mine && this.fire('potion');
             break;
           case 'reaction':
-            s && this.fire('reaction');
+            mine && this.fire('reaction');
             break;
         }
       }),
-      t('battle:end', (n) => {
-        n.fled ? this.fire('fled') : n.won && setTimeout(() => this.fire('save'), 4e3);
+      on('battle:end', (data) => {
+        data.fled ? this.fire('fled') : data.won && setTimeout(() => this.fire('save'), 4e3);
       }),
-      t('game:loaded', () => (this.queue.length = 0)));
+      on('game:loaded', () => (this.queue.length = 0)));
   }
 };
 

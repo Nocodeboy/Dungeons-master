@@ -186,8 +186,9 @@ function resolverClaves(modelo, mapa, plan, rel) {
     const conNombre = (n) => nodo.enlaces.filter((e) => e.binding.identifier.name === n);
     const viejo = conNombre(nb)[k - 1];
     if (viejo) return { estado: 'ok', enlace: viejo };
-    const nuevo = mapa[clave];
-    if (conNombre(nuevo)[k - 1] || conNombre(nuevo).length === 1) return { estado: 'aplicada' };
+    // Ya no hay enlace con el nombre viejo y sí con el nuevo: entrada ya aplicada. (El índice «#n»
+    // del nombre viejo no sirve para el nuevo: varios enlaces pueden acabar llamándose igual.)
+    if (conNombre(mapa[clave]).length) return { estado: 'aplicada' };
     return { estado: 'no' };
   };
   let progreso = true;
@@ -246,6 +247,11 @@ function comprobarConflictos(binding, nuevo, rel) {
     },
   });
   if (choque) throw new Error(`${donde}: «${nuevo}» ya se usa en la línea ${choque} y quedaría capturado`);
+  // Sombrear un enlace exterior no cambia nada, pero se lee peor: solo se avisa.
+  for (let s = S.parent; s; s = s.parent) {
+    const otro = s.getOwnBinding(nuevo);
+    if (otro) { console.warn(`aviso ${donde}: sombrea a «${nuevo}» de la línea ${otro.identifier.loc.start.line}`); break; }
+  }
 }
 
 // Empalma en el texto los identificadores cuyo nombre ha cambiado.
@@ -255,10 +261,12 @@ function empalmar(codigo, ast, originales, abreviadas, especificadores, propieda
   const cambios = [];
   const tratados = new Set();
   for (const p of propiedades) {
-    if (p.value.name !== p.key.name || p.key.name === '__proto__') continue;
-    if (!abreviarTodo && originales.get(p.value) === p.value.name) continue;
-    tratados.add(p.value);
-    cambios.push([p.start, p.end, p.key.name]);
+    // «k: k» y, en patrones, «k: k = valor» (se sustituye solo hasta el final del identificador).
+    const id = p.value.type === 'AssignmentPattern' ? p.value.left : p.value;
+    if (id.name !== p.key.name || p.key.name === '__proto__') continue;
+    if (!abreviarTodo && originales.get(id) === id.name) continue;
+    tratados.add(id);
+    cambios.push([p.start, id.end, p.key.name]);
   }
   for (const { nodo, texto } of especificadores) {
     let nuevoTexto;
@@ -382,7 +390,8 @@ function aplicarMapa(mapaTotal, { enSeco, solo, abreviarTodo }) {
     const especificadores = [];
     const propiedades = [];
     recorrer(ast.program, (n) => {
-      if (n.type === 'ObjectProperty' && !n.shorthand && !n.computed && n.key.type === 'Identifier' && n.value.type === 'Identifier') propiedades.push(n);
+      if (n.type === 'ObjectProperty' && !n.shorthand && !n.computed && n.key.type === 'Identifier' &&
+        (n.value.type === 'Identifier' || (n.value.type === 'AssignmentPattern' && n.value.left.type === 'Identifier'))) propiedades.push(n);
       if (n.type === 'Identifier') originales.set(n, n.name);
       if (n.type === 'ObjectProperty' && n.shorthand) {
         const v = n.value.type === 'AssignmentPattern' ? n.value.left : n.value;

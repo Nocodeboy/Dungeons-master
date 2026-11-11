@@ -77,8 +77,8 @@ function parseEffect(spec) {
     case 'heal':
       return { op: verb, who: arg || 'party' };
     case 'damage': {
-      let [who, spec = '1d4'] = splitEq(arg),
-        [dice, type = 'piercing', save, dc] = spec.split(':');
+      let [who, damageSpec = '1d4'] = splitEq(arg),
+        [dice, type = 'piercing', save, dc] = damageSpec.split(':');
       return { op: verb, who, dice, type, save: save || null, dc: dc ? Number(dc) : null };
     }
     case 'levelup':

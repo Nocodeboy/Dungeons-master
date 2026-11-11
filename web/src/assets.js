@@ -65,12 +65,12 @@ function loadTexture(url, srgb) {
 function pbrMaterial(
   name,
   {
-    repeat: repeat = [1, 1],
-    tint: tint = 16777215,
-    normalScale: normalScale = 1,
-    roughness: roughness = 1,
-    ao: ao = !0,
-    rotation: rotation = 0,
+    repeat = [1, 1],
+    tint = 16777215,
+    normalScale = 1,
+    roughness = 1,
+    ao = !0,
+    rotation = 0,
   } = {},
 ) {
   let mapTexture = (kind, srgb) => {
