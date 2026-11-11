@@ -10,7 +10,7 @@ import { worldUniforms } from './materials.js';
 import { TIMES, Sky } from './times.js';
 import { LAYER, Ground } from './ground.js';
 import { buildVegetation } from './vegetation.js';
-import { j3 } from './buildings.js';
+import { buildBuildings } from './buildings.js';
 import { J3, K3 } from './props.js';
 import { $3 } from './interiors.js';
 import { ok } from './procedural.js';
@@ -69,7 +69,7 @@ async function buildLevel(
     finish: { wind: 0 },
   });
   ctx.merger = merger;
-  let buildings = indoor ? [] : j3(ctx);
+  let buildings = indoor ? [] : buildBuildings(ctx);
   ((ctx.static = merger.view({ bld: 0, contactH: 0.7, contactMin: 0.5 })), (ctx.buildings = buildings));
   let props = await J3(ctx),
     lanterns = new Map();

@@ -1,5 +1,9 @@
-// world/buildings.js
-// Reconstruido de publicado/juego.js (módulo __esm «G3»). Nombres locales aún minificados.
+// world/buildings.js — edificios de la aldea: busca el solar de cada atrezo con `foot` (regiones «B»/«H»
+// del mapa), elige tamaño y orientación (hacia su puerta si la hay) y los monta con piezas modulares
+// del kit «aldea» (muros por planta, esquinas, tejado, chimenea, ventanas, contraventanas, puerta,
+// farol) fundidas en el `MeshMerger`. Casos propios: taberna, iglesia, herrería, molino de viento y de
+// agua, mina, granero, mercado, pozo y ruina; además, casas sueltas en las afueras.
+// Reconstruido de publicado/juego.js (módulo __esm «G3»). Lo usa index.js.
 
 import {
   Box3,
@@ -25,146 +29,187 @@ import { worldMaterial } from './materials.js';
 import { LAYER } from './ground.js';
 import { cellToWorld, worldToCell, HEX_SIZE, cellKey, degToRad } from './grid.js';
 
-function BH(o, e, t) {
-  let a = (o._bRegions ??= o.regions(['B', 'H'])),
-    n = null,
-    s = 1 / 0;
-  for (let i of a)
-    if (!t.has(i))
-      for (let [r, l] of i) {
-        let c = Math.abs(r - e[0]) + Math.abs(l - e[1]);
-        c < s && ((s = c), (n = i));
+/** Región «B»/«H» libre más cercana a `cell` (a 3 casillas como mucho), o null. */
+function findLot(map, cell, used) {
+  let regions = (map._bRegions ??= map.regions(['B', 'H'])),
+    best = null,
+    bestD = 1 / 0;
+  for (let region of regions)
+    if (!used.has(region))
+      for (let [col, row] of region) {
+        let dist = Math.abs(col - cell[0]) + Math.abs(row - cell[1]);
+        dist < bestD && ((bestD = dist), (best = region));
       }
-  return s <= 3 ? n : null;
+  return bestD <= 3 ? best : null;
 }
-function qH(o, e, t, a, n, s = 0.55) {
-  let i = Math.cos(t),
-    r = Math.sin(t),
-    l = a / 2 - s,
-    c = n / 2 - s,
-    d = [];
-  for (let [u, h] of [
-    [-l, -c],
-    [l, -c],
-    [l, c],
-    [-l, c],
-    [0, c],
-    [0, -c],
-    [l, 0],
-    [-l, 0],
+/** ¿Cabe la planta W×D girada `ry` en las casillas de `cellSet`? */
+function footprintFits(cellSet, center, ry, W, D, inset = 0.55) {
+  let cos = Math.cos(ry),
+    sin = Math.sin(ry),
+    hw = W / 2 - inset,
+    hd = D / 2 - inset,
+    pts = [];
+  for (let [px, pz] of [
+    [-hw, -hd],
+    [hw, -hd],
+    [hw, hd],
+    [-hw, hd],
+    [0, hd],
+    [0, -hd],
+    [hw, 0],
+    [-hw, 0],
   ])
-    d.push([e.x + u * i + h * r, e.z - u * r + h * i]);
-  return d.every(([u, h]) => o.has(cellKey(...worldToCell(u, h))));
+    pts.push([center.x + px * cos + pz * sin, center.z - px * sin + pz * cos]);
+  return pts.every(([px, pz]) => cellSet.has(cellKey(...worldToCell(px, pz))));
 }
-function Zm(o, e) {
-  let t = [];
-  for (let a = 0; a < o / Oo; a++) t.push(['front', -o / 2 + 1 + a * Oo, e / 2, 0, a]);
-  for (let a = 0; a < o / Oo; a++) t.push(['back', o / 2 - 1 - a * Oo, -e / 2, Math.PI, a]);
-  for (let a = 0; a < e / Oo; a++) t.push(['right', o / 2, e / 2 - 1 - a * Oo, Math.PI / 2, a]);
-  for (let a = 0; a < e / Oo; a++) t.push(['left', -o / 2, -e / 2 + 1 + a * Oo, -Math.PI / 2, a]);
-  return t;
+/** Huecos de muro de una planta W×D: [lado, x, z, giro, índice] por cada tramo de 2 m. */
+function wallSlots(W, D) {
+  let slots = [];
+  for (let k = 0; k < W / WALL_W; k++) slots.push(['front', -W / 2 + 1 + k * WALL_W, D / 2, 0, k]);
+  for (let k = 0; k < W / WALL_W; k++) slots.push(['back', W / 2 - 1 - k * WALL_W, -D / 2, Math.PI, k]);
+  for (let k = 0; k < D / WALL_W; k++) slots.push(['right', W / 2, D / 2 - 1 - k * WALL_W, Math.PI / 2, k]);
+  for (let k = 0; k < D / WALL_W; k++) slots.push(['left', -W / 2, -D / 2 + 1 + k * WALL_W, -Math.PI / 2, k]);
+  return slots;
 }
-function Rc(o, e) {
-  let { W: t, D: a, floors: n, rnd: s } = e,
-    i = { windows: [], doorLocal: null, chimneyTop: null, lamps: [] };
-  for (let l = 0; l < n; l++) {
-    let c = q3[e.styles[Math.min(l, e.styles.length - 1)]],
-      d = l * Bo;
-    for (let [h, p, m, _, b] of Zm(t, a)) {
-      let f = l === 0 && h === 'front' && b === e.door,
-        v = c.plain,
-        x = null,
-        g = null;
+/**
+ * Casa genérica por plantas con estilos de `WALL_STYLES` y tejado. `opts`: W, D, floors, styles,
+ * door, shutters, vines, chimney, dormer, boxes, curb, rnd. Devuelve las partes (ventanas, puerta,
+ * chimenea, alturas) en coordenadas locales.
+ */
+function buildHouse(bb, opts) {
+  let { W, D, floors, rnd } = opts,
+    parts = { windows: [], doorLocal: null, chimneyTop: null, lamps: [] };
+  for (let floor = 0; floor < floors; floor++) {
+    let style = WALL_STYLES[opts.styles[Math.min(floor, opts.styles.length - 1)]],
+      fy = floor * FLOOR_H;
+    for (let [side, px, pz, ry, slot] of wallSlots(W, D)) {
+      let isDoor = floor === 0 && side === 'front' && slot === opts.door,
+        wall = style.plain,
+        winPiece = null,
+        shutter = null;
       if (
-        (f
-          ? (v = c.door)
-          : s() < (h === 'front' || h === 'back' ? 0.62 : 0.45)
-            ? ([v, x, g] = s() < 0.55 ? c.wide : c.thin)
-            : c.alt && s() < 0.3 && (v = c.alt),
-        o.put(v, p, d, m, _),
-        x)
+        (isDoor
+          ? (wall = style.door)
+          : rnd() < (side === 'front' || side === 'back' ? 0.62 : 0.45)
+            ? ([wall, winPiece, shutter] = rnd() < 0.55 ? style.wide : style.thin)
+            : style.alt && rnd() < 0.3 && (wall = style.alt),
+        bb.put(wall, px, fy, pz, ry),
+        winPiece)
       ) {
-        o.put(x, p, d, m, _);
-        let y = new Vector3(0, d + 1.8, 0.25)
-          .applyAxisAngle(new Vector3(0, 1, 0), _)
-          .add(new Vector3(p, 0, m));
-        if ((i.windows.push(y), g && s() < e.shutters && o.put(g, p, d, m, _), s() < (e.boxes ?? 0.3))) {
-          let w = new Vector3(0, 0, 0.3).applyAxisAngle(new Vector3(0, 1, 0), _);
-          (o.geo(Hn(0.95, 0.16, 0.24), js().darkWood, p + w.x, d + 0.86, m + w.z, _),
-            o.put(s() < 0.5 ? 'Flower_3_Group' : 'Flower_4_Group', p + w.x, d + 1, m + w.z, _, { s: 0.55 }));
+        bb.put(winPiece, px, fy, pz, ry);
+        let winPos = new Vector3(0, fy + 1.8, 0.25)
+          .applyAxisAngle(new Vector3(0, 1, 0), ry)
+          .add(new Vector3(px, 0, pz));
+        if (
+          (parts.windows.push(winPos),
+          shutter && rnd() < opts.shutters && bb.put(shutter, px, fy, pz, ry),
+          rnd() < (opts.boxes ?? 0.3))
+        ) {
+          let boxOff = new Vector3(0, 0, 0.3).applyAxisAngle(new Vector3(0, 1, 0), ry);
+          (bb.geo(
+            boxGeo(0.95, 0.16, 0.24),
+            buildingMats().darkWood,
+            px + boxOff.x,
+            fy + 0.86,
+            pz + boxOff.z,
+            ry,
+          ),
+            bb.put(
+              rnd() < 0.5 ? 'Flower_3_Group' : 'Flower_4_Group',
+              px + boxOff.x,
+              fy + 1,
+              pz + boxOff.z,
+              ry,
+              { s: 0.55 },
+            ));
         }
       }
-      (f && (i.doorLocal = { x: p, y: d, z: m, ry: _ }),
-        l > 0 && o.put('Wall_BottomCover', p, d, m, _),
-        !f &&
-          s() < e.vines &&
-          l === n - 1 &&
-          o.put(
-            s() < 0.5 ? 'Prop_Vine1' : 'Prop_Vine2',
-            p + (s() - 0.5) * 0.6 * Math.cos(_),
-            d + 2.75,
-            m + 0.12,
-            _,
+      (isDoor && (parts.doorLocal = { x: px, y: fy, z: pz, ry }),
+        floor > 0 && bb.put('Wall_BottomCover', px, fy, pz, ry),
+        !isDoor &&
+          rnd() < opts.vines &&
+          floor === floors - 1 &&
+          bb.put(
+            rnd() < 0.5 ? 'Prop_Vine1' : 'Prop_Vine2',
+            px + (rnd() - 0.5) * 0.6 * Math.cos(ry),
+            fy + 2.75,
+            pz + 0.12,
+            ry,
           ));
     }
-    let u = c.corner;
-    (o.put(u, -t / 2, d, a / 2, 0),
-      o.put(u, t / 2, d, a / 2, Math.PI / 2),
-      o.put(u, t / 2, d, -a / 2, Math.PI),
-      o.put(u, -t / 2, d, -a / 2, -Math.PI / 2));
+    let corner = style.corner;
+    (bb.put(corner, -W / 2, fy, D / 2, 0),
+      bb.put(corner, W / 2, fy, D / 2, Math.PI / 2),
+      bb.put(corner, W / 2, fy, -D / 2, Math.PI),
+      bb.put(corner, -W / 2, fy, -D / 2, -Math.PI / 2));
   }
-  for (let l = -t / 2 + 1; l < t / 2; l += Oo)
-    for (let c = -a / 2 + 1; c < a / 2; c += Oo) o.put('Floor_WoodDark', l, 0.03, c, 0);
-  if (e.curb !== !1) {
-    for (let [, l, c, d] of Zm(t, a)) o.put('Prop_ExteriorBorder_Straight1', l, -0.04, c, d, { sz: 0.55 });
-    (o.put('Prop_ExteriorBorder_Corner', -t / 2, -0.04, a / 2, 0, { sz: 0.55, sx: 0.55 }),
-      o.put('Prop_ExteriorBorder_Corner', t / 2, -0.04, a / 2, Math.PI / 2, { sz: 0.55, sx: 0.55 }),
-      o.put('Prop_ExteriorBorder_Corner', t / 2, -0.04, -a / 2, Math.PI, { sz: 0.55, sx: 0.55 }),
-      o.put('Prop_ExteriorBorder_Corner', -t / 2, -0.04, -a / 2, -Math.PI / 2, { sz: 0.55, sx: 0.55 }));
+  for (let fx = -W / 2 + 1; fx < W / 2; fx += WALL_W)
+    for (let fz = -D / 2 + 1; fz < D / 2; fz += WALL_W) bb.put('Floor_WoodDark', fx, 0.03, fz, 0);
+  if (opts.curb !== !1) {
+    for (let [, bx, bz, bry] of wallSlots(W, D))
+      bb.put('Prop_ExteriorBorder_Straight1', bx, -0.04, bz, bry, { sz: 0.55 });
+    (bb.put('Prop_ExteriorBorder_Corner', -W / 2, -0.04, D / 2, 0, { sz: 0.55, sx: 0.55 }),
+      bb.put('Prop_ExteriorBorder_Corner', W / 2, -0.04, D / 2, Math.PI / 2, { sz: 0.55, sx: 0.55 }),
+      bb.put('Prop_ExteriorBorder_Corner', W / 2, -0.04, -D / 2, Math.PI, { sz: 0.55, sx: 0.55 }),
+      bb.put('Prop_ExteriorBorder_Corner', -W / 2, -0.04, -D / 2, -Math.PI / 2, { sz: 0.55, sx: 0.55 }));
   }
-  let r = n * Bo;
-  return ((i.top = r), UH(o, t, a, r, e, i), i);
+  let top = floors * FLOOR_H;
+  return ((parts.top = top), buildRoof(bb, W, D, top, opts, parts), parts);
 }
-function UH(o, e, t, a, n, s) {
-  let i = e <= t,
-    r = i ? e : t,
-    l = i ? t : e,
-    d = (F3[r] || F3[4]).reduce((v, x) => (Math.abs(x - l) < Math.abs(v - l) ? x : v)),
-    u = `Roof_RoundTiles_${r}x${d}`,
-    h = i ? 0 : Math.PI / 2,
-    p = l / d;
-  o.put(u, 0, a, 0, h, { roof: !0, sz: p });
-  let m = `Roof_Front_Brick${r}`;
-  i
-    ? (o.put(m, 0, a, t / 2, 0, { roof: !0 }), o.put(m, 0, a, -t / 2, Math.PI, { roof: !0 }))
-    : (o.put(m, e / 2, a, 0, Math.PI / 2, { roof: !0 }), o.put(m, -e / 2, a, 0, -Math.PI / 2, { roof: !0 }));
-  let _ = pieceBounds(u),
-    b = _.max.y,
-    f = _.max.x;
-  if (((s.roofTop = a + b), n.chimney)) {
-    let v = r / 2 - 0.9,
-      g = (b * (1 - v / f) + 1.3 + 0.5) / 3.18,
-      y = n.rnd() < 0.5 ? -1 : 1,
-      w = (l / 2 - 1.1) * (n.rnd() < 0.5 ? -1 : 1),
-      k = i ? v * y : w,
-      T = i ? w : v * y;
-    (o.put('Prop_Chimney', k, a - 0.5, T, 0, { roof: !0, sy: g, s: 0.9 }),
-      (s.chimneyTop = new Vector3(k, a - 0.5 + 3.18 * g + 0.1, T)));
+/** Tejado de tejas a dos aguas con hastiales, chimenea y buhardilla opcionales. */
+function buildRoof(bb, W, D, baseY, opts, parts) {
+  let alongZ = W <= D,
+    span = alongZ ? W : D,
+    length = alongZ ? D : W,
+    roofLen = (ROOF_LENGTHS[span] || ROOF_LENGTHS[4]).reduce((best, len) =>
+      Math.abs(len - length) < Math.abs(best - length) ? len : best,
+    ),
+    roofPiece = `Roof_RoundTiles_${span}x${roofLen}`,
+    ry = alongZ ? 0 : Math.PI / 2,
+    stretch = length / roofLen;
+  bb.put(roofPiece, 0, baseY, 0, ry, { roof: !0, sz: stretch });
+  let gable = `Roof_Front_Brick${span}`;
+  alongZ
+    ? (bb.put(gable, 0, baseY, D / 2, 0, { roof: !0 }),
+      bb.put(gable, 0, baseY, -D / 2, Math.PI, { roof: !0 }))
+    : (bb.put(gable, W / 2, baseY, 0, Math.PI / 2, { roof: !0 }),
+      bb.put(gable, -W / 2, baseY, 0, -Math.PI / 2, { roof: !0 }));
+  let box = pieceBounds(roofPiece),
+    roofH = box.max.y,
+    roofHalfW = box.max.x;
+  if (((parts.roofTop = baseY + roofH), opts.chimney)) {
+    let inset = span / 2 - 0.9,
+      chimneyS = (roofH * (1 - inset / roofHalfW) + 1.3 + 0.5) / 3.18,
+      sideSign = opts.rnd() < 0.5 ? -1 : 1,
+      along = (length / 2 - 1.1) * (opts.rnd() < 0.5 ? -1 : 1),
+      cx = alongZ ? inset * sideSign : along,
+      cz = alongZ ? along : inset * sideSign;
+    (bb.put('Prop_Chimney', cx, baseY - 0.5, cz, 0, { roof: !0, sy: chimneyS, s: 0.9 }),
+      (parts.chimneyTop = new Vector3(cx, baseY - 0.5 + 3.18 * chimneyS + 0.1, cz)));
   }
-  n.dormer &&
-    r >= 6 &&
-    o.put('Roof_Dormer_RoundTile', i ? -r / 2 + 0.6 : 0, a + 0.6, i ? 0 : r / 2 - 0.6, i ? -Math.PI / 2 : 0, {
-      roof: !0,
-    });
+  opts.dormer &&
+    span >= 6 &&
+    bb.put(
+      'Roof_Dormer_RoundTile',
+      alongZ ? -span / 2 + 0.6 : 0,
+      baseY + 0.6,
+      alongZ ? 0 : span / 2 - 0.6,
+      alongZ ? -Math.PI / 2 : 0,
+      {
+        roof: !0,
+      },
+    );
 }
-function Hn(o, e, t, a = 0) {
-  let n = new BoxGeometry(o, e, t);
-  return (n.translate(0, a + e / 2, 0), n);
+/** Caja w×h×d apoyada en y. */
+function boxGeo(w, h, d, y = 0) {
+  let geo = new BoxGeometry(w, h, d);
+  return (geo.translate(0, y + h / 2, 0), geo);
 }
-function js() {
+/** Materiales sencillos compartidos (madera, lona, piedra, hierro, latón, brasas, heno, agua). */
+function buildingMats() {
   return (
-    Jm ||
-    ((Jm = {
+    matsCache ||
+    ((matsCache = {
       wood: new MeshStandardMaterial({ color: 7031346, roughness: 0.85, name: 'madera_aspas' }),
       darkWood: new MeshStandardMaterial({ color: 4140062, roughness: 0.9, name: 'madera_oscura' }),
       cloth: new MeshStandardMaterial({ color: 15260864, roughness: 0.95, side: DoubleSide, name: 'lona' }),
@@ -182,165 +227,182 @@ function js() {
       hay: new MeshStandardMaterial({ color: 14202976, roughness: 1, name: 'heno' }),
       water: new MeshStandardMaterial({ color: 1845802, roughness: 0.15, metalness: 0.2, name: 'agua_pozo' }),
     }),
-    Jm)
+    matsCache)
   );
 }
-function U3(o) {
-  o.updateMatrixWorld(!0);
-  let e = [];
-  o.traverse((s) => {
-    if (!s.isMesh) return;
-    let i = (s.geometry.index ? s.geometry.toNonIndexed() : s.geometry.clone()).applyMatrix4(s.matrixWorld);
-    for (let c of Object.keys(i.attributes)) ['position', 'normal'].includes(c) || i.deleteAttribute(c);
-    let r = i.getAttribute('position').count,
-      l = new Float32Array(r * 3);
-    for (let c = 0; c < r; c++) l.set([s.material.color.r, s.material.color.g, s.material.color.b], c * 3);
-    (i.setAttribute('color', new BufferAttribute(l, 3)), e.push(i));
+/** Funde un grupo en una sola malla de colores de vértice (aspas, rueda) para girarla entera. */
+function bakeSpinner(root) {
+  root.updateMatrixWorld(!0);
+  let geos = [];
+  root.traverse((node) => {
+    if (!node.isMesh) return;
+    let geo = (node.geometry.index ? node.geometry.toNonIndexed() : node.geometry.clone()).applyMatrix4(
+      node.matrixWorld,
+    );
+    for (let name of Object.keys(geo.attributes))
+      ['position', 'normal'].includes(name) || geo.deleteAttribute(name);
+    let count = geo.getAttribute('position').count,
+      colors = new Float32Array(count * 3);
+    for (let k = 0; k < count; k++)
+      colors.set([node.material.color.r, node.material.color.g, node.material.color.b], k * 3);
+    (geo.setAttribute('color', new BufferAttribute(colors, 3)), geos.push(geo));
   });
-  let t = mergeGeometries(e, !1),
-    a = worldMaterial(
+  let merged = mergeGeometries(geos, !1),
+    material = worldMaterial(
       new MeshStandardMaterial({ vertexColors: !0, roughness: 0.9, side: DoubleSide, name: 'giratorio' }),
       { contact: null },
     ),
-    n = new Mesh(t, a);
-  return ((n.castShadow = !0), (n.receiveShadow = !0), n);
+    mesh = new Mesh(merged, material);
+  return ((mesh.castShadow = !0), (mesh.receiveShadow = !0), mesh);
 }
-function jH() {
-  let o = js(),
-    e = new Group(),
-    t = new Mesh(new CylinderGeometry(0.28, 0.28, 0.5, 10).rotateX(Math.PI / 2), o.darkWood);
-  e.add(t);
-  for (let a = 0; a < 4; a++) {
-    let n = new Group();
-    n.rotation.z = (a * Math.PI) / 2;
-    let s = new Mesh(new BoxGeometry(0.14, 5.2, 0.12), o.wood);
-    ((s.position.y = 2.6), n.add(s));
-    let i = new Mesh(new PlaneGeometry(1.15, 3.9), o.cloth);
-    (i.position.set(0.66, 3.05, 0.05), (i.rotation.y = 0.12), n.add(i));
-    for (let l = 0; l < 6; l++) {
-      let c = new Mesh(new BoxGeometry(1.3, 0.05, 0.05), o.wood);
-      (c.position.set(0.62, 1.2 + l * 0.72, 0.02), n.add(c));
+/** Aspas del molino de viento. */
+function windmillSails() {
+  let m = buildingMats(),
+    group = new Group(),
+    hub = new Mesh(new CylinderGeometry(0.28, 0.28, 0.5, 10).rotateX(Math.PI / 2), m.darkWood);
+  group.add(hub);
+  for (let k = 0; k < 4; k++) {
+    let arm = new Group();
+    arm.rotation.z = (k * Math.PI) / 2;
+    let spar = new Mesh(new BoxGeometry(0.14, 5.2, 0.12), m.wood);
+    ((spar.position.y = 2.6), arm.add(spar));
+    let sail = new Mesh(new PlaneGeometry(1.15, 3.9), m.cloth);
+    (sail.position.set(0.66, 3.05, 0.05), (sail.rotation.y = 0.12), arm.add(sail));
+    for (let j = 0; j < 6; j++) {
+      let slat = new Mesh(new BoxGeometry(1.3, 0.05, 0.05), m.wood);
+      (slat.position.set(0.62, 1.2 + j * 0.72, 0.02), arm.add(slat));
     }
-    let r = new Mesh(new BoxGeometry(0.06, 3.9, 0.06), o.wood);
-    (r.position.set(1.25, 3.05, 0.03), n.add(r), e.add(n));
+    let edge = new Mesh(new BoxGeometry(0.06, 3.9, 0.06), m.wood);
+    (edge.position.set(1.25, 3.05, 0.03), arm.add(edge), group.add(arm));
   }
   return (
-    e.traverse((a) => {
-      a.isMesh && ((a.castShadow = !0), (a.receiveShadow = !0));
+    group.traverse((node) => {
+      node.isMesh && ((node.castShadow = !0), (node.receiveShadow = !0));
     }),
-    e
+    group
   );
 }
-function GH(o = 1.7, e = 0.9) {
-  let t = js(),
-    a = new Group();
-  for (let s of [-e / 2, e / 2]) {
-    let i = new Mesh(new TorusGeometry(o, 0.07, 6, 28).rotateY(Math.PI / 2), t.wood);
-    ((i.position.x = s), a.add(i));
-    for (let r = 0; r < 6; r++) {
-      let l = new Mesh(new BoxGeometry(0.07, o * 2, 0.09), t.wood);
-      ((l.rotation.x = (r * Math.PI) / 6), (l.position.x = s), a.add(l));
+/** Rueda del molino de agua. */
+function waterWheel(radius = 1.7, width = 0.9) {
+  let m = buildingMats(),
+    group = new Group();
+  for (let side of [-width / 2, width / 2]) {
+    let ring = new Mesh(new TorusGeometry(radius, 0.07, 6, 28).rotateY(Math.PI / 2), m.wood);
+    ((ring.position.x = side), group.add(ring));
+    for (let j = 0; j < 6; j++) {
+      let spoke = new Mesh(new BoxGeometry(0.07, radius * 2, 0.09), m.wood);
+      ((spoke.rotation.x = (j * Math.PI) / 6), (spoke.position.x = side), group.add(spoke));
     }
   }
-  let n = new Mesh(new CylinderGeometry(0.12, 0.12, e + 0.8, 8).rotateZ(Math.PI / 2), t.darkWood);
-  a.add(n);
-  for (let s = 0; s < 14; s++) {
-    let i = (s / 14) * Math.PI * 2,
-      r = new Mesh(new BoxGeometry(e + 0.1, 0.06, 0.5), t.wood);
-    (r.position.set(0, Math.cos(i) * (o - 0.15), Math.sin(i) * (o - 0.15)), (r.rotation.x = -i), a.add(r));
+  let axle = new Mesh(new CylinderGeometry(0.12, 0.12, width + 0.8, 8).rotateZ(Math.PI / 2), m.darkWood);
+  group.add(axle);
+  for (let k = 0; k < 14; k++) {
+    let angle = (k / 14) * Math.PI * 2,
+      paddle = new Mesh(new BoxGeometry(width + 0.1, 0.06, 0.5), m.wood);
+    (paddle.position.set(0, Math.cos(angle) * (radius - 0.15), Math.sin(angle) * (radius - 0.15)),
+      (paddle.rotation.x = -angle),
+      group.add(paddle));
   }
   return (
-    a.traverse((s) => {
-      s.isMesh && ((s.castShadow = !0), (s.receiveShadow = !0));
+    group.traverse((node) => {
+      node.isMesh && ((node.castShadow = !0), (node.receiveShadow = !0));
     }),
-    a
+    group
   );
 }
-function j3(o) {
-  let { map: e, level: t, rnd: a, merger: n, ground: s } = o,
-    i = new Set(),
-    r = [],
-    l = new Map();
-  for (let u of t.objects || []) u.type === 'door' && u.target && l.set(cellKey(...u.target), u);
-  let c = 1,
-    d = new Vector3();
-  for (let u of t.props || []) {
-    if (u.foot == null) continue;
-    let h = BH(e, u.cell, i);
-    h && i.add(h);
-    let p = h || [u.cell],
-      m = new Set(p.map(([w, k]) => cellKey(w, k))),
-      _ = new Vector3();
-    for (let [w, k] of p) _.add(cellToWorld(w, k, d));
-    _.divideScalar(p.length);
-    let b = degToRad(u.rot || 0),
-      f = l.get(cellKey(...u.cell));
-    if (f) {
-      let w = cellToWorld(f.cell[0], f.cell[1]);
-      b = Math.atan2(w.x - _.x, w.z - _.z);
+/**
+ * Crea todos los edificios del nivel sobre `ctx` (map, level, rnd, merger, ground). Devuelve la lista
+ * de edificios {id, key, cells, center, ry, W, D, idx, box, top, windows, lamps, smoke, dynamic,
+ * doorObj, doorLeaf, update…}; `idx` es su índice de fundido en `worldUniforms.uBld`.
+ */
+function buildBuildings(ctx) {
+  let { map, level, rnd, merger, ground } = ctx,
+    usedLots = new Set(),
+    buildings = [],
+    doors = new Map();
+  for (let obj of level.objects || [])
+    obj.type === 'door' && obj.target && doors.set(cellKey(...obj.target), obj);
+  let nextIdx = 1,
+    tmp = new Vector3();
+  for (let prop of level.props || []) {
+    if (prop.foot == null) continue;
+    let lot = findLot(map, prop.cell, usedLots);
+    lot && usedLots.add(lot);
+    let cells = lot || [prop.cell],
+      cellSet = new Set(cells.map(([col, row]) => cellKey(col, row))),
+      center = new Vector3();
+    for (let [col, row] of cells) center.add(cellToWorld(col, row, tmp));
+    center.divideScalar(cells.length);
+    let angle = degToRad(prop.rot || 0),
+      door = doors.get(cellKey(...prop.cell));
+    if (door) {
+      let target = cellToWorld(door.cell[0], door.cell[1]);
+      angle = Math.atan2(target.x - center.x, target.z - center.z);
     }
-    let v = {
-        id: f?.id || `${u.key}_${u.cell.join('_')}`,
-        key: u.key,
-        prop: u,
-        cells: p,
-        set: m,
-        center: _,
-        ry: b,
+    let bld = {
+        id: door?.id || `${prop.key}_${prop.cell.join('_')}`,
+        key: prop.key,
+        prop,
+        cells,
+        set: cellSet,
+        center,
+        ry: angle,
         idx: 0,
         smoke: [],
         windows: [],
         lamps: [],
         dynamic: [],
-        doorObj: f || null,
+        doorObj: door || null,
       },
-      x = u.foot,
-      g =
-        x >= 2
+      foot = prop.foot,
+      sizes =
+        foot >= 2
           ? [
               [6, 6],
               [6, 4],
               [4, 6],
               [4, 4],
             ]
-          : x === 1
+          : foot === 1
             ? [
                 [4, 4],
                 [4, 2],
               ]
             : [[2, 2]],
-      y = null;
-    for (let w of [
-      b,
-      Math.round(b / degToRad(30)) * degToRad(30),
-      Math.round(b / degToRad(60)) * degToRad(60),
+      fit = null;
+    for (let ry of [
+      angle,
+      Math.round(angle / degToRad(30)) * degToRad(30),
+      Math.round(angle / degToRad(60)) * degToRad(60),
     ])
-      for (let [k, T] of g)
-        if (qH(m, _, w, k, T)) {
-          (!y || k * T > y.W * y.D) && (y = { W: k, D: T, ry: w });
+      for (let [W, D] of sizes)
+        if (footprintFits(cellSet, center, ry, W, D)) {
+          (!fit || W * D > fit.W * fit.D) && (fit = { W, D, ry });
           break;
         }
-    (y || (y = { W: g[g.length - 1][0], D: g[g.length - 1][1], ry: b }),
-      Object.assign(v, y),
-      (v.idx = u.key === 'well' || u.key === 'market' ? 0 : c++),
-      B3(o, v));
-    for (let [w, k] of p)
-      (cellToWorld(w, k, d), s.blob(LAYER.ao, d.x, d.z, 1.5, 0.5), s.blob(LAYER.path, d.x, d.z, 1.4, 0.5));
-    r.push(v);
+    (fit || (fit = { W: sizes[sizes.length - 1][0], D: sizes[sizes.length - 1][1], ry: angle }),
+      Object.assign(bld, fit),
+      (bld.idx = prop.key === 'well' || prop.key === 'market' ? 0 : nextIdx++),
+      buildBuilding(ctx, bld));
+    for (let [col, row] of cells)
+      (cellToWorld(col, row, tmp),
+        ground.blob(LAYER.ao, tmp.x, tmp.z, 1.5, 0.5),
+        ground.blob(LAYER.path, tmp.x, tmp.z, 1.4, 0.5));
+    buildings.push(bld);
   }
-  if (((o._nextBld = c), o.ambient === 'dusk' || o.ambient === 'day'))
-    for (let u of VH(o)) {
-      let h = {
-        id: `afueras_${r.length}`,
-        key: u.key,
+  if (((ctx._nextBld = nextIdx), ctx.ambient === 'dusk' || ctx.ambient === 'day'))
+    for (let spot of outskirtsSpots(ctx)) {
+      let bld = {
+        id: `afueras_${buildings.length}`,
+        key: spot.key,
         prop: { smoke: !0 },
         cells: [],
         set: new Set(),
-        center: u.c,
-        ry: u.ry,
-        W: u.W,
-        D: u.D,
-        idx: o._nextBld++,
+        center: spot.c,
+        ry: spot.ry,
+        W: spot.W,
+        D: spot.D,
+        idx: ctx._nextBld++,
         smoke: [],
         windows: [],
         lamps: [],
@@ -348,78 +410,86 @@ function j3(o) {
         doorObj: null,
         outside: !0,
       };
-      if (h.idx > 62) break;
-      (B3(o, h),
-        o.ground.blob(LAYER.path, u.c.x, u.c.z, 3.4, 0.45),
-        o.ground.blob(LAYER.ao, u.c.x, u.c.z, 3.2, 0.5),
-        r.push(h));
+      if (bld.idx > 62) break;
+      (buildBuilding(ctx, bld),
+        ctx.ground.blob(LAYER.path, spot.c.x, spot.c.z, 3.4, 0.45),
+        ctx.ground.blob(LAYER.ao, spot.c.x, spot.c.z, 3.2, 0.5),
+        buildings.push(bld));
     }
-  return r;
+  return buildings;
 }
-function VH(o) {
-  let { map: e, ground: t, rnd: a } = o,
-    n = [],
-    s = -HEX_SIZE * 0.5,
-    i = e.sizeX,
-    r = -HEX_SIZE * 0.5,
-    l = e.sizeZ + HEX_SIZE * 0.5,
-    c = 160;
-  for (let d = 0; d < c && n.length < 7; d++) {
-    let u = t.x0 + 3 + a() * (t.x1 - t.x0 - 6),
-      h = t.z0 + 3 + a() * (t.z1 - t.z0 - 6),
-      p = Math.max(s - u, u - i, r - h, h - l);
-    if (p < 4.5 || p > o.ground.margin - 3) continue;
-    let m = !1,
-      _ = !1;
-    for (let v = 0; v < 8; v++) {
-      let x = u + Math.cos((v / 8) * Math.PI * 2) * 4.5,
-        g = h + Math.sin((v / 8) * Math.PI * 2) * 4.5;
-      (t.maskAt(LAYER.path, x, g) > 0.4 && (m = !0), t.waterAt(x, g) > 0.02 && (_ = !0));
+/** Sitios para casas sueltas fuera del tablero, cerca de caminos y lejos del agua. */
+function outskirtsSpots(ctx) {
+  let { map, ground, rnd } = ctx,
+    spots = [],
+    minX = -HEX_SIZE * 0.5,
+    maxX = map.sizeX,
+    minZ = -HEX_SIZE * 0.5,
+    maxZ = map.sizeZ + HEX_SIZE * 0.5,
+    tries = 160;
+  for (let k = 0; k < tries && spots.length < 7; k++) {
+    let cx = ground.x0 + 3 + rnd() * (ground.x1 - ground.x0 - 6),
+      cz = ground.z0 + 3 + rnd() * (ground.z1 - ground.z0 - 6),
+      outside = Math.max(minX - cx, cx - maxX, minZ - cz, cz - maxZ);
+    if (outside < 4.5 || outside > ctx.ground.margin - 3) continue;
+    let nearPath = !1,
+      blocked = !1;
+    for (let j = 0; j < 8; j++) {
+      let px = cx + Math.cos((j / 8) * Math.PI * 2) * 4.5,
+        pz = cz + Math.sin((j / 8) * Math.PI * 2) * 4.5;
+      (ground.maskAt(LAYER.path, px, pz) > 0.4 && (nearPath = !0),
+        ground.waterAt(px, pz) > 0.02 && (blocked = !0));
     }
-    for (let v = 0; v < 6; v++) {
-      let x = u + Math.cos((v / 6) * Math.PI * 2) * 2.6,
-        g = h + Math.sin((v / 6) * Math.PI * 2) * 2.6;
-      (t.maskAt(LAYER.path, x, g) > 0.3 || t.waterAt(x, g) > 0.01) && (_ = !0);
+    for (let j = 0; j < 6; j++) {
+      let px = cx + Math.cos((j / 6) * Math.PI * 2) * 2.6,
+        pz = cz + Math.sin((j / 6) * Math.PI * 2) * 2.6;
+      (ground.maskAt(LAYER.path, px, pz) > 0.3 || ground.waterAt(px, pz) > 0.01) && (blocked = !0);
     }
-    if (_ || (!m && a() < 0.75) || n.some((v) => v.c.distanceTo(new Vector3(u, 0, h)) < 9)) continue;
-    let b = Math.atan2((s + i) / 2 - u, (r + l) / 2 - h) + (a() - 0.5) * 0.6,
-      f = a() < 0.4;
-    n.push({ key: 'house', c: new Vector3(u, 0, h), ry: b, W: 4, D: f ? 6 : 4 });
+    if (
+      blocked ||
+      (!nearPath && rnd() < 0.75) ||
+      spots.some((spot) => spot.c.distanceTo(new Vector3(cx, 0, cz)) < 9)
+    )
+      continue;
+    let ry = Math.atan2((minX + maxX) / 2 - cx, (minZ + maxZ) / 2 - cz) + (rnd() - 0.5) * 0.6,
+      long = rnd() < 0.4;
+    spots.push({ key: 'house', c: new Vector3(cx, 0, cz), ry, W: 4, D: long ? 6 : 4 });
   }
-  return n;
+  return spots;
 }
-function B3(o, e) {
-  let { merger: t, rnd: a, ground: n } = o,
-    s = composeMatrix(e.center.x, n.heightAt(e.center.x, e.center.z), e.center.z, e.ry);
-  e.base = s;
-  let i = new Color(O3[Math.floor(a() * O3.length)]).multiplyScalar(1.4);
-  (e.key === 'house_blue' && i.set(6259888), e.key === 'house_green' && i.set(6983760));
-  let r = new P1(t, s, e.idx, { MI_WoodTrim_Wear: i }),
-    l = e.W,
-    c = e.D,
-    d = Math.floor((l / Oo - 1) / 2),
-    u;
-  switch (e.key) {
+/** Monta un edificio según su `key` y registra ventanas, humo, puerta, farol y caja envolvente. */
+function buildBuilding(ctx, bld) {
+  let { merger, rnd, ground } = ctx,
+    base = composeMatrix(bld.center.x, ground.heightAt(bld.center.x, bld.center.z), bld.center.z, bld.ry);
+  bld.base = base;
+  let trim = new Color(TRIM_COLORS[Math.floor(rnd() * TRIM_COLORS.length)]).multiplyScalar(1.4);
+  (bld.key === 'house_blue' && trim.set(6259888), bld.key === 'house_green' && trim.set(6983760));
+  let bb = new BuildingBuilder(merger, base, bld.idx, { MI_WoodTrim_Wear: trim }),
+    W = bld.W,
+    D = bld.D,
+    door = Math.floor((W / WALL_W - 1) / 2),
+    parts;
+  switch (bld.key) {
     case 'tavern':
-      ((u = Rc(r, {
-        W: l,
-        D: c,
+      ((parts = buildHouse(bb, {
+        W,
+        D,
         floors: 2,
         styles: ['brick', 'upper'],
-        door: d,
+        door,
         shutters: 0.8,
         vines: 0.3,
         chimney: !0,
         dormer: !0,
-        rnd: a,
+        rnd,
       })),
-        WH(o, e, r, u));
+        tavernSign(ctx, bld, bb, parts));
       break;
     case 'church':
-      u = XH(r, e, a);
+      parts = buildChurch(bb, bld, rnd);
       break;
     case 'blacksmith':
-      ((u = Rc(r, {
+      ((parts = buildHouse(bb, {
         W: 4,
         D: 4,
         floors: 1,
@@ -428,15 +498,15 @@ function B3(o, e) {
         shutters: 0.5,
         vines: 0.1,
         chimney: !0,
-        rnd: a,
+        rnd,
       })),
-        YH(o, e, r, u));
+        buildForge(ctx, bld, bb, parts));
       break;
     case 'windmill':
-      u = KH(o, e, r);
+      parts = buildWindmill(ctx, bld, bb);
       break;
     case 'watermill':
-      ((u = Rc(r, {
+      ((parts = buildHouse(bb, {
         W: 4,
         D: 4,
         floors: 2,
@@ -445,15 +515,15 @@ function B3(o, e) {
         shutters: 0.6,
         vines: 0.4,
         chimney: !1,
-        rnd: a,
+        rnd,
       })),
-        JH(o, e, r));
+        buildWatermill(ctx, bld, bb));
       break;
     case 'mine':
-      u = ZH(o, e, r);
+      parts = buildMine(ctx, bld, bb);
       break;
     case 'grain':
-      u = Rc(r, {
+      parts = buildHouse(bb, {
         W: 4,
         D: 4,
         floors: 1,
@@ -462,80 +532,83 @@ function B3(o, e) {
         shutters: 0.2,
         vines: 0.2,
         chimney: !1,
-        rnd: a,
+        rnd,
       });
-      for (let _ = 0; _ < 3; _++) QH(r, 2.6 + a() * 0.3, 0, -1 + _ * 1, a);
+      for (let k = 0; k < 3; k++) hayBale(bb, 2.6 + rnd() * 0.3, 0, -1 + k * 1, rnd);
       break;
     case 'market':
-      u = e9(o, e, r);
+      parts = buildMarket(ctx, bld, bb);
       break;
     case 'well':
-      u = t9(o, e, r);
+      parts = buildWell(ctx, bld, bb);
       break;
     case 'ruin':
-      u = a9(o, e, r);
+      parts = buildRuin(ctx, bld, bb);
       break;
     default: {
-      let _ = l >= 6 || a() < 0.55;
-      u = Rc(r, {
-        W: l,
-        D: c,
-        floors: _ ? 2 : 1,
-        styles: _ ? [a() < 0.6 ? 'brick' : 'plaster', 'upper'] : [a() < 0.5 ? 'plaster' : 'brick'],
-        door: d,
+      let tall = W >= 6 || rnd() < 0.55;
+      parts = buildHouse(bb, {
+        W,
+        D,
+        floors: tall ? 2 : 1,
+        styles: tall ? [rnd() < 0.6 ? 'brick' : 'plaster', 'upper'] : [rnd() < 0.5 ? 'plaster' : 'brick'],
+        door,
         shutters: 0.75,
         vines: 0.35,
         chimney: !0,
-        dormer: l >= 6,
-        rnd: a,
+        dormer: W >= 6,
+        rnd,
       });
     }
   }
-  ((e.top = u.roofTop ?? u.top ?? 4),
-    u.chimneyTop &&
-      e.prop.smoke !== !1 &&
-      e.smoke.push(r.world(u.chimneyTop.x, u.chimneyTop.y, u.chimneyTop.z)));
-  for (let _ of u.windows || []) e.windows.push(r.world(_.x, _.y, _.z));
-  if (u.doorLocal) {
-    let _ = u.doorLocal,
-      b =
-        e.key === 'church'
+  ((bld.top = parts.roofTop ?? parts.top ?? 4),
+    parts.chimneyTop &&
+      bld.prop.smoke !== !1 &&
+      bld.smoke.push(bb.world(parts.chimneyTop.x, parts.chimneyTop.y, parts.chimneyTop.z)));
+  for (let win of parts.windows || []) bld.windows.push(bb.world(win.x, win.y, win.z));
+  if (parts.doorLocal) {
+    let dl = parts.doorLocal,
+      doorPiece =
+        bld.key === 'church'
           ? 'Door_2_Round'
-          : e.key === 'tavern'
+          : bld.key === 'tavern'
             ? 'Door_8_Round'
-            : a() < 0.5
+            : rnd() < 0.5
               ? 'Door_1_Round'
               : 'Door_4_Flat';
-    if (hasPiece(b) && !e.doorObj) {
-      let f = new Matrix4()
-        .makeRotationY(_.ry)
-        .setPosition(_.x, _.y, _.z)
+    if (hasPiece(doorPiece) && !bld.doorObj) {
+      let local = new Matrix4()
+        .makeRotationY(dl.ry)
+        .setPosition(dl.x, dl.y, dl.z)
         .multiply(new Matrix4().makeTranslation(-0.55, 0, -0.08));
-      r.merger.add(b, new Matrix4().multiplyMatrices(s, f), { bld: e.idx, tints: r.tints });
-    }
-    if (hasPiece(b) && e.doorObj) {
-      let f = pieceMesh(b, { fade: null });
-      f.traverse((g) => {
-        g.isMesh && (g.castShadow = !1);
+      bb.merger.add(doorPiece, new Matrix4().multiplyMatrices(base, local), {
+        bld: bld.idx,
+        tints: bb.tints,
       });
-      let v = new Group();
-      (v.position.set(_.x, _.y, _.z), (v.rotation.y = _.ry));
-      let x = new Group();
-      (x.position.set(-0.55, 0, -0.08),
-        x.add(f),
-        v.add(x),
-        v.applyMatrix4(s),
-        (e.doorLeaf = x),
-        e.dynamic.push(v));
     }
-    if (hasPiece(b)) {
-      e.doorWorld = r.world(_.x, 0, _.z + 0.6);
-      let f = new Vector3(_.x + 0.95, _.y + 2.35, _.z + 0.3);
+    if (hasPiece(doorPiece) && bld.doorObj) {
+      let leaf = pieceMesh(doorPiece, { fade: null });
+      leaf.traverse((node) => {
+        node.isMesh && (node.castShadow = !1);
+      });
+      let pivot = new Group();
+      (pivot.position.set(dl.x, dl.y, dl.z), (pivot.rotation.y = dl.ry));
+      let hinge = new Group();
+      (hinge.position.set(-0.55, 0, -0.08),
+        hinge.add(leaf),
+        pivot.add(hinge),
+        pivot.applyMatrix4(base),
+        (bld.doorLeaf = hinge),
+        bld.dynamic.push(pivot));
+    }
+    if (hasPiece(doorPiece)) {
+      bld.doorWorld = bb.world(dl.x, 0, dl.z + 0.6);
+      let lampPos = new Vector3(dl.x + 0.95, dl.y + 2.35, dl.z + 0.3);
       hasPiece('q_lantern') &&
-        a() < 0.85 &&
-        (r.put('q_lantern', f.x, f.y - 0.35, _.z + 0.44, _.ry),
-        e.lamps.push({
-          pos: r.world(f.x, f.y - 0.05, _.z + 0.72),
+        rnd() < 0.85 &&
+        (bb.put('q_lantern', lampPos.x, lampPos.y - 0.35, dl.z + 0.44, dl.ry),
+        bld.lamps.push({
+          pos: bb.world(lampPos.x, lampPos.y - 0.05, dl.z + 0.72),
           color: 16756832,
           range: 6,
           energy: 1.2,
@@ -543,221 +616,237 @@ function B3(o, e) {
         }));
     }
   }
-  ((e.parts = u), $H(o, e, r));
-  let h = e.W / 2 + 0.8,
-    p = e.D / 2 + 0.8,
-    m = new Box3();
-  for (let [_, b] of [
-    [-h, -p],
-    [h, -p],
-    [h, p],
-    [-h, p],
+  ((bld.parts = parts), scatterYard(ctx, bld, bb));
+  let hw = bld.W / 2 + 0.8,
+    hd = bld.D / 2 + 0.8,
+    box = new Box3();
+  for (let [cx, cz] of [
+    [-hw, -hd],
+    [hw, -hd],
+    [hw, hd],
+    [-hw, hd],
   ])
-    for (let f of [0, e.top]) m.expandByPoint(r.world(_, f, b));
-  e.box = m;
+    for (let cy of [0, bld.top]) box.expandByPoint(bb.world(cx, cy, cz));
+  bld.box = box;
 }
-function $H(o, e, t) {
-  let a = o.rnd;
-  if (!e.set?.size || ['market', 'well', 'mine', 'ruin'].includes(e.key)) return;
-  let n = ['q_barrel', 'q_crate', 'lumber', 'q_bucket', 'sack', 'q_farmcrate', 'q_barrel', 'stump'],
-    s = e.W,
-    i = e.D,
-    r = 0;
-  for (let l = 0; l < 14 && r < 4; l++) {
-    let c = Math.floor(a() * 4),
-      d = (a() - 0.5) * (c < 2 ? s : i) * 0.85,
-      u = 0.65 + a() * 0.35,
-      h = c === 0 || c === 1 ? d : c === 2 ? s / 2 + u : -s / 2 - u,
-      p = c === 0 ? i / 2 + u : c === 1 ? -i / 2 - u : d;
-    if (c === 0 && Math.abs(h) < 1.4) continue;
-    let m = t.world(h, 0, p);
-    if (!e.set.has(cellKey(...worldToCell(m.x, m.z)))) continue;
-    let _ = n[Math.floor(a() * n.length)];
-    (t.put(_, h, 0, p, a() * 6.28, { s: 0.85 + a() * 0.25 }), r++);
+/** Barriles, cajas y sacos alrededor de una casa, dentro de su solar. */
+function scatterYard(ctx, bld, bb) {
+  let rnd = ctx.rnd;
+  if (!bld.set?.size || ['market', 'well', 'mine', 'ruin'].includes(bld.key)) return;
+  let props = ['q_barrel', 'q_crate', 'lumber', 'q_bucket', 'sack', 'q_farmcrate', 'q_barrel', 'stump'],
+    W = bld.W,
+    D = bld.D,
+    placed = 0;
+  for (let tries = 0; tries < 14 && placed < 4; tries++) {
+    let side = Math.floor(rnd() * 4),
+      along = (rnd() - 0.5) * (side < 2 ? W : D) * 0.85,
+      off = 0.65 + rnd() * 0.35,
+      lx = side === 0 || side === 1 ? along : side === 2 ? W / 2 + off : -W / 2 - off,
+      lz = side === 0 ? D / 2 + off : side === 1 ? -D / 2 - off : along;
+    if (side === 0 && Math.abs(lx) < 1.4) continue;
+    let pos = bb.world(lx, 0, lz);
+    if (!bld.set.has(cellKey(...worldToCell(pos.x, pos.z)))) continue;
+    let piece = props[Math.floor(rnd() * props.length)];
+    (bb.put(piece, lx, 0, lz, rnd() * 6.28, { s: 0.85 + rnd() * 0.25 }), placed++);
   }
 }
-function WH(o, e, t, a) {
-  let n = js(),
-    s = a.doorLocal;
-  if (!s) return;
-  let i = s.x - 1.45,
-    r = Hn(0.07, 0.07, 1.15);
-  t.geo(r, n.darkWood, i, 2.95, s.z + 0.68, s.ry);
-  let l = Hn(0.05, 0.05, 0.75);
-  (l.rotateX(0.75), t.geo(l, n.darkWood, i, 2.62, s.z + 0.38, s.ry));
-  let c = document.createElement('canvas');
-  ((c.width = 256), (c.height = 192));
-  let d = c.getContext('2d');
-  ((d.fillStyle = '#5a3a22'),
-    d.fillRect(0, 0, 256, 192),
-    (d.strokeStyle = '#2e1c10'),
-    (d.lineWidth = 10),
-    d.strokeRect(5, 5, 246, 182),
-    (d.fillStyle = '#e8d6b0'),
-    d.beginPath(),
-    d.ellipse(132, 112, 72, 34, 0, 0, Math.PI * 2),
-    d.fill(),
-    d.beginPath(),
-    d.ellipse(62, 122, 28, 22, -0.3, 0, Math.PI * 2),
-    d.fill(),
-    (d.strokeStyle = '#e8d6b0'),
-    (d.lineWidth = 7),
-    d.beginPath(),
-    d.moveTo(50, 104),
-    d.quadraticCurveTo(36, 78, 54, 70),
-    d.moveTo(70, 102),
-    d.quadraticCurveTo(80, 76, 96, 78),
-    d.stroke(),
-    (d.fillStyle = '#2e1c10'),
-    (d.font = 'bold 22px Georgia, serif'),
-    (d.textAlign = 'center'),
-    d.fillText('ZZZ', 196, 62));
-  let u = new CanvasTexture(c);
-  u.colorSpace = SRGBColorSpace;
-  let h = new Mesh(
+/** Cartel colgante de la posada (dibujado en un lienzo), banco y barril. */
+function tavernSign(ctx, bld, bb, parts) {
+  let mats = buildingMats(),
+    door = parts.doorLocal;
+  if (!door) return;
+  let postX = door.x - 1.45,
+    beam = boxGeo(0.07, 0.07, 1.15);
+  bb.geo(beam, mats.darkWood, postX, 2.95, door.z + 0.68, door.ry);
+  let brace = boxGeo(0.05, 0.05, 0.75);
+  (brace.rotateX(0.75), bb.geo(brace, mats.darkWood, postX, 2.62, door.z + 0.38, door.ry));
+  let canvas = document.createElement('canvas');
+  ((canvas.width = 256), (canvas.height = 192));
+  let g2d = canvas.getContext('2d');
+  ((g2d.fillStyle = '#5a3a22'),
+    g2d.fillRect(0, 0, 256, 192),
+    (g2d.strokeStyle = '#2e1c10'),
+    (g2d.lineWidth = 10),
+    g2d.strokeRect(5, 5, 246, 182),
+    (g2d.fillStyle = '#e8d6b0'),
+    g2d.beginPath(),
+    g2d.ellipse(132, 112, 72, 34, 0, 0, Math.PI * 2),
+    g2d.fill(),
+    g2d.beginPath(),
+    g2d.ellipse(62, 122, 28, 22, -0.3, 0, Math.PI * 2),
+    g2d.fill(),
+    (g2d.strokeStyle = '#e8d6b0'),
+    (g2d.lineWidth = 7),
+    g2d.beginPath(),
+    g2d.moveTo(50, 104),
+    g2d.quadraticCurveTo(36, 78, 54, 70),
+    g2d.moveTo(70, 102),
+    g2d.quadraticCurveTo(80, 76, 96, 78),
+    g2d.stroke(),
+    (g2d.fillStyle = '#2e1c10'),
+    (g2d.font = 'bold 22px Georgia, serif'),
+    (g2d.textAlign = 'center'),
+    g2d.fillText('ZZZ', 196, 62));
+  let tex = new CanvasTexture(canvas);
+  tex.colorSpace = SRGBColorSpace;
+  let sign = new Mesh(
     new PlaneGeometry(0.85, 0.64),
     worldMaterial(
-      new MeshStandardMaterial({ map: u, roughness: 0.8, side: DoubleSide, name: 'cartel_posada' }),
+      new MeshStandardMaterial({ map: tex, roughness: 0.8, side: DoubleSide, name: 'cartel_posada' }),
       {
         contact: null,
       },
     ),
   );
-  (h.position.copy(t.world(i, 2.45, s.z + 1.12)),
-    (h.rotation.y = e.ry + s.ry + Math.PI / 2),
-    (h.castShadow = !0),
-    e.dynamic.push(h),
-    t.put('q_bench', s.x + 2, 0, s.z + 0.9, s.ry),
-    t.put('q_barrel', s.x - 2.2, 0, s.z + 0.7, s.ry));
+  (sign.position.copy(bb.world(postX, 2.45, door.z + 1.12)),
+    (sign.rotation.y = bld.ry + door.ry + Math.PI / 2),
+    (sign.castShadow = !0),
+    bld.dynamic.push(sign),
+    bb.put('q_bench', door.x + 2, 0, door.z + 0.9, door.ry),
+    bb.put('q_barrel', door.x - 2.2, 0, door.z + 0.7, door.ry));
 }
-function XH(o, e, t) {
-  let a = Math.min(e.W, 6),
-    n = Math.max(Math.min(e.D, 6), 4),
-    s = Rc(o, {
-      W: a,
-      D: n,
+/** Iglesia: nave de dos plantas, torre y reloj. */
+function buildChurch(bb, bld, rnd) {
+  let W = Math.min(bld.W, 6),
+    D = Math.max(Math.min(bld.D, 6), 4),
+    parts = buildHouse(bb, {
+      W,
+      D,
       floors: 2,
       styles: ['brick', 'brick'],
-      door: Math.floor((a / Oo - 1) / 2),
+      door: Math.floor((W / WALL_W - 1) / 2),
       shutters: 0,
       vines: 0.25,
       chimney: !1,
-      rnd: () => t() * 0.9 + 0.05,
+      rnd: () => rnd() * 0.9 + 0.05,
     }),
-    i = -a / 2 - 0.2,
-    r = n / 2 - 0.6;
-  for (let d = 0; d < 3; d++) {
-    let u = d * Bo;
-    for (let [h, p, m] of [
-      [i, r + 1, 0],
-      [i + 1, r, Math.PI / 2],
-      [i, r - 1, Math.PI],
-      [i - 1, r, -Math.PI / 2],
+    tx = -W / 2 - 0.2,
+    tz = D / 2 - 0.6;
+  for (let floor = 0; floor < 3; floor++) {
+    let fy = floor * FLOOR_H;
+    for (let [px, pz, ry] of [
+      [tx, tz + 1, 0],
+      [tx + 1, tz, Math.PI / 2],
+      [tx, tz - 1, Math.PI],
+      [tx - 1, tz, -Math.PI / 2],
     ])
-      (o.put(d === 2 ? 'Wall_UnevenBrick_Window_Thin_Round' : 'Wall_UnevenBrick_Straight', h, u, p, m, {
-        sx: 1,
-      }),
-        d === 2 && o.put('Window_Thin_Round1', h, u, p, m));
-    (o.put('Corner_Exterior_Brick', i - 1, u, r + 1, 0),
-      o.put('Corner_Exterior_Brick', i + 1, u, r + 1, Math.PI / 2),
-      o.put('Corner_Exterior_Brick', i + 1, u, r - 1, Math.PI),
-      o.put('Corner_Exterior_Brick', i - 1, u, r - 1, -Math.PI / 2));
+      (bb.put(
+        floor === 2 ? 'Wall_UnevenBrick_Window_Thin_Round' : 'Wall_UnevenBrick_Straight',
+        px,
+        fy,
+        pz,
+        ry,
+        {
+          sx: 1,
+        },
+      ),
+        floor === 2 && bb.put('Window_Thin_Round1', px, fy, pz, ry));
+    (bb.put('Corner_Exterior_Brick', tx - 1, fy, tz + 1, 0),
+      bb.put('Corner_Exterior_Brick', tx + 1, fy, tz + 1, Math.PI / 2),
+      bb.put('Corner_Exterior_Brick', tx + 1, fy, tz - 1, Math.PI),
+      bb.put('Corner_Exterior_Brick', tx - 1, fy, tz - 1, -Math.PI / 2));
   }
-  o.put('Roof_Tower_RoundTiles', i, 3 * Bo, r, 0, { roof: !0, s: 0.48 });
-  let l = js(),
-    c = new CylinderGeometry(0.55, 0.55, 0.06, 24).rotateX(Math.PI / 2);
-  o.geo(c, l.brass, 0, 2 * Bo + 1, n / 2 + 0.35, 0, { roof: !0 });
-  for (let d = 0; d < 12; d++) {
-    let h = Hn(0.06, 0.32, 0.04)
+  bb.put('Roof_Tower_RoundTiles', tx, 3 * FLOOR_H, tz, 0, { roof: !0, s: 0.48 });
+  let mats = buildingMats(),
+    dial = new CylinderGeometry(0.55, 0.55, 0.06, 24).rotateX(Math.PI / 2);
+  bb.geo(dial, mats.brass, 0, 2 * FLOOR_H + 1, D / 2 + 0.35, 0, { roof: !0 });
+  for (let k = 0; k < 12; k++) {
+    let tick = boxGeo(0.06, 0.32, 0.04)
       .clone()
       .translate(0, 0.62, 0)
-      .rotateZ((d / 12) * Math.PI * 2);
-    o.geo(h, l.brass, 0, 2 * Bo + 1, n / 2 + 0.36, 0, { roof: !0 });
+      .rotateZ((k / 12) * Math.PI * 2);
+    bb.geo(tick, mats.brass, 0, 2 * FLOOR_H + 1, D / 2 + 0.36, 0, { roof: !0 });
   }
-  return ((s.roofTop = Math.max(s.roofTop || 0, 3 * Bo + 3.4)), s);
+  return ((parts.roofTop = Math.max(parts.roofTop || 0, 3 * FLOOR_H + 3.4)), parts);
 }
-function YH(o, e, t, a) {
-  let n = js(),
-    s = 2;
-  for (let [l, c] of [
-    [s + 1.8, 1.4],
-    [s + 1.8, -1.4],
+/** Herrería: cobertizo con fragua encendida, yunque y cubo. */
+function buildForge(ctx, bld, bb, parts) {
+  let mats = buildingMats(),
+    ox = 2;
+  for (let [px, pz] of [
+    [ox + 1.8, 1.4],
+    [ox + 1.8, -1.4],
   ])
-    t.geo(Hn(0.18, 2.5, 0.18), n.darkWood, l, 0, c);
-  (t.geo(Hn(2.2, 0.12, 3.4), n.darkWood, s + 0.9, 2.45, 0, 0, { roof: !0 }),
-    t.put('Roof_Wooden_2x1', s + 0.9, 2.5, -1, -Math.PI / 2, { roof: !0, s: 1.1 }),
-    t.put('Roof_Wooden_2x1', s + 0.9, 2.5, 1, -Math.PI / 2, { roof: !0, s: 1.1 }),
-    t.geo(Hn(1.1, 0.8, 1.1), n.stone, s + 0.6, 0, -0.6));
-  let i = new CylinderGeometry(0.38, 0.42, 0.12, 12);
-  (i.translate(0, 0.86, 0),
-    t.geo(i, n.coal, s + 0.6, 0, -0.6),
-    t.put('q_anvil', s + 0.8, 0, 0.8, 0.4),
-    t.put('bucket_metal', s + 1.4, 0, -1.3, 0));
-  let r = t.world(s + 0.6, 1.2, -0.6);
-  (e.lamps.push({ pos: r, color: 16738848, range: 5, energy: 2, kind: 'forge' }),
-    e.smoke.push(t.world(s + 0.6, 2.7, -0.6)));
+    bb.geo(boxGeo(0.18, 2.5, 0.18), mats.darkWood, px, 0, pz);
+  (bb.geo(boxGeo(2.2, 0.12, 3.4), mats.darkWood, ox + 0.9, 2.45, 0, 0, { roof: !0 }),
+    bb.put('Roof_Wooden_2x1', ox + 0.9, 2.5, -1, -Math.PI / 2, { roof: !0, s: 1.1 }),
+    bb.put('Roof_Wooden_2x1', ox + 0.9, 2.5, 1, -Math.PI / 2, { roof: !0, s: 1.1 }),
+    bb.geo(boxGeo(1.1, 0.8, 1.1), mats.stone, ox + 0.6, 0, -0.6));
+  let coals = new CylinderGeometry(0.38, 0.42, 0.12, 12);
+  (coals.translate(0, 0.86, 0),
+    bb.geo(coals, mats.coal, ox + 0.6, 0, -0.6),
+    bb.put('q_anvil', ox + 0.8, 0, 0.8, 0.4),
+    bb.put('bucket_metal', ox + 1.4, 0, -1.3, 0));
+  let firePos = bb.world(ox + 0.6, 1.2, -0.6);
+  (bld.lamps.push({ pos: firePos, color: 16738848, range: 5, energy: 2, kind: 'forge' }),
+    bld.smoke.push(bb.world(ox + 0.6, 2.7, -0.6)));
 }
-function KH(o, e, t) {
-  let a = o.rnd,
-    n = { windows: [], doorLocal: null },
-    s = 4;
-  for (let l = 0; l < 3; l++) {
-    let c = q3[l < 2 ? 'brick' : 'upper'],
-      d = l * Bo;
-    for (let [u, h, p, m, _] of Zm(s, s)) {
-      let b = l === 0 && u === 'front' && _ === 0,
-        f = b ? c.door : c.plain;
-      if (!b && l > 0 && a() < 0.5) {
-        let [v, x] = c.thin;
-        ((f = v), t.put(x, h, d, p, m));
+/** Molino de viento: torre de tres plantas y aspas que giran (`bld.update`). */
+function buildWindmill(ctx, bld, bb) {
+  let rnd = ctx.rnd,
+    parts = { windows: [], doorLocal: null },
+    size = 4;
+  for (let floor = 0; floor < 3; floor++) {
+    let style = WALL_STYLES[floor < 2 ? 'brick' : 'upper'],
+      fy = floor * FLOOR_H;
+    for (let [side, px, pz, ry, slot] of wallSlots(size, size)) {
+      let isDoor = floor === 0 && side === 'front' && slot === 0,
+        wall = isDoor ? style.door : style.plain;
+      if (!isDoor && floor > 0 && rnd() < 0.5) {
+        let [wallPiece, winPiece] = style.thin;
+        ((wall = wallPiece), bb.put(winPiece, px, fy, pz, ry));
       }
-      (t.put(f, h, d, p, m), b && (n.doorLocal = { x: h, y: d, z: p, ry: m }));
+      (bb.put(wall, px, fy, pz, ry), isDoor && (parts.doorLocal = { x: px, y: fy, z: pz, ry }));
     }
-    (t.put(c.corner, -2, d, 2, 0),
-      t.put(c.corner, 2, d, 2, Math.PI / 2),
-      t.put(c.corner, 2, d, -2, Math.PI),
-      t.put(c.corner, -2, d, -2, -Math.PI / 2));
+    (bb.put(style.corner, -2, fy, 2, 0),
+      bb.put(style.corner, 2, fy, 2, Math.PI / 2),
+      bb.put(style.corner, 2, fy, -2, Math.PI),
+      bb.put(style.corner, -2, fy, -2, -Math.PI / 2));
   }
-  (t.put('Roof_Tower_RoundTiles', 0, 3 * Bo, 0, 0, { roof: !0, s: 0.82 }),
-    (n.top = 3 * Bo),
-    (n.roofTop = 3 * Bo + 5.8));
-  let i = U3(jH()),
-    r = new Group();
+  (bb.put('Roof_Tower_RoundTiles', 0, 3 * FLOOR_H, 0, 0, { roof: !0, s: 0.82 }),
+    (parts.top = 3 * FLOOR_H),
+    (parts.roofTop = 3 * FLOOR_H + 5.8));
+  let sails = bakeSpinner(windmillSails()),
+    hub = new Group();
   return (
-    r.position.set(0, 3 * Bo - 0.2, s / 2 + 0.45),
-    r.add(i),
-    r.applyMatrix4(e.base),
-    e.dynamic.push(r),
-    (e.update = (l) => {
-      i.rotation.z -= l * 0.35;
+    hub.position.set(0, 3 * FLOOR_H - 0.2, size / 2 + 0.45),
+    hub.add(sails),
+    hub.applyMatrix4(bld.base),
+    bld.dynamic.push(hub),
+    (bld.update = (dt) => {
+      sails.rotation.z -= dt * 0.35;
     }),
-    n
+    parts
   );
 }
-function JH(o, e, t) {
-  let { ground: a } = o,
-    n = 1,
-    s = -1;
-  for (let c of [1, -1]) {
-    let d = t.world(c * 3, 0, 0),
-      u = a.waterAt(d.x, d.z) + a.waterAt(t.world(c * 4.2, 0, 0).x, t.world(c * 4.2, 0, 0).z);
-    u > s && ((s = u), (n = c));
+/** Molino de agua: la rueda va del lado con más agua y gira (`bld.update`). */
+function buildWatermill(ctx, bld, bb) {
+  let { ground } = ctx,
+    side = 1,
+    best = -1;
+  for (let dir of [1, -1]) {
+    let pos = bb.world(dir * 3, 0, 0),
+      wet =
+        ground.waterAt(pos.x, pos.z) +
+        ground.waterAt(bb.world(dir * 4.2, 0, 0).x, bb.world(dir * 4.2, 0, 0).z);
+    wet > best && ((best = wet), (side = dir));
   }
-  let i = U3(GH(1.75, 0.9)),
-    r = new Group();
-  (r.position.set(n * 2.75, 1.25, 0), r.add(i), r.applyMatrix4(e.base), e.dynamic.push(r));
-  let l = js();
-  (t.geo(Hn(0.25, 1.5, 0.25), l.darkWood, n * 2.4, 0, 0.7),
-    t.geo(Hn(0.25, 1.5, 0.25), l.darkWood, n * 2.4, 0, -0.7),
-    (e.update = (c) => {
-      i.rotation.x += c * 0.6 * -n;
+  let wheel = bakeSpinner(waterWheel(1.75, 0.9)),
+    hub = new Group();
+  (hub.position.set(side * 2.75, 1.25, 0), hub.add(wheel), hub.applyMatrix4(bld.base), bld.dynamic.push(hub));
+  let mats = buildingMats();
+  (bb.geo(boxGeo(0.25, 1.5, 0.25), mats.darkWood, side * 2.4, 0, 0.7),
+    bb.geo(boxGeo(0.25, 1.5, 0.25), mats.darkWood, side * 2.4, 0, -0.7),
+    (bld.update = (dt) => {
+      wheel.rotation.x += dt * 0.6 * -side;
     }));
 }
-function ZH(o, e, t) {
-  let a = o.rnd,
-    n = js(),
-    s = ['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'],
-    i = [
+/** Entrada de mina con rocas, vigas, raíles y farol. */
+function buildMine(ctx, bld, bb) {
+  let rnd = ctx.rnd,
+    mats = buildingMats(),
+    rocks = ['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'],
+    spots = [
       [-2.2, -1.2, 3.2],
       [2.2, -1, 3],
       [0, -2.4, 3.6],
@@ -767,116 +856,131 @@ function ZH(o, e, t) {
       [1.3, 0, 2.6],
       [0, -0.8, 3],
     ];
-  for (let [r, l, c] of i)
-    t.put(a.pick ? a.pick(s) : s[Math.floor(a() * 3)], r, -0.3, l, a() * 6.28, { s: c * 0.95, roof: !0 });
-  t.geo(Hn(1.6, 2.1, 0.2), n.dark, 0, 0, 0.9);
-  for (let r of [-0.95, 0.95]) t.geo(Hn(0.24, 2.3, 0.24), n.darkWood, r, 0, 1.15);
-  t.geo(Hn(2.3, 0.26, 0.3), n.darkWood, 0, 2.2, 1.15);
-  for (let r = 0; r < 6; r++) t.geo(Hn(0.9, 0.06, 0.14), n.darkWood, 0, 0.02, 1.4 + r * 0.45);
-  for (let r of [-0.35, 0.35]) t.geo(Hn(0.05, 0.06, 2.8), n.iron, r, 0.06, 2.4);
+  for (let [px, pz, scale] of spots)
+    bb.put(rnd.pick ? rnd.pick(rocks) : rocks[Math.floor(rnd() * 3)], px, -0.3, pz, rnd() * 6.28, {
+      s: scale * 0.95,
+      roof: !0,
+    });
+  bb.geo(boxGeo(1.6, 2.1, 0.2), mats.dark, 0, 0, 0.9);
+  for (let px of [-0.95, 0.95]) bb.geo(boxGeo(0.24, 2.3, 0.24), mats.darkWood, px, 0, 1.15);
+  bb.geo(boxGeo(2.3, 0.26, 0.3), mats.darkWood, 0, 2.2, 1.15);
+  for (let k = 0; k < 6; k++) bb.geo(boxGeo(0.9, 0.06, 0.14), mats.darkWood, 0, 0.02, 1.4 + k * 0.45);
+  for (let px of [-0.35, 0.35]) bb.geo(boxGeo(0.05, 0.06, 2.8), mats.iron, px, 0.06, 2.4);
   return (
-    t.put('q_pickaxe', 1.4, 0, 1.8, 0.6),
-    t.put('crate_open', -1.5, 0, 2, 0.3),
-    t.put('q_lantern', 1.15, 1.5, 1.4, 0),
-    e.lamps.push({ pos: t.world(1.15, 1.7, 1.5), color: 16752720, range: 5, energy: 1.1, kind: 'wall' }),
+    bb.put('q_pickaxe', 1.4, 0, 1.8, 0.6),
+    bb.put('crate_open', -1.5, 0, 2, 0.3),
+    bb.put('q_lantern', 1.15, 1.5, 1.4, 0),
+    bld.lamps.push({ pos: bb.world(1.15, 1.7, 1.5), color: 16752720, range: 5, energy: 1.1, kind: 'wall' }),
     { top: 3, roofTop: 4.5, windows: [] }
   );
 }
-function QH(o, e, t, a, n) {
-  let s = js(),
-    i = new CylinderGeometry(0.42, 0.42, 0.9, 12).rotateZ(Math.PI / 2).translate(0, 0.42, 0);
-  o.geo(i, s.hay, e, t, a, n() * 0.6);
+/** Bala de heno cilíndrica. */
+function hayBale(bb, x, y, z, rnd) {
+  let mats = buildingMats(),
+    geo = new CylinderGeometry(0.42, 0.42, 0.9, 12).rotateZ(Math.PI / 2).translate(0, 0.42, 0);
+  bb.geo(geo, mats.hay, x, y, z, rnd() * 0.6);
 }
-function e9(o, e, t) {
-  let a = o.rnd;
+/** Puesto de mercado con carro y cajas de fruta. */
+function buildMarket(ctx, bld, bb) {
+  let rnd = ctx.rnd;
   return (
-    t.put('q_stall', -1.3, 0, 0, 0),
-    t.put('q_stall_cart', 1.6, 0, 0.3, -0.3),
-    t.put('q_farmcrate_apple', -1, 0, 1.4, 0.2),
-    t.put('q_farmcrate_carrot', -2, 0, 1.3, -0.3),
-    t.put('q_barrel_apples', 0.4, 0, 1.6, 0),
-    t.put('sack', 2.6, 0, 1.4, a() * 6),
+    bb.put('q_stall', -1.3, 0, 0, 0),
+    bb.put('q_stall_cart', 1.6, 0, 0.3, -0.3),
+    bb.put('q_farmcrate_apple', -1, 0, 1.4, 0.2),
+    bb.put('q_farmcrate_carrot', -2, 0, 1.3, -0.3),
+    bb.put('q_barrel_apples', 0.4, 0, 1.6, 0),
+    bb.put('sack', 2.6, 0, 1.4, rnd() * 6),
     { top: 2.5, roofTop: 3, windows: [] }
   );
 }
-function t9(o, e, t) {
-  let a = js(),
-    n = new CylinderGeometry(0.85, 0.92, 0.85, 16, 1, !0);
-  n.translate(0, 0.42, 0);
-  let s = new MeshStandardMaterial({
+/** Pozo de piedra con tejadillo y cubo. */
+function buildWell(ctx, bld, bb) {
+  let mats = buildingMats(),
+    wall = new CylinderGeometry(0.85, 0.92, 0.85, 16, 1, !0);
+  wall.translate(0, 0.42, 0);
+  let stone = new MeshStandardMaterial({
     color: 12102552,
     roughness: 0.95,
     side: DoubleSide,
     name: 'piedra_pozo',
   });
-  t.geo(n, s, 0, 0, 0);
-  let i = new TorusGeometry(0.88, 0.1, 6, 18).rotateX(Math.PI / 2).translate(0, 0.86, 0);
-  t.geo(i, s, 0, 0, 0);
-  let r = new CircleGeometry(0.8, 16).rotateX(-Math.PI / 2).translate(0, 0.35, 0);
-  t.geo(r, a.water, 0, 0, 0);
-  for (let l of [-0.8, 0.8]) t.geo(Hn(0.14, 2.1, 0.14), a.darkWood, l, 0, 0);
+  bb.geo(wall, stone, 0, 0, 0);
+  let rim = new TorusGeometry(0.88, 0.1, 6, 18).rotateX(Math.PI / 2).translate(0, 0.86, 0);
+  bb.geo(rim, stone, 0, 0, 0);
+  let water = new CircleGeometry(0.8, 16).rotateX(-Math.PI / 2).translate(0, 0.35, 0);
+  bb.geo(water, mats.water, 0, 0, 0);
+  for (let px of [-0.8, 0.8]) bb.geo(boxGeo(0.14, 2.1, 0.14), mats.darkWood, px, 0, 0);
   return (
-    t.geo(
+    bb.geo(
       new CylinderGeometry(0.07, 0.07, 1.8, 8).rotateZ(Math.PI / 2).translate(0, 1.75, 0),
-      a.darkWood,
+      mats.darkWood,
       0,
       0,
       0,
     ),
-    t.put('Roof_Wooden_2x1', 0, 2, -0.55, 0, { roof: !0, s: 0.72 }),
-    t.put('Roof_Wooden_2x1', 0, 2, 0.55, Math.PI, { roof: !0, s: 0.72 }),
-    t.put('q_bucket', 0.6, 0.88, 0.2, 0),
+    bb.put('Roof_Wooden_2x1', 0, 2, -0.55, 0, { roof: !0, s: 0.72 }),
+    bb.put('Roof_Wooden_2x1', 0, 2, 0.55, Math.PI, { roof: !0, s: 0.72 }),
+    bb.put('q_bucket', 0.6, 0.88, 0.2, 0),
     { top: 2.2, roofTop: 2.9, windows: [] }
   );
 }
-function a9(o, e, t) {
-  let a = o.rnd,
-    n = 4,
-    s = 6;
-  for (let [i, r, l, c] of Zm(n, s)) {
-    if (a() < 0.25) continue;
-    let d =
-      i === 'front'
+/** Casa en ruinas: muros incompletos a distintas alturas y ladrillos sueltos. */
+function buildRuin(ctx, bld, bb) {
+  let rnd = ctx.rnd,
+    W = 4,
+    D = 6;
+  for (let [side, px, pz, ry] of wallSlots(W, D)) {
+    if (rnd() < 0.25) continue;
+    let piece =
+      side === 'front'
         ? 'Wall_UnevenBrick_Door_Round'
-        : a() < 0.5
+        : rnd() < 0.5
           ? 'Wall_UnevenBrick_Window_Thin_Round'
           : 'Wall_UnevenBrick_Straight';
-    t.put(d, r, -0.2 - a() * 0.6, l, c + (a() - 0.5) * 0.05, { sy: 0.45 + a() * 0.5 });
+    bb.put(piece, px, -0.2 - rnd() * 0.6, pz, ry + (rnd() - 0.5) * 0.05, { sy: 0.45 + rnd() * 0.5 });
   }
-  for (let i = 0; i < 6; i++)
-    t.put(`Prop_Brick${1 + Math.floor(a() * 4)}`, (a() - 0.5) * 6, 0, (a() - 0.5) * 7, a() * 6.28);
+  for (let k = 0; k < 6; k++)
+    bb.put(`Prop_Brick${1 + Math.floor(rnd() * 4)}`, (rnd() - 0.5) * 6, 0, (rnd() - 0.5) * 7, rnd() * 6.28);
   return { top: 3, roofTop: 3, windows: [] };
 }
-const Oo = 2;
-const Bo = 3;
-const F3 = { 4: [4, 6, 8], 6: [6, 8, 10], 8: [8, 10] };
-const O3 = [8010282, 4151930, 5139002, 9071162, 5982826, 6959152];
-const P1 = class {
-  constructor(e, t, a, n) {
-    ((this.merger = e),
-      (this.base = t),
-      (this.bld = a),
-      (this.tints = n),
+/** Ancho de un tramo de muro (m) y alto de una planta (m). */
+const WALL_W = 2;
+const FLOOR_H = 3;
+/** Largos de tejado disponibles en el kit para cada luz. */
+const ROOF_LENGTHS = { 4: [4, 6, 8], 6: [6, 8, 10], 8: [8, 10] };
+/** Colores de las maderas de las fachadas (se elige uno por edificio). */
+const TRIM_COLORS = [8010282, 4151930, 5139002, 9071162, 5982826, 6959152];
+/**
+ * Ayudante para colocar piezas (`put`) o geometría suelta (`geo`) en coordenadas locales de un
+ * edificio y enviarlas al `MeshMerger` con su índice de fundido; `world()` pasa a coordenadas del mundo.
+ */
+const BuildingBuilder = class {
+  constructor(merger, base, bld, tints) {
+    ((this.merger = merger),
+      (this.base = base),
+      (this.bld = bld),
+      (this.tints = tints),
       (this.m = new Matrix4()),
       (this.l = new Matrix4()));
   }
-  put(e, t, a, n, s = 0, { roof: i = !1, s: r = 1, sx: l = null, sy: c = null, sz: d = null } = {}) {
-    if (!hasPiece(e)) return;
-    let u = new Vector3(l ?? r, c ?? r, d ?? r);
-    (composeMatrix(t, a, n, s, u, this.l),
+  put(name, x, y, z, ry = 0, { roof = !1, s: scale = 1, sx = null, sy = null, sz = null } = {}) {
+    if (!hasPiece(name)) return;
+    let scl = new Vector3(sx ?? scale, sy ?? scale, sz ?? scale);
+    (composeMatrix(x, y, z, ry, scl, this.l),
       this.m.multiplyMatrices(this.base, this.l),
-      this.merger.add(e, this.m, { bld: this.bld, roof: i, tints: this.tints }));
+      this.merger.add(name, this.m, { bld: this.bld, roof, tints: this.tints }));
   }
-  geo(e, t, a, n, s, i = 0, { roof: r = !1, s: l = 1 } = {}) {
-    (composeMatrix(a, n, s, i, l, this.l),
+  geo(geo, mat, x, y, z, ry = 0, { roof = !1, s: scale = 1 } = {}) {
+    (composeMatrix(x, y, z, ry, scale, this.l),
       this.m.multiplyMatrices(this.base, this.l),
-      this.merger.addGeometry(e, t, this.m, { bld: this.bld, roof: r }));
+      this.merger.addGeometry(geo, mat, this.m, { bld: this.bld, roof }));
   }
-  world(e, t, a, n = new Vector3()) {
-    return n.set(e, t, a).applyMatrix4(this.base);
+  world(x, y, z, out = new Vector3()) {
+    return out.set(x, y, z).applyMatrix4(this.base);
   }
 };
-const q3 = {
+/** Piezas de muro por estilo: liso, ventana ancha/estrecha [muro, ventana, contraventana], puerta, esquina. */
+const WALL_STYLES = {
   brick: {
     plain: 'Wall_UnevenBrick_Straight',
     wide: ['Wall_UnevenBrick_Window_Wide_Round', 'Window_Wide_Round1', 'WindowShutters_Wide_Round_Open'],
@@ -900,6 +1004,6 @@ const q3 = {
     alt: 'Wall_Plaster_Straight',
   },
 };
-let Jm = null;
+let matsCache = null;
 
-export { j3 };
+export { buildBuildings };
