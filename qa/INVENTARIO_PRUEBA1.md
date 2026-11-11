@@ -96,6 +96,10 @@ Gravedad: **alta** (bloquea o rompe la partida), **media** (molesta o confunde, 
 - **Pasos:** con el cuerno de piedra (`seal_key`) y Kesh terminado, viajar de Kesh a Merrowick y quedarse leyendo la narración del cuerno («El cuerno de piedra pesa en la mochila…») más de 1,3 s: la sustituye de golpe «Lo que habéis visto en Kesh os ha cambiado…» y se abre la subida a nivel 3.
 - **Efecto:** el texto del cuerno desaparece a medio leer; después, con `_inFlow` atascado, no vuelven a salir charlas entre compañeros (`banter` exige `!_inFlow`) y `exclusive()` ya no serializa ningún flujo, así que cualquier otra pareja de flujos simultáneos (tras combate, disparadores, descansos) puede chocar igual. Lo detectó `qa/flujo.cjs` y se ha reproducido **3 de 3 veces** (ejecuciones `flujo3`, `flujo4`, `flujo5`): tras el viaje Kesh → Merrowick y la subida a nivel 3, diagnóstico `{"capas":[], "dialogo":false, "busyN":0, "historiaActiva":null, "historiaEnFlujo":true}`. El arnés ahora lo anota como aviso y sigue.
 
+### F12 · La historia llama a operaciones que el núcleo no tiene (`cp_take`, `has_item`) — gravedad **baja**
+
+- **Pasos:** en el túmulo, «Encajar el cuerno de piedra en el hueco» (efecto `take:stone_horn`). La consola avisa `[api] cp_take: op desconocida: cp_take`. `story.takeItem` cae a `has_item` (tampoco existe) y por último quita el objeto editando la partida a mano: el cuerno desaparece bien, pero la ruta buena no está en el núcleo publicado. La reconstrucción debería implementar `cp_take` (y `has_item`) o quitar las llamadas.
+
 <!-- MAS_FALLOS -->
 
 ## 4. Hasta dónde llega la partida automática
@@ -111,8 +115,12 @@ Configuración: `?depurar&turbo=4&calidad=baja&escala=0.5&autocombate&autonivel&
 | elderhal (santuario, Ilyra, centinelas, jefe) | ✅ | 611 s | Santuario 185 s, centinelas 227 s; el campamento se resuelve negociando. |
 | vuelta (Merrowick, cobrar a Maren) | ✅ | 104 s | +50 po; aparece la escalera del toro. |
 | kesh (Odvar, runas, cuerno, arañas) | ✅ | 407 s | Arañas gigantes 101 s. Odvar no entra (grupo lleno, ver F10). |
-| tumulo (nivel 3, losas, Vorhan) | ❌ → reintento | — | Primera vez: bloqueo tras la subida a nivel 3 por F11 (`story._inFlow` colgado). El arnés ahora lo anota y sigue. |
+| tumulo (nivel 3, cuerno, losas, Vorhan) | ✅ | 1595 s | Subida a nivel 3 con F11 (aviso, el arnés sigue). Cuerno, losas río → piedra → toro, «Recitar el verso de Kesh» (Vorhan duda) y combate contra los 5 guardianes: 797 s. |
+| sello (decisión) | ✅ | 65 s | «Verter tu sangre… y restaurar el sello» → «Hacerlo» → `seal_choice = restored`, `chapter1_done`. |
+| creditos (epílogo + créditos) | ✅ | 80 s | **8 láminas** de epílogo (7 condicionales + cierre) y créditos con «Volver al menú». |
 
-<!-- RECORRIDO_TUMULO -->
+Estado final: grupo de nivel 3 (héroe, Brenna, Pip, Ilyra), 110 po, misiones `q_toro`, `q_pip`, `q_kesh` y `q_sello` cumplidas; `q_sedge` (lobos) y `q_ilyra` (disco) quedan abiertas porque el recorrido no las persigue. Ningún error de página en todo el capítulo; avisos de consola: F8, F9, F12.
+
+**Fiabilidad:** el capítulo completo se ha recorrido de punta a punta; ningún combate se perdió (e1 se ganó a la primera con la semilla 42 aunque su tasa de victoria es del 47 %; si se pierde, el arnés recarga y reintenta hasta 5 veces). Todos los atascos encontrados fueron del arnés (corregidos) o del juego (F11, que ahora se anota y no bloquea), salvo dos cortes externos. Tiempo total en esta máquina: ≈ 85 min de juego efectivo (inicio–vecinos 17 min, posada–vuelta 14 min, Kesh 7 min, túmulo–créditos 29 min), más las esperas del cerrojo compartido. Lo más lento son los combates (1,5–13 min cada uno con SwiftShader).
 
 Las etapas se recorrieron en varias ejecuciones encadenadas por puntos de control (`--desde`), por dos cortes ajenos al juego: el límite de 30 min de los procesos en segundo plano y un reinicio del contenedor.
