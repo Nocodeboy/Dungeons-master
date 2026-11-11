@@ -17,7 +17,7 @@ import {
 } from 'three';
 import { loadGLTF } from '../assets.js';
 import { paint, mergeParts, mat } from './geometry.js';
-import { hi } from './sculpt.js';
+import { taperedTube } from './sculpt.js';
 
 function _z(o) {
   let e = o.clone();
@@ -285,7 +285,10 @@ function $2(o, e = {}) {
       ((x[0].z = b - _ * 0.75),
         (x[0].x = v * 0.015),
         i(
-          paint(hi(x, 0.007, 0.005, { radial: 5, segs: 8, closed: !1, flat: 0.6 }), { color: a, vary: 0.1 }),
+          paint(taperedTube(x, 0.007, 0.005, { radial: 5, segs: 8, closed: !1, flat: 0.6 }), {
+            color: a,
+            vary: 0.1,
+          }),
           f,
         ));
     }

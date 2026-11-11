@@ -1,5 +1,11 @@
 // actors/sculpt.js
-// Reconstruido de publicado/juego.js (módulo __esm «Of»). Nombres locales aún minificados.
+// Reconstruido de publicado/juego.js (módulo __esm «Of»).
+//
+// Escultura procedural de cabezas y apéndices. makeHeadSculpt devuelve un deformador de vértices
+// (orejas, rasgos de cara, nariz, mandíbula, hocico, cráneo) que rig.js aplica al hornear la malla
+// de cada humanoide. El resto crea geometría: cuernos, colmillos, gorgueras, colas, peinados
+// (coleta, trenza, cresta) y tubos con radio variable; tailWeights/hairWeights dan los pesos de
+// hueso para pielarlos. Lo usan humanoid.js, beasts.js y monster-parts.js.
 
 import {
   BufferAttribute,
@@ -16,371 +22,414 @@ import {
 } from 'three';
 import { paint, mergeParts, mat } from './geometry.js';
 
-function I2(o) {
-  let e = [],
-    t = o.ears;
-  if (t && t.len > 0) {
-    let s = new Vector3(...t.dir).normalize();
-    e.push((i, r) => {
-      if (r.hair) return;
-      let l = Math.abs(i.x),
-        c = Ha(0.071, 0.088, l) * Xn(i.y, 0.045, 0.135, 0.02) * Xn(i.z, -0.06, 0.035, 0.015);
-      if (!c) return;
-      let d = Ha(t.from ?? 0.065, 0.13, i.y),
-        u = c * (0.25 + 0.75 * d) * t.len;
-      ((i.x += Math.sign(i.x) * s.x * u), (i.y += s.y * u), (i.z += s.z * u));
+/**
+ * Deformador de la cabeza según `head` ({ears, face, nose, jaw, snout, skullScale}) o null si no
+ * cambia nada. Firma: (pos, normal, weight, center, part): mueve `pos` (mundo) con peso `weight`
+ * (peso del hueso Head) respecto al centro de la cabeza; `part.hair` indica que es pelo.
+ */
+function makeHeadSculpt(head) {
+  let deformers = [],
+    ears = head.ears;
+  if (ears && ears.len > 0) {
+    let dir = new Vector3(...ears.dir).normalize();
+    deformers.push((p, part) => {
+      if (part.hair) return;
+      let ax = Math.abs(p.x),
+        mask = smoothstep(0.071, 0.088, ax) * band(p.y, 0.045, 0.135, 0.02) * band(p.z, -0.06, 0.035, 0.015);
+      if (!mask) return;
+      let rise = smoothstep(ears.from ?? 0.065, 0.13, p.y),
+        amount = mask * (0.25 + 0.75 * rise) * ears.len;
+      ((p.x += Math.sign(p.x) * dir.x * amount), (p.y += dir.y * amount), (p.z += dir.z * amount));
     });
   }
-  let a = o.face || 0;
+  let face = head.face || 0;
   if (
-    (a === 1
-      ? e.push((s) => {
-          let i = Xn(s.x, -0.022, 0.022, 0.01) * Xn(s.y, 0.015, 0.085) * Ha(0.08, 0.11, s.z);
-          ((s.z += i * 0.012),
-            (s.y -= i * 0.004),
-            s.y < 0.04 && s.z > 0 && (s.x *= 1 - 0.06 * Ha(0.04, -0.03, s.y)));
+    (face === 1
+      ? deformers.push((p) => {
+          let mask = band(p.x, -0.022, 0.022, 0.01) * band(p.y, 0.015, 0.085) * smoothstep(0.08, 0.11, p.z);
+          ((p.z += mask * 0.012),
+            (p.y -= mask * 0.004),
+            p.y < 0.04 && p.z > 0 && (p.x *= 1 - 0.06 * smoothstep(0.04, -0.03, p.y)));
         })
-      : a === 2
-        ? e.push((s) => {
-            let i = Ha(0.04, -0.02, s.y) * Ha(-0.02, 0.04, s.z);
-            ((s.x *= 1 + i * 0.09), (s.z += i * Ha(0.06, 0.1, s.z) * 0.01));
+      : face === 2
+        ? deformers.push((p) => {
+            let mask = smoothstep(0.04, -0.02, p.y) * smoothstep(-0.02, 0.04, p.z);
+            ((p.x *= 1 + mask * 0.09), (p.z += mask * smoothstep(0.06, 0.1, p.z) * 0.01));
           })
-        : a === 3 &&
-          e.push((s) => {
-            let i = Xn(Math.abs(s.x), 0.035, 0.075) * Xn(s.y, 0.04, 0.085) * Ha(0.02, 0.06, s.z);
-            s.x *= 1 + i * 0.07;
-            let r = Xn(s.x, -0.02, 0.02, 0.01) * Xn(s.y, 0.015, 0.075) * Ha(0.09, 0.12, s.z);
-            s.z -= r * 0.008;
+        : face === 3 &&
+          deformers.push((p) => {
+            let cheeks =
+              band(Math.abs(p.x), 0.035, 0.075) * band(p.y, 0.04, 0.085) * smoothstep(0.02, 0.06, p.z);
+            p.x *= 1 + cheeks * 0.07;
+            let bridge = band(p.x, -0.02, 0.02, 0.01) * band(p.y, 0.015, 0.075) * smoothstep(0.09, 0.12, p.z);
+            p.z -= bridge * 0.008;
           }),
-    o.nose)
+    head.nose)
   ) {
-    let { len: s = 0, wide: i = 0, drop: r = 0 } = o.nose;
-    e.push((l) => {
-      let c = Xn(l.x, -0.026, 0.026, 0.012) * Xn(l.y, 0.01, 0.085, 0.012) * Ha(0.075, 0.115, l.z);
-      if (!c) return;
-      let d = Ha(0.1, 0.13, l.z);
-      ((l.z += c * s * (0.4 + 0.6 * d)), (l.y -= c * r * d), (l.x *= 1 + c * i));
+    let { len = 0, wide = 0, drop = 0 } = head.nose;
+    deformers.push((p) => {
+      let mask =
+        band(p.x, -0.026, 0.026, 0.012) * band(p.y, 0.01, 0.085, 0.012) * smoothstep(0.075, 0.115, p.z);
+      if (!mask) return;
+      let tip = smoothstep(0.1, 0.13, p.z);
+      ((p.z += mask * len * (0.4 + 0.6 * tip)), (p.y -= mask * drop * tip), (p.x *= 1 + mask * wide));
     });
   }
-  if (o.jaw) {
-    let { wide: s = 0, fwd: i = 0, brow: r = 0 } = o.jaw;
-    e.push((l) => {
-      let c = Ha(0.045, -0.02, l.y) * Ha(-0.03, 0.03, l.z);
-      ((l.x *= 1 + c * s), (l.z += c * i * Ha(0, 0.08, l.z)));
-      let d = Xn(l.y, 0.105, 0.14, 0.012) * Ha(0.04, 0.085, l.z);
-      l.z += d * r;
+  if (head.jaw) {
+    let { wide = 0, fwd = 0, brow = 0 } = head.jaw;
+    deformers.push((p) => {
+      let mask = smoothstep(0.045, -0.02, p.y) * smoothstep(-0.03, 0.03, p.z);
+      ((p.x *= 1 + mask * wide), (p.z += mask * fwd * smoothstep(0, 0.08, p.z)));
+      let browMask = band(p.y, 0.105, 0.14, 0.012) * smoothstep(0.04, 0.085, p.z);
+      p.z += browMask * brow;
     });
   }
-  if (o.snout) {
-    let s = o.snout;
-    e.push((i, r) => {
-      let l = Ha(0, 0.085, i.z) * Xn(i.y, -0.07, 0.085, 0.03) * (1 - Ha(0.045, 0.085, Math.abs(i.x)) * 0.6);
-      ((i.z += l * s), (i.y -= l * s * 0.12), (i.x *= 1 - l * 0.22));
-      let c = Xn(i.y, 0.105, 0.14, 0.012) * Ha(0.04, 0.085, i.z);
-      if (((i.z += c * 0.012), i.y > 0.15 && (i.y = 0.15 + (i.y - 0.15) * 0.85), !r.hair)) {
-        let d = Ha(0.07, 0.09, Math.abs(i.x)) * Xn(i.y, 0.04, 0.14);
-        i.x -= Math.sign(i.x) * d * 0.012;
+  if (head.snout) {
+    let snout = head.snout;
+    deformers.push((p, part) => {
+      let mask =
+        smoothstep(0, 0.085, p.z) *
+        band(p.y, -0.07, 0.085, 0.03) *
+        (1 - smoothstep(0.045, 0.085, Math.abs(p.x)) * 0.6);
+      ((p.z += mask * snout), (p.y -= mask * snout * 0.12), (p.x *= 1 - mask * 0.22));
+      let browMask = band(p.y, 0.105, 0.14, 0.012) * smoothstep(0.04, 0.085, p.z);
+      if (((p.z += browMask * 0.012), p.y > 0.15 && (p.y = 0.15 + (p.y - 0.15) * 0.85), !part.hair)) {
+        let sides = smoothstep(0.07, 0.09, Math.abs(p.x)) * band(p.y, 0.04, 0.14);
+        p.x -= Math.sign(p.x) * sides * 0.012;
       }
     });
   }
-  if (o.skullScale) {
-    let s = o.skullScale;
-    e.push((i) => {
-      ((i.x *= s[0]), (i.y *= s[1]), (i.z *= s[2]));
+  if (head.skullScale) {
+    let scale = head.skullScale;
+    deformers.push((p) => {
+      ((p.x *= scale[0]), (p.y *= scale[1]), (p.z *= scale[2]));
     });
   }
-  if (!e.length) return null;
-  let n = new Vector3();
-  return (s, i, r, l, c) => {
-    if (r <= 0.001) return;
-    n.copy(s).sub(l);
-    let d = n.clone();
-    for (let u of e) u(n, c);
-    s.addScaledVector(n.sub(d), r);
+  if (!deformers.length) return null;
+  let local = new Vector3();
+  return (pos, normal, weight, center, part) => {
+    if (weight <= 0.001) return;
+    local.copy(pos).sub(center);
+    let before = local.clone();
+    for (let deform of deformers) deform(local, part);
+    pos.addScaledVector(local.sub(before), weight);
   };
 }
-function hi(o, e, t, { radial: a = 7, segs: n = 14, closed: s = !0, flat: i = 1 } = {}) {
-  let r = new CatmullRomCurve3(o),
-    l = r.computeFrenetFrames(n, !1),
-    c = [],
-    d = [];
-  for (let h = 0; h <= n; h++) {
-    let p = h / n,
-      m = r.getPointAt(p),
-      _ = e + (t - e) * p,
-      b = l.normals[h],
-      f = l.binormals[h];
-    for (let v = 0; v < a; v++) {
-      let x = (v / a) * Math.PI * 2,
-        g = m
+/** Tubo a lo largo de una curva Catmull-Rom con radio de r0 a r1 (y tapa final si `closed`). */
+function taperedTube(points, r0, r1, { radial = 7, segs = 14, closed = !0, flat = 1 } = {}) {
+  let curve = new CatmullRomCurve3(points),
+    frames = curve.computeFrenetFrames(segs, !1),
+    verts = [],
+    index = [];
+  for (let i = 0; i <= segs; i++) {
+    let t = i / segs,
+      center = curve.getPointAt(t),
+      radius = r0 + (r1 - r0) * t,
+      normal = frames.normals[i],
+      binormal = frames.binormals[i];
+    for (let j = 0; j < radial; j++) {
+      let ang = (j / radial) * Math.PI * 2,
+        pt = center
           .clone()
-          .addScaledVector(b, Math.cos(x) * _)
-          .addScaledVector(f, Math.sin(x) * _ * i);
-      c.push(g.x, g.y, g.z);
+          .addScaledVector(normal, Math.cos(ang) * radius)
+          .addScaledVector(binormal, Math.sin(ang) * radius * flat);
+      verts.push(pt.x, pt.y, pt.z);
     }
   }
-  for (let h = 0; h < n; h++)
-    for (let p = 0; p < a; p++) {
-      let m = h * a + p,
-        _ = h * a + ((p + 1) % a),
-        b = (h + 1) * a + p,
-        f = (h + 1) * a + ((p + 1) % a);
-      d.push(m, b, _, _, b, f);
+  for (let i = 0; i < segs; i++)
+    for (let j = 0; j < radial; j++) {
+      let a = i * radial + j,
+        b = i * radial + ((j + 1) % radial),
+        c = (i + 1) * radial + j,
+        d = (i + 1) * radial + ((j + 1) % radial);
+      index.push(a, c, b, b, c, d);
     }
-  if (s) {
-    let h = r.getPointAt(1),
-      p = c.length / 3;
-    c.push(h.x, h.y, h.z);
-    for (let m = 0; m < a; m++) d.push(n * a + m, p, n * a + ((m + 1) % a));
+  if (closed) {
+    let tip = curve.getPointAt(1),
+      tipIndex = verts.length / 3;
+    verts.push(tip.x, tip.y, tip.z);
+    for (let j = 0; j < radial; j++)
+      index.push(segs * radial + j, tipIndex, segs * radial + ((j + 1) % radial));
   }
-  let u = new BufferGeometry();
+  let geo = new BufferGeometry();
   return (
-    u.setAttribute('position', new Float32BufferAttribute(c, 3)),
-    u.setIndex(d),
-    u.computeVertexNormals(),
-    u
+    geo.setAttribute('position', new Float32BufferAttribute(verts, 3)),
+    geo.setIndex(index),
+    geo.computeVertexNormals(),
+    geo
   );
 }
-function H2(o, e, t = 1) {
-  let a = [];
-  for (let n of [-1, 1]) {
-    let s,
-      i = 0.018;
-    o === 'carnero'
-      ? ((s = [
-          jt(n * 0.05, 0.16, 0.04),
-          jt(n * 0.09, 0.19, -0.02),
-          jt(n * 0.12, 0.14, -0.07),
-          jt(n * 0.115, 0.07, -0.03),
-          jt(n * 0.1, 0.07, 0.03),
-          jt(n * 0.12, 0.11, 0.05),
+/** Par de cuernos: «carnero», «rectos», «toro», «atras» o curvos por defecto. */
+function hornsGeometry(kind, color, scale = 1) {
+  let parts = [];
+  for (let side of [-1, 1]) {
+    let pts,
+      radius = 0.018;
+    kind === 'carnero'
+      ? ((pts = [
+          vec3(side * 0.05, 0.16, 0.04),
+          vec3(side * 0.09, 0.19, -0.02),
+          vec3(side * 0.12, 0.14, -0.07),
+          vec3(side * 0.115, 0.07, -0.03),
+          vec3(side * 0.1, 0.07, 0.03),
+          vec3(side * 0.12, 0.11, 0.05),
         ]),
-        (i = 0.024))
-      : o === 'rectos'
-        ? (s = [
-            jt(n * 0.04, 0.17, 0.05),
-            jt(n * 0.05, 0.23, 0.06),
-            jt(n * 0.055, 0.29, 0.05),
-            jt(n * 0.05, 0.33, 0.03),
+        (radius = 0.024))
+      : kind === 'rectos'
+        ? (pts = [
+            vec3(side * 0.04, 0.17, 0.05),
+            vec3(side * 0.05, 0.23, 0.06),
+            vec3(side * 0.055, 0.29, 0.05),
+            vec3(side * 0.05, 0.33, 0.03),
           ])
-        : o === 'toro'
-          ? ((s = [
-              jt(n * 0.09, 0.16, 0),
-              jt(n * 0.17, 0.17, 0.02),
-              jt(n * 0.23, 0.21, 0.07),
-              jt(n * 0.24, 0.28, 0.12),
+        : kind === 'toro'
+          ? ((pts = [
+              vec3(side * 0.09, 0.16, 0),
+              vec3(side * 0.17, 0.17, 0.02),
+              vec3(side * 0.23, 0.21, 0.07),
+              vec3(side * 0.24, 0.28, 0.12),
             ]),
-            (i = 0.026))
-          : o === 'atras'
-            ? ((s = [
-                jt(n * 0.045, 0.17, 0.05),
-                jt(n * 0.06, 0.2, -0.02),
-                jt(n * 0.065, 0.2, -0.1),
-                jt(n * 0.06, 0.17, -0.17),
+            (radius = 0.026))
+          : kind === 'atras'
+            ? ((pts = [
+                vec3(side * 0.045, 0.17, 0.05),
+                vec3(side * 0.06, 0.2, -0.02),
+                vec3(side * 0.065, 0.2, -0.1),
+                vec3(side * 0.06, 0.17, -0.17),
               ]),
-              (i = 0.02))
-            : (s = [
-                jt(n * 0.04, 0.17, 0.05),
-                jt(n * 0.08, 0.22, 0.03),
-                jt(n * 0.11, 0.25, -0.03),
-                jt(n * 0.1, 0.29, -0.07),
+              (radius = 0.02))
+            : (pts = [
+                vec3(side * 0.04, 0.17, 0.05),
+                vec3(side * 0.08, 0.22, 0.03),
+                vec3(side * 0.11, 0.25, -0.03),
+                vec3(side * 0.1, 0.29, -0.07),
               ]);
-    let r = hi(
-      s.map((l) => l.multiplyScalar(1)),
-      i * t,
+    let geo = taperedTube(
+      pts.map((p) => p.multiplyScalar(1)),
+      radius * scale,
       0.002,
       { radial: 7, segs: 12 },
     );
-    if (t !== 1) {
-      let l = s[0];
-      (r.translate(-l.x, -l.y, -l.z), r.scale(t, t, t), r.translate(l.x, l.y, l.z));
+    if (scale !== 1) {
+      let root = pts[0];
+      (geo.translate(-root.x, -root.y, -root.z),
+        geo.scale(scale, scale, scale),
+        geo.translate(root.x, root.y, root.z));
     }
-    a.push(paint(r, { color: e, vary: 0.08 }));
-    for (let l = 1; l < 3; l++) {
-      let c = l / 4,
-        d = new CatmullRomCurve3(s).getPointAt(c);
+    parts.push(paint(geo, { color, vary: 0.08 }));
+    for (let k = 1; k < 3; k++) {
+      let t = k / 4,
+        point = new CatmullRomCurve3(pts).getPointAt(t);
     }
   }
-  return mergeParts(a);
+  return mergeParts(parts);
 }
-function N2(o) {
-  let e = o === 'grandes',
-    t = [];
-  for (let a of [-1, 1]) {
-    let n = new ConeGeometry(e ? 0.0075 : 0.005, e ? 0.032 : 0.02, 6);
-    t.push(
-      paint(n, {
+/** Colmillos inferiores («grandes» o pequeños). */
+function tusksGeometry(size) {
+  let big = size === 'grandes',
+    parts = [];
+  for (let side of [-1, 1]) {
+    let cone = new ConeGeometry(big ? 0.0075 : 0.005, big ? 0.032 : 0.02, 6);
+    parts.push(
+      paint(cone, {
         color: '#efe6cc',
-        matrix: mat.mul(mat.T(a * 0.024, e ? 0.008 : 0.004, 0.096), mat.R(-12, 0, a * -12)),
+        matrix: mat.mul(mat.T(side * 0.024, big ? 0.008 : 0.004, 0.096), mat.R(-12, 0, side * -12)),
       }),
     );
   }
-  return mergeParts(t);
+  return mergeParts(parts);
 }
-function F2(o, e) {
-  let t = [];
-  if (o === 'cresta')
-    for (let a = 0; a < 6; a++) {
-      let n = 0.4 + a * 0.28,
-        s = 0.08 + Math.sin(n) * 0.13,
-        i = Math.cos(n) * 0.1 - 0.02,
-        r = 0.05 - a * 0.004;
-      t.push(
-        paint(new ConeGeometry(0.012, r, 4), {
-          color: e,
+/** Cresta de púas en el cráneo («cresta») o gorguera a los lados («gola»). */
+function frillGeometry(kind, color) {
+  let parts = [];
+  if (kind === 'cresta')
+    for (let k = 0; k < 6; k++) {
+      let ang = 0.4 + k * 0.28,
+        y = 0.08 + Math.sin(ang) * 0.13,
+        z = Math.cos(ang) * 0.1 - 0.02,
+        len = 0.05 - k * 0.004;
+      parts.push(
+        paint(new ConeGeometry(0.012, len, 4), {
+          color,
           matrix: mat.mul(
-            mat.T(0, s, i),
-            mat.R(-Math.cos(n) * 60 - 40, 0, 0),
-            mat.T(0, r / 2, 0),
+            mat.T(0, y, z),
+            mat.R(-Math.cos(ang) * 60 - 40, 0, 0),
+            mat.T(0, len / 2, 0),
             mat.S(0.5, 1, 1.6),
           ),
         }),
       );
     }
-  else if (o === 'gola')
-    for (let a of [-1, 1])
-      for (let n = 0; n < 4; n++)
-        t.push(
-          paint(new ConeGeometry(0.01, 0.07 - n * 0.008, 4), {
-            color: e,
+  else if (kind === 'gola')
+    for (let side of [-1, 1])
+      for (let k = 0; k < 4; k++)
+        parts.push(
+          paint(new ConeGeometry(0.01, 0.07 - k * 0.008, 4), {
+            color,
             matrix: mat.mul(
-              mat.T(a * 0.07, 0.03 + n * 0.03, -0.04),
-              mat.R(0, 0, a * -(70 + n * 8)),
+              mat.T(side * 0.07, 0.03 + k * 0.03, -0.04),
+              mat.R(0, 0, side * -(70 + k * 8)),
               mat.R(-25, 0, 0),
               mat.T(0, 0.03, 0),
               mat.S(0.4, 1, 1.4),
             ),
           }),
         );
-  return mergeParts(t);
+  return mergeParts(parts);
 }
-function O2(o, e, { length: t = 1, tip: a = !0 } = {}) {
-  let n = o,
-    s = t,
-    i = [
-      jt(n.x, n.y - 0.02, n.z - 0.11),
-      jt(n.x, n.y - 0.18 * s, n.z - 0.26 * s),
-      jt(n.x + 0.1 * s, n.y - 0.5 * s, n.z - 0.36 * s),
-      jt(n.x + 0.04, n.y - 0.78 * s, n.z - 0.32 * s),
-      jt(n.x - 0.08 * s, n.y - 0.86 * s, n.z - 0.2 * s),
+/** Cola que nace en `base` (pelvis) con longitud relativa y punta de flecha opcional. */
+function tailGeometry(base, color, { length = 1, tip = !0 } = {}) {
+  let b = base,
+    len = length,
+    pts = [
+      vec3(b.x, b.y - 0.02, b.z - 0.11),
+      vec3(b.x, b.y - 0.18 * len, b.z - 0.26 * len),
+      vec3(b.x + 0.1 * len, b.y - 0.5 * len, b.z - 0.36 * len),
+      vec3(b.x + 0.04, b.y - 0.78 * len, b.z - 0.32 * len),
+      vec3(b.x - 0.08 * len, b.y - 0.86 * len, b.z - 0.2 * len),
     ],
-    r = [paint(hi(i, 0.03, 0.008, { radial: 7, segs: 18, closed: !1 }), { color: e })];
-  if (a) {
-    let l = i[i.length - 1],
-      c = new Shape();
-    (c.moveTo(0, -0.01), c.lineTo(0.035, 0.03), c.lineTo(0, 0.08), c.lineTo(-0.035, 0.03));
-    let d = new ExtrudeGeometry(c, { depth: 0.008, bevelEnabled: !1 });
-    r.push(paint(d, { color: e, matrix: mat.mul(mat.T(l.x, l.y, l.z), mat.R(0, 60, 100)) }));
+    parts = [paint(taperedTube(pts, 0.03, 0.008, { radial: 7, segs: 18, closed: !1 }), { color })];
+  if (tip) {
+    let end = pts[pts.length - 1],
+      shape = new Shape();
+    (shape.moveTo(0, -0.01), shape.lineTo(0.035, 0.03), shape.lineTo(0, 0.08), shape.lineTo(-0.035, 0.03));
+    let tipGeo = new ExtrudeGeometry(shape, { depth: 0.008, bevelEnabled: !1 });
+    parts.push(paint(tipGeo, { color, matrix: mat.mul(mat.T(end.x, end.y, end.z), mat.R(0, 60, 100)) }));
   }
-  return mergeParts(r);
+  return mergeParts(parts);
 }
-function B2(o) {
-  return (e) => {
-    let t = Math.min(1, Math.max(0, (o - e.y) / 0.6));
+/** Pesos de hueso de la cola: pelvis y muslos según la caída desde baseY. */
+function tailWeights(baseY) {
+  return (v) => {
+    let k = Math.min(1, Math.max(0, (baseY - v.y) / 0.6));
     return [
-      ['pelvis', 1 - t * 0.35],
-      ['thigh_l', t * 0.2],
-      ['thigh_r', t * 0.15],
+      ['pelvis', 1 - k * 0.35],
+      ['thigh_l', k * 0.2],
+      ['thigh_r', k * 0.15],
     ];
   };
 }
-function ru(o, e = 'y') {
-  let t = o.attributes.position;
-  o.computeBoundingBox();
-  let a = o.boundingBox,
-    n = new Float32Array(t.count * 2);
-  for (let s = 0; s < t.count; s++) {
-    let i =
-        e === 'y'
-          ? (t.getY(s) - a.min.y) / Math.max(1e-4, a.max.y - a.min.y)
-          : (t.getZ(s) - a.min.z) / Math.max(1e-4, a.max.z - a.min.z),
-      r = (Math.atan2(t.getX(s), t.getZ(s) + 0.001) / Math.PI) * 0.5 + 0.5;
-    ((n[s * 2] = 0.06 + r * 0.36), (n[s * 2 + 1] = 0.08 + i * 0.34));
+/** UV cilíndricas en la zona de pelo del atlas, a lo largo de `axis` («y» o «z»). */
+function cylindricalUv(geo, axis = 'y') {
+  let pos = geo.attributes.position;
+  geo.computeBoundingBox();
+  let box = geo.boundingBox,
+    uvs = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    let v =
+        axis === 'y'
+          ? (pos.getY(i) - box.min.y) / Math.max(1e-4, box.max.y - box.min.y)
+          : (pos.getZ(i) - box.min.z) / Math.max(1e-4, box.max.z - box.min.z),
+      u = (Math.atan2(pos.getX(i), pos.getZ(i) + 0.001) / Math.PI) * 0.5 + 0.5;
+    ((uvs[i * 2] = 0.06 + u * 0.36), (uvs[i * 2 + 1] = 0.08 + v * 0.34));
   }
-  return (o.setAttribute('uv', new BufferAttribute(n, 2)), o);
+  return (geo.setAttribute('uv', new BufferAttribute(uvs, 2)), geo);
 }
-function q2(o = 1) {
-  let e = [
-      jt(0, 0.15, -0.085),
-      jt(0, 0.13, -0.135),
-      jt(0, 0.06, -0.15),
-      jt(0, -0.04, -0.14),
-      jt(0, -0.12 * o, -0.12),
+/** Coleta con su lazo. */
+function ponytailGeometry(len = 1) {
+  let pts = [
+      vec3(0, 0.15, -0.085),
+      vec3(0, 0.13, -0.135),
+      vec3(0, 0.06, -0.15),
+      vec3(0, -0.04, -0.14),
+      vec3(0, -0.12 * len, -0.12),
     ],
-    t = hi(e, 0.03, 0.012, { radial: 8, segs: 14 }).toNonIndexed(),
-    a = new TorusGeometry(0.022, 0.007, 5, 10).toNonIndexed();
-  return (a.rotateX(Math.PI / 2 - 0.3), a.translate(0, 0.125, -0.135), ev([ru(t), ru(a)]));
-}
-function U2(o = 1) {
-  let e = [],
-    t = Math.round(9 * o);
-  for (let n = 0; n < t; n++) {
-    let s = n / (t - 1),
-      i = 0.12 - s * 0.38 * o,
-      r = -0.1 - Math.sin(s * Math.PI * 0.6) * 0.06 - s * 0.03,
-      l = 0.024 - s * 0.008,
-      c = new SphereGeometry(l, 7, 5).toNonIndexed();
-    (c.scale(1, 1.5, 0.85),
-      c.rotateZ((n % 2 ? 1 : -1) * 0.5),
-      c.translate((n % 2 ? 1 : -1) * 0.004, i, r),
-      e.push(ru(c)));
-  }
-  let a = new TorusGeometry(0.014, 0.005, 5, 10).toNonIndexed();
+    tail = taperedTube(pts, 0.03, 0.012, { radial: 8, segs: 14 }).toNonIndexed(),
+    tie = new TorusGeometry(0.022, 0.007, 5, 10).toNonIndexed();
   return (
-    a.rotateX(Math.PI / 2),
-    a.translate(0, 0.12 - 0.36 * o, -0.1 - 0.06 * Math.sin(Math.PI * 0.6) - 0.03),
-    e.push(ru(a)),
-    ev(e)
+    tie.rotateX(Math.PI / 2 - 0.3),
+    tie.translate(0, 0.125, -0.135),
+    mergeWithUv([cylindricalUv(tail), cylindricalUv(tie)])
   );
 }
-function j2() {
-  let o = [];
-  for (let e = 0; e < 9; e++) {
-    let t = -0.2 + e * 0.33,
-      a = 0.1 + Math.cos(t - 0.6) * 0.115,
-      n = Math.sin(t - 0.6) * -0.11 + 0.01,
-      s = 0.06 + Math.sin((e / 8) * Math.PI) * 0.03,
-      i = new ConeGeometry(0.018, s, 5).toNonIndexed();
-    i.scale(0.5, 1, 1.6);
-    let r = jt(0, a - 0.06, n).normalize();
-    (i.applyQuaternion(new Quaternion().setFromUnitVectors(jt(0, 1, 0), r)),
-      i.translate(0, a + r.y * s * 0.4, n + r.z * s * 0.4),
-      o.push(ru(i)));
+/** Trenza de cuentas alternas con lazo final; `len` alarga el número de cuentas. */
+function braidGeometry(len = 1) {
+  let parts = [],
+    count = Math.round(9 * len);
+  for (let k = 0; k < count; k++) {
+    let f = k / (count - 1),
+      y = 0.12 - f * 0.38 * len,
+      z = -0.1 - Math.sin(f * Math.PI * 0.6) * 0.06 - f * 0.03,
+      radius = 0.024 - f * 0.008,
+      bead = new SphereGeometry(radius, 7, 5).toNonIndexed();
+    (bead.scale(1, 1.5, 0.85),
+      bead.rotateZ((k % 2 ? 1 : -1) * 0.5),
+      bead.translate((k % 2 ? 1 : -1) * 0.004, y, z),
+      parts.push(cylindricalUv(bead)));
   }
-  return ev(o);
-}
-function ev(o) {
-  let e = [],
-    t = [],
-    a = [];
-  for (let s of o)
-    (s.attributes.normal || s.computeVertexNormals(),
-      e.push(...s.attributes.position.array),
-      t.push(...s.attributes.normal.array),
-      a.push(...s.attributes.uv.array));
-  let n = new BufferGeometry();
+  let tie = new TorusGeometry(0.014, 0.005, 5, 10).toNonIndexed();
   return (
-    n.setAttribute('position', new Float32BufferAttribute(e, 3)),
-    n.setAttribute('normal', new Float32BufferAttribute(t, 3)),
-    n.setAttribute('uv', new Float32BufferAttribute(a, 2)),
-    n
+    tie.rotateX(Math.PI / 2),
+    tie.translate(0, 0.12 - 0.36 * len, -0.1 - 0.06 * Math.sin(Math.PI * 0.6) - 0.03),
+    parts.push(cylindricalUv(tie)),
+    mergeWithUv(parts)
   );
 }
-function G2(o) {
-  return (e) => {
-    let t = Math.min(1, Math.max(0, (o + 0.08 - e.y) / 0.3));
+/** Cresta de pelo de púas. */
+function mohawkGeometry() {
+  let parts = [];
+  for (let k = 0; k < 9; k++) {
+    let ang = -0.2 + k * 0.33,
+      y = 0.1 + Math.cos(ang - 0.6) * 0.115,
+      z = Math.sin(ang - 0.6) * -0.11 + 0.01,
+      len = 0.06 + Math.sin((k / 8) * Math.PI) * 0.03,
+      spike = new ConeGeometry(0.018, len, 5).toNonIndexed();
+    spike.scale(0.5, 1, 1.6);
+    let dir = vec3(0, y - 0.06, z).normalize();
+    (spike.applyQuaternion(new Quaternion().setFromUnitVectors(vec3(0, 1, 0), dir)),
+      spike.translate(0, y + dir.y * len * 0.4, z + dir.z * len * 0.4),
+      parts.push(cylindricalUv(spike)));
+  }
+  return mergeWithUv(parts);
+}
+/** Une geometrías no indexadas con posición, normal y uv en una sola. */
+function mergeWithUv(geos) {
+  let pos = [],
+    normals = [],
+    uvs = [];
+  for (let g of geos)
+    (g.attributes.normal || g.computeVertexNormals(),
+      pos.push(...g.attributes.position.array),
+      normals.push(...g.attributes.normal.array),
+      uvs.push(...g.attributes.uv.array));
+  let geo = new BufferGeometry();
+  return (
+    geo.setAttribute('position', new Float32BufferAttribute(pos, 3)),
+    geo.setAttribute('normal', new Float32BufferAttribute(normals, 3)),
+    geo.setAttribute('uv', new Float32BufferAttribute(uvs, 2)),
+    geo
+  );
+}
+/** Pesos de hueso del pelo largo: cabeza y, por debajo, cuello y columna. */
+function hairWeights(headY) {
+  return (v) => {
+    let k = Math.min(1, Math.max(0, (headY + 0.08 - v.y) / 0.3));
     return [
-      ['Head', 1 - t],
-      ['neck_01', t * 0.4],
-      ['spine_03', t * 0.6],
+      ['Head', 1 - k],
+      ['neck_01', k * 0.4],
+      ['spine_03', k * 0.6],
     ];
   };
 }
-const Ha = (o, e, t) => {
-  let a = Math.min(1, Math.max(0, (t - o) / (e - o)));
-  return a * a * (3 - 2 * a);
+/** smoothstep de GLSL. */
+const smoothstep = (e0, e1, x) => {
+  let t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
 };
-const Xn = (o, e, t, a = 0.015) => Ha(e - a, e, o) * (1 - Ha(t, t + a, o));
-const jt = (o, e, t) => new Vector3(o, e, t);
+/** Ventana suave: 1 entre lo y hi, con bordes de anchura `soft`. */
+const band = (x, lo, hi, soft = 0.015) => smoothstep(lo - soft, lo, x) * (1 - smoothstep(hi, hi + soft, x));
+const vec3 = (x, y, z) => new Vector3(x, y, z);
 
-export { B2, F2, G2, H2, I2, N2, O2, U2, hi, j2, q2 };
+export {
+  tailWeights,
+  frillGeometry,
+  hairWeights,
+  hornsGeometry,
+  makeHeadSculpt,
+  tusksGeometry,
+  tailGeometry,
+  braidGeometry,
+  taperedTube,
+  mohawkGeometry,
+  ponytailGeometry,
+};

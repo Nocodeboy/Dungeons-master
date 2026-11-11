@@ -14,7 +14,18 @@ import {
 } from 'three';
 import { c2, d2, Gb, u2, h2, Vb, jb } from './rig.js';
 import { makeCharacterMaterial } from './materials.js';
-import { I2, H2, N2, F2, O2, B2, q2, U2, j2, G2 } from './sculpt.js';
+import {
+  makeHeadSculpt,
+  hornsGeometry,
+  tusksGeometry,
+  frillGeometry,
+  tailGeometry,
+  tailWeights,
+  ponytailGeometry,
+  braidGeometry,
+  mohawkGeometry,
+  hairWeights,
+} from './sculpt.js';
 import {
   paint,
   mergeParts,
@@ -158,7 +169,7 @@ async function buildHumanoid(o) {
     ),
     v = f,
     x = f,
-    g = I2(o.head || {}),
+    g = makeHeadSculpt(o.head || {}),
     y = [],
     w = o.outfit || {},
     k = (ie, we = {}) => {
@@ -217,9 +228,9 @@ async function buildHumanoid(o) {
   }
   if (!o.noHead && o.gear?.helmet !== 'yelmo') {
     let ie = {
-        coleta: () => q2(1),
-        trenza: () => U2(o.hairLong ?? 1),
-        cresta: () => (w.capucha ? null : j2()),
+        coleta: () => ponytailGeometry(1),
+        trenza: () => braidGeometry(o.hairLong ?? 1),
+        cresta: () => (w.capucha ? null : mohawkGeometry()),
       }[o.hair],
       we = ie && ie();
     we &&
@@ -227,7 +238,7 @@ async function buildHumanoid(o) {
       y.push({
         geometry: we,
         material: v,
-        weights: o.hair === 'cresta' ? null : G2(m.y),
+        weights: o.hair === 'cresta' ? null : hairWeights(m.y),
         bone: 'Head',
         deform: g,
         hair: !0,
@@ -449,13 +460,13 @@ async function oT(o, e, t, a, n) {
     r = (c) => c && c.translate(n.x, n.y, n.z),
     l = o.extras || {};
   if (
-    (l.horns && i(r(H2(l.horns.kind, l.horns.color, l.horns.scale || 1)), 'Head'),
-    l.tusks && i(r(N2(l.tusks)), 'Head'),
-    l.frill && i(r(F2(l.frill.kind, l.frill.color)), 'Head'),
+    (l.horns && i(r(hornsGeometry(l.horns.kind, l.horns.color, l.horns.scale || 1)), 'Head'),
+    l.tusks && i(r(tusksGeometry(l.tusks)), 'Head'),
+    l.frill && i(r(frillGeometry(l.frill.kind, l.frill.color)), 'Head'),
     l.tail)
   ) {
     let c = tn(e, 'pelvis');
-    s.push({ geometry: O2(c, l.tail.color, l.tail), material: a, weights: B2(c.y) });
+    s.push({ geometry: tailGeometry(c, l.tail.color, l.tail), material: a, weights: tailWeights(c.y) });
   }
   if (o.undead || o.gear?.kk) {
     let c = await V2();

@@ -18,7 +18,7 @@ import {
 } from 'three';
 import { makeGearMaterial } from './materials.js';
 import { paint, mergeParts, mat } from './geometry.js';
-import { hi } from './sculpt.js';
+import { taperedTube } from './sculpt.js';
 import { Character } from './character.js';
 import { Yn } from './appearance.js';
 
@@ -49,20 +49,30 @@ function Kz(o) {
     ),
       e.push(
         paint(
-          hi([Ma(s * 0.08, -0.1, 0.42), Ma(s * 0.07, -0.2, 0.44), Ma(s * 0.03, -0.25, 0.39)], 0.022, 0.003, {
-            radial: 6,
-            segs: 6,
-          }),
+          taperedTube(
+            [Ma(s * 0.08, -0.1, 0.42), Ma(s * 0.07, -0.2, 0.44), Ma(s * 0.03, -0.25, 0.39)],
+            0.022,
+            0.003,
+            {
+              radial: 6,
+              segs: 6,
+            },
+          ),
           { color: o.fang, metal: 0.3 },
         ),
       ));
   for (let s of [-1, 1])
     e.push(
       paint(
-        hi([Ma(s * 0.16, -0.02, 0.3), Ma(s * 0.22, 0.04, 0.45), Ma(s * 0.2, -0.08, 0.55)], 0.03, 0.018, {
-          radial: 6,
-          segs: 6,
-        }),
+        taperedTube(
+          [Ma(s * 0.16, -0.02, 0.3), Ma(s * 0.22, 0.04, 0.45), Ma(s * 0.2, -0.08, 0.55)],
+          0.03,
+          0.018,
+          {
+            radial: 6,
+            segs: 6,
+          },
+        ),
         { color: o.leg },
       ),
     );
@@ -134,7 +144,7 @@ function Jz(o) {
 }
 function fv(o, e, t, a, n) {
   let s = [Ma(0, 0, 0), Ma(0, o * 0.5, 0), Ma(0, o, 0)],
-    i = [paint(hi(s, e, t, { radial: 7, segs: 4, closed: !0 }), { color: a.leg, vary: 0.08 })];
+    i = [paint(taperedTube(s, e, t, { radial: 7, segs: 4, closed: !0 }), { color: a.leg, vary: 0.08 })];
   (i.push(paint(new SphereGeometry(e * 1.15, 7, 5), { color: a.leg })),
     n &&
       i.push(
