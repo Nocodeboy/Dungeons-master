@@ -1,18 +1,27 @@
-// story/story.js
-// Reconstruido de publicado/juego.js (módulo __esm «bE»). Nombres locales aún minificados.
+// story/story.js — La historia del capítulo (clase Story, game.story).
+// Extiende StoryRunner con lo que conecta la historia con el juego: conversaciones con PNJ y grupos de
+// enemigos, objetos del nivel, disparadores y regresos al entrar en un nivel, consecuencias de los combates
+// (datos battles), botín con banderas, trampas, charlas entre compañeros, escenas de campamento al descansar,
+// prólogo y epílogo, y guardado del estado de historia. Los flujos van de uno en uno (`exclusive`).
+// La crea story/index.js; la usan explore/ (talk, interact, trigger, afterBattle, banter, rest) y ui/.
 
 import { StoryRunner } from './runner.js';
 
-const pn = (o) => (o == null ? [] : Array.isArray(o) ? o : [o]);
-const gE = 6e4;
-const OD = 15e3;
+/** Valor o lista → lista. */
+const toList = (value) => (value == null ? [] : Array.isArray(value) ? value : [value]);
+/** Separación mínima entre charlas de compañeros (ms). */
+const BANTER_GAP = 6e4;
+/** Espera antes de repetir la conversación con un grupo de enemigos (ms). */
+const GROUP_TALK_COOLDOWN = 15e3;
+/** Historia del capítulo sobre el motor de diálogos. */
 const Story = class extends StoryRunner {
-  constructor(e, t, a) {
-    (super(e, t, a),
+  /** Enlaza `this` en los métodos que se pasan como funciones sueltas (explore/ y ui/). */
+  constructor(game, data, opts) {
+    (super(game, data, opts),
       (this._lock = Promise.resolve()),
       (this._inFlow = !1),
-      (this._lastBanter = this.now() - gE + 45e3));
-    for (let n of [
+      (this._lastBanter = this.now() - BANTER_GAP + 45e3));
+    for (let method of [
       'talk',
       'has',
       'interact',
@@ -32,47 +41,48 @@ const Story = class extends StoryRunner {
       'text',
       'describe',
     ])
-      this[n] = this[n].bind(this);
+      this[method] = this[method].bind(this);
   }
+  /** Engancha los oyentes del bus (partida, banderas, sigilo, combate, nivel, descanso, trampas, botín). */
   attach() {
-    let e = this.game.bus;
-    if (!e || this._attached) return;
+    let bus = this.game.bus;
+    if (!bus || this._attached) return;
     this._attached = !0;
-    let t = () => {
+    let initQuests = () => {
       this.st;
-      for (let [n] of Object.entries(this.data.quests || {})) {
-        let s = (this.st.quests[n] ??= { state: 'none', steps: {} });
-        s.state = this.questState(n);
+      for (let [id] of Object.entries(this.data.quests || {})) {
+        let saved = (this.st.quests[id] ??= { state: 'none', steps: {} });
+        saved.state = this.questState(id);
       }
     };
-    (e.on('game:start', () => {
-      (t(), this.syncQuests());
+    (bus.on('game:start', () => {
+      (initQuests(), this.syncQuests());
     }),
-      e.on('game:loaded', t));
-    let a = !1;
-    (e.on('flag:set', (n) => {
+      bus.on('game:loaded', initQuests));
+    let syncPending = !1;
+    (bus.on('flag:set', (data) => {
       if (
-        n?.value === !0 &&
-        this.data.flags?.[n.name]?.values &&
-        this.st.decisions?.[n.name] !== void 0 &&
-        this.st.decisions[n.name] !== !0
+        data?.value === !0 &&
+        this.data.flags?.[data.name]?.values &&
+        this.st.decisions?.[data.name] !== void 0 &&
+        this.st.decisions[data.name] !== !0
       ) {
-        let s = this.st.decisions[n.name];
-        queueMicrotask(() => this.setFlag(n.name, s));
+        let decided = this.st.decisions[data.name];
+        queueMicrotask(() => this.setFlag(data.name, decided));
       }
-      a ||
-        ((a = !0),
+      syncPending ||
+        ((syncPending = !0),
         queueMicrotask(() => {
-          ((a = !1), this.syncQuests());
+          ((syncPending = !1), this.syncQuests());
         }));
     }),
-      e.on('stealth:on', () => (this._stealth = !0)),
-      e.on('stealth:off', () => (this._stealth = !1)),
-      e.on('spotted', () => (this._stealth = !1)),
-      e.on('battle:start', () => this._battleSeq++),
-      e.on('battle:end', (n) => this.battleState(n || {})),
-      e.on('level:enter', (n) => this.onLevelEnter(n || {})),
-      e.on('rest:long', () => {
+      bus.on('stealth:on', () => (this._stealth = !0)),
+      bus.on('stealth:off', () => (this._stealth = !1)),
+      bus.on('spotted', () => (this._stealth = !1)),
+      bus.on('battle:start', () => this._battleSeq++),
+      bus.on('battle:end', (data) => this.battleState(data || {})),
+      bus.on('level:enter', (data) => this.onLevelEnter(data || {})),
+      bus.on('rest:long', () => {
         this.now() - this._lastRest > 5e3 &&
           setTimeout(
             () =>
@@ -80,193 +90,208 @@ const Story = class extends StoryRunner {
             400,
           );
       }),
-      e.on('trap:triggered', (n) => this.onTrap(n, 'triggered')),
-      e.on('trap:disarmed', (n) => this.onTrap(n, 'disarmed')),
-      e.on('hidden:found', (n) => this.onTrap(n, 'found')),
-      e.on('loot:taken', (n) => this.onLoot(n || {})),
-      e.on(
+      bus.on('trap:triggered', (data) => this.onTrap(data, 'triggered')),
+      bus.on('trap:disarmed', (data) => this.onTrap(data, 'disarmed')),
+      bus.on('hidden:found', (data) => this.onTrap(data, 'found')),
+      bus.on('loot:taken', (data) => this.onLoot(data || {})),
+      bus.on(
         'item:gain',
-        (n) => n?.id && n.source !== 'story' && this.onLoot({ items: [{ id: n.id, n: n.n }] }),
+        (data) => data?.id && data.source !== 'story' && this.onLoot({ items: [{ id: data.id, n: data.n }] }),
       ));
   }
-  async exclusive(e) {
-    if (this._inFlow) return e();
-    let t = this._lock,
-      a;
-    ((this._lock = new Promise((n) => (a = n))), await t, (this._inFlow = !0));
+  /** Ejecuta `fn` sin solaparse con otro flujo de historia (cola con promesas; reentrante). */
+  async exclusive(fn) {
+    if (this._inFlow) return fn();
+    let previous = this._lock,
+      release;
+    ((this._lock = new Promise((resolve) => (release = resolve))), await previous, (this._inFlow = !0));
     try {
-      return await e();
+      return await fn();
     } finally {
-      ((this._inFlow = !1), a());
+      ((this._inFlow = !1), release());
     }
   }
-  async talk(e, t = {}) {
-    return this.data.groups?.[e] || t.kind === 'group'
-      ? this.talkGroup(e, t)
-      : this.dialogs[e]
-        ? this.exclusive(() => this.run(e, t))
+  /** Habla con un PNJ o con un grupo de enemigos (si `id` es un grupo). */
+  async talk(id, ctx = {}) {
+    return this.data.groups?.[id] || ctx.kind === 'group'
+      ? this.talkGroup(id, ctx)
+      : this.dialogs[id]
+        ? this.exclusive(() => this.run(id, ctx))
         : !1;
   }
-  async interact({ object: e, level: t, actor: a, kind: n, ...s } = {}) {
-    let i = typeof e == 'string' ? e : e?.id || e?.group;
-    if (!i || !this.cp) return !1;
-    let r = t || this.levelId(),
-      l = { ...s, level: r, actor: a, kind: n, object: i },
-      c = s.group || (n === 'group' ? i : null) || (typeof e == 'object' && e?.group);
-    if (c || this.data.groups?.[i]) return this.talkGroup(c || i, l);
-    let d = this.data.objects?.[`${r}.${i}`] || this.data.objects?.[i],
-      u = typeof e == 'object' ? e?.companion : null;
-    return u && this.dialogs[u] && !d
-      ? this.exclusive(() => this.run(u, l))
-      : (n === 'npc' || !d) && this.dialogs[i]
-        ? this.exclusive(() => this.run(i, l))
-        : !d || (d.if && !this.test(d.if, l))
+  /**
+   * Interacción con un objeto, PNJ, compañero o grupo del nivel.
+   * @returns {Promise<boolean>} si la historia se ha ocupado (la exploración no hace lo suyo)
+   */
+  async interact({ object, level, actor, kind, ...rest } = {}) {
+    let id = typeof object == 'string' ? object : object?.id || object?.group;
+    if (!id || !this.cp) return !1;
+    let levelKey = level || this.levelId(),
+      ctx = { ...rest, level: levelKey, actor, kind, object: id },
+      group = rest.group || (kind === 'group' ? id : null) || (typeof object == 'object' && object?.group);
+    if (group || this.data.groups?.[id]) return this.talkGroup(group || id, ctx);
+    let def = this.data.objects?.[`${levelKey}.${id}`] || this.data.objects?.[id],
+      companion = typeof object == 'object' ? object?.companion : null;
+    return companion && this.dialogs[companion] && !def
+      ? this.exclusive(() => this.run(companion, ctx))
+      : (kind === 'npc' || !def) && this.dialogs[id]
+        ? this.exclusive(() => this.run(id, ctx))
+        : !def || (def.if && !this.test(def.if, ctx))
           ? !1
           : this.exclusive(async () => {
-              if (d.dialog)
+              if (def.dialog)
                 return (
                   (this._proceed = !1),
-                  await this.run(d.dialog, { ...l, ...(d.ctx || {}) }),
+                  await this.run(def.dialog, { ...ctx, ...(def.ctx || {}) }),
                   !this._proceed
                 );
-              let h = `obj.${r}.${i}`,
-                p = this.objectLines(d, l);
-              return p.length && (!d.once || !this.st.once[h])
-                ? ((this.st.once[h] = 1),
-                  await this.narrateLines(p, { title: d.title || '' }),
-                  await this.apply(d.do),
+              let onceKey = `obj.${levelKey}.${id}`,
+                lines = this.objectLines(def, ctx);
+              return lines.length && (!def.once || !this.st.once[onceKey])
+                ? ((this.st.once[onceKey] = 1),
+                  await this.narrateLines(lines, { title: def.title || '' }),
+                  await this.apply(def.do),
                   this.syncQuests(),
-                  d.own !== !1)
-                : d.own === !0 && !d.once;
+                  def.own !== !1)
+                : def.own === !0 && !def.once;
             });
   }
-  objectLines(e, t = {}) {
-    let a = pn(e.variants).find((n) => this.test(n.if, t));
-    return pn(a ? a.lines : e.lines).filter((n) => typeof n == 'string' || this.test(n.if, t));
+  /** Líneas de un objeto o escena (la primera variante cuya condición se cumple). */
+  objectLines(def, ctx = {}) {
+    let variant = toList(def.variants).find((v) => this.test(v.if, ctx));
+    return toList(variant ? variant.lines : def.lines).filter((line) => typeof line == 'string' || this.test(line.if, ctx));
   }
-  describe(e, t = this.levelId()) {
-    let a = this.data.objects?.[`${t}.${e}`] || this.data.objects?.[e];
-    return a ? this.text(this.objectLines(a)) : '';
+  /** Descripción de un objeto del nivel. */
+  describe(id, level = this.levelId()) {
+    let def = this.data.objects?.[`${level}.${id}`] || this.data.objects?.[id];
+    return def ? this.text(this.objectLines(def)) : '';
   }
-  async talkGroup(e, t = {}) {
-    let a = this.data.groups?.[e];
-    if (!a || !this.cp || !this.test(a.if, t)) return !1;
-    let n = this._groupCooldown.get(e);
-    return n && this.now() - n < OD
+  /** Conversación con un grupo de enemigos (con espera tras hablar si no hubo combate ni huida). */
+  async talkGroup(id, ctx = {}) {
+    let group = this.data.groups?.[id];
+    if (!group || !this.cp || !this.test(group.if, ctx)) return !1;
+    let last = this._groupCooldown.get(id);
+    return last && this.now() - last < GROUP_TALK_COOLDOWN
       ? !0
       : this.exclusive(async () => {
           this._groupOutcome = null;
-          let s = !!(t.stealth || this._stealth),
-            i = await this.run(a.dialog, { ...t, group: e, stealth: s });
-          return (i && !this._groupOutcome && this._groupCooldown.set(e, this.now()), i);
+          let stealth = !!(ctx.stealth || this._stealth),
+            ran = await this.run(group.dialog, { ...ctx, group: id, stealth });
+          return (ran && !this._groupOutcome && this._groupCooldown.set(id, this.now()), ran);
         });
   }
-  async trigger(e, { level: t, trigger: a } = {}) {
-    let n = t || this.levelId(),
-      s = this.data.triggers?.[`${n}.${e}`] || this.data.triggers?.[e];
-    if (!s || !this.cp) return !1;
-    if (s.if && !this.test(s.if, { level: n })) return s.consume === !0;
-    let i = `trg.${n}.${e}`;
-    return s.once !== !1 && this.st.once[i]
+  /** Dispara un disparador del nivel (una vez, salvo `once: false`). */
+  async trigger(id, { level, trigger } = {}) {
+    let levelKey = level || this.levelId(),
+      def = this.data.triggers?.[`${levelKey}.${id}`] || this.data.triggers?.[id];
+    if (!def || !this.cp) return !1;
+    if (def.if && !this.test(def.if, { level: levelKey })) return def.consume === !0;
+    let onceKey = `trg.${levelKey}.${id}`;
+    return def.once !== !1 && this.st.once[onceKey]
       ? !0
       : this.exclusive(
           async () => (
-            (this.st.once[i] = 1),
-            await this.playScene(s, { level: n, trigger: a, tkey: `${n}.${e}` }),
+            (this.st.once[onceKey] = 1),
+            await this.playScene(def, { level: levelKey, trigger, tkey: `${levelKey}.${id}` }),
             !0
           ),
         );
   }
-  async playScene(e, t = {}) {
-    if (e.narrate || e.lines) {
-      let n = this.objectLines(e, t),
-        s = e.narrate ? await this.narrate(e.narrate, { fallback: n, level: t.level, ctx: t }) : this.text(n);
-      s && (await this.narrateLines([s], { title: this.text(e.title || '') }));
+  /** Escena de disparador o regreso: narración, efectos, diálogo, efectos aplazados y consejo/pista. */
+  async playScene(scene, ctx = {}) {
+    if (scene.narrate || scene.lines) {
+      let lines = this.objectLines(scene, ctx),
+        text = scene.narrate ? await this.narrate(scene.narrate, { fallback: lines, level: ctx.level, ctx }) : this.text(lines);
+      text && (await this.narrateLines([text], { title: this.text(scene.title || '') }));
     }
-    (e.do && (await this.apply(e.do)), e.dialog && (await this.run(e.dialog, t)));
-    let a = this._deferred.splice(0);
-    for (let n of a) await this.runDeferred(n);
-    if ((e.tip && this.tips?.fire(e.tip), e.hint)) {
-      let n = this.text(e.hint);
-      if (this.tips) this.tips.hint(n, t.tkey ? `hint:${t.tkey}` : null);
+    (scene.do && (await this.apply(scene.do)), scene.dialog && (await this.run(scene.dialog, ctx)));
+    let deferred = this._deferred.splice(0);
+    for (let effect of deferred) await this.runDeferred(effect);
+    if ((scene.tip && this.tips?.fire(scene.tip), scene.hint)) {
+      let hint = this.text(scene.hint);
+      if (this.tips) this.tips.hint(hint, ctx.tkey ? `hint:${ctx.tkey}` : null);
       else
         try {
-          this.game.ui?.hud?.hint ? this.game.ui.hud.hint(n) : this.toast(n, 'info');
+          this.game.ui?.hud?.hint ? this.game.ui.hud.hint(hint) : this.toast(hint, 'info');
         } catch {
-          this.toast(n, 'info');
+          this.toast(hint, 'info');
         }
     }
     this.syncQuests();
   }
-  battleState({ group: e, groups: t, won: a, fled: n }) {
+  /** Aplica las consecuencias de un combate terminado (bandera, onWin/onFlee). */
+  battleState({ group, groups, won, fled }) {
     if (this.cp) {
-      for (let s of t?.length ? t : [e]) {
-        let i = this.data.battles?.[s];
-        if (i) {
-          if (a) {
-            i.flag && this.setFlag(i.flag, !0);
-            for (let r of pn(i.onWin)) this._syncEffect(r);
-          } else if (n) for (let r of pn(i.onFlee)) this._syncEffect(r);
+      for (let id of groups?.length ? groups : [group]) {
+        let battle = this.data.battles?.[id];
+        if (battle) {
+          if (won) {
+            battle.flag && this.setFlag(battle.flag, !0);
+            for (let effect of toList(battle.onWin)) this._syncEffect(effect);
+          } else if (fled) for (let effect of toList(battle.onFlee)) this._syncEffect(effect);
         }
       }
       this.syncQuests();
     }
   }
-  _syncEffect(e) {
-    if (e && typeof e == 'object' && e.if !== void 0) {
-      for (let a of pn(this.test(e.if) ? e.do : e.else)) this._syncEffect(a);
+  /** Aplica al momento un efecto sencillo (decision, set, unset, give, place) o lo pasa a `apply`. */
+  _syncEffect(effect) {
+    if (effect && typeof effect == 'object' && effect.if !== void 0) {
+      for (let sub of toList(this.test(effect.if) ? effect.do : effect.else)) this._syncEffect(sub);
       return;
     }
-    let t = String(e);
-    if (t.startsWith('decision:')) {
-      let [a, n] = t.slice(9).split('=');
-      this.decide(a, n === void 0 || n === 'true' ? !0 : n);
-    } else if (t.startsWith('set:')) {
-      let [a, n] = t.slice(4).split('=');
-      this.setFlag(a, n === void 0 || n === 'true' ? !0 : n === 'false' ? !1 : n);
-    } else if (t.startsWith('unset:')) this.cp?.flags && delete this.cp.flags[t.slice(6)];
-    else if (t.startsWith('give:')) {
-      let [a, n] = t.slice(5).split('*');
-      this.giveItem(a, Number(n || 1));
-    } else t.startsWith('place:') ? this.setFlag(`place_${t.slice(6)}`, !0) : this.apply([e]);
+    let text = String(effect);
+    if (text.startsWith('decision:')) {
+      let [name, value] = text.slice(9).split('=');
+      this.decide(name, value === void 0 || value === 'true' ? !0 : value);
+    } else if (text.startsWith('set:')) {
+      let [name, value] = text.slice(4).split('=');
+      this.setFlag(name, value === void 0 || value === 'true' ? !0 : value === 'false' ? !1 : value);
+    } else if (text.startsWith('unset:')) this.cp?.flags && delete this.cp.flags[text.slice(6)];
+    else if (text.startsWith('give:')) {
+      let [item, count] = text.slice(5).split('*');
+      this.giveItem(item, Number(count || 1));
+    } else text.startsWith('place:') ? this.setFlag(`place_${text.slice(6)}`, !0) : this.apply([effect]);
   }
-  async afterBattle({ group: e, groups: t, won: a, fled: n, level: s, _seq: i } = {}) {
-    let r = `${e}#${this._battleSeq}`;
-    if (this._afterHandled.has(r)) return !0;
-    (this._afterHandled.add(r),
-      i !== void 0 && this._afterHandled.add(`${e}#${i}`),
-      this.battleState({ group: e, groups: t, won: a, fled: n }));
-    let l = this.data.battles?.[e];
-    return !l || !this.cp
+  /** Narración y diálogo posteriores a un combate (una vez por combate). */
+  async afterBattle({ group, groups, won, fled, level, _seq: seq } = {}) {
+    let key = `${group}#${this._battleSeq}`;
+    if (this._afterHandled.has(key)) return !0;
+    (this._afterHandled.add(key),
+      seq !== void 0 && this._afterHandled.add(`${group}#${seq}`),
+      this.battleState({ group, groups, won, fled }));
+    let battle = this.data.battles?.[group];
+    return !battle || !this.cp
       ? !1
       : this.exclusive(async () => {
-          if (((this._groupOutcome = 'battle'), a)) {
-            let d = this.objectLines({ lines: l.after, variants: l.variants });
-            if (d.length || l.narrate) {
-              let u = l.narrate
-                ? await this.narrate(l.narrate, { fallback: d, level: s, group: e, ctx: { group: e } })
-                : this.text(d);
-              u && (await this.narrateLines([u], { title: this.text(l.title || '') }));
+          if (((this._groupOutcome = 'battle'), won)) {
+            let lines = this.objectLines({ lines: battle.after, variants: battle.variants });
+            if (lines.length || battle.narrate) {
+              let text = battle.narrate
+                ? await this.narrate(battle.narrate, { fallback: lines, level, group, ctx: { group } })
+                : this.text(lines);
+              text && (await this.narrateLines([text], { title: this.text(battle.title || '') }));
             }
-            (l.then && (await this.apply(l.then)),
-              l.dialog && this.test(l.dialogIf) && (await this.run(l.dialog, { level: s, after: e })));
-          } else n && l.fled && (await this.narrateLines(this.objectLines({ lines: l.fled })));
+            (battle.then && (await this.apply(battle.then)),
+              battle.dialog && this.test(battle.dialogIf) && (await this.run(battle.dialog, { level, after: group })));
+          } else fled && battle.fled && (await this.narrateLines(this.objectLines({ lines: battle.fled })));
           (await this.flushReactions(), await this.flushLeaves(), this.syncQuests());
-          let c = this._deferred.splice(0);
-          for (let d of c) await this.runDeferred(d);
+          let deferred = this._deferred.splice(0);
+          for (let effect of deferred) await this.runDeferred(effect);
           return !0;
         });
   }
-  async onLevelEnter({ level: e }) {
-    if (!(!this.cp || !e)) {
-      e === 'tumulo' && !this.flag('tumulo_entered') && this.setFlag('tumulo_entered', !0);
-      for (let t of pn(this.data.returns))
-        if (!(t.level !== e || this.st.once[`ret.${t.id}`] || !this.test(t.if, { level: e }))) {
-          ((this.st.once[`ret.${t.id}`] = 1),
-            setTimeout(() => this.exclusive(() => this.playScene(t, { level: e })), t.delay ?? 1200));
+  /** Al entrar en un nivel: escenas de regreso y subida a nivel 3 tras Kesh. */
+  async onLevelEnter({ level }) {
+    if (!(!this.cp || !level)) {
+      level === 'tumulo' && !this.flag('tumulo_entered') && this.setFlag('tumulo_entered', !0);
+      for (let ret of toList(this.data.returns))
+        if (!(ret.level !== level || this.st.once[`ret.${ret.id}`] || !this.test(ret.if, { level }))) {
+          ((this.st.once[`ret.${ret.id}`] = 1),
+            setTimeout(() => this.exclusive(() => this.playScene(ret, { level })), ret.delay ?? 1200));
           break;
         }
-      e !== 'kesh' &&
+      level !== 'kesh' &&
         this.flag('kesh_done') &&
         this.level() < 3 &&
         !this.st.once.lvl3 &&
@@ -283,80 +308,85 @@ const Story = class extends StoryRunner {
         ));
     }
   }
-  onTrap(e, t) {
-    let a = typeof e?.object == 'string' ? e.object : e?.object?.id;
-    if (!a) return;
-    let n = this.levelId();
-    n === 'tumulo' &&
-      (a === 'trap_1' || a === 'trap_2') &&
-      t !== 'found' &&
-      this.setFlag(`tumulo_traps_${a.slice(-1)}`, t === 'disarmed' ? 'disarmed' : 'sprung');
-    let s = this.data.objects?.[`${n}.${a}`] || this.data.objects?.[a],
-      i = s?.[t];
-    if ((i && this.toast(this.text(i), t === 'triggered' ? 'mal' : 'info'), t === 'triggered' && s?.say)) {
-      let r = pn(s.say).find((l) => this.inParty(l.who) && this.test(l.if));
-      r && setTimeout(() => this.game.explore?.say?.(r.who, this.text(r.text)), 900);
+  /** Trampas encontradas, desactivadas o disparadas: banderas del túmulo, avisos y comentarios. */
+  onTrap(data, what) {
+    let id = typeof data?.object == 'string' ? data.object : data?.object?.id;
+    if (!id) return;
+    let levelKey = this.levelId();
+    levelKey === 'tumulo' &&
+      (id === 'trap_1' || id === 'trap_2') &&
+      what !== 'found' &&
+      this.setFlag(`tumulo_traps_${id.slice(-1)}`, what === 'disarmed' ? 'disarmed' : 'sprung');
+    let def = this.data.objects?.[`${levelKey}.${id}`] || this.data.objects?.[id],
+      msg = def?.[what];
+    if ((msg && this.toast(this.text(msg), what === 'triggered' ? 'mal' : 'info'), what === 'triggered' && def?.say)) {
+      let line = toList(def.say).find((entry) => this.inParty(entry.who) && this.test(entry.if));
+      line && setTimeout(() => this.game.explore?.say?.(line.who, this.text(line.text)), 900);
     }
   }
-  onLoot({ items: e }) {
-    for (let t of pn(e)) {
-      let a = typeof t == 'string' ? t : t?.id,
-        n = this.data.lootFlags?.[a];
-      if (n) for (let s of pn(n)) this._syncEffect(s);
+  /** Banderas asociadas al botín (datos lootFlags). */
+  onLoot({ items }) {
+    for (let item of toList(items)) {
+      let id = typeof item == 'string' ? item : item?.id,
+        effects = this.data.lootFlags?.[id];
+      if (effects) for (let effect of toList(effects)) this._syncEffect(effect);
     }
     this.syncQuests();
   }
-  banter(e = {}) {
+  /** Siguiente charla de compañeros disponible (o null); emite «banter». */
+  banter(opts = {}) {
     if (this.active || !this.cp || this._inFlow) return null;
-    let t = this.now();
-    if (t - this._lastBanter < (e.gap ?? gE)) return null;
-    let a = e.level || this.levelId(),
-      n = this.st,
-      s = pn(this.data.banter).find(
-        (r) =>
-          !n.banter[r.id] &&
-          (!r.where || pn(r.where).includes(a)) &&
-          r.lines.every((l) => this.inParty(l.who)) &&
-          this.test(r.if, { level: a }),
+    let now = this.now();
+    if (now - this._lastBanter < (opts.gap ?? BANTER_GAP)) return null;
+    let levelKey = opts.level || this.levelId(),
+      st = this.st,
+      chat = toList(this.data.banter).find(
+        (candidate) =>
+          !st.banter[candidate.id] &&
+          (!candidate.where || toList(candidate.where).includes(levelKey)) &&
+          candidate.lines.every((line) => this.inParty(line.who)) &&
+          this.test(candidate.if, { level: levelKey }),
       );
-    if (!s) return null;
-    ((n.banter[s.id] = this.day()), (this._lastBanter = t));
-    let i = s.lines.map((r) => ({ who: r.who, name: this.companion(r.who).name, text: this.text(r.text) }));
-    if ((this.game.bus?.emit('banter', { id: s.id, lines: i }), e.show && !this.game.explore?.say))
-      for (let r of i) this.toast(`${r.name}: ${r.text}`, 'info');
-    return i;
+    if (!chat) return null;
+    ((st.banter[chat.id] = this.day()), (this._lastBanter = now));
+    let lines = chat.lines.map((line) => ({ who: line.who, name: this.companion(line.who).name, text: this.text(line.text) }));
+    if ((this.game.bus?.emit('banter', { id: chat.id, lines }), opts.show && !this.game.explore?.say))
+      for (let line of lines) this.toast(`${line.name}: ${line.text}`, 'info');
+    return lines;
   }
-  async rest({ kind: e = 'largo', where: t } = {}) {
-    return !['largo', 'long'].includes(e) || !this.cp || this.now() - this._lastRest < 5e3
+  /** Descanso largo con narración y, si hay, una escena de campamento. */
+  async rest({ kind = 'largo', where } = {}) {
+    return !['largo', 'long'].includes(kind) || !this.cp || this.now() - this._lastRest < 5e3
       ? !1
       : ((this._lastRest = this.now()),
         this.exclusive(async () => {
-          let a = t || (this.levelId() === 'merrowick' ? 'posada' : 'campamento'),
-            n = await this.narrate('rest', { place: a, level: this.levelId(), ctx: { place: a } });
-          n && (await this.narrateLines([n]));
-          let s = this.st,
-            r = Object.values(this.dialogs)
-              .filter((l) => l.camp)
-              .sort((l, c) => (l.camp.order ?? 99) - (c.camp.order ?? 99))
-              .find((l) => !s.camp[l.id] && this.test(l.camp.if, { place: a }));
-          return (r && ((s.camp[r.id] = this.day()), await this.run(r.id, { place: a })), !0);
+          let place = where || (this.levelId() === 'merrowick' ? 'posada' : 'campamento'),
+            text = await this.narrate('rest', { place, level: this.levelId(), ctx: { place } });
+          text && (await this.narrateLines([text]));
+          let st = this.st,
+            dialog = Object.values(this.dialogs)
+              .filter((d) => d.camp)
+              .sort((x, y) => (x.camp.order ?? 99) - (y.camp.order ?? 99))
+              .find((d) => !st.camp[d.id] && this.test(d.camp.if, { place }));
+          return (dialog && ((st.camp[dialog.id] = this.day()), await this.run(dialog.id, { place })), !0);
         }));
   }
+  /** Prólogo: relato (pantalla «relato») y diálogo «prologue». */
   async prologue() {
     return this.cp
       ? this.exclusive(async () => {
-          let e = this.data.prologue || {},
-            t = this.objectLines({ lines: e.lines }),
-            a = this.game.ui;
+          let def = this.data.prologue || {},
+            lines = this.objectLines({ lines: def.lines }),
+            ui = this.game.ui;
           return (
-            a?.has?.('relato')
-              ? await a.open('relato', {
-                  title: e.title,
-                  place: this.text(e.place),
-                  paragraphs: t.map((n) => this.text(n)),
+            ui?.has?.('relato')
+              ? await ui.open('relato', {
+                  title: def.title,
+                  place: this.text(def.place),
+                  paragraphs: lines.map((line) => this.text(line)),
                   button: 'Continuar',
                 })
-              : await this.narrateLines(t, { title: e.title }),
+              : await this.narrateLines(lines, { title: def.title }),
             this.dialogs.prologue && (await this.run('prologue', { level: 'camino' })),
             this.setFlag('prologue_done', !0),
             this.syncQuests(),
@@ -365,65 +395,70 @@ const Story = class extends StoryRunner {
         })
       : !1;
   }
+  /** Láminas del epílogo según las decisiones y el cierre narrado. */
   epilogue() {
-    let e = this.data.epilogue || {},
-      t = [];
-    for (let n of pn(e.slides)) {
-      if (n.if && !this.test(n.if, {})) continue;
-      let s = pn(n.variants).find((l) => this.test(l.if, {}));
-      if (!s) continue;
-      let i = pn(n.extras)
-          .filter((l) => this.test(l.if, {}))
-          .map((l) => this.text(l.text)),
-        r = [this.text(s.text), ...i].filter(Boolean).join(`
+    let def = this.data.epilogue || {},
+      slides = [];
+    for (let slide of toList(def.slides)) {
+      if (slide.if && !this.test(slide.if, {})) continue;
+      let variant = toList(slide.variants).find((v) => this.test(v.if, {}));
+      if (!variant) continue;
+      let extras = toList(slide.extras)
+          .filter((extra) => this.test(extra.if, {}))
+          .map((extra) => this.text(extra.text)),
+        text = [this.text(variant.text), ...extras].filter(Boolean).join(`
 
 `);
-      t.push({ id: n.id, title: this.text(n.title), text: r });
+      slides.push({ id: slide.id, title: this.text(slide.title), text });
     }
-    let a = this.st.narr['epilogue|final'] || this.text(pn(e.closing));
+    let closing = this.st.narr['epilogue|final'] || this.text(toList(def.closing));
     return {
-      title: this.text(e.title || 'Ep\xEDlogo'),
-      subtitle: this.text(e.subtitle || ''),
-      slides: t,
-      closing: a,
+      title: this.text(def.title || 'Ep\xEDlogo'),
+      subtitle: this.text(def.subtitle || ''),
+      slides,
+      closing,
     };
   }
+  /** Cierra el capítulo: narración final, guardado y escena «ending» (o láminas como diálogo). */
   async playEpilogue() {
     if (!this.cp) return;
-    let e = pn(this.data.epilogue?.closing),
-      t = await this.narrate('epilogue', { fallback: e, key: 'final' });
-    (t && (this.st.narr['epilogue|final'] = t), this.setFlag('chapter1_done', !0), this.syncQuests());
-    let a = this.epilogue();
+    let closingLines = toList(this.data.epilogue?.closing),
+      closing = await this.narrate('epilogue', { fallback: closingLines, key: 'final' });
+    (closing && (this.st.narr['epilogue|final'] = closing), this.setFlag('chapter1_done', !0), this.syncQuests());
+    let epilogue = this.epilogue();
     try {
       await this.store.save?.('auto');
     } catch {}
     if (this.game.scenes?.registry?.has?.('ending')) {
-      await this.game.go('ending', { epilogue: a });
+      await this.game.go('ending', { epilogue });
       return;
     }
-    for (let n of a.slides) await this.narrateLines([n.text], { title: n.title });
-    await this.narrateLines([a.closing], {
-      title: a.subtitle || 'Fin del cap\xEDtulo 1',
+    for (let slide of epilogue.slides) await this.narrateLines([slide.text], { title: slide.title });
+    await this.narrateLines([epilogue.closing], {
+      title: epilogue.subtitle || 'Fin del cap\xEDtulo 1',
       last: { text: 'Fin', kind: 'end' },
     });
   }
-  codex(e) {
-    return this.lore ? this.lore.list(e) : [];
+  /** Atajos al libro de saber (story.lore). */
+  codex(opts) {
+    return this.lore ? this.lore.list(opts) : [];
   }
-  codexEntry(e) {
-    return this.lore?.entry(e) || null;
+  codexEntry(id) {
+    return this.lore?.entry(id) || null;
   }
-  codexRead(e) {
-    this.lore?.read(e);
+  codexRead(id) {
+    this.lore?.read(id);
   }
+  /** Copia del estado de historia (para guardar aparte). */
   save() {
     return JSON.parse(JSON.stringify(this.st));
   }
-  load(e) {
+  /** Restaura el estado de historia y recalcula las misiones. */
+  load(saved) {
     if (this.cp) {
-      (e && typeof e == 'object' && (this.cp.story = JSON.parse(JSON.stringify(e))), this.st);
-      for (let t of Object.keys(this.data.quests || {}))
-        (this.st.quests[t] ??= { state: 'none', steps: {} }).state = this.questState(t);
+      (saved && typeof saved == 'object' && (this.cp.story = JSON.parse(JSON.stringify(saved))), this.st);
+      for (let id of Object.keys(this.data.quests || {}))
+        (this.st.quests[id] ??= { state: 'none', steps: {} }).state = this.questState(id);
     }
   }
 };
