@@ -19,7 +19,7 @@ import { Beam, RingWave, Dome, LightPillar, HexWave, RuneCircle, SlashArc, Decal
 import { getStyle, resolveStyleKey, DAMAGE_STYLE } from './styles.js';
 import efectosConjuros from '../datos/efectos/conjuros.json';
 import { FS, OS } from './spells.js';
-import { Nm } from './conditions.js';
+import { AuraEffects } from './conditions.js';
 import { ZoneEffects } from './zones.js';
 
 function rsphere(o = 1, e = Oa()) {
@@ -1226,7 +1226,7 @@ function createVfx({
       },
     };
   return (
-    (v.auras = new Nm(v)),
+    (v.auras = new AuraEffects(v)),
     (v.zones = new ZoneEffects(v)),
     (v.aura = (x, g, y, w) => v.auras.set(x, g, y, w)),
     (v.zone = (x, g, y, w) => v.zones.zone(x, g, y, w)),
