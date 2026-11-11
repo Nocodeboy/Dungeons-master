@@ -16,12 +16,19 @@
 //   (callbacks) no cuentan: sus enlaces pertenecen a la función con nombre que las contiene.
 // - Si varios enlaces casan con la misma clave se renombran todos; «n#k» elige el k-ésimo (desde 1)
 //   en orden de aparición. Una clave «#k» manda sobre la genérica.
-// - El mapa es idempotente: los nombres ya aplicados se reconocen y se saltan, también en las rutas.
+// - El mapa es idempotente: una clave cuyo nombre viejo ya no existe en su ámbito pero sí el nuevo
+//   se da por aplicada (también en las rutas). Para que eso no sea ambiguo, la herramienta rechaza
+//   un nombre nuevo que sea a la vez nombre viejo de otra clave del mismo ámbito. Así el mapa puede
+//   reaplicarse tanto sobre el código original como sobre el ya renombrado.
+// - Los renombres de cada archivo se hacen en dos fases (primero a nombres temporales), así que el
+//   orden de las claves no importa. Las claves que empiezan por «_» en el primer nivel se ignoran.
+// - Los exports de `src/<carpeta>/index.js` no se renombran: esbuild los carga con import().
+// - Si una propiedad queda `{ x: x }` (o `{ x: x = 1 }` en un patrón), se escribe abreviada.
 //
 // Usa `scope.rename` de babel y escribe el resultado empalmando texto en las posiciones del AST
 // (conserva comentarios y formato) y pasando prettier. Comprueba que nada queda capturado: el grafo
 // de resolución de identificadores (a qué declaración apunta cada uso) debe ser idéntico antes y
-// después, y cada import debe existir como export en su módulo.
+// después, y cada import debe existir como export en su módulo. Si algo falla no escribe nada.
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse } from '@babel/parser';
