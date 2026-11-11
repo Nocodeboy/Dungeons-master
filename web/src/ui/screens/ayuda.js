@@ -7,11 +7,11 @@ import { screenFrame } from '../modal.js';
 function opcionesAyuda() {
   return { width: '60rem', height: '44rem' };
 }
-function pantallaAyuda(o) {
-  let e = screenFrame(o, { title: 'C\xF3mo se juega', ic: 'open_book' });
-  e.body.classList.add('mg-fill');
-  let t = (a) => `<span class="mg-key">${a}</span>`;
-  e.body.append(
+function pantallaAyuda(screen) {
+  let frame = screenFrame(screen, { title: 'C\xF3mo se juega', ic: 'open_book' });
+  frame.body.classList.add('mg-fill');
+  let keyHtml = (key) => `<span class="mg-key">${key}</span>`;
+  frame.body.append(
     elem('div.mg-scroll', {
       style: 'overflow-y:auto;min-height:0',
       html: `<div class="mg-help-grid">
@@ -22,12 +22,12 @@ function pantallaAyuda(o) {
           <dt>Retratos</dt><dd>Clic: seleccionar. Doble clic o mantener: ver la ficha.</dd>
         </dl></section>
         <section><h3 class="mg-sec">Atajos de teclado</h3><dl>
-          <dt>${t('I')}</dt><dd>Inventario</dd><dt>${t('P')}</dt><dd>Fichas del grupo</dd>
-          <dt>${t('J')}</dt><dd>Diario de misiones</dd><dt>${t('M')}</dt><dd>Mapa de viaje</dd>
-          <dt>${t('W')} ${t('A')} ${t('S')} ${t('D')} \xB7 ${t('Q')} ${t('E')}</dt><dd>Mover y girar la c\xE1mara</dd>
-          <dt>${t('C')} ${t('B')} ${t('R')}</dt><dd>Sigilo, buscar y descansar</dd><dt>${t('X')} \xB7 ${t('G')}</dt><dd>Correr \xB7 todo el grupo</dd>
-          <dt>${t('Esc')}</dt><dd>Pausa o cerrar la ventana abierta</dd><dt>${t('F5')}</dt><dd>Guardado r\xE1pido</dd>
-          <dt>${t('1')}\u2026${t('9')}</dt><dd>Elegir respuesta en los di\xE1logos</dd><dt>${t('Espacio')}</dt><dd>Completar el texto del di\xE1logo</dd>
+          <dt>${keyHtml('I')}</dt><dd>Inventario</dd><dt>${keyHtml('P')}</dt><dd>Fichas del grupo</dd>
+          <dt>${keyHtml('J')}</dt><dd>Diario de misiones</dd><dt>${keyHtml('M')}</dt><dd>Mapa de viaje</dd>
+          <dt>${keyHtml('W')} ${keyHtml('A')} ${keyHtml('S')} ${keyHtml('D')} \xB7 ${keyHtml('Q')} ${keyHtml('E')}</dt><dd>Mover y girar la c\xE1mara</dd>
+          <dt>${keyHtml('C')} ${keyHtml('B')} ${keyHtml('R')}</dt><dd>Sigilo, buscar y descansar</dd><dt>${keyHtml('X')} \xB7 ${keyHtml('G')}</dt><dd>Correr \xB7 todo el grupo</dd>
+          <dt>${keyHtml('Esc')}</dt><dd>Pausa o cerrar la ventana abierta</dd><dt>${keyHtml('F5')}</dt><dd>Guardado r\xE1pido</dd>
+          <dt>${keyHtml('1')}\u2026${keyHtml('9')}</dt><dd>Elegir respuesta en los di\xE1logos</dd><dt>${keyHtml('Espacio')}</dt><dd>Completar el texto del di\xE1logo</dd>
         </dl></section>
         <section><h3 class="mg-sec">Descubrir y decidir</h3>
           <p class="mg-p">La Percepci\xF3n pasiva del grupo revela trampas y escondites al pasar cerca; \xABBuscar\xBB tira Investigaci\xF3n. En sigilo pod\xE9is sorprender al enemigo\u2026 o evitar el combate.</p>

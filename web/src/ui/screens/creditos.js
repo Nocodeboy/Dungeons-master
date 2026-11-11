@@ -7,11 +7,11 @@ import { screenFrame } from '../modal.js';
 function opcionesCreditos() {
   return { width: '46rem', height: '44rem' };
 }
-function pantallaCreditos(o) {
-  let e = screenFrame(o, { title: 'Cr\xE9ditos', ic: 'scroll_quill' });
-  e.body.classList.add('mg-fill');
-  let t = elem('div.mg-credits.mg-scroll', { style: 'overflow-y:auto;min-height:0', html: CREDITS_HTML });
-  e.body.append(t);
+function pantallaCreditos(screen) {
+  let frame = screenFrame(screen, { title: 'Cr\xE9ditos', ic: 'scroll_quill' });
+  frame.body.classList.add('mg-fill');
+  let box = elem('div.mg-credits.mg-scroll', { style: 'overflow-y:auto;min-height:0', html: CREDITS_HTML });
+  frame.body.append(box);
 }
 const CREDITS_HTML = `
   <h3>Marca de Granito</h3>

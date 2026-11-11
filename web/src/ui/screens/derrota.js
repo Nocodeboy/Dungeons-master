@@ -6,55 +6,64 @@ import { iconHtml, richText, elem, makeButton, formatDate } from '../dom.js';
 function opcionesDerrota() {
   return { full: !0, cls: 'mg-derrota' };
 }
-function pantallaDerrota(o, e, t, a) {
-  let n = a.store,
-    s = o.el,
-    i = elem('div.mg-derrota-col');
-  (i.append(elem('div.mg-derrota-ico', { html: iconHtml('skull') })),
-    i.append(elem('h1.mg-derrota-title', 'Hab\xE9is ca\xEDdo')),
-    i.append(elem('div.mg-hr', elem('i'))),
-    i.append(
+function pantallaDerrota(screen, params, ui, game) {
+  let store = game.store,
+    el = screen.el,
+    column = elem('div.mg-derrota-col');
+  (column.append(elem('div.mg-derrota-ico', { html: iconHtml('skull') })),
+    column.append(elem('h1.mg-derrota-title', 'Hab\xE9is ca\xEDdo')),
+    column.append(elem('div.mg-hr', elem('i'))),
+    column.append(
       elem('p.mg-derrota-text', {
         html: richText(
-          e.text ||
+          params.text ||
             'El \xFAltimo de vosotros cae. La oscuridad se cierra sobre el prado y, muy por debajo, algo sonr\xEDe.',
         ),
       }),
     ));
-  let r = elem('div.mg-derrota-acts'),
-    l = makeButton('Cargar la \xFAltima partida', { icon: 'load', variant: 'primary', size: 'lg' }),
-    c = makeButton('Elegir otra partida', { icon: 'scroll_open' }),
-    d = makeButton('Volver al men\xFA', { icon: 'exit_door', variant: 'ghost' });
-  r.append(l, c, d);
-  let u = elem('p.mg-derrota-meta');
-  (i.append(r, u), s.append(i), s.setAttribute('aria-label', 'Derrota'));
-  let h = null;
-  n.list()
-    .then((m) => {
-      ((h = m.find((_) => _.slot === 'auto')?.meta || null),
-        h
-          ? (u.textContent = `${h.hero || ''}${h.place ? ` \xB7 ${h.place}` : ''}${h.savedAt ? ` \xB7 ${formatDate(h.savedAt)}` : ''}`)
-          : ((l.disabled = !0), (u.textContent = 'No hay guardado autom\xE1tico.'), c.focus()));
+  let actions = elem('div.mg-derrota-acts'),
+    loadAutoButton = makeButton('Cargar la \xFAltima partida', {
+      icon: 'load',
+      variant: 'primary',
+      size: 'lg',
+    }),
+    loadOtherButton = makeButton('Elegir otra partida', { icon: 'scroll_open' }),
+    menuButton = makeButton('Volver al men\xFA', { icon: 'exit_door', variant: 'ghost' });
+  actions.append(loadAutoButton, loadOtherButton, menuButton);
+  let meta = elem('p.mg-derrota-meta');
+  (column.append(actions, meta), el.append(column), el.setAttribute('aria-label', 'Derrota'));
+  let autoMeta = null;
+  store
+    .list()
+    .then((saves) => {
+      ((autoMeta = saves.find((save) => save.slot === 'auto')?.meta || null),
+        autoMeta
+          ? (meta.textContent = `${autoMeta.hero || ''}${autoMeta.place ? ` \xB7 ${autoMeta.place}` : ''}${autoMeta.savedAt ? ` \xB7 ${formatDate(autoMeta.savedAt)}` : ''}`)
+          : ((loadAutoButton.disabled = !0),
+            (meta.textContent = 'No hay guardado autom\xE1tico.'),
+            loadOtherButton.focus()));
     })
     .catch(() => null);
-  let p = async (m) => {
-    let _ = await n.load(m);
-    if (!_) return (t.toast('No se ha podido cargar.', 'mal'), !1);
-    let b = t.R.call('cp_load', { cp: _ });
-    return (b?.cp && !b.error && n.set(b.cp), !0);
+  let loadSlot = async (slot) => {
+    let cp = await store.load(slot);
+    if (!cp) return (ui.toast('No se ha podido cargar.', 'mal'), !1);
+    let res = ui.R.call('cp_load', { cp });
+    return (res?.cp && !res.error && store.set(res.cp), !0);
   };
   return (
-    l.addEventListener('click', async () => {
-      (await p('auto')) && (o.close({ action: 'auto' }), t.resume());
+    loadAutoButton.addEventListener('click', async () => {
+      (await loadSlot('auto')) && (screen.close({ action: 'auto' }), ui.resume());
     }),
-    c.addEventListener('click', async () => {
-      (await t.open('cargar', { noConfirm: !0 }))?.slot && (o.close({ action: 'cargar' }), t.resume());
+    loadOtherButton.addEventListener('click', async () => {
+      (await ui.open('cargar', { noConfirm: !0 }))?.slot && (screen.close({ action: 'cargar' }), ui.resume());
     }),
-    d.addEventListener('click', () => {
-      (o.close({ action: 'menu' }), a.go('menu'));
+    menuButton.addEventListener('click', () => {
+      (screen.close({ action: 'menu' }), game.go('menu'));
     }),
-    requestAnimationFrame(() => (l.disabled ? c : l).focus({ preventScroll: !0 })),
-    a.audio?.music?.('derrota', { fade: 1.5 }),
+    requestAnimationFrame(() =>
+      (loadAutoButton.disabled ? loadOtherButton : loadAutoButton).focus({ preventScroll: !0 }),
+    ),
+    game.audio?.music?.('derrota', { fade: 1.5 }),
     { dismissable: !1, onEscape() {} }
   );
 }

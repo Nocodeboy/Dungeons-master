@@ -7,54 +7,57 @@ import { screenFrame } from '../modal.js';
 function opcionesPausa() {
   return { modal: !0, full: !1, auto: !0, width: '24rem' };
 }
-function pantallaPausa(o, e, t, a) {
-  let n = screenFrame(o, { title: 'Pausa', ic: 'pause' }),
-    s = a.store.cp,
-    i = !!e.battle || a.battle?.active;
-  s && (n.sub.textContent = `${s.location?.name || ''}${s.day ? ` \xB7 d\xEDa ${s.day}` : ''}`);
-  let r = elem('div.mg-pause'),
-    l = (c, d, u, h = {}) => {
-      let p = makeButton(c, { icon: d, block: !0, ...h, onclick: u });
-      return (r.append(p), p);
+function pantallaPausa(screen, params, ui, game) {
+  let frame = screenFrame(screen, { title: 'Pausa', ic: 'pause' }),
+    cp = game.store.cp,
+    inBattle = !!params.battle || game.battle?.active;
+  cp && (frame.sub.textContent = `${cp.location?.name || ''}${cp.day ? ` \xB7 d\xEDa ${cp.day}` : ''}`);
+  let list = elem('div.mg-pause'),
+    addButton = (label, icon, onclick, opts = {}) => {
+      let button = makeButton(label, { icon, block: !0, ...opts, onclick });
+      return (list.append(button), button);
     };
   return (
-    l('Continuar', 'play', () => o.close(null), { variant: 'primary' }).setAttribute('autofocus', ''),
-    s &&
-      !i &&
-      l('Guardar partida', 'save', async () => {
-        (await t.open('guardar'))?.slot && o.close(null);
+    addButton('Continuar', 'play', () => screen.close(null), { variant: 'primary' }).setAttribute(
+      'autofocus',
+      '',
+    ),
+    cp &&
+      !inBattle &&
+      addButton('Guardar partida', 'save', async () => {
+        (await ui.open('guardar'))?.slot && screen.close(null);
       }),
-    l('Cargar partida', 'load', async () => {
-      (await t.open('cargar', { noConfirm: !1 }))?.slot && (o.close(null), t.resume());
+    addButton('Cargar partida', 'load', async () => {
+      (await ui.open('cargar', { noConfirm: !1 }))?.slot && (screen.close(null), ui.resume());
     }),
-    l('Ajustes', 'settings', () => t.open('ajustes')),
-    l('C\xF3mo se juega', 'open_book', () => t.open('ayuda')),
-    l(
+    addButton('Ajustes', 'settings', () => ui.open('ajustes')),
+    addButton('C\xF3mo se juega', 'open_book', () => ui.open('ayuda')),
+    addButton(
       'Salir al men\xFA',
       'exit_door',
       async () => {
-        let c = i
+        let warning = inBattle
           ? 'Se perder\xE1 el progreso de este combate.'
           : 'Lo que no hayas guardado se perder\xE1 (hay un guardado autom\xE1tico al cambiar de zona, tras cada combate y tras descansar).';
-        (await t.confirm(c, { titulo: '\xBFSalir al men\xFA?', si: 'Salir', peligro: !0 })) &&
-          (t.close(), t.dialogClose(), a.go('menu'));
+        (await ui.confirm(warning, { titulo: '\xBFSalir al men\xFA?', si: 'Salir', peligro: !0 })) &&
+          (ui.close(), ui.dialogClose(), game.go('menu'));
       },
       { variant: 'danger' },
     ),
-    n.body.append(r),
-    s?.playtime &&
-      n.body.append(
+    frame.body.append(list),
+    cp?.playtime &&
+      frame.body.append(
         elem(
           'p.mg-help',
           { style: 'margin:.7rem 0 0;text-align:center' },
-          `${formatDuration(s.playtime)} de partida`,
+          `${formatDuration(cp.playtime)} de partida`,
         ),
       ),
-    a.bus?.emit('game:pause', { on: !0 }),
+    game.bus?.emit('game:pause', { on: !0 }),
     {
-      dispose: () => a.bus?.emit('game:pause', { on: !1 }),
-      onKey(c) {
-        return c.key === 'Escape' ? (o.close(null), !0) : !1;
+      dispose: () => game.bus?.emit('game:pause', { on: !1 }),
+      onKey(ev) {
+        return ev.key === 'Escape' ? (screen.close(null), !0) : !1;
       },
     }
   );

@@ -10,111 +10,120 @@ import { ITEM_KINDS } from '../labels.js';
 function opcionesBotin() {
   return { modal: !0, full: !0, width: '38rem', auto: !0 };
 }
-function pantallaBotin(o, e, t, a) {
-  let n = t.R,
-    s = a.store.cp,
-    i = e.apply !== !1,
-    r = (e.items || []).map((y) => {
-      let w = n.call('item_info', { id: y.id, unid: !!y.unid }),
-        k = w && !w.error ? w : { id: y.id, name: y.id, kind: 'gear' };
+function pantallaBotin(screen, params, ui, game) {
+  let rules = ui.R,
+    cp = game.store.cp,
+    apply = params.apply !== !1,
+    items = (params.items || []).map((entry) => {
+      let info = rules.call('item_info', { id: entry.id, unid: !!entry.unid }),
+        data = info && !info.error ? info : { id: entry.id, name: entry.id, kind: 'gear' };
       return {
-        ...y,
-        n: y.n || 1,
-        name: k.name,
-        kind: k.kind,
-        icon: k.icon,
-        rarity: y.unid ? '' : k.rarity,
-        unid: !!y.unid,
+        ...entry,
+        n: entry.n || 1,
+        name: data.name,
+        kind: data.kind,
+        icon: data.icon,
+        rarity: entry.unid ? '' : data.rarity,
+        unid: !!entry.unid,
         taken: !1,
         to: '',
       };
     }),
-    l = Number(e.gold || 0),
-    c = !1,
-    d = [],
-    u = screenFrame(o, { title: e.title || 'Bot\xEDn', ic: 'chest', closeLabel: 'Dejarlo' }),
-    h = elem('div.mg-list');
-  (u.body.classList.add('mg-scroll'), (u.body.style.overflowY = 'auto'), u.body.append(h));
-  let p = s?.party || [],
-    m = elem('select', { 'aria-label': 'Para qui\xE9n' });
-  ((m.innerHTML = `<option value="">Al que mejor le venga</option>${p.map((y) => `<option value="${escapeHtml(y)}">${escapeHtml(String(s.members[y]?.name || y).split(' ')[0])}</option>`).join('')}`),
-    e.who && (m.value = e.who));
-  function _(y) {
-    if (y.taken) return;
-    let w = m.value || void 0;
-    if (i && s) {
-      let k = n.give(y.id, y.n, w, y.unid);
-      if (!k || k.error || k.ok === !1)
-        return t.toast(k?.reason || k?.error || 'No se ha podido coger.', 'mal');
-      ((w = k.who || w), a.bus?.emit('item:gain', { id: y.id, n: y.n, who: w }));
+    gold = Number(params.gold || 0),
+    goldTaken = !1,
+    taken = [],
+    frame = screenFrame(screen, { title: params.title || 'Bot\xEDn', ic: 'chest', closeLabel: 'Dejarlo' }),
+    list = elem('div.mg-list');
+  (frame.body.classList.add('mg-scroll'), (frame.body.style.overflowY = 'auto'), frame.body.append(list));
+  let party = cp?.party || [],
+    whoSelect = elem('select', { 'aria-label': 'Para qui\xE9n' });
+  ((whoSelect.innerHTML = `<option value="">Al que mejor le venga</option>${party.map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(String(cp.members[id]?.name || id).split(' ')[0])}</option>`).join('')}`),
+    params.who && (whoSelect.value = params.who));
+  function take(item) {
+    if (item.taken) return;
+    let who = whoSelect.value || void 0;
+    if (apply && cp) {
+      let res = rules.give(item.id, item.n, who, item.unid);
+      if (!res || res.error || res.ok === !1)
+        return ui.toast(res?.reason || res?.error || 'No se ha podido coger.', 'mal');
+      ((who = res.who || who), game.bus?.emit('item:gain', { id: item.id, n: item.n, who }));
     }
-    ((y.taken = !0),
-      (y.to = w || ''),
-      d.push({ id: y.id, n: y.n, to: y.to, unid: y.unid }),
-      t.hud?.visible &&
-        t.hud.log(
-          `${String(s?.members?.[w]?.name || 'El grupo').split(' ')[0]} coge ${y.name}${y.n > 1 ? ` \xD7${y.n}` : ''}.`,
+    ((item.taken = !0),
+      (item.to = who || ''),
+      taken.push({ id: item.id, n: item.n, to: item.to, unid: item.unid }),
+      ui.hud?.visible &&
+        ui.hud.log(
+          `${String(cp?.members?.[who]?.name || 'El grupo').split(' ')[0]} coge ${item.name}${item.n > 1 ? ` \xD7${item.n}` : ''}.`,
           'botin',
         ),
-      v(),
-      r.every((k) => k.taken) && (c || !l) && setTimeout(() => o.close(f()), 350));
+      render(),
+      items.every((entry) => entry.taken) &&
+        (goldTaken || !gold) &&
+        setTimeout(() => screen.close(result()), 350));
   }
-  function b() {
-    if (!(c || !l)) {
-      if (i && s) {
-        let y = n.gold(l);
-        if (!y || y.error) return t.toast(y?.error || 'No se ha podido coger el oro.', 'mal');
-        a.bus?.emit('gold', { delta: l });
+  function takeGold() {
+    if (!(goldTaken || !gold)) {
+      if (apply && cp) {
+        let res = rules.gold(gold);
+        if (!res || res.error) return ui.toast(res?.error || 'No se ha podido coger el oro.', 'mal');
+        game.bus?.emit('gold', { delta: gold });
       }
-      ((c = !0), t.toast(`Encontr\xE1is ${l} piezas de oro.`, 'botin'), v());
+      ((goldTaken = !0), ui.toast(`Encontr\xE1is ${gold} piezas de oro.`, 'botin'), render());
     }
   }
-  function f() {
+  function result() {
     return {
-      taken: d,
-      gold: c ? l : 0,
-      left: r.filter((y) => !y.taken).map(({ id: y, n: w, unid: k }) => ({ id: y, n: w, unid: k })),
+      taken,
+      gold: goldTaken ? gold : 0,
+      left: items.filter((item) => !item.taken).map(({ id, n, unid }) => ({ id, n, unid })),
     };
   }
-  function v() {
-    if (((h.innerHTML = ''), l)) {
-      let y = elem('div.mg-loot-gold');
-      ((y.innerHTML = `${iconHtml('coins')}<b>${escapeHtml(l)} po</b><span class="mg-grow mg-dim">${c ? 'Al bolsillo del grupo.' : 'Oro para el grupo'}</span>`),
-        c || y.append(makeButton('Coger', { size: 'sm', onclick: b })),
-        h.append(y));
+  function render() {
+    if (((list.innerHTML = ''), gold)) {
+      let goldRow = elem('div.mg-loot-gold');
+      ((goldRow.innerHTML = `${iconHtml('coins')}<b>${escapeHtml(gold)} po</b><span class="mg-grow mg-dim">${goldTaken ? 'Al bolsillo del grupo.' : 'Oro para el grupo'}</span>`),
+        goldTaken || goldRow.append(makeButton('Coger', { size: 'sm', onclick: takeGold })),
+        list.append(goldRow));
     }
-    for (let y of r) {
-      let w = elem(`div.mg-loot-row${y.taken ? '.cogido' : ''}`),
-        k = rarityClass(y);
-      ((w.innerHTML = `${iconHtml(itemIcon(y))}<span><b class="${k}">${escapeHtml(y.name)}${y.n > 1 ? ` \xD7${escapeHtml(y.n)}` : ''}</b><small>${escapeHtml(y.unid ? 'Sin identificar' : ITEM_KINDS[y.kind] || '')}${y.taken ? ` \xB7 para ${escapeHtml(String(s?.members?.[y.to]?.name || 'el grupo').split(' ')[0])}` : ''}</small></span><span></span>`),
-        setTip(w, itemTip(t, y)),
-        y.taken
-          ? w.insertAdjacentHTML('beforeend', iconHtml('check', 'mg-bien'))
-          : w.append(makeButton('Coger', { size: 'sm', onclick: () => _(y) })),
-        h.append(w));
+    for (let item of items) {
+      let row = elem(`div.mg-loot-row${item.taken ? '.cogido' : ''}`),
+        cls = rarityClass(item);
+      ((row.innerHTML = `${iconHtml(itemIcon(item))}<span><b class="${cls}">${escapeHtml(item.name)}${item.n > 1 ? ` \xD7${escapeHtml(item.n)}` : ''}</b><small>${escapeHtml(item.unid ? 'Sin identificar' : ITEM_KINDS[item.kind] || '')}${item.taken ? ` \xB7 para ${escapeHtml(String(cp?.members?.[item.to]?.name || 'el grupo').split(' ')[0])}` : ''}</small></span><span></span>`),
+        setTip(row, itemTip(ui, item)),
+        item.taken
+          ? row.insertAdjacentHTML('beforeend', iconHtml('check', 'mg-bien'))
+          : row.append(makeButton('Coger', { size: 'sm', onclick: () => take(item) })),
+        list.append(row));
     }
-    (!r.length && !l && (h.innerHTML = `<div class="mg-vacio">${iconHtml('chest')}Est\xE1 vac\xEDo.</div>`),
-      (g.disabled = r.every((y) => y.taken) && (c || !l)));
+    (!items.length &&
+      !gold &&
+      (list.innerHTML = `<div class="mg-vacio">${iconHtml('chest')}Est\xE1 vac\xEDo.</div>`),
+      (takeAllButton.disabled = items.every((item) => item.taken) && (goldTaken || !gold)));
   }
-  u.foot.hidden = !1;
-  let x = elem('label.mg-who', 'Para: ', m),
-    g = makeButton('Cogerlo todo', {
+  frame.foot.hidden = !1;
+  let whoLabel = elem('label.mg-who', 'Para: ', whoSelect),
+    takeAllButton = makeButton('Cogerlo todo', {
       icon: 'check',
       variant: 'primary',
       onclick: () => {
-        b();
-        for (let y of r) _(y);
-        o.close(f());
+        takeGold();
+        for (let item of items) take(item);
+        screen.close(result());
       },
     });
   return (
-    g.setAttribute('autofocus', ''),
-    u.foot.append(x, elem('span.mg-grow'), makeButton('Dejarlo', { onclick: () => o.close(f()) }), g),
-    v(),
+    takeAllButton.setAttribute('autofocus', ''),
+    frame.foot.append(
+      whoLabel,
+      elem('span.mg-grow'),
+      makeButton('Dejarlo', { onclick: () => screen.close(result()) }),
+      takeAllButton,
+    ),
+    render(),
     {
-      onEscape: () => o.close(f()),
-      onKey(y) {
-        return y.key === 'Enter' && !y.target.closest('button,select') ? (g.click(), !0) : !1;
+      onEscape: () => screen.close(result()),
+      onKey(ev) {
+        return ev.key === 'Enter' && !ev.target.closest('button,select') ? (takeAllButton.click(), !0) : !1;
       },
     }
   );

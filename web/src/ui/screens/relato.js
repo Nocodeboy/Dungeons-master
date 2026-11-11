@@ -6,92 +6,100 @@ import { richText, elem, makeButton, reducedMotion, coarsePointer } from '../dom
 function opcionesRelato() {
   return { full: !0, cls: 'mg-relato' };
 }
-function pantallaRelato(o, e, t, a) {
-  let n = o.el,
-    s = (e.paragraphs || []).map((T) => String(T || '').trim()).filter(Boolean),
-    i = Number(a.store?.settings?.textSpeed) || 1,
-    r = reducedMotion() || i >= 50,
-    l = elem('div.mg-relato-scroll.mg-scroll'),
-    c = elem('div.mg-relato-col');
-  (e.place && c.append(elem('div.mg-relato-place', e.place)),
-    e.title && c.append(elem('h1.mg-relato-title', e.title)),
-    c.append(elem('div.mg-hr', elem('i'))));
-  let d = elem('div.mg-relato-text'),
-    u = s.map((T, E) => {
-      let S = /^\*[^*]+\*$/.test(T) ? T.slice(1, -1) : T,
-        z = elem(`p${E === 0 ? '.primero' : ''}`, { html: richText(S) });
-      return (d.append(z), z);
+function pantallaRelato(screen, params, ui, game) {
+  let el = screen.el,
+    paragraphs = (params.paragraphs || []).map((text) => String(text || '').trim()).filter(Boolean),
+    speed = Number(game.store?.settings?.textSpeed) || 1,
+    instant = reducedMotion() || speed >= 50,
+    scroller = elem('div.mg-relato-scroll.mg-scroll'),
+    column = elem('div.mg-relato-col');
+  (params.place && column.append(elem('div.mg-relato-place', params.place)),
+    params.title && column.append(elem('h1.mg-relato-title', params.title)),
+    column.append(elem('div.mg-hr', elem('i'))));
+  let textBox = elem('div.mg-relato-text'),
+    paras = paragraphs.map((text, index) => {
+      let body = /^\*[^*]+\*$/.test(text) ? text.slice(1, -1) : text,
+        para = elem(`p${index === 0 ? '.primero' : ''}`, { html: richText(body) });
+      return (textBox.append(para), para);
     });
-  (c.append(d), l.append(c));
-  let h = elem('div.mg-relato-foot'),
-    p = elem(
+  (column.append(textBox), scroller.append(column));
+  let foot = elem('div.mg-relato-foot'),
+    hint = elem(
       'span.mg-relato-hint',
       coarsePointer() ? 'Toca el texto para seguir' : 'Clic, Espacio o Intro para seguir',
     ),
-    m = elem('span.mg-relato-count'),
-    _ = makeButton('Saltar', { icon: 'fast', variant: 'ghost', onclick: () => o.close(!0) }),
-    b = makeButton(e.button || 'Continuar', {
+    counter = elem('span.mg-relato-count'),
+    skipButton = makeButton('Saltar', { icon: 'fast', variant: 'ghost', onclick: () => screen.close(!0) }),
+    nextButton = makeButton(params.button || 'Continuar', {
       icon: 'redo',
       variant: 'primary',
       size: 'lg',
-      onclick: () => k(),
+      onclick: () => next(),
     });
-  (h.append(elem('div.mg-relato-foot-l', p, m), elem('div.mg-relato-foot-r', _, b)),
-    n.append(l, h),
-    n.setAttribute('aria-label', e.title || 'Relato'));
-  let f = 0,
-    v = 0,
-    x = () => {
-      m.textContent = u.length > 1 ? `${f} / ${u.length}` : '';
-      let T = f >= u.length;
-      ((p.hidden = T), (_.hidden = T), b.classList.toggle('listo', T));
+  (foot.append(
+    elem('div.mg-relato-foot-l', hint, counter),
+    elem('div.mg-relato-foot-r', skipButton, nextButton),
+  ),
+    el.append(scroller, foot),
+    el.setAttribute('aria-label', params.title || 'Relato'));
+  let shown = 0,
+    timer = 0,
+    updateFoot = () => {
+      counter.textContent = paras.length > 1 ? `${shown} / ${paras.length}` : '';
+      let done = shown >= paras.length;
+      ((hint.hidden = done), (skipButton.hidden = done), nextButton.classList.toggle('listo', done));
     };
-  function g(T) {
-    let E = u[T];
-    E.classList.add('on');
-    let S = Math.max(0, E.offsetTop + E.offsetHeight - l.clientHeight + 24);
-    S > l.scrollTop && l.scrollTo({ top: S, behavior: reducedMotion() ? 'auto' : 'smooth' });
+  function reveal(index) {
+    let para = paras[index];
+    para.classList.add('on');
+    let bottom = Math.max(0, para.offsetTop + para.offsetHeight - scroller.clientHeight + 24);
+    bottom > scroller.scrollTop &&
+      scroller.scrollTo({ top: bottom, behavior: reducedMotion() ? 'auto' : 'smooth' });
   }
-  function y() {
-    if ((clearTimeout(v), f >= u.length || (g(f), (f += 1), x(), f >= u.length))) return w();
-    let T = s[f - 1].length,
-      E = Math.min(6500, Math.max(1800, (T * 38) / Math.max(0.25, i)));
-    v = setTimeout(y, E);
+  function advance() {
+    if (
+      (clearTimeout(timer),
+      shown >= paras.length || (reveal(shown), (shown += 1), updateFoot(), shown >= paras.length))
+    )
+      return revealAll();
+    let length = paragraphs[shown - 1].length,
+      delay = Math.min(6500, Math.max(1800, (length * 38) / Math.max(0.25, speed)));
+    timer = setTimeout(advance, delay);
   }
-  function w() {
-    clearTimeout(v);
-    for (let T = 0; T < u.length; T++) u[T].classList.contains('on') || g(T);
-    ((f = u.length), x());
+  function revealAll() {
+    clearTimeout(timer);
+    for (let index = 0; index < paras.length; index++) paras[index].classList.contains('on') || reveal(index);
+    ((shown = paras.length), updateFoot());
   }
-  function k() {
-    f < u.length ? y() : o.close(!0);
+  function next() {
+    shown < paras.length ? advance() : screen.close(!0);
   }
   return (
-    l.addEventListener('click', (T) => {
-      T.target.closest('button, a') || k();
+    scroller.addEventListener('click', (ev) => {
+      ev.target.closest('button, a') || next();
     }),
-    x(),
-    r || !u.length ? w() : (v = setTimeout(y, 400)),
-    requestAnimationFrame(() => b.focus({ preventScroll: !0 })),
-    a.bus?.emit('story:relato', { title: e.title || '' }),
-    e.music !== !1 && a.audio?.music?.(e.music || 'relato', { fade: 2 }),
+    updateFoot(),
+    instant || !paras.length ? revealAll() : (timer = setTimeout(advance, 400)),
+    requestAnimationFrame(() => nextButton.focus({ preventScroll: !0 })),
+    game.bus?.emit('story:relato', { title: params.title || '' }),
+    params.music !== !1 && game.audio?.music?.(params.music || 'relato', { fade: 2 }),
     {
-      onKey(T) {
-        if (T.key === ' ' || T.key === 'Enter' || T.key === '1') {
-          let E = document.activeElement;
-          return T.key !== '1' && E?.tagName === 'BUTTON' && n.contains(E) ? !1 : (k(), !0);
+      onKey(ev) {
+        if (ev.key === ' ' || ev.key === 'Enter' || ev.key === '1') {
+          let active = document.activeElement;
+          return ev.key !== '1' && active?.tagName === 'BUTTON' && el.contains(active) ? !1 : (next(), !0);
         }
-        return T.key === 'ArrowDown' || T.key === 'PageDown'
-          ? (l.scrollBy({ top: l.clientHeight * 0.8, behavior: 'smooth' }), !0)
-          : T.key === 'ArrowUp' || T.key === 'PageUp'
-            ? (l.scrollBy({ top: -l.clientHeight * 0.8, behavior: 'smooth' }), !0)
+        return ev.key === 'ArrowDown' || ev.key === 'PageDown'
+          ? (scroller.scrollBy({ top: scroller.clientHeight * 0.8, behavior: 'smooth' }), !0)
+          : ev.key === 'ArrowUp' || ev.key === 'PageUp'
+            ? (scroller.scrollBy({ top: -scroller.clientHeight * 0.8, behavior: 'smooth' }), !0)
             : !1;
       },
       onEscape() {
-        f < u.length ? w() : o.close(!0);
+        shown < paras.length ? revealAll() : screen.close(!0);
       },
       dispose() {
-        clearTimeout(v);
+        clearTimeout(timer);
       },
     }
   );
