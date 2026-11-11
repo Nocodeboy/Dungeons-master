@@ -15,7 +15,7 @@ import { hasPiece, pieceBounds, instancePiece, composeMatrix, MeshMerger } from 
 import { worldMaterial } from './materials.js';
 import { Le } from './ground.js';
 import { cellToWorld, worldToCell, neighbors, HEX_SIZE } from './grid.js';
-import { fs } from './water.js';
+import { WATER_LEVEL } from './water.js';
 
 function I3(o, e) {
   let t = 0;
@@ -217,18 +217,24 @@ function FH(o, e) {
       let [_, b] = worldToCell(h, p),
         f = t.tile(_, b);
       if (f === '~' || f === ':' || f === '=' || f === 'P' || o.blocked?.(h, p, !0)) continue;
-      let v = fs - a.heightAt(h, p),
+      let v = WATER_LEVEL - a.heightAt(h, p),
         x = a.noise(h * 0.32 + 11, p * 0.32 - 4);
       if (v > -0.14 && v < 0.24) {
         if (n() > 0.18 + x * 1.1) continue;
-        let g = composeMatrix(h, Math.min(a.heightAt(h, p), fs) - 0.04, p, n() * 6.28, 0.9 + n() * 0.5);
+        let g = composeMatrix(
+          h,
+          Math.min(a.heightAt(h, p), WATER_LEVEL) - 0.04,
+          p,
+          n() * 6.28,
+          0.9 + n() * 0.5,
+        );
         n() < 0.3 ? e.waterplant.push(g) : e.Grass_Wispy_Tall.push(g.scale(c.set(1, 1.5 + n() * 0.6, 1)));
       } else
         v > 0.3 &&
           v < 0.75 &&
           n() < 0.05 * l * (1 + x * 2) &&
           e[n() < 0.6 ? 'waterlily' : 'waterlily_b'].push(
-            composeMatrix(h, fs + 0.012, p, n() * 6.28, 0.7 + n() * 0.6),
+            composeMatrix(h, WATER_LEVEL + 0.012, p, n() * 6.28, 0.7 + n() * 0.6),
           );
     }
 }

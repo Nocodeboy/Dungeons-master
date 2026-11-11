@@ -4,14 +4,14 @@
 import { Box3, Group, MathUtils, Raycaster, Vector3 } from 'three';
 import { loadKits, MeshMerger } from './kit.js';
 import { worldUniforms } from './materials.js';
-import { TIMES, Vm } from './times.js';
+import { TIMES, Sky } from './times.js';
 import { Le, Ym } from './ground.js';
 import { H3 } from './vegetation.js';
 import { j3 } from './buildings.js';
 import { J3, K3 } from './props.js';
 import { $3 } from './interiors.js';
 import { ok } from './procedural.js';
-import { L3, fs } from './water.js';
+import { buildWater, WATER_LEVEL } from './water.js';
 import { n0 } from './crypt.js';
 import { o0 } from './particles.js';
 import { makeRng, hashString, cellToWorld, worldToCell, HEX_SIZE, TileMap } from './grid.js';
@@ -41,7 +41,7 @@ async function buildLevel(
     v = new Vector3(h.sizeX / 2, 0, h.sizeZ / 2),
     x = n || q9[i] || 'dusk';
   !n && e.id === 'merrowick' && a?.flag?.('e1_done') && (x = 'day');
-  let g = new Vm(o, { center: v, radius: Math.max(h.sizeX, h.sizeZ), quality: t, ambient: r ? 'crypt' : x }),
+  let g = new Sky(o, { center: v, radius: Math.max(h.sizeX, h.sizeZ), quality: t, ambient: r ? 'crypt' : x }),
     y = new o0(b, { quality: t, ambient: i }),
     w = { scene: b, map: h, level: e, ground: f, rnd: u, quality: t, ambient: i, fx: y, sky: g };
   f.paintTiles();
@@ -119,7 +119,7 @@ async function buildLevel(
         f.blob(Le.ao, $.x, $.z, 1.2, 1);
       }),
     f.build(b));
-  let I = c ? null : L3(b, f, g, t),
+  let I = c ? null : buildWater(b, f, g, t),
     U = k.build('fundido');
   b.add(U);
   for (let L of T) for (let O of L.dynamic) b.add(O);
@@ -189,7 +189,8 @@ async function buildLevel(
       if ($ !== 'w') return;
       let ee = cellToWorld(O, B);
       L.some((be) => be.distanceTo(ee) < 7) ||
-        (L.push(ee), ke.sounds.push({ kind: e.ambient === 'forest' ? 'pond' : 'river', pos: ee.setY(fs) }));
+        (L.push(ee),
+        ke.sounds.push({ kind: e.ambient === 'forest' ? 'pond' : 'river', pos: ee.setY(WATER_LEVEL) }));
     });
     for (let O of y.lampSources)
       (O.kind === 'fire' || O.kind === 'forge' || O.kind === 'torch') &&
@@ -230,7 +231,7 @@ async function buildLevel(
     cellToWorld([L, O], B = new Vector3()) {
       (cellToWorld(L, O, B), (B.y = f.heightAt(B.x, B.z)));
       let $ = h.tile(L, O);
-      return (($ === 'w' || $ === '~') && I && (B.y = Math.max(B.y, fs)), B);
+      return (($ === 'w' || $ === '~') && I && (B.y = Math.max(B.y, WATER_LEVEL)), B);
     },
     worldToCell(L) {
       return worldToCell(L.x, L.z);

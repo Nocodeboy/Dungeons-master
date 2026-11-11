@@ -1,5 +1,7 @@
-// world/water.js
-// Reconstruido de publicado/juego.js (módulo __esm «R1»). Nombres locales aún minificados.
+// world/water.js — superficie de agua del nivel: busca las zonas del terreno bajo `WATER_LEVEL`,
+// hornea una textura de profundidad, deduce la dirección de la corriente (eje principal de la zona:
+// río si es alargada, estanque si no) y crea un plano con shader de oleaje, reflejo, brillo y espuma.
+// Reconstruido de publicado/juego.js (módulo __esm «R1»). Lo usan index.js y vegetation.js.
 
 import {
   Color,
@@ -13,80 +15,91 @@ import {
   Vector4,
 } from 'three';
 
-function L3(o, e, t, a) {
-  let n = e.hr,
-    s = 1 / 0,
-    i = -1 / 0,
-    r = 1 / 0,
-    l = -1 / 0;
-  for (let S = 0; S < e.hh; S++)
-    for (let z = 0; z < e.hw; z++) {
-      if (e.H[S * e.hw + z] > fs + 0.02) continue;
-      let D = e.x0 + z * n,
-        M = e.z0 + S * n;
-      ((s = Math.min(s, D)), (i = Math.max(i, D)), (r = Math.min(r, M)), (l = Math.max(l, M)));
+/**
+ * Crea el agua sobre el terreno `ground` (Ground de ground.js) y la añade a `scene`. Sigue los
+ * cambios de luz de `sky` (Sky de times.js). Devuelve null si no hay agua, o
+ * `{mesh, uniforms, flow, update(time)}`.
+ */
+function buildWater(scene, ground, sky, quality) {
+  let step = ground.hr,
+    minX = 1 / 0,
+    maxX = -1 / 0,
+    minZ = 1 / 0,
+    maxZ = -1 / 0;
+  for (let iz = 0; iz < ground.hh; iz++)
+    for (let ix = 0; ix < ground.hw; ix++) {
+      if (ground.H[iz * ground.hw + ix] > WATER_LEVEL + 0.02) continue;
+      let wx = ground.x0 + ix * step,
+        wz = ground.z0 + iz * step;
+      ((minX = Math.min(minX, wx)),
+        (maxX = Math.max(maxX, wx)),
+        (minZ = Math.min(minZ, wz)),
+        (maxZ = Math.max(maxZ, wz)));
     }
-  if (!isFinite(s)) return null;
-  ((s -= 1),
-    (r -= 1),
-    (i += 1),
-    (l += 1),
-    (s = Math.max(s, e.x0)),
-    (r = Math.max(r, e.z0)),
-    (i = Math.min(i, e.x1)),
-    (l = Math.min(l, e.z1)));
-  let c = Math.ceil((i - s) / n) + 1,
-    d = Math.ceil((l - r) / n) + 1,
-    u = new Uint8Array(c * d * 4),
-    h = 0,
-    p = 0,
-    m = 0,
-    _ = 0,
-    b = 0,
-    f = 0;
-  for (let S = 0; S < d; S++)
-    for (let z = 0; z < c; z++) {
-      let D = s + z * n,
-        M = r + S * n,
-        R = fs - e.heightAt(D, M),
-        A = Math.max(0, Math.min(1, (R + 0.05) / 0.5));
-      ((u[(S * c + z) * 4] = A * 255), (u[(S * c + z) * 4 + 3] = 255), R > 0.15 && ((_ += D), (b += M), f++));
+  if (!isFinite(minX)) return null;
+  ((minX -= 1),
+    (minZ -= 1),
+    (maxX += 1),
+    (maxZ += 1),
+    (minX = Math.max(minX, ground.x0)),
+    (minZ = Math.max(minZ, ground.z0)),
+    (maxX = Math.min(maxX, ground.x1)),
+    (maxZ = Math.min(maxZ, ground.z1)));
+  let cols = Math.ceil((maxX - minX) / step) + 1,
+    rows = Math.ceil((maxZ - minZ) / step) + 1,
+    data = new Uint8Array(cols * rows * 4),
+    sxx = 0,
+    szz = 0,
+    sxz = 0,
+    cx = 0,
+    cz = 0,
+    count = 0;
+  for (let iz = 0; iz < rows; iz++)
+    for (let ix = 0; ix < cols; ix++) {
+      let wx = minX + ix * step,
+        wz = minZ + iz * step,
+        depth = WATER_LEVEL - ground.heightAt(wx, wz),
+        norm = Math.max(0, Math.min(1, (depth + 0.05) / 0.5));
+      ((data[(iz * cols + ix) * 4] = norm * 255),
+        (data[(iz * cols + ix) * 4 + 3] = 255),
+        depth > 0.15 && ((cx += wx), (cz += wz), count++));
     }
-  ((_ /= f || 1), (b /= f || 1));
-  for (let S = 0; S < d; S++)
-    for (let z = 0; z < c; z++) {
-      let D = s + z * n,
-        M = r + S * n;
-      fs - e.heightAt(D, M) <= 0.15 || ((h += (D - _) ** 2), (p += (M - b) ** 2), (m += (D - _) * (M - b)));
+  ((cx /= count || 1), (cz /= count || 1));
+  for (let iz = 0; iz < rows; iz++)
+    for (let ix = 0; ix < cols; ix++) {
+      let wx = minX + ix * step,
+        wz = minZ + iz * step;
+      WATER_LEVEL - ground.heightAt(wx, wz) <= 0.15 ||
+        ((sxx += (wx - cx) ** 2), (szz += (wz - cz) ** 2), (sxz += (wx - cx) * (wz - cz)));
     }
-  let v = 0.5 * Math.atan2(2 * m, h - p),
-    x = new Vector2(Math.cos(v), Math.sin(v)),
-    g = Math.abs(h - p) / Math.max(1, h + p),
-    y = new DataTexture(u, c, d, RGBAFormat);
-  ((y.magFilter = LinearFilter), (y.minFilter = LinearFilter), (y.needsUpdate = !0));
-  let w = {
-    tDepth: { value: y },
-    uRect: { value: new Vector4(s, r, i - s, l - r) },
+  let angle = 0.5 * Math.atan2(2 * sxz, sxx - szz),
+    flow = new Vector2(Math.cos(angle), Math.sin(angle)),
+    elong = Math.abs(sxx - szz) / Math.max(1, sxx + szz),
+    depthTex = new DataTexture(data, cols, rows, RGBAFormat);
+  ((depthTex.magFilter = LinearFilter), (depthTex.minFilter = LinearFilter), (depthTex.needsUpdate = !0));
+  let uniforms = {
+    tDepth: { value: depthTex },
+    uRect: { value: new Vector4(minX, minZ, maxX - minX, maxZ - minZ) },
     uTime: { value: 0 },
-    uFlow: { value: x.multiplyScalar(g > 0.3 ? 0.35 : 0.04) },
-    uSun: { value: t.cur.sunDir.clone() },
-    uSunCol: { value: t.cur.sun.clone() },
-    uSky: { value: t.cur.skyMid.clone() },
-    uHor: { value: t.cur.skyHor.clone() },
+    uFlow: { value: flow.multiplyScalar(elong > 0.3 ? 0.35 : 0.04) },
+    uSun: { value: sky.cur.sunDir.clone() },
+    uSunCol: { value: sky.cur.sun.clone() },
+    uSky: { value: sky.cur.skyMid.clone() },
+    uHor: { value: sky.cur.skyHor.clone() },
     uDeep: { value: new Color(596255) },
     uShallow: { value: new Color(2770495) },
     fogColor: { value: new Color() },
     fogNear: { value: 10 },
     fogFar: { value: 100 },
   };
-  t.onChange((S) => {
-    (w.uSun.value.copy(S.sunDir),
-      w.uSunCol.value.copy(S.sun).multiplyScalar(S.sunI / 3),
-      w.uSky.value.copy(S.skyMid),
-      w.uHor.value.copy(S.skyHor));
+  sky.onChange((state) => {
+    (uniforms.uSun.value.copy(state.sunDir),
+      uniforms.uSunCol.value.copy(state.sun).multiplyScalar(state.sunI / 3),
+      uniforms.uSky.value.copy(state.skyMid),
+      uniforms.uHor.value.copy(state.skyHor));
   });
-  let k = new ShaderMaterial({
-      uniforms: w,
+  let material = new ShaderMaterial({
+      uniforms,
       transparent: !0,
       depthWrite: !1,
       fog: !0,
@@ -134,16 +147,17 @@ function L3(o, e, t, a) {
         #include <colorspace_fragment>
       }`,
     }),
-    T = new PlaneGeometry(i - s, l - r, 1, 1).rotateX(-Math.PI / 2),
-    E = new Mesh(T, k);
+    geometry = new PlaneGeometry(maxX - minX, maxZ - minZ, 1, 1).rotateX(-Math.PI / 2),
+    mesh = new Mesh(geometry, material);
   return (
-    E.position.set((s + i) / 2, fs, (r + l) / 2),
-    (E.renderOrder = 2),
-    (E.name = 'agua'),
-    o.add(E),
-    { mesh: E, uniforms: w, flow: x, update: (S) => (w.uTime.value = S) }
+    mesh.position.set((minX + maxX) / 2, WATER_LEVEL, (minZ + maxZ) / 2),
+    (mesh.renderOrder = 2),
+    (mesh.name = 'agua'),
+    scene.add(mesh),
+    { mesh, uniforms, flow, update: (time) => (uniforms.uTime.value = time) }
   );
 }
-const fs = -0.2;
+/** Altura de la lámina de agua (m). El terreno más bajo queda sumergido. */
+const WATER_LEVEL = -0.2;
 
-export { L3, fs };
+export { buildWater, WATER_LEVEL };

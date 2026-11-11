@@ -1,5 +1,7 @@
-// world/times.js
-// Reconstruido de publicado/juego.js (módulo __esm «R3»). Nombres locales aún minificados.
+// world/times.js — momentos del día (`TIMES`: dusk, day, forest, kesh, night, inn, crypt) y la clase
+// `Sky`: cúpula de cielo con nubes y estrellas por shader, niebla, luz hemisférica, sol con sombras
+// (ajustado a texel para que no tiemblen) y luz de rebote, con transiciones suaves entre momentos.
+// Reconstruido de publicado/juego.js (módulo __esm «R3»). Lo usa index.js (y water.js por `onChange`).
 
 import {
   BackSide,
@@ -13,38 +15,51 @@ import {
   Vector3,
 } from 'three';
 
-function k3(o) {
+/** Convierte una entrada de `TIMES` en el estado de luz con `Color`/`Vector3`. */
+function parseTime(def) {
   return {
-    sunDir: new Vector3(...o.sunDir).normalize(),
-    sun: Ti(o.sun),
-    sunI: o.sunI,
-    hemiSky: Ti(o.hemiSky),
-    hemiGround: Ti(o.hemiGround),
-    hemiI: o.hemiI,
-    fog: Ti(o.fog),
-    fogNear: o.fogNear,
-    fogFar: o.fogFar,
-    skyTop: Ti(o.skyTop),
-    skyMid: Ti(o.skyMid),
-    skyHor: Ti(o.skyHor),
-    glow: Ti(o.glow),
-    bounce: Ti(o.bounce),
-    bounceI: o.bounceI,
-    lamps: o.lamps,
-    windows: o.windows,
-    fireflies: o.fireflies,
-    tint: new Vector3(...o.tint),
-    clouds: o.clouds || 0,
+    sunDir: new Vector3(...def.sunDir).normalize(),
+    sun: toColor(def.sun),
+    sunI: def.sunI,
+    hemiSky: toColor(def.hemiSky),
+    hemiGround: toColor(def.hemiGround),
+    hemiI: def.hemiI,
+    fog: toColor(def.fog),
+    fogNear: def.fogNear,
+    fogFar: def.fogFar,
+    skyTop: toColor(def.skyTop),
+    skyMid: toColor(def.skyMid),
+    skyHor: toColor(def.skyHor),
+    glow: toColor(def.glow),
+    bounce: toColor(def.bounce),
+    bounceI: def.bounceI,
+    lamps: def.lamps,
+    windows: def.windows,
+    fireflies: def.fireflies,
+    tint: new Vector3(...def.tint),
+    clouds: def.clouds || 0,
   };
 }
-function A3(o, e, t, a) {
-  a.sunDir.copy(o.sunDir).lerp(e.sunDir, t).normalize();
-  for (let n of ['sun', 'hemiSky', 'hemiGround', 'fog', 'skyTop', 'skyMid', 'skyHor', 'glow', 'bounce'])
-    a[n].copy(o[n]).lerp(e[n], t);
-  for (let n of ['sunI', 'hemiI', 'fogNear', 'fogFar', 'bounceI', 'lamps', 'windows', 'fireflies', 'clouds'])
-    a[n] = o[n] + (e[n] - o[n]) * t;
-  return (a.tint.copy(o.tint).lerp(e.tint, t), a);
+/** Interpola dos estados de luz en `out` (alpha en [0, 1]). */
+function lerpTime(from, to, alpha, out) {
+  out.sunDir.copy(from.sunDir).lerp(to.sunDir, alpha).normalize();
+  for (let key of ['sun', 'hemiSky', 'hemiGround', 'fog', 'skyTop', 'skyMid', 'skyHor', 'glow', 'bounce'])
+    out[key].copy(from[key]).lerp(to[key], alpha);
+  for (let key of [
+    'sunI',
+    'hemiI',
+    'fogNear',
+    'fogFar',
+    'bounceI',
+    'lamps',
+    'windows',
+    'fireflies',
+    'clouds',
+  ])
+    out[key] = from[key] + (to[key] - from[key]) * alpha;
+  return (out.tint.copy(from.tint).lerp(to.tint, alpha), out);
 }
+/** Paletas de luz por momento o ambiente del nivel (colores en hexadecimal entero). */
 const TIMES = {
   dusk: {
     sunDir: [-0.8, 0.48, 0.18],
@@ -204,15 +219,20 @@ const TIMES = {
     tint: [1.04, 0.98, 0.94],
   },
 };
-const Ti = (o) => new Color(o);
-const Vm = class {
-  constructor(e, { center: t, radius: a, quality: n, ambient: s }) {
-    ((this.scene = e),
-      (this.center = t.clone()),
-      (this.quality = n),
-      (this.crypt = s === 'crypt'),
-      (this.indoor = this.crypt || s === 'inn'),
-      (this.cur = k3(TIMES[s] || TIMES.dusk)),
+const toColor = (hex) => new Color(hex);
+/**
+ * Cielo e iluminación del nivel. `set(nombre, duración)` cambia de momento con transición,
+ * `onChange(fn)` avisa de cada cambio de luz y `update(dt, time, focus, camDist)` mueve la sombra
+ * con el foco y aleja la niebla con la cámara.
+ */
+const Sky = class {
+  constructor(scene, { center, radius, quality, ambient }) {
+    ((this.scene = scene),
+      (this.center = center.clone()),
+      (this.quality = quality),
+      (this.crypt = ambient === 'crypt'),
+      (this.indoor = this.crypt || ambient === 'inn'),
+      (this.cur = parseTime(TIMES[ambient] || TIMES.dusk)),
       (this.from = null),
       (this.to = null),
       (this.t = 1),
@@ -226,7 +246,7 @@ const Vm = class {
         uBase: { value: new Color(1709330) },
         uTime: { value: 0 },
       }));
-    let i = new ShaderMaterial({
+    let domeMaterial = new ShaderMaterial({
       side: BackSide,
       depthWrite: !1,
       fog: !1,
@@ -267,23 +287,23 @@ const Vm = class {
           #include <colorspace_fragment>
         }`,
     });
-    ((this.dome = new Mesh(new SphereGeometry(500, 32, 16), i)),
+    ((this.dome = new Mesh(new SphereGeometry(500, 32, 16), domeMaterial)),
       (this.dome.renderOrder = -10),
       (this.dome.frustumCulled = !1),
       (this.dome.name = 'cielo'),
-      this.indoor ? (e.background = new Color(this.crypt ? 328966 : 788743)) : e.add(this.dome),
-      (e.fog = new Fog(this.cur.fog.clone(), this.cur.fogNear, this.cur.fogFar)),
+      this.indoor ? (scene.background = new Color(this.crypt ? 328966 : 788743)) : scene.add(this.dome),
+      (scene.fog = new Fog(this.cur.fog.clone(), this.cur.fogNear, this.cur.fogFar)),
       (this.hemi = new HemisphereLight(
         this.cur.hemiSky.clone(),
         this.cur.hemiGround.clone(),
         this.cur.hemiI,
       )),
-      e.add(this.hemi),
+      scene.add(this.hemi),
       (this.sun = new DirectionalLight(this.cur.sun.clone(), this.cur.sunI)),
-      (this.sun.castShadow = !this.crypt && n.level >= 0));
-    let r = Math.max(512, (n.shadowMap || 512) * 2);
-    (this.sun.shadow.mapSize.set(r, r),
-      (this.shadowSpan = n.level === 2 ? 26 : n.level === 1 ? 22 : 18),
+      (this.sun.castShadow = !this.crypt && quality.level >= 0));
+    let mapSize = Math.max(512, (quality.shadowMap || 512) * 2);
+    (this.sun.shadow.mapSize.set(mapSize, mapSize),
+      (this.shadowSpan = quality.level === 2 ? 26 : quality.level === 1 ? 22 : 18),
       Object.assign(this.sun.shadow.camera, {
         left: -this.shadowSpan,
         right: this.shadowSpan,
@@ -295,76 +315,76 @@ const Vm = class {
       (this.sun.shadow.bias = -5e-4),
       (this.sun.shadow.normalBias = 0.04),
       (this.sun.shadow.radius = 2),
-      e.add(this.sun, this.sun.target),
+      scene.add(this.sun, this.sun.target),
       (this.bounce = new DirectionalLight(this.cur.bounce.clone(), this.cur.bounceI)),
-      e.add(this.bounce, this.bounce.target),
+      scene.add(this.bounce, this.bounce.target),
       (this.focus = this.center.clone()),
       (this._snap = new Vector3()),
       this.apply());
   }
-  set(e, t = 2.5) {
-    let a = TIMES[e];
-    if (a) {
-      ((this.name = e),
+  set(name, duration = 2.5) {
+    let def = TIMES[name];
+    if (def) {
+      ((this.name = name),
         (this.from = { ...this.cur, sunDir: this.cur.sunDir.clone(), tint: this.cur.tint.clone() }));
-      for (let n of ['sun', 'hemiSky', 'hemiGround', 'fog', 'skyTop', 'skyMid', 'skyHor', 'glow', 'bounce'])
-        this.from[n] = this.cur[n].clone();
-      ((this.to = k3(a)),
-        (this.dur = Math.max(0.001, t)),
-        (this.t = t > 0 ? 0 : 1),
-        t <= 0 && (A3(this.from, this.to, 1, this.cur), this.apply()));
+      for (let key of ['sun', 'hemiSky', 'hemiGround', 'fog', 'skyTop', 'skyMid', 'skyHor', 'glow', 'bounce'])
+        this.from[key] = this.cur[key].clone();
+      ((this.to = parseTime(def)),
+        (this.dur = Math.max(0.001, duration)),
+        (this.t = duration > 0 ? 0 : 1),
+        duration <= 0 && (lerpTime(this.from, this.to, 1, this.cur), this.apply()));
     }
   }
-  onChange(e) {
-    this.listeners.push(e);
+  onChange(fn) {
+    this.listeners.push(fn);
   }
   apply() {
-    let e = this.cur;
-    (this.uniforms.uSun.value.copy(e.sunDir),
-      this.uniforms.uTop.value.copy(e.skyTop),
-      this.uniforms.uMid.value.copy(e.skyMid),
-      this.uniforms.uHor.value.copy(e.skyHor),
-      this.uniforms.uGlow.value.copy(e.glow),
-      this.scene.fog.color.copy(e.fog),
-      (this.scene.fog.near = e.fogNear),
-      (this.scene.fog.far = e.fogFar),
-      this.hemi.color.copy(e.hemiSky),
-      this.hemi.groundColor.copy(e.hemiGround),
-      (this.hemi.intensity = e.hemiI),
-      this.sun.color.copy(e.sun),
-      (this.sun.intensity = e.sunI),
-      this.bounce.color.copy(e.bounce),
-      (this.bounce.intensity = e.bounceI),
+    let cur = this.cur;
+    (this.uniforms.uSun.value.copy(cur.sunDir),
+      this.uniforms.uTop.value.copy(cur.skyTop),
+      this.uniforms.uMid.value.copy(cur.skyMid),
+      this.uniforms.uHor.value.copy(cur.skyHor),
+      this.uniforms.uGlow.value.copy(cur.glow),
+      this.scene.fog.color.copy(cur.fog),
+      (this.scene.fog.near = cur.fogNear),
+      (this.scene.fog.far = cur.fogFar),
+      this.hemi.color.copy(cur.hemiSky),
+      this.hemi.groundColor.copy(cur.hemiGround),
+      (this.hemi.intensity = cur.hemiI),
+      this.sun.color.copy(cur.sun),
+      (this.sun.intensity = cur.sunI),
+      this.bounce.color.copy(cur.bounce),
+      (this.bounce.intensity = cur.bounceI),
       this.placeLights());
-    for (let t of this.listeners) t(e);
+    for (let fn of this.listeners) fn(cur);
   }
   placeLights() {
-    let e = this.cur,
-      t = this.focus,
-      n = (this.shadowSpan * 2) / this.sun.shadow.mapSize.x,
-      s = e.sunDir,
-      i = Math.abs(s.y) > 0.99 ? new Vector3(1, 0, 0) : new Vector3(0, 1, 0),
-      r = new Vector3().crossVectors(i, s).normalize(),
-      l = new Vector3().crossVectors(s, r).normalize(),
-      c = Math.round(t.dot(r) / n) * n,
-      d = Math.round(t.dot(l) / n) * n,
-      u = t.dot(s);
-    (this._snap.copy(r).multiplyScalar(c).addScaledVector(l, d).addScaledVector(s, u),
+    let cur = this.cur,
+      focus = this.focus,
+      texel = (this.shadowSpan * 2) / this.sun.shadow.mapSize.x,
+      dir = cur.sunDir,
+      up = Math.abs(dir.y) > 0.99 ? new Vector3(1, 0, 0) : new Vector3(0, 1, 0),
+      right = new Vector3().crossVectors(up, dir).normalize(),
+      ortho = new Vector3().crossVectors(dir, right).normalize(),
+      snapR = Math.round(focus.dot(right) / texel) * texel,
+      snapO = Math.round(focus.dot(ortho) / texel) * texel,
+      depth = focus.dot(dir);
+    (this._snap.copy(right).multiplyScalar(snapR).addScaledVector(ortho, snapO).addScaledVector(dir, depth),
       this.sun.target.position.copy(this._snap),
-      this.sun.position.copy(this._snap).addScaledVector(s, 70),
+      this.sun.position.copy(this._snap).addScaledVector(dir, 70),
       this.bounce.target.position.copy(this._snap),
-      this.bounce.position.copy(this._snap).add(new Vector3(-s.x * 40, 30, -s.z * 40)),
+      this.bounce.position.copy(this._snap).add(new Vector3(-dir.x * 40, 30, -dir.z * 40)),
       this.sun.target.updateMatrixWorld(),
       this.bounce.target.updateMatrixWorld());
   }
-  update(e, t, a, n = 0) {
-    if (((this.uniforms.uTime.value = t), a && this.focus.copy(a), this.to && this.t < 1)) {
-      this.t = Math.min(1, this.t + e / this.dur);
-      let i = this.t * this.t * (3 - 2 * this.t);
-      (A3(this.from, this.to, i, this.cur), this.apply());
+  update(dt, time, focus, camDist = 0) {
+    if (((this.uniforms.uTime.value = time), focus && this.focus.copy(focus), this.to && this.t < 1)) {
+      this.t = Math.min(1, this.t + dt / this.dur);
+      let ease = this.t * this.t * (3 - 2 * this.t);
+      (lerpTime(this.from, this.to, ease, this.cur), this.apply());
     } else this.placeLights();
-    let s = Math.max(0, n - 45);
-    ((this.scene.fog.near = this.cur.fogNear + s), (this.scene.fog.far = this.cur.fogFar + s * 1.6));
+    let extra = Math.max(0, camDist - 45);
+    ((this.scene.fog.near = this.cur.fogNear + extra), (this.scene.fog.far = this.cur.fogFar + extra * 1.6));
   }
   dispose() {
     (this.dome.geometry.dispose(),
@@ -375,4 +395,4 @@ const Vm = class {
   }
 };
 
-export { TIMES, Vm };
+export { TIMES, Sky };
