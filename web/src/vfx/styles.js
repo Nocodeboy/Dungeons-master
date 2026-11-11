@@ -1,20 +1,32 @@
 // vfx/styles.js
-// Reconstruido de publicado/juego.js (módulo __esm «Lm»). Nombres locales aún minificados.
+// Paleta de estilos de efecto: para cada estilo (fuego, escarcha, rayo, sanación…) los colores
+// principal y secundario, la silueta de partícula, la mezcla y el sonido. `DAMAGE_STYLE` traduce
+// tipos de daño 5e a estilos. Lo usan vfx/index.js, vfx/spells.js y combat/controller.js.
+// Reconstruido de publicado/juego.js (módulo __esm «Lm»).
 
 import { FRAME } from './atlas.js';
 
-function Jn(o) {
-  return STYLE[o] || STYLE.arcane;
+/** Estilo por nombre (arcano si no existe). */
+function getStyle(key) {
+  return STYLE[key] || STYLE.arcane;
 }
-function HS(o, e) {
-  return e && DAMAGE_STYLE[e] && DAMAGE_STYLE[e] !== 'physical' && (o === 'arcane' || o === 'fire_cone' || !o)
-    ? DAMAGE_STYLE[e]
-    : o === 'fire_cone'
+/**
+ * Nombre de estilo final: si el estilo es genérico (arcano, cono de fuego o vacío) y el tipo de daño
+ * tiene un estilo propio no físico, usa el del daño; el cono de fuego pasa a fuego.
+ */
+function resolveStyleKey(style, damageType) {
+  return damageType &&
+    DAMAGE_STYLE[damageType] &&
+    DAMAGE_STYLE[damageType] !== 'physical' &&
+    (style === 'arcane' || style === 'fire_cone' || !style)
+    ? DAMAGE_STYLE[damageType]
+    : style === 'fire_cone'
       ? 'fire'
-      : STYLE[o]
-        ? o
+      : STYLE[style]
+        ? style
         : 'arcane';
 }
+/** Estilos: c y c2 (colores), p (casilla del atlas), blend ('alpha' si no es aditivo), sfx (sonido). */
 const STYLE = {
   fire: { c: 16738842, c2: 16765562, p: FRAME.flame, sfx: 'fire' },
   fire_cone: { c: 16738842, c2: 16765562, p: FRAME.flame, sfx: 'fire' },
@@ -49,6 +61,7 @@ const STYLE = {
   sleep: { c: 10259711, c2: 15261951, p: FRAME.zz, sfx: 'sleep' },
   physical: { c: 16771272, c2: 16777215, p: FRAME.spark, sfx: 'hit' },
 };
+/** Estilo de cada tipo de daño. */
 const DAMAGE_STYLE = {
   fire: 'fire',
   cold: 'frost',
@@ -65,4 +78,4 @@ const DAMAGE_STYLE = {
   bludgeoning: 'physical',
 };
 
-export { DAMAGE_STYLE, HS, Jn, STYLE };
+export { DAMAGE_STYLE, resolveStyleKey, getStyle, STYLE };

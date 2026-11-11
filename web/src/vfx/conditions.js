@@ -1,5 +1,11 @@
 // vfx/conditions.js
-// Reconstruido de publicado/juego.js (módulo __esm «r1»). Nombres locales aún minificados.
+// Efectos visuales de estados y condiciones sobre cada unidad del combate («auras»): icono sobre la
+// cabeza (el de mayor prioridad), anillo, cúpula o runas en el suelo, motas de partículas, telaraña,
+// enredaderas, bandas de retención, imágenes del reflejo (copias fantasma del modelo) y cambios de
+// aspecto del material (opacidad, emisivo). `auraStatesOf` traduce condiciones y efectos del núcleo
+// a claves de `AURA_STYLES`; `AuraEffects` (vfx.auras en vfx/index.js) las mantiene por unidad.
+// combat/controller.js llama a `vfx.auras.sync(id, anclaje, auraStatesOf(unidad))`.
+// Reconstruido de publicado/juego.js (módulo __esm «r1»).
 
 import {
   AdditiveBlending,
@@ -14,22 +20,30 @@ import {
 } from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { FRAME } from './atlas.js';
-import { Xr, nr, xi } from './shaders.js';
+import { Dome, RuneCircle, Decal } from './shaders.js';
 
-function BS(o) {
-  let e = new Set();
-  if (!o || o.dead) return e;
-  let t = new Set((o.effects || []).map((a) => a.kind));
-  for (let a of o.conditions || [])
-    (a === 'restrained' &&
-      (t.has('webbed') || t.has('spider_web') || t.has('entangled') || t.has('ensnared'))) ||
-      a === 'prone' ||
-      a === 'unconscious' ||
-      (a === 'paralyzed' && t.has('held')) ||
-      (a === 'incapacitated' && t.has('laughing')) ||
-      (Hm[a] && e.add(a));
-  for (let a of t) {
-    let n =
+/**
+ * Claves de aura que corresponden a una unidad del núcleo (sus `conditions` y `effects`, más
+ * concentración y oculto). Omite las condiciones que ya muestra otro efecto (p. ej. «apresado» por
+ * una telaraña) o que no se dibujan (derribado, inconsciente).
+ */
+function auraStatesOf(unit) {
+  let states = new Set();
+  if (!unit || unit.dead) return states;
+  let effectKinds = new Set((unit.effects || []).map((effect) => effect.kind));
+  for (let condition of unit.conditions || [])
+    (condition === 'restrained' &&
+      (effectKinds.has('webbed') ||
+        effectKinds.has('spider_web') ||
+        effectKinds.has('entangled') ||
+        effectKinds.has('ensnared'))) ||
+      condition === 'prone' ||
+      condition === 'unconscious' ||
+      (condition === 'paralyzed' && effectKinds.has('held')) ||
+      (condition === 'incapacitated' && effectKinds.has('laughing')) ||
+      (AURA_STYLES[condition] && states.add(condition));
+  for (let kind of effectKinds) {
+    let state =
       {
         invisible_spell: 'invisible',
         frightened_spell: 'frightened',
@@ -52,21 +66,25 @@ function BS(o) {
         shield_spell: 'shield_spell',
         command: 'commanded',
         spider_web: 'webbed',
-      }[a] || a;
-    Hm[n] && e.add(n);
+      }[kind] || kind;
+    AURA_STYLES[state] && states.add(state);
   }
   return (
-    o.concentration && e.add('concentration'),
-    o.hidden && e.add('hidden'),
-    (o.conditions || []).includes('unconscious') &&
-      (t.has('sleep') || t.has('asleep') || t.has('sleeping')) &&
-      e.add('sleeping'),
-    e.has('invisible') && e.delete('hidden'),
-    e
+    unit.concentration && states.add('concentration'),
+    unit.hidden && states.add('hidden'),
+    (unit.conditions || []).includes('unconscious') &&
+      (effectKinds.has('sleep') || effectKinds.has('asleep') || effectKinds.has('sleeping')) &&
+      states.add('sleeping'),
+    states.has('invisible') && states.delete('hidden'),
+    states
   );
 }
-const on = (o, e) => o + Math.random() * (e - o);
-const Hm = {
+/** Número al azar en [min, max). */
+const randRange = (min, max) => min + Math.random() * (max - min);
+// Aspecto de cada aura: glyph (icono sobre la cabeza; pri = prioridad), motes (partículas: rate por
+// segundo y mode = dónde nacen), look (opacidad/emisivo del modelo), ring, dome, runes, web, vines,
+// bands y ghosts (número de imágenes).
+const AURA_STYLES = {
   frightened: {
     glyph: { frame: FRAME.skull, col: 11567359 },
     motes: { col: 2756672, frame: FRAME.smoke, rate: 8, mode: 'head', blend: 'alpha', size: 0.3 },
@@ -191,11 +209,15 @@ const Hm = {
   shield_spell: { dome: { col: 10471679, hex: 1, alpha: 0.4 } },
   commanded: { glyph: { frame: FRAME.rune, col: 13148415 }, pri: 5 },
 };
-const Du = new Vector3();
-const i1 = class {
-  constructor(e, t) {
-    ((this.vfx = e),
-      (this.anchor = t),
+const tmpVec = new Vector3();
+/**
+ * Auras de una unidad. `anchor` da los puntos del modelo: feet(), head(), chest(), hand() opcional y
+ * root (el objeto 3D, para fantasmas y aspecto).
+ */
+const UnitAuras = class {
+  constructor(vfx, anchor) {
+    ((this.vfx = vfx),
+      (this.anchor = anchor),
       (this.states = new Map()),
       (this.glyph = -1),
       (this.glyphState = null),
@@ -203,21 +225,22 @@ const i1 = class {
       (this.lookKey = ''),
       (this.saved = null));
   }
-  has(e) {
-    return this.states.has(e);
+  has(key) {
+    return this.states.has(key);
   }
-  add(e) {
-    if (this.states.has(e)) return;
-    let t = Hm[e] || {},
-      a = { def: t, parts: [], acc: 0 },
-      n = this.vfx,
-      s = this.anchor.feet();
-    (t.ring &&
-      a.parts.push(
-        n.piece(
-          new xi(s, {
+  /** Activa el aura `key` y crea sus piezas. */
+  add(key) {
+    if (this.states.has(key)) return;
+    let def = AURA_STYLES[key] || {},
+      state = { def, parts: [], acc: 0 },
+      vfx = this.vfx,
+      feet = this.anchor.feet();
+    (def.ring &&
+      state.parts.push(
+        vfx.piece(
+          new Decal(feet, {
             frame: FRAME.ring,
-            color: t.ring,
+            color: def.ring,
             size: 1.25,
             life: 0,
             alpha: 0.55,
@@ -226,62 +249,75 @@ const i1 = class {
           }),
         ),
       ),
-      t.dome &&
-        a.parts.push(
-          n.piece(
-            new Xr(s, {
-              color: t.dome.col,
+      def.dome &&
+        state.parts.push(
+          vfx.piece(
+            new Dome(feet, {
+              color: def.dome.col,
               radius: 0.95,
               life: 0,
-              alpha: t.dome.alpha ?? 0.35,
+              alpha: def.dome.alpha ?? 0.35,
               grow: !1,
-              hex: t.dome.hex ?? 0,
+              hex: def.dome.hex ?? 0,
             }),
           ),
         ),
-      t.runes &&
-        a.parts.push(
-          n.piece(new nr(s, { color: t.runes, radius: 0.75, life: 0, alpha: 0.45, spin: 0.5, glow: 1.6 })),
+      def.runes &&
+        state.parts.push(
+          vfx.piece(
+            new RuneCircle(feet, {
+              color: def.runes,
+              radius: 0.75,
+              life: 0,
+              alpha: 0.45,
+              spin: 0.5,
+              glow: 1.6,
+            }),
+          ),
         ));
-    for (let i of a.parts) i.keep = !0;
-    (t.web && (a.web = this.makeWeb()),
-      t.vines && (a.vines = this.makeVines(t.vines)),
-      t.bands && (a.bands = this.makeBands(t.bands)),
-      t.ghosts && (a.ghosts = this.makeGhosts(t.ghosts)),
-      this.states.set(e, a),
+    for (let part of state.parts) part.keep = !0;
+    (def.web && (state.web = this.makeWeb()),
+      def.vines && (state.vines = this.makeVines(def.vines)),
+      def.bands && (state.bands = this.makeBands(def.bands)),
+      def.ghosts && (state.ghosts = this.makeGhosts(def.ghosts)),
+      this.states.set(key, state),
       this.refreshGlyph(),
       this.refreshLook(),
-      n.fx('aura_on', { state: e, at: s }));
+      vfx.fx('aura_on', { state: key, at: feet }));
   }
-  remove(e) {
-    let t = this.states.get(e);
-    if (t) {
-      for (let a of t.parts) this.vfx.remove(a);
-      if (t.ghosts) {
-        for (let { g: a } of t.ghosts.list) this.vfx.root.remove(a);
-        t.ghosts.mat.dispose();
+  /** Desactiva el aura `key` y libera sus piezas. */
+  remove(key) {
+    let state = this.states.get(key);
+    if (state) {
+      for (let part of state.parts) this.vfx.remove(part);
+      if (state.ghosts) {
+        for (let { g: ghost } of state.ghosts.list) this.vfx.root.remove(ghost);
+        state.ghosts.mat.dispose();
       }
-      for (let a of ['web', 'vines', 'bands'])
-        if (t[a]) {
-          if (t[a].pinned) for (let n of t[a].pinned) (t[a].pool || this.vfx.alp).kill(n);
-          t[a].mesh &&
-            (this.vfx.root.remove(t[a].mesh), t[a].mesh.geometry?.dispose(), t[a].mesh.material?.dispose());
+      for (let kind of ['web', 'vines', 'bands'])
+        if (state[kind]) {
+          if (state[kind].pinned)
+            for (let index of state[kind].pinned) (state[kind].pool || this.vfx.alp).kill(index);
+          state[kind].mesh &&
+            (this.vfx.root.remove(state[kind].mesh),
+            state[kind].mesh.geometry?.dispose(),
+            state[kind].mesh.material?.dispose());
         }
-      (this.states.delete(e),
+      (this.states.delete(key),
         this.refreshGlyph(),
         this.refreshLook(),
-        this.vfx.fx('aura_off', { state: e, at: this.anchor.feet() }));
+        this.vfx.fx('aura_off', { state: key, at: this.anchor.feet() }));
     }
   }
   makeWeb() {
-    let e = [];
-    for (let t = 0; t < 6; t++)
-      e.push(
+    let pinned = [];
+    for (let i = 0; i < 6; i++)
+      pinned.push(
         this.vfx.alp.spawn({
           p: [0, 0, 0],
           life: 1,
           pinned: !0,
-          size: on(0.7, 1.1),
+          size: randRange(0.7, 1.1),
           col: 16052970,
           a: 0.75,
           a1: 0.75,
@@ -290,302 +326,362 @@ const i1 = class {
         }),
       );
     return {
-      pinned: e,
+      pinned,
       pool: this.vfx.alp,
-      offs: e.map((t, a) => [Math.cos(a * 2.1) * 0.25, 0.25 + (a % 3) * 0.45, Math.sin(a * 2.1) * 0.25]),
+      offs: pinned.map((index, i) => [
+        Math.cos(i * 2.1) * 0.25,
+        0.25 + (i % 3) * 0.45,
+        Math.sin(i * 2.1) * 0.25,
+      ]),
     };
   }
-  makeVines(e) {
-    let t = [];
-    for (let a = 0; a < 9; a++)
-      t.push(
+  makeVines(color) {
+    let pinned = [];
+    for (let i = 0; i < 9; i++)
+      pinned.push(
         this.vfx.alp.spawn({
           p: [0, 0, 0],
           life: 1,
           pinned: !0,
-          size: on(0.18, 0.3),
-          col: a % 3 ? e : 3828250,
+          size: randRange(0.18, 0.3),
+          col: i % 3 ? color : 3828250,
           a: 0.95,
           a1: 0.95,
-          frame: a % 3 ? FRAME.leaf : FRAME.thorn,
+          frame: i % 3 ? FRAME.leaf : FRAME.thorn,
           rot: Math.random() * 6,
         }),
       );
     return {
-      pinned: t,
+      pinned,
       pool: this.vfx.alp,
-      offs: t.map((a, n) => [Math.cos(n * 1.7) * 0.3, 0.08 + (n / 9) * 0.7, Math.sin(n * 1.7) * 0.3]),
+      offs: pinned.map((index, i) => [
+        Math.cos(i * 1.7) * 0.3,
+        0.08 + (i / 9) * 0.7,
+        Math.sin(i * 1.7) * 0.3,
+      ]),
     };
   }
-  makeGhosts(e) {
-    let t = this.anchor.root;
-    if (!t) return null;
-    let a;
+  /** Copias fantasma del modelo (imagen múltiple) que orbitan e imitan su pose. */
+  makeGhosts(count) {
+    let root = this.anchor.root;
+    if (!root) return null;
+    let template;
     try {
-      a = clone(t);
+      template = clone(root);
     } catch {
       return null;
     }
-    let n = new MeshBasicMaterial({
+    let material = new MeshBasicMaterial({
         color: new Color(10127615).multiplyScalar(1.2),
         transparent: !0,
         opacity: 0.32,
         blending: AdditiveBlending,
         depthWrite: !1,
       }),
-      s = (l) => {
-        let c = [];
-        l.traverse((d) => {
-          d.isLight || d.isSprite || d.isPoints
-            ? c.push(d)
-            : d.isMesh &&
-              ((d.material = n), (d.castShadow = !1), (d.receiveShadow = !1), (d.userData.vfxGhost = !0));
+      ghostify = (obj) => {
+        let extras = [];
+        obj.traverse((node) => {
+          node.isLight || node.isSprite || node.isPoints
+            ? extras.push(node)
+            : node.isMesh &&
+              ((node.material = material),
+              (node.castShadow = !1),
+              (node.receiveShadow = !1),
+              (node.userData.vfxGhost = !0));
         });
-        for (let d of c) d.parent?.remove(d);
+        for (let node of extras) node.parent?.remove(node);
       };
-    s(a);
-    let i = [];
-    t.traverse((l) => i.push(l));
-    let r = [];
-    for (let l = 0; l < e; l++) {
-      let c = l === 0 ? a : clone(a);
-      l > 0 && s(c);
-      let d = [];
-      (c.traverse((u) => d.push(u)),
-        (c.userData.vfxGhost = !0),
-        this.vfx.root.add(c),
-        r.push({ g: c, dst: d }));
+    ghostify(template);
+    let srcNodes = [];
+    root.traverse((node) => srcNodes.push(node));
+    let list = [];
+    for (let i = 0; i < count; i++) {
+      let ghost = i === 0 ? template : clone(template);
+      i > 0 && ghostify(ghost);
+      let dstNodes = [];
+      (ghost.traverse((node) => dstNodes.push(node)),
+        (ghost.userData.vfxGhost = !0),
+        this.vfx.root.add(ghost),
+        list.push({ g: ghost, dst: dstNodes }));
     }
-    return { list: r, src: i, mat: n };
+    return { list, src: srcNodes, mat: material };
   }
-  makeBands(e) {
-    let t = new TorusGeometry(0.42, 0.025, 6, 32),
-      a = new Color(e).multiplyScalar(2.2),
-      n = new MeshBasicMaterial({
-        color: a,
+  makeBands(color) {
+    let geometry = new TorusGeometry(0.42, 0.025, 6, 32),
+      col = new Color(color).multiplyScalar(2.2),
+      material = new MeshBasicMaterial({
+        color: col,
         transparent: !0,
         opacity: 0.8,
         blending: AdditiveBlending,
         depthWrite: !1,
       }),
-      s = new InstancedMesh(t, n, 3);
+      mesh = new InstancedMesh(geometry, material, 3);
     return (
-      (s.frustumCulled = !1),
-      this.vfx.root.add(s),
-      { mesh: s, mat: new Matrix4(), q: new Quaternion() }
+      (mesh.frustumCulled = !1),
+      this.vfx.root.add(mesh),
+      { mesh, mat: new Matrix4(), q: new Quaternion() }
     );
   }
+  /** Muestra sobre la cabeza el icono del aura activa de mayor prioridad. */
   refreshGlyph() {
-    let e = null,
-      t = -1;
-    for (let [a, n] of this.states) n.def.glyph && (n.def.pri ?? 0) > t && ((t = n.def.pri ?? 0), (e = a));
+    let bestKey = null,
+      bestPri = -1;
+    for (let [key, state] of this.states)
+      state.def.glyph && (state.def.pri ?? 0) > bestPri && ((bestPri = state.def.pri ?? 0), (bestKey = key));
     if (
-      e !== this.glyphState &&
-      (this.glyph >= 0 && this.vfx.add.kill(this.glyph), (this.glyph = -1), (this.glyphState = e), e)
+      bestKey !== this.glyphState &&
+      (this.glyph >= 0 && this.vfx.add.kill(this.glyph),
+      (this.glyph = -1),
+      (this.glyphState = bestKey),
+      bestKey)
     ) {
-      let a = Hm[e].glyph;
+      let glyph = AURA_STYLES[bestKey].glyph;
       this.glyph = this.vfx.add.spawn({
         p: this.anchor.head(),
         life: 1,
         pinned: !0,
-        size: a.size ?? 0.42,
-        col: a.col,
+        size: glyph.size ?? 0.42,
+        col: glyph.col,
         a: 0.95,
         a1: 0.95,
-        frame: a.frame,
+        frame: glyph.frame,
         rot: 0,
-        spin: a.spin ?? 0,
+        spin: glyph.spin ?? 0,
         glow: 1.6,
       });
     }
   }
+  /** Aplica al modelo la menor opacidad y el emisivo más intenso de las auras activas (clona materiales). */
   refreshLook() {
-    let e = 1,
-      t = null,
-      a = 0;
-    for (let i of this.states.values()) {
-      let r = i.def.look;
-      r &&
-        (r.opacity !== void 0 && (e = Math.min(e, r.opacity)),
-        r.emissive !== void 0 && r.intensity > a && ((t = r.emissive), (a = r.intensity)));
+    let opacity = 1,
+      emissive = null,
+      intensity = 0;
+    for (let state of this.states.values()) {
+      let look = state.def.look;
+      look &&
+        (look.opacity !== void 0 && (opacity = Math.min(opacity, look.opacity)),
+        look.emissive !== void 0 &&
+          look.intensity > intensity &&
+          ((emissive = look.emissive), (intensity = look.intensity)));
     }
-    let n = `${e}|${t}|${a}`;
-    if (n === this.lookKey || ((this.lookKey = n), this.restoreLook(), e >= 1 && !t)) return;
-    let s = this.anchor.root;
-    s &&
+    let lookKey = `${opacity}|${emissive}|${intensity}`;
+    if (lookKey === this.lookKey || ((this.lookKey = lookKey), this.restoreLook(), opacity >= 1 && !emissive))
+      return;
+    let root = this.anchor.root;
+    root &&
       ((this.saved = []),
-      s.traverse((i) => {
-        if (!i.isMesh || !i.material || Array.isArray(i.material) || i.userData.vfxGhost) return;
-        let r = i.material,
-          l = r.clone();
-        ((l.onBeforeCompile = r.onBeforeCompile),
-          (l.customProgramCacheKey = r.customProgramCacheKey),
-          e < 1 && ((l.transparent = !0), (l.opacity = r.opacity * e), (l.depthWrite = e > 0.5)),
-          t && l.emissive && ((l.emissive = new Color(t)), (l.emissiveIntensity = a)),
-          this.saved.push([i, r, l]),
-          (i.material = l));
+      root.traverse((obj) => {
+        if (!obj.isMesh || !obj.material || Array.isArray(obj.material) || obj.userData.vfxGhost) return;
+        let original = obj.material,
+          material = original.clone();
+        ((material.onBeforeCompile = original.onBeforeCompile),
+          (material.customProgramCacheKey = original.customProgramCacheKey),
+          opacity < 1 &&
+            ((material.transparent = !0),
+            (material.opacity = original.opacity * opacity),
+            (material.depthWrite = opacity > 0.5)),
+          emissive &&
+            material.emissive &&
+            ((material.emissive = new Color(emissive)), (material.emissiveIntensity = intensity)),
+          this.saved.push([obj, original, material]),
+          (obj.material = material));
       }));
   }
+  /** Devuelve al modelo sus materiales originales. */
   restoreLook() {
     if (this.saved) {
-      for (let [e, t, a] of this.saved) (e.material === a && (e.material = t), a.dispose());
+      for (let [obj, original, material] of this.saved)
+        (obj.material === material && (obj.material = original), material.dispose());
       this.saved = null;
     }
   }
-  update(e) {
-    this.t += e;
-    let t = this.anchor,
-      a = t.feet(),
-      n = this.vfx,
-      s = t.root ? t.root.visible : !0,
-      i = null,
-      r = null,
-      l = () => (i ||= t.head()),
-      c = () => (r ||= t.chest());
+  update(dt) {
+    this.t += dt;
+    let anchor = this.anchor,
+      feet = anchor.feet(),
+      vfx = this.vfx,
+      visible = anchor.root ? anchor.root.visible : !0,
+      headPos = null,
+      chestPos = null,
+      head = () => (headPos ||= anchor.head()),
+      chest = () => (chestPos ||= anchor.chest());
     if (this.glyph >= 0) {
-      let d = l();
-      n.add.place(this.glyph, d.x, d.y + 0.55 + Math.sin(this.t * 2.2) * 0.05, d.z, s ? 0.95 : 0);
+      let pos = head();
+      vfx.add.place(
+        this.glyph,
+        pos.x,
+        pos.y + 0.55 + Math.sin(this.t * 2.2) * 0.05,
+        pos.z,
+        visible ? 0.95 : 0,
+      );
     }
-    for (let d of this.states.values()) {
-      for (let h of d.parts)
-        ((h.mesh.position.x = a.x),
-          (h.mesh.position.z = a.z),
-          (h.mesh.position.y = a.y + (h instanceof xi ? 0.04 : h instanceof nr ? 0.05 : 0)),
-          (h.mesh.visible = s));
+    for (let state of this.states.values()) {
+      for (let part of state.parts)
+        ((part.mesh.position.x = feet.x),
+          (part.mesh.position.z = feet.z),
+          (part.mesh.position.y =
+            feet.y + (part instanceof Decal ? 0.04 : part instanceof RuneCircle ? 0.05 : 0)),
+          (part.mesh.visible = visible));
       if (
-        (d.web &&
-          d.web.pinned.forEach((h, p) => {
-            let m = d.web.offs[p];
-            n.alp.place(h, a.x + m[0], a.y + m[1], a.z + m[2], s ? 0.75 : 0);
+        (state.web &&
+          state.web.pinned.forEach((index, i) => {
+            let off = state.web.offs[i];
+            vfx.alp.place(index, feet.x + off[0], feet.y + off[1], feet.z + off[2], visible ? 0.75 : 0);
           }),
-        d.vines &&
-          d.vines.pinned.forEach((h, p) => {
-            let m = d.vines.offs[p],
-              _ = Math.sin(this.t * 1.5 + p) * 0.03;
-            n.alp.place(h, a.x + m[0] + _, a.y + m[1], a.z + m[2], s ? 0.95 : 0);
+        state.vines &&
+          state.vines.pinned.forEach((index, i) => {
+            let off = state.vines.offs[i],
+              sway = Math.sin(this.t * 1.5 + i) * 0.03;
+            vfx.alp.place(
+              index,
+              feet.x + off[0] + sway,
+              feet.y + off[1],
+              feet.z + off[2],
+              visible ? 0.95 : 0,
+            );
           }),
-        d.bands)
+        state.bands)
       ) {
-        let h = d.bands;
-        for (let p = 0; p < 3; p++)
-          (h.q.setFromEuler(
+        let bands = state.bands;
+        for (let i = 0; i < 3; i++)
+          (bands.q.setFromEuler(
             new Euler(
-              Math.PI / 2 + Math.sin(this.t * 1.3 + p) * 0.25,
-              this.t * (1 + p * 0.4),
-              Math.cos(this.t + p) * 0.2,
+              Math.PI / 2 + Math.sin(this.t * 1.3 + i) * 0.25,
+              this.t * (1 + i * 0.4),
+              Math.cos(this.t + i) * 0.2,
             ),
           ),
-            h.mat.compose(Du.set(a.x, a.y + 0.45 + p * 0.4, a.z), h.q, new Vector3(1, 1, 1)),
-            h.mesh.setMatrixAt(p, h.mat));
-        ((h.mesh.instanceMatrix.needsUpdate = !0), (h.mesh.visible = s));
+            bands.mat.compose(
+              tmpVec.set(feet.x, feet.y + 0.45 + i * 0.4, feet.z),
+              bands.q,
+              new Vector3(1, 1, 1),
+            ),
+            bands.mesh.setMatrixAt(i, bands.mat));
+        ((bands.mesh.instanceMatrix.needsUpdate = !0), (bands.mesh.visible = visible));
       }
-      if (d.ghosts) {
-        let h = d.ghosts,
-          p = t.root;
-        (p.updateMatrixWorld(),
-          h.list.forEach(({ g: m, dst: _ }, b) => {
-            let f = Math.min(_.length, h.src.length);
-            for (let x = 1; x < f; x++) {
-              let g = h.src[x],
-                y = _[x];
-              (y.position.copy(g.position), y.quaternion.copy(g.quaternion), y.scale.copy(g.scale));
+      if (state.ghosts) {
+        let ghosts = state.ghosts,
+          root = anchor.root;
+        (root.updateMatrixWorld(),
+          ghosts.list.forEach(({ g: ghost, dst }, i) => {
+            let count = Math.min(dst.length, ghosts.src.length);
+            for (let k = 1; k < count; k++) {
+              let from = ghosts.src[k],
+                to = dst[k];
+              (to.position.copy(from.position),
+                to.quaternion.copy(from.quaternion),
+                to.scale.copy(from.scale));
             }
-            let v = this.t * 0.8 + (b * Math.PI * 2) / h.list.length;
-            (p.getWorldPosition(Du),
-              m.position.set(Du.x + Math.cos(v) * 0.55, Du.y, Du.z + Math.sin(v) * 0.55),
-              (m.rotation.y = p.rotation.y),
-              m.scale.copy(p.scale),
-              (m.visible = s));
+            let angle = this.t * 0.8 + (i * Math.PI * 2) / ghosts.list.length;
+            (root.getWorldPosition(tmpVec),
+              ghost.position.set(
+                tmpVec.x + Math.cos(angle) * 0.55,
+                tmpVec.y,
+                tmpVec.z + Math.sin(angle) * 0.55,
+              ),
+              (ghost.rotation.y = root.rotation.y),
+              ghost.scale.copy(root.scale),
+              (ghost.visible = visible));
           }));
       }
-      let u = d.def.motes;
-      if (u && s)
-        for (d.acc += e * u.rate * Math.max(0.4, n.quality); d.acc >= 1;)
-          ((d.acc -= 1), this.mote(u, a, l, c));
+      let motes = state.def.motes;
+      if (motes && visible)
+        for (state.acc += dt * motes.rate * Math.max(0.4, vfx.quality); state.acc >= 1;)
+          ((state.acc -= 1), this.mote(motes, feet, head, chest));
     }
   }
-  mote(e, t, a, n) {
-    let s = this.vfx,
-      i = Math.random() * Math.PI * 2,
-      r = {
-        col: e.col,
-        frame: e.frame,
-        size: e.size,
-        size1: e.size * 0.4,
+  /** Emite una mota según `def.mode` (orbit, rise, fall, head, halo, body, feet, drip, hand, ghost). */
+  mote(def, feet, head, chest) {
+    let vfx = this.vfx,
+      angle = Math.random() * Math.PI * 2,
+      base = {
+        col: def.col,
+        frame: def.frame,
+        size: def.size,
+        size1: def.size * 0.4,
         glow: 1.6,
-        blend: e.blend || 'add',
-        a: e.blend === 'alpha' ? 0.6 : 0.9,
+        blend: def.blend || 'add',
+        a: def.blend === 'alpha' ? 0.6 : 0.9,
         spin: 1.5,
       };
-    switch (e.mode) {
+    switch (def.mode) {
       case 'orbit': {
-        let c = on(0.3, 1.6);
-        s.p({
-          ...r,
-          p: [t.x + Math.cos(i) * 0.5, t.y + c, t.z + Math.sin(i) * 0.5],
-          v: [-Math.sin(i) * 1.2, 0.15, Math.cos(i) * 1.2],
+        let height = randRange(0.3, 1.6);
+        vfx.p({
+          ...base,
+          p: [feet.x + Math.cos(angle) * 0.5, feet.y + height, feet.z + Math.sin(angle) * 0.5],
+          v: [-Math.sin(angle) * 1.2, 0.15, Math.cos(angle) * 1.2],
           life: 0.9,
         });
         break;
       }
       case 'rise':
-        s.p({
-          ...r,
-          p: [t.x + Math.cos(i) * 0.3, t.y + on(0.1, 1.2), t.z + Math.sin(i) * 0.3],
-          v: [0, on(0.5, 1.2), 0],
+        vfx.p({
+          ...base,
+          p: [feet.x + Math.cos(angle) * 0.3, feet.y + randRange(0.1, 1.2), feet.z + Math.sin(angle) * 0.3],
+          v: [0, randRange(0.5, 1.2), 0],
           life: 1,
         });
         break;
       case 'fall': {
-        let l = a();
-        s.p({
-          ...r,
-          p: [l.x + Math.cos(i) * 0.4, l.y + 0.6, l.z + Math.sin(i) * 0.4],
+        let pos = head();
+        vfx.p({
+          ...base,
+          p: [pos.x + Math.cos(angle) * 0.4, pos.y + 0.6, pos.z + Math.sin(angle) * 0.4],
           v: [0, -0.6, 0],
           life: 1.4,
         });
         break;
       }
       case 'head': {
-        let l = a();
-        s.p({
-          ...r,
-          p: [l.x + Math.cos(i) * 0.15, l.y + 0.15, l.z + Math.sin(i) * 0.15],
-          v: [Math.cos(i) * 0.2, on(0.4, 0.8), Math.sin(i) * 0.2],
+        let pos = head();
+        vfx.p({
+          ...base,
+          p: [pos.x + Math.cos(angle) * 0.15, pos.y + 0.15, pos.z + Math.sin(angle) * 0.15],
+          v: [Math.cos(angle) * 0.2, randRange(0.4, 0.8), Math.sin(angle) * 0.2],
           life: 1.2,
-          size1: e.size * 1.8,
+          size1: def.size * 1.8,
         });
         break;
       }
       case 'halo': {
-        let l = a(),
-          c = this.t * 4 + Math.random();
-        s.p({ ...r, p: [l.x + Math.cos(c) * 0.3, l.y + 0.25, l.z + Math.sin(c) * 0.3], life: 0.5 });
+        let pos = head(),
+          orbitAngle = this.t * 4 + Math.random();
+        vfx.p({
+          ...base,
+          p: [pos.x + Math.cos(orbitAngle) * 0.3, pos.y + 0.25, pos.z + Math.sin(orbitAngle) * 0.3],
+          life: 0.5,
+        });
         break;
       }
       case 'body': {
-        let l = n();
-        s.p({
-          ...r,
-          p: [l.x + on(-0.3, 0.3), t.y + on(0.1, (l.y - t.y) * 1.6), l.z + on(-0.3, 0.3)],
-          v: [0, on(0.1, 0.6), 0],
+        let pos = chest();
+        vfx.p({
+          ...base,
+          p: [
+            pos.x + randRange(-0.3, 0.3),
+            feet.y + randRange(0.1, (pos.y - feet.y) * 1.6),
+            pos.z + randRange(-0.3, 0.3),
+          ],
+          v: [0, randRange(0.1, 0.6), 0],
           life: 0.8,
         });
         break;
       }
       case 'feet':
-        s.p({
-          ...r,
-          p: [t.x + Math.cos(i) * 0.4, t.y + 0.08, t.z + Math.sin(i) * 0.4],
-          v: [-Math.sin(i) * 0.8, 0.2, Math.cos(i) * 0.8],
+        vfx.p({
+          ...base,
+          p: [feet.x + Math.cos(angle) * 0.4, feet.y + 0.08, feet.z + Math.sin(angle) * 0.4],
+          v: [-Math.sin(angle) * 0.8, 0.2, Math.cos(angle) * 0.8],
           life: 0.8,
         });
         break;
       case 'drip': {
-        let l = n();
-        s.p({
-          ...r,
-          p: [l.x + on(-0.25, 0.25), l.y + on(-0.3, 0.3), l.z + on(-0.25, 0.25)],
+        let pos = chest();
+        vfx.p({
+          ...base,
+          p: [pos.x + randRange(-0.25, 0.25), pos.y + randRange(-0.3, 0.3), pos.z + randRange(-0.25, 0.25)],
           v: [0, -0.2, 0],
           grav: -6,
           life: 0.6,
@@ -593,23 +689,23 @@ const i1 = class {
         break;
       }
       case 'hand': {
-        let l = this.anchor.hand ? this.anchor.hand() : n();
-        s.p({
-          ...r,
-          p: [l.x + on(-0.06, 0.06), l.y + on(-0.06, 0.1), l.z + on(-0.06, 0.06)],
-          v: [0, on(0.3, 0.9), 0],
+        let pos = this.anchor.hand ? this.anchor.hand() : chest();
+        vfx.p({
+          ...base,
+          p: [pos.x + randRange(-0.06, 0.06), pos.y + randRange(-0.06, 0.1), pos.z + randRange(-0.06, 0.06)],
+          v: [0, randRange(0.3, 0.9), 0],
           life: 0.4,
         });
         break;
       }
       case 'ghost': {
-        let l = n(),
-          c = 0.7;
-        s.p({
-          ...r,
-          p: [l.x + Math.cos(i) * c, l.y, l.z + Math.sin(i) * c],
+        let pos = chest(),
+          radius = 0.7;
+        vfx.p({
+          ...base,
+          p: [pos.x + Math.cos(angle) * radius, pos.y, pos.z + Math.sin(angle) * radius],
           life: 0.6,
-          size1: e.size,
+          size1: def.size,
           a: 0.25,
         });
         break;
@@ -619,33 +715,42 @@ const i1 = class {
     }
   }
   dispose() {
-    for (let e of [...this.states.keys()]) this.remove(e);
+    for (let key of [...this.states.keys()]) this.remove(key);
     (this.glyph >= 0 && this.vfx.add.kill(this.glyph), this.restoreLook());
   }
 };
-const Nm = class {
-  constructor(e) {
-    ((this.vfx = e), (this.units = new Map()));
+/** Gestor de auras de todas las unidades, por id de unidad. */
+const AuraEffects = class {
+  constructor(vfx) {
+    ((this.vfx = vfx), (this.units = new Map()));
   }
-  unit(e, t) {
-    let a = this.units.get(e);
-    return (a ? t && (a.anchor = t) : ((a = new i1(this.vfx, t)), this.units.set(e, a)), a);
+  unit(id, anchor) {
+    let auras = this.units.get(id);
+    return (
+      auras
+        ? anchor && (auras.anchor = anchor)
+        : ((auras = new UnitAuras(this.vfx, anchor)), this.units.set(id, auras)),
+      auras
+    );
   }
-  set(e, t, a, n) {
-    let s = this.unit(e, t);
-    n ? s.add(a) : s.remove(a);
+  /** Activa o desactiva un aura de la unidad `id`. */
+  set(id, anchor, key, on) {
+    let auras = this.unit(id, anchor);
+    on ? auras.add(key) : auras.remove(key);
   }
-  sync(e, t, a) {
-    let n = a instanceof Set ? a : new Set(a),
-      s = this.unit(e, t);
-    for (let i of [...s.states.keys()]) n.has(i) || s.remove(i);
-    for (let i of n) s.has(i) || s.add(i);
+  /** Deja en la unidad `id` exactamente las auras de `keys`. */
+  sync(id, anchor, keys) {
+    let wanted = keys instanceof Set ? keys : new Set(keys),
+      auras = this.unit(id, anchor);
+    for (let key of [...auras.states.keys()]) wanted.has(key) || auras.remove(key);
+    for (let key of wanted) auras.has(key) || auras.add(key);
   }
-  popGhost(e) {
-    let a = this.units.get(e)?.states.get('mirror_image')?.ghosts;
-    if (!a || !a.list.length) return;
-    let { g: n } = a.list.pop();
-    (this.vfx.burst(n.position.clone().setY(n.position.y + 0.9), {
+  /** Hace estallar una de las imágenes del reflejo de la unidad. */
+  popGhost(id) {
+    let ghosts = this.units.get(id)?.states.get('mirror_image')?.ghosts;
+    if (!ghosts || !ghosts.list.length) return;
+    let { g: ghost } = ghosts.list.pop();
+    (this.vfx.burst(ghost.position.clone().setY(ghost.position.y + 0.9), {
       n: 16,
       col: 12628223,
       speed: 1.6,
@@ -654,31 +759,32 @@ const Nm = class {
       frame: FRAME.star,
       glow: 2,
     }),
-      this.vfx.root.remove(n));
+      this.vfx.root.remove(ghost));
   }
-  clear(e) {
-    let t = this.units.get(e);
-    t && (t.dispose(), this.units.delete(e));
+  clear(id) {
+    let auras = this.units.get(id);
+    auras && (auras.dispose(), this.units.delete(id));
   }
   count() {
-    let e = 0;
-    for (let t of this.units.values()) e += t.states.size;
-    return e;
+    let total = 0;
+    for (let auras of this.units.values()) total += auras.states.size;
+    return total;
   }
+  /** Vuelve a crear todas las auras de todas las unidades (sin uso en el código actual). */
   repin() {
-    for (let e of this.units.values()) {
-      let t = [...e.states.keys()];
-      e.dispose();
-      for (let a of t) e.add(a);
+    for (let auras of this.units.values()) {
+      let keys = [...auras.states.keys()];
+      auras.dispose();
+      for (let key of keys) auras.add(key);
     }
   }
-  update(e) {
-    for (let t of this.units.values()) t.update(e);
+  update(dt) {
+    for (let auras of this.units.values()) auras.update(dt);
   }
   dispose() {
-    for (let e of this.units.values()) e.dispose();
+    for (let auras of this.units.values()) auras.dispose();
     this.units.clear();
   }
 };
 
-export { BS, Nm };
+export { auraStatesOf, AuraEffects };

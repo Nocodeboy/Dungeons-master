@@ -1,5 +1,10 @@
 // vfx/particles.js
-// Reconstruido de publicado/juego.js (módulo __esm «t1»). Nombres locales aún minificados.
+// Sistema de partículas por instancias: un solo Mesh de quads (InstancedBufferGeometry) con un
+// ShaderMaterial que toma las siluetas del atlas. Cada partícula tiene posición, velocidad, vida,
+// tamaño y color interpolados, casilla del atlas, giro, gravedad, rozamiento, estiramiento según la
+// velocidad, parpadeo y modo «fijada» (no envejece; la mueve quien la creó con `place`).
+// Lo usa vfx/index.js (un sistema aditivo y otro con mezcla normal); shaders.js usa `toColor`.
+// Reconstruido de publicado/juego.js (módulo __esm «t1»).
 
 import {
   AdditiveBlending,
@@ -12,12 +17,18 @@ import {
   NormalBlending,
   ShaderMaterial,
 } from 'three';
-import { km, vi, _c } from './atlas.js';
+import { getParticleAtlas, ATLAS_COLS, ATLAS_ROWS } from './atlas.js';
 
-function Am(o, e = Wr) {
-  return o && o.isColor ? e.copy(o) : Array.isArray(o) ? e.setRGB(o[0], o[1], o[2]) : e.set(o ?? 16777215);
+/** Convierte un color (Color, [r, g, b] o número/cadena) en un Color; por defecto escribe en `tmpColor`. */
+function toColor(value, target = tmpColor) {
+  return value && value.isColor
+    ? target.copy(value)
+    : Array.isArray(value)
+      ? target.setRGB(value[0], value[1], value[2])
+      : target.set(value ?? 16777215);
 }
-const PI = `
+// Sombreador de vértices: billboard orientado a cámara, girado o estirado según la velocidad.
+const PARTICLE_VERTEX_SHADER = `
 attribute vec3 iPos;
 attribute vec3 iVel;
 attribute vec4 iCol;
@@ -52,7 +63,7 @@ void main() {
   vCol = iCol;
   if (size <= 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }`;
-const zI = `
+const PARTICLE_FRAGMENT_SHADER = `
 uniform sampler2D uAtlas;
 varying vec2 vUv;
 varying vec4 vCol;
@@ -62,190 +73,207 @@ void main() {
   if (a < 0.003) discard;
   gl_FragColor = vec4(vCol.rgb * t.rgb, a);
 }`;
-const Wr = new Color();
-const Su = class {
-  constructor(e, t = 'add') {
-    ((this.max = e), (this.blend = t));
-    let a = e;
-    ((this.p = new Float32Array(a * 3)),
-      (this.v = new Float32Array(a * 3)),
-      (this.age = new Float32Array(a)),
-      (this.life = new Float32Array(a).fill(-1)),
-      (this.s0 = new Float32Array(a)),
-      (this.s1 = new Float32Array(a)),
-      (this.c0 = new Float32Array(a * 3)),
-      (this.c1 = new Float32Array(a * 3)),
-      (this.a0 = new Float32Array(a)),
-      (this.a1 = new Float32Array(a)),
-      (this.fin = new Float32Array(a)),
-      (this.frame = new Float32Array(a)),
-      (this.rot = new Float32Array(a)),
-      (this.spin = new Float32Array(a)),
-      (this.grav = new Float32Array(a)),
-      (this.drag = new Float32Array(a)),
-      (this.str = new Float32Array(a)),
-      (this.flick = new Float32Array(a)),
-      (this.pinned = new Uint8Array(a)),
+const tmpColor = new Color();
+/** Sistema de hasta `capacity` partículas; `blend` es 'add' (aditiva) o cualquier otro valor (normal). */
+const ParticleSystem = class {
+  constructor(capacity, blend = 'add') {
+    ((this.max = capacity), (this.blend = blend));
+    let count = capacity;
+    ((this.p = new Float32Array(count * 3)),
+      (this.v = new Float32Array(count * 3)),
+      (this.age = new Float32Array(count)),
+      (this.life = new Float32Array(count).fill(-1)),
+      (this.s0 = new Float32Array(count)),
+      (this.s1 = new Float32Array(count)),
+      (this.c0 = new Float32Array(count * 3)),
+      (this.c1 = new Float32Array(count * 3)),
+      (this.a0 = new Float32Array(count)),
+      (this.a1 = new Float32Array(count)),
+      (this.fin = new Float32Array(count)),
+      (this.frame = new Float32Array(count)),
+      (this.rot = new Float32Array(count)),
+      (this.spin = new Float32Array(count)),
+      (this.grav = new Float32Array(count)),
+      (this.drag = new Float32Array(count)),
+      (this.str = new Float32Array(count)),
+      (this.flick = new Float32Array(count)),
+      (this.pinned = new Uint8Array(count)),
       (this.free = []));
-    for (let i = a - 1; i >= 0; i--) this.free.push(i);
+    for (let i = count - 1; i >= 0; i--) this.free.push(i);
     ((this.hw = 0), (this.alive = 0));
-    let n = new InstancedBufferGeometry();
-    (n.setAttribute(
+    let geometry = new InstancedBufferGeometry();
+    (geometry.setAttribute(
       'position',
       new BufferAttribute(new Float32Array([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0]), 3),
     ),
-      n.setIndex([0, 1, 2, 0, 2, 3]));
-    let s = (i) => {
-      let r = new InstancedBufferAttribute(new Float32Array(a * i), i);
-      return (r.setUsage(DynamicDrawUsage), r);
+      geometry.setIndex([0, 1, 2, 0, 2, 3]));
+    let makeAttribute = (itemSize) => {
+      let attribute = new InstancedBufferAttribute(new Float32Array(count * itemSize), itemSize);
+      return (attribute.setUsage(DynamicDrawUsage), attribute);
     };
-    ((this.aPos = s(3)),
-      (this.aVel = s(3)),
-      (this.aCol = s(4)),
-      (this.aPar = s(4)),
-      n.setAttribute('iPos', this.aPos),
-      n.setAttribute('iVel', this.aVel),
-      n.setAttribute('iCol', this.aCol),
-      n.setAttribute('iPar', this.aPar),
-      (n.instanceCount = 0),
+    ((this.aPos = makeAttribute(3)),
+      (this.aVel = makeAttribute(3)),
+      (this.aCol = makeAttribute(4)),
+      (this.aPar = makeAttribute(4)),
+      geometry.setAttribute('iPos', this.aPos),
+      geometry.setAttribute('iVel', this.aVel),
+      geometry.setAttribute('iCol', this.aCol),
+      geometry.setAttribute('iPar', this.aPar),
+      (geometry.instanceCount = 0),
       (this.material = new ShaderMaterial({
-        uniforms: { uAtlas: { value: km() }, uCols: { value: vi }, uRows: { value: _c } },
-        vertexShader: PI,
-        fragmentShader: zI,
+        uniforms: {
+          uAtlas: { value: getParticleAtlas() },
+          uCols: { value: ATLAS_COLS },
+          uRows: { value: ATLAS_ROWS },
+        },
+        vertexShader: PARTICLE_VERTEX_SHADER,
+        fragmentShader: PARTICLE_FRAGMENT_SHADER,
         transparent: !0,
         depthWrite: !1,
         depthTest: !0,
-        blending: t === 'add' ? AdditiveBlending : NormalBlending,
+        blending: blend === 'add' ? AdditiveBlending : NormalBlending,
       })),
-      (this.mesh = new Mesh(n, this.material)),
+      (this.mesh = new Mesh(geometry, this.material)),
       (this.mesh.frustumCulled = !1),
-      (this.mesh.renderOrder = t === 'add' ? 12 : 11),
-      (this.mesh.name = `vfx_particulas_${t}`),
-      (this.geo = n));
+      (this.mesh.renderOrder = blend === 'add' ? 12 : 11),
+      (this.mesh.name = `vfx_particulas_${blend}`),
+      (this.geo = geometry));
   }
-  spawn(e) {
+  /**
+   * Crea una partícula. `opts`: p (posición), v (velocidad), life, size/size1, col/col1, glow, a/a1
+   * (alfa inicial/final), fadeIn, frame, rot, spin, grav, drag, stretch, flicker, pinned.
+   * Devuelve su índice o -1 si no quedan huecos.
+   */
+  spawn(opts) {
     if (!this.free.length) return -1;
-    let t = this.free.pop(),
-      a = e.p,
-      n = t * 3;
-    a.isVector3
-      ? ((this.p[n] = a.x), (this.p[n + 1] = a.y), (this.p[n + 2] = a.z))
-      : ((this.p[n] = a[0]), (this.p[n + 1] = a[1]), (this.p[n + 2] = a[2]));
-    let s = e.v;
-    (s
-      ? s.isVector3
-        ? ((this.v[n] = s.x), (this.v[n + 1] = s.y), (this.v[n + 2] = s.z))
-        : ((this.v[n] = s[0]), (this.v[n + 1] = s[1]), (this.v[n + 2] = s[2]))
-      : (this.v[n] = this.v[n + 1] = this.v[n + 2] = 0),
-      (this.age[t] = 0),
-      (this.life[t] = e.life ?? 1),
-      (this.s0[t] = e.size ?? 0.2),
-      (this.s1[t] = e.size1 ?? this.s0[t]));
-    let i = e.glow ?? 1;
+    let index = this.free.pop(),
+      pos = opts.p,
+      i3 = index * 3;
+    pos.isVector3
+      ? ((this.p[i3] = pos.x), (this.p[i3 + 1] = pos.y), (this.p[i3 + 2] = pos.z))
+      : ((this.p[i3] = pos[0]), (this.p[i3 + 1] = pos[1]), (this.p[i3 + 2] = pos[2]));
+    let vel = opts.v;
+    (vel
+      ? vel.isVector3
+        ? ((this.v[i3] = vel.x), (this.v[i3 + 1] = vel.y), (this.v[i3 + 2] = vel.z))
+        : ((this.v[i3] = vel[0]), (this.v[i3 + 1] = vel[1]), (this.v[i3 + 2] = vel[2]))
+      : (this.v[i3] = this.v[i3 + 1] = this.v[i3 + 2] = 0),
+      (this.age[index] = 0),
+      (this.life[index] = opts.life ?? 1),
+      (this.s0[index] = opts.size ?? 0.2),
+      (this.s1[index] = opts.size1 ?? this.s0[index]));
+    let glow = opts.glow ?? 1;
     return (
-      Am(e.col ?? 16777215),
-      (this.c0[n] = Wr.r * i),
-      (this.c0[n + 1] = Wr.g * i),
-      (this.c0[n + 2] = Wr.b * i),
-      e.col1 !== void 0 && Am(e.col1),
-      (this.c1[n] = Wr.r * i),
-      (this.c1[n + 1] = Wr.g * i),
-      (this.c1[n + 2] = Wr.b * i),
-      (this.a0[t] = e.a ?? 1),
-      (this.a1[t] = e.a1 ?? 0),
-      (this.fin[t] = e.fadeIn ?? 0.08),
-      (this.frame[t] = e.frame ?? 0),
-      (this.rot[t] = e.rot ?? Math.random() * 6.283),
-      (this.spin[t] = e.spin ?? 0),
-      (this.grav[t] = e.grav ?? 0),
-      (this.drag[t] = e.drag ?? 0),
-      (this.str[t] = e.stretch ?? 0),
-      (this.flick[t] = e.flicker ?? 0),
-      (this.pinned[t] = e.pinned ? 1 : 0),
-      t + 1 > this.hw && (this.hw = t + 1),
+      toColor(opts.col ?? 16777215),
+      (this.c0[i3] = tmpColor.r * glow),
+      (this.c0[i3 + 1] = tmpColor.g * glow),
+      (this.c0[i3 + 2] = tmpColor.b * glow),
+      opts.col1 !== void 0 && toColor(opts.col1),
+      (this.c1[i3] = tmpColor.r * glow),
+      (this.c1[i3 + 1] = tmpColor.g * glow),
+      (this.c1[i3 + 2] = tmpColor.b * glow),
+      (this.a0[index] = opts.a ?? 1),
+      (this.a1[index] = opts.a1 ?? 0),
+      (this.fin[index] = opts.fadeIn ?? 0.08),
+      (this.frame[index] = opts.frame ?? 0),
+      (this.rot[index] = opts.rot ?? Math.random() * 6.283),
+      (this.spin[index] = opts.spin ?? 0),
+      (this.grav[index] = opts.grav ?? 0),
+      (this.drag[index] = opts.drag ?? 0),
+      (this.str[index] = opts.stretch ?? 0),
+      (this.flick[index] = opts.flicker ?? 0),
+      (this.pinned[index] = opts.pinned ? 1 : 0),
+      index + 1 > this.hw && (this.hw = index + 1),
       this.alive++,
-      t
+      index
     );
   }
-  place(e, t, a, n, s = null, i = null) {
-    if (e < 0 || this.life[e] < 0) return;
-    let r = e * 3;
-    ((this.p[r] = t),
-      (this.p[r + 1] = a),
-      (this.p[r + 2] = n),
-      s !== null && (this.a0[e] = this.a1[e] = s),
-      i !== null && (this.s0[e] = this.s1[e] = i));
+  /** Mueve una partícula viva (y opcionalmente fija su alfa y su tamaño). */
+  place(index, x, y, z, alpha = null, size = null) {
+    if (index < 0 || this.life[index] < 0) return;
+    let i3 = index * 3;
+    ((this.p[i3] = x),
+      (this.p[i3 + 1] = y),
+      (this.p[i3 + 2] = z),
+      alpha !== null && (this.a0[index] = this.a1[index] = alpha),
+      size !== null && (this.s0[index] = this.s1[index] = size));
   }
-  kill(e) {
-    e < 0 || this.life[e] < 0 || ((this.life[e] = -1), this.free.push(e), this.alive--);
+  kill(index) {
+    index < 0 || this.life[index] < 0 || ((this.life[index] = -1), this.free.push(index), this.alive--);
   }
-  clear(e = !1) {
-    for (let t = 0; t < this.hw; t++) this.life[t] >= 0 && !(e && this.pinned[t]) && this.kill(t);
-    e || ((this.hw = 0), (this.geo.instanceCount = 0));
+  /** Elimina todas las partículas (o todas menos las fijadas). */
+  clear(keepPinned = !1) {
+    for (let i = 0; i < this.hw; i++) this.life[i] >= 0 && !(keepPinned && this.pinned[i]) && this.kill(i);
+    keepPinned || ((this.hw = 0), (this.geo.instanceCount = 0));
   }
-  update(e) {
-    let t = this.p,
-      a = this.v,
-      n = this.aPos.array,
-      s = this.aVel.array,
-      i = this.aCol.array,
-      r = this.aPar.array,
-      l = 0;
-    for (let c = 0; c < this.hw; c++) {
-      let d = c * 3,
-        u = c * 4;
-      if (this.life[c] < 0) {
-        r[u] = 0;
+  /** Avanza la simulación `dt` segundos y sube a la GPU solo el tramo usado (hasta la marca alta). */
+  update(dt) {
+    let pos = this.p,
+      vel = this.v,
+      posArray = this.aPos.array,
+      velArray = this.aVel.array,
+      colArray = this.aCol.array,
+      parArray = this.aPar.array,
+      highWater = 0;
+    for (let i = 0; i < this.hw; i++) {
+      let i3 = i * 3,
+        i4 = i * 4;
+      if (this.life[i] < 0) {
+        parArray[i4] = 0;
         continue;
       }
-      let h;
-      if (this.pinned[c]) ((this.age[c] += e), (h = 0));
+      let progress;
+      if (this.pinned[i]) ((this.age[i] += dt), (progress = 0));
       else {
-        let _ = (this.age[c] += e),
-          b = this.life[c];
-        if (_ >= b) {
-          (this.kill(c), (r[u] = 0));
+        let age = (this.age[i] += dt),
+          life = this.life[i];
+        if (age >= life) {
+          (this.kill(i), (parArray[i4] = 0));
           continue;
         }
-        h = _ / b;
-        let f = this.drag[c];
-        if (f > 0) {
-          let v = Math.max(0, 1 - f * e);
-          ((a[d] *= v), (a[d + 1] *= v), (a[d + 2] *= v));
+        progress = age / life;
+        let drag = this.drag[i];
+        if (drag > 0) {
+          let damping = Math.max(0, 1 - drag * dt);
+          ((vel[i3] *= damping), (vel[i3 + 1] *= damping), (vel[i3 + 2] *= damping));
         }
-        ((a[d + 1] += this.grav[c] * e),
-          (t[d] += a[d] * e),
-          (t[d + 1] += a[d + 1] * e),
-          (t[d + 2] += a[d + 2] * e),
-          (this.rot[c] += this.spin[c] * e));
+        ((vel[i3 + 1] += this.grav[i] * dt),
+          (pos[i3] += vel[i3] * dt),
+          (pos[i3 + 1] += vel[i3 + 1] * dt),
+          (pos[i3 + 2] += vel[i3 + 2] * dt),
+          (this.rot[i] += this.spin[i] * dt));
       }
-      ((l = c + 1),
-        (n[d] = t[d]),
-        (n[d + 1] = t[d + 1]),
-        (n[d + 2] = t[d + 2]),
-        (s[d] = a[d]),
-        (s[d + 1] = a[d + 1]),
-        (s[d + 2] = a[d + 2]));
-      let p = this.fin[c],
-        m = this.a0[c] + (this.a1[c] - this.a0[c]) * h;
-      (this.pinned[c] ? (m *= Math.min(1, this.age[c] / 0.15)) : p > 0 && h < p && (m *= h / p),
-        this.flick[c] > 0 && (m *= 1 - this.flick[c] * (0.5 + 0.5 * Math.sin(this.age[c] * 40 + c))),
-        (i[u] = this.c0[d] + (this.c1[d] - this.c0[d]) * h),
-        (i[u + 1] = this.c0[d + 1] + (this.c1[d + 1] - this.c0[d + 1]) * h),
-        (i[u + 2] = this.c0[d + 2] + (this.c1[d + 2] - this.c0[d + 2]) * h),
-        (i[u + 3] = m),
-        (r[u] = this.s0[c] + (this.s1[c] - this.s0[c]) * h),
-        (r[u + 1] = this.frame[c]),
-        (r[u + 2] = this.rot[c]),
-        (r[u + 3] = this.str[c]));
+      ((highWater = i + 1),
+        (posArray[i3] = pos[i3]),
+        (posArray[i3 + 1] = pos[i3 + 1]),
+        (posArray[i3 + 2] = pos[i3 + 2]),
+        (velArray[i3] = vel[i3]),
+        (velArray[i3 + 1] = vel[i3 + 1]),
+        (velArray[i3 + 2] = vel[i3 + 2]));
+      let fadeIn = this.fin[i],
+        alpha = this.a0[i] + (this.a1[i] - this.a0[i]) * progress;
+      (this.pinned[i]
+        ? (alpha *= Math.min(1, this.age[i] / 0.15))
+        : fadeIn > 0 && progress < fadeIn && (alpha *= progress / fadeIn),
+        this.flick[i] > 0 && (alpha *= 1 - this.flick[i] * (0.5 + 0.5 * Math.sin(this.age[i] * 40 + i))),
+        (colArray[i4] = this.c0[i3] + (this.c1[i3] - this.c0[i3]) * progress),
+        (colArray[i4 + 1] = this.c0[i3 + 1] + (this.c1[i3 + 1] - this.c0[i3 + 1]) * progress),
+        (colArray[i4 + 2] = this.c0[i3 + 2] + (this.c1[i3 + 2] - this.c0[i3 + 2]) * progress),
+        (colArray[i4 + 3] = alpha),
+        (parArray[i4] = this.s0[i] + (this.s1[i] - this.s0[i]) * progress),
+        (parArray[i4 + 1] = this.frame[i]),
+        (parArray[i4 + 2] = this.rot[i]),
+        (parArray[i4 + 3] = this.str[i]));
     }
-    if (((this.hw = l), (this.geo.instanceCount = l), l))
-      for (let c of [this.aPos, this.aVel, this.aCol, this.aPar])
-        (c.clearUpdateRanges(), c.addUpdateRange(0, l * c.itemSize), (c.needsUpdate = !0));
+    if (((this.hw = highWater), (this.geo.instanceCount = highWater), highWater))
+      for (let attr of [this.aPos, this.aVel, this.aCol, this.aPar])
+        (attr.clearUpdateRanges(),
+          attr.addUpdateRange(0, highWater * attr.itemSize),
+          (attr.needsUpdate = !0));
   }
   dispose() {
     (this.geo.dispose(), this.material.dispose());
   }
 };
 
-export { Am, Su };
+export { toColor, ParticleSystem };

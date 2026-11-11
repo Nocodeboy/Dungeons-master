@@ -1,156 +1,182 @@
 // audio/engine.js
-// Reconstruido de publicado/juego.js (módulo __esm «Ov»). Nombres locales aún minificados.
+// Motor de sonido sobre Web Audio. `AudioEngine` crea el contexto al primer gesto del usuario
+// (unlock) con un compresor y buses de ganancia (master → música, ambiente, efectos, interfaz), carga
+// y descodifica los archivos del manifiesto (datos/audio.json: music, ambience, sfx, sprites,
+// credits), reproduce música por bloques o en flujo (MusicTrack: modos 'bucle', 'solape', 'una' o
+// repetición con pausa), capas de ambiente con panorama (AmbienceLayer), emisores posicionales y
+// efectos de sprites de audio con variantes, límite de voces, atenuación por distancia y «ducking».
+// Lo usan audio/index.js (createAudio) y audio/reactions.js (`toPoint`).
+// Reconstruido de publicado/juego.js (módulo __esm «Ov»).
 
 import datosAudio from '../datos/audio.json';
 
-function Vr(o) {
-  return o
-    ? Array.isArray(o)
-      ? o.length === 2
-        ? { x: (o[0] + 0.5 * (o[1] & 1)) * qM, y: 0, z: o[1] * 0.8660254 * qM }
-        : { x: +o[0] || 0, y: +o[1] || 0, z: +o[2] || 0 }
-      : typeof o.x == 'number'
-        ? { x: o.x, y: o.y || 0, z: o.z || 0 }
+/** Punto {x, y, z} a partir de una casilla [col, fila] (rejilla odd-r), de [x, y, z] o de {x, y, z}. */
+function toPoint(at) {
+  return at
+    ? Array.isArray(at)
+      ? at.length === 2
+        ? { x: (at[0] + 0.5 * (at[1] & 1)) * CELL_SIZE, y: 0, z: at[1] * 0.8660254 * CELL_SIZE }
+        : { x: +at[0] || 0, y: +at[1] || 0, z: +at[2] || 0 }
+      : typeof at.x == 'number'
+        ? { x: at.x, y: at.y || 0, z: at.z || 0 }
         : null
     : null;
 }
-function mc(o, e, t, a) {
-  let n = a.currentTime;
-  (o.cancelScheduledValues(n),
-    o.setValueAtTime(o.value, n),
-    t <= 0.001 ? o.setValueAtTime(e, n) : o.linearRampToValueAtTime(e, n + t));
+/** Rampa lineal de un AudioParam hasta `value` en `seconds` (inmediato si es ~0). */
+function rampParam(param, value, seconds, ctx) {
+  let now = ctx.currentTime;
+  (param.cancelScheduledValues(now),
+    param.setValueAtTime(param.value, now),
+    seconds <= 0.001
+      ? param.setValueAtTime(value, now)
+      : param.linearRampToValueAtTime(value, now + seconds));
 }
-function qs(o, e, t, a) {
-  let n = a.currentTime;
-  (o.cancelScheduledValues(n), o.setTargetAtTime(e, n, Math.max(0.005, t / 3)));
+/** Aproximación exponencial de un AudioParam a `value` (constante de tiempo seconds/3). */
+function glideParam(param, value, seconds, ctx) {
+  let now = ctx.currentTime;
+  (param.cancelScheduledValues(now), param.setTargetAtTime(value, now, Math.max(0.005, seconds / 3)));
 }
-const bu = () => performance.now() / 1e3;
-const Bs = (o, e, t) => Math.max(e, Math.min(t, o));
-const BM = (o, e) => o + Math.random() * (e - o);
-const vu = (o) => Bs(Number(o) || 0, 0, 1) ** 2;
-const qM = 1.5;
-const Fv = class {
-  constructor(e, t, a, n) {
-    ((this.eng = e), (this.name = t), (this.e = a), (this.opts = n), (this.level = Bs(n.volume ?? 1, 0, 2)));
-    let s = e.ctx;
-    ((this.gain = s.createGain()),
+/** Reloj en segundos (performance.now). */
+const nowSeconds = () => performance.now() / 1e3;
+const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
+const randRange = (min, max) => min + Math.random() * (max - min);
+/** Curva de volumen perceptual: v² con v limitado a [0, 1]. */
+const volumeCurve = (v) => clamp(Number(v) || 0, 0, 1) ** 2;
+// Tamaño de casilla en metros (el mismo que HEX_SIZE de explore/hex.js).
+const CELL_SIZE = 1.5;
+/** Una pista de música en reproducción, con su ganancia propia en el bus de música. */
+const MusicTrack = class {
+  constructor(eng, name, entry, opts) {
+    ((this.eng = eng),
+      (this.name = name),
+      (this.e = entry),
+      (this.opts = opts),
+      (this.level = clamp(opts.volume ?? 1, 0, 2)));
+    let ctx = eng.ctx;
+    ((this.gain = ctx.createGain()),
       (this.gain.gain.value = 0),
-      this.gain.connect(e.bus.music),
+      this.gain.connect(eng.bus.music),
       (this.sources = new Set()),
       (this.timers = new Set()),
       (this.el = null),
       (this.stopped = !1),
       (this.ready = !1));
   }
-  async start(e) {
-    let { e: t, eng: a } = this;
-    if (t.stream && !a.noStream && !this.opts.buffer)
+  /** Arranca la pista (en flujo con <audio> si se puede, si no descodificada); true si suena. */
+  async start(fade) {
+    let { e: entry, eng } = this;
+    if (entry.stream && !eng.noStream && !this.opts.buffer)
       try {
-        return (await this._startStream(), this.stopped ? !1 : (this._fadeIn(e), !0));
-      } catch (r) {
+        return (await this._startStream(), this.stopped ? !1 : (this._fadeIn(fade), !0));
+      } catch (err) {
         if (this.stopped) return !1;
-        ((a.noStream = !0),
+        ((eng.noStream = !0),
           console.info(
             '[sonido] reproducci\xF3n en flujo no disponible; se descodifica la m\xFAsica',
-            r?.message || r,
+            err?.message || err,
           ));
       }
-    let s = await a.buffer(t.file, 'music');
-    if (!s || this.stopped) return !1;
-    this.buf = s;
-    let i = a.ctx.currentTime + 0.03;
+    let buf = await eng.buffer(entry.file, 'music');
+    if (!buf || this.stopped) return !1;
+    this.buf = buf;
+    let when = eng.ctx.currentTime + 0.03;
     return (
-      t.mode === 'bucle'
-        ? this._loop(i, this.opts.offset)
-        : t.mode === 'solape'
-          ? this._overlap(i, this.opts.offset || 0)
-          : this._once(i, this.opts.offset || 0),
-      this._fadeIn(e),
+      entry.mode === 'bucle'
+        ? this._loop(when, this.opts.offset)
+        : entry.mode === 'solape'
+          ? this._overlap(when, this.opts.offset || 0)
+          : this._once(when, this.opts.offset || 0),
+      this._fadeIn(fade),
       !0
     );
   }
-  _fadeIn(e) {
-    ((this.ready = !0), mc(this.gain.gain, this.level, e, this.eng.ctx));
+  _fadeIn(fade) {
+    ((this.ready = !0), rampParam(this.gain.gain, this.level, fade, this.eng.ctx));
   }
   _src() {
-    let e = this.eng.ctx.createBufferSource();
+    let src = this.eng.ctx.createBufferSource();
     return (
-      (e.buffer = this.buf),
-      e.connect(this.gain),
-      this.sources.add(e),
-      (e.onended = () => {
-        this.sources.delete(e);
+      (src.buffer = this.buf),
+      src.connect(this.gain),
+      this.sources.add(src),
+      (src.onended = () => {
+        this.sources.delete(src);
         try {
-          e.disconnect();
+          src.disconnect();
         } catch {}
       }),
-      e
+      src
     );
   }
-  _loop(e, t = 0) {
-    let a = this._src();
-    ((a.loop = !0),
-      (a.loopStart = this.e.pad),
-      (a.loopEnd = this.e.pad + this.e.dur),
-      a.start(e, this.e.pad + ((t || 0) % this.e.dur)));
+  _loop(when, offset = 0) {
+    let src = this._src();
+    ((src.loop = !0),
+      (src.loopStart = this.e.pad),
+      (src.loopEnd = this.e.pad + this.e.dur),
+      src.start(when, this.e.pad + ((offset || 0) % this.e.dur)));
   }
-  _overlap(e, t = 0) {
-    this._src().start(e, t);
-    let n = e + this.e.loopAt - t;
-    this._at(n - 1.5, () => this._overlap(n, 0));
+  _overlap(when, offset = 0) {
+    this._src().start(when, offset);
+    let next = when + this.e.loopAt - offset;
+    this._at(next - 1.5, () => this._overlap(next, 0));
   }
-  _once(e, t = 0) {
-    this._src().start(e, t);
-    let n = e + this.buf.duration - t;
+  _once(when, offset = 0) {
+    this._src().start(when, offset);
+    let end = when + this.buf.duration - offset;
     this.e.mode === 'una'
-      ? this._at(n, () => this.eng._afterOnce(this))
-      : this._at(n - 0.5, () => this._once(n + (this.e.gap ?? 3), 0));
+      ? this._at(end, () => this.eng._afterOnce(this))
+      : this._at(end - 0.5, () => this._once(end + (this.e.gap ?? 3), 0));
   }
-  _at(e, t) {
-    let a = Math.max(0, (e - this.eng.ctx.currentTime) * 1e3),
-      n = setTimeout(() => {
-        (this.timers.delete(n), !this.stopped && (this.eng.ctx.currentTime < e - 0.6 ? this._at(e, t) : t()));
-      }, a);
-    this.timers.add(n);
+  _at(time, fn) {
+    let delayMs = Math.max(0, (time - this.eng.ctx.currentTime) * 1e3),
+      timer = setTimeout(() => {
+        (this.timers.delete(timer),
+          !this.stopped && (this.eng.ctx.currentTime < time - 0.6 ? this._at(time, fn) : fn()));
+      }, delayMs);
+    this.timers.add(timer);
   }
+  /** Reproducción en flujo con un elemento <audio> (8 s de espera máxima). */
   _startStream() {
-    let { eng: e, e: t } = this;
-    return new Promise((a, n) => {
-      let s = new Audio();
-      ((s.crossOrigin = 'anonymous'), (s.preload = 'auto'), (s.src = e.base + t.file), (this.el = s));
-      let i = !1,
-        r = (c) => {
-          i || ((i = !0), this._dropStream(), n(new Error(c)));
+    let { eng, e: entry } = this;
+    return new Promise((resolve, reject) => {
+      let el = new Audio();
+      ((el.crossOrigin = 'anonymous'),
+        (el.preload = 'auto'),
+        (el.src = eng.base + entry.file),
+        (this.el = el));
+      let settled = !1,
+        fail = (reason) => {
+          settled || ((settled = !0), this._dropStream(), reject(new Error(reason)));
         },
-        l = setTimeout(() => r('tiempo de espera'), 8e3);
-      (s.addEventListener('error', () => r(`error ${s.error?.code ?? ''}`), { once: !0 }),
-        s.addEventListener(
+        timeout = setTimeout(() => fail('tiempo de espera'), 8e3);
+      (el.addEventListener('error', () => fail(`error ${el.error?.code ?? ''}`), { once: !0 }),
+        el.addEventListener(
           'playing',
           () => {
-            (clearTimeout(l), i || ((i = !0), a()));
+            (clearTimeout(timeout), settled || ((settled = !0), resolve()));
           },
           { once: !0 },
         ),
-        s.addEventListener('ended', () => {
+        el.addEventListener('ended', () => {
           if (this.stopped) return;
-          if (t.mode === 'una') return e._afterOnce(this);
-          let c = setTimeout(
+          if (entry.mode === 'una') return eng._afterOnce(this);
+          let timer = setTimeout(
             () => {
-              (this.timers.delete(c),
+              (this.timers.delete(timer),
                 !(this.stopped || !this.el) && ((this.el.currentTime = 0), this.el.play().catch(() => {})));
             },
-            (t.gap ?? 3) * 1e3,
+            (entry.gap ?? 3) * 1e3,
           );
-          this.timers.add(c);
+          this.timers.add(timer);
         }));
       try {
-        ((this.node = e.ctx.createMediaElementSource(s)), this.node.connect(this.gain));
-      } catch (c) {
-        return (clearTimeout(l), r(c.message));
+        ((this.node = eng.ctx.createMediaElementSource(el)), this.node.connect(this.gain));
+      } catch (err) {
+        return (clearTimeout(timeout), fail(err.message));
       }
-      (this.opts.offset && (s.currentTime = this.opts.offset),
-        s.play().catch((c) => {
-          (clearTimeout(l), r(c?.name || 'play'));
+      (this.opts.offset && (el.currentTime = this.opts.offset),
+        el.play().catch((err) => {
+          (clearTimeout(timeout), fail(err?.name || 'play'));
         }));
     });
   }
@@ -162,23 +188,25 @@ const Fv = class {
       ((this.el = null), (this.node = null));
     }
   }
-  pauseStream(e) {
-    this.el && (e ? this.el.pause() : this.el.play().catch(() => {}));
+  pauseStream(paused) {
+    this.el && (paused ? this.el.pause() : this.el.play().catch(() => {}));
   }
-  setLevel(e, t = 0.6) {
-    ((this.level = Bs(e, 0, 2)), this.ready && mc(this.gain.gain, this.level, t, this.eng.ctx));
+  setLevel(level, fade = 0.6) {
+    ((this.level = clamp(level, 0, 2)),
+      this.ready && rampParam(this.gain.gain, this.level, fade, this.eng.ctx));
   }
-  stop(e = 1.2) {
+  /** Funde a silencio en `fade` s y libera fuentes, temporizadores y nodos. */
+  stop(fade = 1.2) {
     if (this.stopped) return;
     this.stopped = !0;
-    for (let n of this.timers) clearTimeout(n);
+    for (let timer of this.timers) clearTimeout(timer);
     this.timers.clear();
-    let t = this.eng.ctx;
-    mc(this.gain.gain, 0, e, t);
-    let a = t.currentTime + e + 0.05;
-    for (let n of this.sources)
+    let ctx = this.eng.ctx;
+    rampParam(this.gain.gain, 0, fade, ctx);
+    let when = ctx.currentTime + fade + 0.05;
+    for (let src of this.sources)
       try {
-        n.stop(a);
+        src.stop(when);
       } catch {}
     setTimeout(
       () => {
@@ -187,56 +215,61 @@ const Fv = class {
           this.gain.disconnect();
         } catch {}
       },
-      (e + 0.2) * 1e3,
+      (fade + 0.2) * 1e3,
     );
   }
 };
-const cm = class {
-  constructor(e, t, a, n, s) {
-    ((this.eng = e),
-      (this.id = t),
-      (this.e = a),
-      (this.level = s),
-      (this.gain = e.ctx.createGain()),
+/** Capa de ambiente en bucle con nivel, factor espacial (`space`) y panorama. */
+const AmbienceLayer = class {
+  constructor(eng, id, entry, dest, level) {
+    ((this.eng = eng),
+      (this.id = id),
+      (this.e = entry),
+      (this.level = level),
+      (this.gain = eng.ctx.createGain()),
       (this.gain.gain.value = 0),
-      (this.pan = e.ctx.createStereoPanner ? e.ctx.createStereoPanner() : null),
-      this.pan ? (this.gain.connect(this.pan), this.pan.connect(n)) : this.gain.connect(n),
+      (this.pan = eng.ctx.createStereoPanner ? eng.ctx.createStereoPanner() : null),
+      this.pan ? (this.gain.connect(this.pan), this.pan.connect(dest)) : this.gain.connect(dest),
       (this.stopped = !1),
       (this.src = null),
       (this.space = 1));
   }
-  async start(e) {
-    let t = await this.eng.buffer(this.e.file, 'amb');
-    if (!t || this.stopped) return;
-    let a = this.eng.ctx.createBufferSource();
-    ((a.buffer = t),
-      (a.loop = !0),
-      (a.loopStart = this.e.pad),
-      (a.loopEnd = this.e.pad + this.e.dur),
-      a.connect(this.gain),
-      a.start(this.eng.ctx.currentTime + 0.02, this.e.pad + Math.random() * this.e.dur),
-      (this.src = a),
+  async start(fade) {
+    let buf = await this.eng.buffer(this.e.file, 'amb');
+    if (!buf || this.stopped) return;
+    let src = this.eng.ctx.createBufferSource();
+    ((src.buffer = buf),
+      (src.loop = !0),
+      (src.loopStart = this.e.pad),
+      (src.loopEnd = this.e.pad + this.e.dur),
+      src.connect(this.gain),
+      src.start(this.eng.ctx.currentTime + 0.02, this.e.pad + Math.random() * this.e.dur),
+      (this.src = src),
       (this.ready = !0),
-      (this.fadeEnd = this.eng.ctx.currentTime + e),
-      mc(this.gain.gain, this.level * this.space, e, this.eng.ctx));
+      (this.fadeEnd = this.eng.ctx.currentTime + fade),
+      rampParam(this.gain.gain, this.level * this.space, fade, this.eng.ctx));
   }
-  setLevel(e, t = 1) {
-    ((this.level = e), this.ready && qs(this.gain.gain, this.level * this.space, t, this.eng.ctx));
+  setLevel(level, fade = 1) {
+    ((this.level = level),
+      this.ready && glideParam(this.gain.gain, this.level * this.space, fade, this.eng.ctx));
   }
-  setSpace(e, t, a = 0.25) {
-    if (Math.abs(e - this.space) < 0.002 && Math.abs(t - (this.lastPan ?? 9)) < 0.005) return;
-    ((this.space = e), (this.lastPan = t));
-    let n = this.eng.ctx;
-    (this.ready && n.currentTime >= (this.fadeEnd || 0) && qs(this.gain.gain, this.level * e, a, n),
-      this.pan && qs(this.pan.pan, t, a, this.eng.ctx));
+  /** Ajusta la ganancia espacial y el panorama (ignora cambios mínimos). */
+  setSpace(space, pan, fade = 0.25) {
+    if (Math.abs(space - this.space) < 0.002 && Math.abs(pan - (this.lastPan ?? 9)) < 0.005) return;
+    ((this.space = space), (this.lastPan = pan));
+    let ctx = this.eng.ctx;
+    (this.ready &&
+      ctx.currentTime >= (this.fadeEnd || 0) &&
+      glideParam(this.gain.gain, this.level * space, fade, ctx),
+      this.pan && glideParam(this.pan.pan, pan, fade, this.eng.ctx));
   }
-  stop(e = 2) {
+  stop(fade = 2) {
     if (this.stopped) return;
     this.stopped = !0;
-    let t = this.eng.ctx;
-    mc(this.gain.gain, 0, e, t);
+    let ctx = this.eng.ctx;
+    rampParam(this.gain.gain, 0, fade, ctx);
     try {
-      this.src?.stop(t.currentTime + e + 0.05);
+      this.src?.stop(ctx.currentTime + fade + 0.05);
     } catch {}
     setTimeout(
       () => {
@@ -244,25 +277,26 @@ const cm = class {
           (this.gain.disconnect(), this.pan?.disconnect());
         } catch {}
       },
-      (e + 0.2) * 1e3,
+      (fade + 0.2) * 1e3,
     );
   }
 };
-const dm = class {
+/** Motor de audio del juego (ver cabecera). */
+const AudioEngine = class {
   constructor({
-    base: e = 'audio/',
-    manifest: t = datosAudio,
-    volumes: a = {},
-    noStream: n = !1,
-    sampleRate: s = null,
+    base = 'audio/',
+    manifest = datosAudio,
+    volumes = {},
+    noStream = !1,
+    sampleRate = null,
   } = {}) {
-    ((this.base = e),
-      (this.sampleRate = s),
-      (this.m = t),
+    ((this.base = base),
+      (this.sampleRate = sampleRate),
+      (this.m = manifest),
       (this.ctx = null),
       (this.unlocked = !1),
-      (this.noStream = n),
-      (this.vol = { master: 1, music: 0.7, ambience: 0.6, sfx: 0.8, ui: 0.8, ...a }),
+      (this.noStream = noStream),
+      (this.vol = { master: 1, music: 0.7, ambience: 0.6, sfx: 0.8, ui: 0.8, ...volumes }),
       (this.raw = new Map()),
       (this.decoded = new Map()),
       (this.ready = new Map()),
@@ -293,6 +327,7 @@ const dm = class {
       (this.paused = !1),
       (this.failed = !1));
   }
+  /** Crea o reanuda el contexto tras un gesto del usuario; devuelve false si no hay audio. */
   unlock() {
     try {
       if ((this.ctx || this._createContext(), !this.ctx)) return !1;
@@ -300,438 +335,492 @@ const dm = class {
         (this.ctx.state === 'suspended' && !this.paused && this.ctx.resume().catch(() => {}), !this.unlocked)
       ) {
         this.unlocked = !0;
-        let e = this.ctx.createBuffer(1, 1, this.ctx.sampleRate),
-          t = this.ctx.createBufferSource();
-        ((t.buffer = e), t.connect(this.ctx.destination), t.start(), this._realize());
+        let silence = this.ctx.createBuffer(1, 1, this.ctx.sampleRate),
+          src = this.ctx.createBufferSource();
+        ((src.buffer = silence), src.connect(this.ctx.destination), src.start(), this._realize());
       }
       return !0;
-    } catch (e) {
-      return (this._fail(e), !1);
+    } catch (err) {
+      return (this._fail(err), !1);
     }
   }
+  /** Contexto, compresor y buses: master → (musicOut → music), (ambOut → ambience), sfx y ui. */
   _createContext() {
-    let e = window.AudioContext || window.webkitAudioContext;
-    if (!e) return this._fail(new Error('sin WebAudio'));
-    let t;
+    let AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return this._fail(new Error('sin WebAudio'));
+    let ctx;
     try {
-      t = new e(
+      ctx = new AudioCtx(
         this.sampleRate
           ? { latencyHint: 'interactive', sampleRate: this.sampleRate }
           : { latencyHint: 'interactive' },
       );
     } catch {
-      t = new e();
+      ctx = new AudioCtx();
     }
-    this.ctx = t;
-    let a = (l) => {
-        let c = t.createGain();
-        return (c.connect(l), c);
+    this.ctx = ctx;
+    let gainTo = (dest) => {
+        let gain = ctx.createGain();
+        return (gain.connect(dest), gain);
       },
-      n = t.createDynamicsCompressor();
-    ((n.threshold.value = -12),
-      (n.knee.value = 10),
-      (n.ratio.value = 3),
-      (n.attack.value = 0.004),
-      (n.release.value = 0.25),
-      n.connect(t.destination));
-    let s = a(n),
-      i = a(s),
-      r = a(s);
+      comp = ctx.createDynamicsCompressor();
+    ((comp.threshold.value = -12),
+      (comp.knee.value = 10),
+      (comp.ratio.value = 3),
+      (comp.attack.value = 0.004),
+      (comp.release.value = 0.25),
+      comp.connect(ctx.destination));
+    let master = gainTo(comp),
+      musicOut = gainTo(master),
+      ambOut = gainTo(master);
     ((this.bus = {
-      comp: n,
-      master: s,
-      musicOut: i,
-      music: a(i),
-      ambOut: r,
-      ambience: a(r),
-      sfx: a(s),
-      ui: a(s),
+      comp,
+      master,
+      musicOut,
+      music: gainTo(musicOut),
+      ambOut,
+      ambience: gainTo(ambOut),
+      sfx: gainTo(master),
+      ui: gainTo(master),
     }),
       this._applyVolumes(0),
       document.addEventListener('visibilitychange', () => this.setPaused(document.hidden)));
   }
-  _fail(e) {
-    return (this.failed || console.warn('[sonido] sin audio:', e?.message || e), (this.failed = !0), null);
+  _fail(err) {
+    return (
+      this.failed || console.warn('[sonido] sin audio:', err?.message || err),
+      (this.failed = !0),
+      null
+    );
   }
+  /** Al desbloquear: aplica la música y el ambiente pedidos antes, arranca emisores y descodifica lo cargado. */
   _realize() {
     (this.want.music !== void 0 &&
       this.want.music !== (this.cur?.name ?? null) &&
       this.music(this.want.music, { ...this.want.musicOpts, fade: this.want.musicOpts.fade ?? 2 }),
       this.want.ambience.length && this.ambience(this.want.ambience, { fade: 2.5 }));
-    for (let e of this.emitters) e.voice || e._start();
-    for (let [e, t] of this.kind) this.raw.has(e) && !this.decoded.has(e) && this.buffer(e, t);
+    for (let em of this.emitters) em.voice || em._start();
+    for (let [file, kind] of this.kind)
+      this.raw.has(file) && !this.decoded.has(file) && this.buffer(file, kind);
   }
-  setPaused(e) {
-    if (((this.paused = e), !!this.ctx))
+  setPaused(paused) {
+    if (((this.paused = paused), !!this.ctx))
       try {
-        e ? this.ctx.suspend() : this.unlocked && this.ctx.resume();
-        for (let t of [this.cur, ...this.fading]) t?.pauseStream(e);
+        paused ? this.ctx.suspend() : this.unlocked && this.ctx.resume();
+        for (let track of [this.cur, ...this.fading]) track?.pauseStream(paused);
       } catch {}
   }
-  fetchRaw(e) {
-    if (!this.raw.has(e)) {
-      let t = fetch(this.base + e)
-        .then((a) => {
-          if (!a.ok) throw new Error(`HTTP ${a.status}`);
-          return a.arrayBuffer();
+  /** Descarga (una vez) los bytes de un archivo de audio. */
+  fetchRaw(file) {
+    if (!this.raw.has(file)) {
+      let promise = fetch(this.base + file)
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.arrayBuffer();
         })
         .catch(
-          (a) => (this._warnOnce(`carga:${e}`, `[sonido] no se puede cargar ${e}: ${a.message || a}`), null),
+          (err) => (
+            this._warnOnce(`carga:${file}`, `[sonido] no se puede cargar ${file}: ${err.message || err}`),
+            null
+          ),
         );
-      this.raw.set(e, t);
+      this.raw.set(file, promise);
     }
-    return this.raw.get(e);
+    return this.raw.get(file);
   }
-  buffer(e, t = 'sfx') {
-    if ((this.kind.set(e, t), this.lastUse.set(e, bu()), this.decoded.has(e))) return this.decoded.get(e);
-    if (!this.ctx) return (this.fetchRaw(e), Promise.resolve(null));
-    let a = this.fetchRaw(e).then(async (n) => {
-      if (!n) return null;
-      this.raw.delete(e);
+  /** AudioBuffer descodificado de `file` (promesa, cacheada); `kind` decide la política de expulsión. */
+  buffer(file, kind = 'sfx') {
+    if ((this.kind.set(file, kind), this.lastUse.set(file, nowSeconds()), this.decoded.has(file)))
+      return this.decoded.get(file);
+    if (!this.ctx) return (this.fetchRaw(file), Promise.resolve(null));
+    let promise = this.fetchRaw(file).then(async (raw) => {
+      if (!raw) return null;
+      this.raw.delete(file);
       try {
-        let s = await new Promise((i, r) => {
-          let l = this.ctx.decodeAudioData(n, i, r);
-          l && l.then && l.then(i, r);
+        let decoded = await new Promise((resolve, reject) => {
+          let result = this.ctx.decodeAudioData(raw, resolve, reject);
+          result && result.then && result.then(resolve, reject);
         });
-        return (this.decoded.get(e) === a && this.ready.set(e, s), this._evict(t, e), s);
-      } catch (s) {
+        return (
+          this.decoded.get(file) === promise && this.ready.set(file, decoded),
+          this._evict(kind, file),
+          decoded
+        );
+      } catch (err) {
         return (
           this._warnOnce(
-            `dec:${e}`,
-            `[sonido] no se puede descodificar ${e} (${s?.message || s}). \xBFNavegador sin Opus?`,
+            `dec:${file}`,
+            `[sonido] no se puede descodificar ${file} (${err?.message || err}). \xBFNavegador sin Opus?`,
           ),
           null
         );
       }
     });
-    return (this.decoded.set(e, a), t === 'sfx' && a.then((n) => n && this._flushPending(e)), a);
+    return (
+      this.decoded.set(file, promise),
+      kind === 'sfx' && promise.then((buf) => buf && this._flushPending(file)),
+      promise
+    );
   }
-  _evict(e, t) {
-    let a = e === 'music' ? 3 : e === 'amb' ? 7 : 99,
-      n = new Set([
+  /** Expulsa los buffers menos usados de un tipo (música 3, ambiente 7) salvo los que suenan. */
+  _evict(kind, keep) {
+    let limit = kind === 'music' ? 3 : kind === 'amb' ? 7 : 99,
+      inUse = new Set([
         this.cur?.e.file,
-        ...[...this.fading].map((i) => i.e.file),
-        ...[...this.layers.values()].map((i) => i.e.file),
-        ...[...this.emitters].map((i) => i.e?.file),
-        t,
+        ...[...this.fading].map((track) => track.e.file),
+        ...[...this.layers.values()].map((layer) => layer.e.file),
+        ...[...this.emitters].map((em) => em.e?.file),
+        keep,
       ]),
-      s = [...this.decoded.keys()].filter((i) => this.kind.get(i) === e);
-    if (!(s.length <= a)) {
-      s.sort((i, r) => (this.lastUse.get(i) || 0) - (this.lastUse.get(r) || 0));
-      for (let i of s) {
-        if (s.length <= a) break;
-        n.has(i) || (this.decoded.delete(i), this.ready.delete(i), s.splice(s.indexOf(i), 1));
+      files = [...this.decoded.keys()].filter((file) => this.kind.get(file) === kind);
+    if (!(files.length <= limit)) {
+      files.sort((a, b) => (this.lastUse.get(a) || 0) - (this.lastUse.get(b) || 0));
+      for (let file of files) {
+        if (files.length <= limit) break;
+        inUse.has(file) ||
+          (this.decoded.delete(file), this.ready.delete(file), files.splice(files.indexOf(file), 1));
       }
     }
   }
-  preload(e = []) {
-    let t = [];
-    for (let a of e) {
-      let [n, s] = a.includes(':') ? a.split(':') : ['music', a],
-        i = n === 'music' ? this.m.music[s] : n === 'amb' ? this.m.ambience[s] : this.m.sprites[s];
-      i &&
-        ((n === 'music' && i.stream && !this.noStream) ||
-          t.push(this.buffer(i.file, n === 'music' ? 'music' : n === 'amb' ? 'amb' : 'sfx')));
+  /** Precarga entradas 'music:id', 'amb:id' o 'sfx:sprite' (la música en flujo no se precarga). */
+  preload(list = []) {
+    let promises = [];
+    for (let item of list) {
+      let [kind, id] = item.includes(':') ? item.split(':') : ['music', item],
+        entry =
+          kind === 'music' ? this.m.music[id] : kind === 'amb' ? this.m.ambience[id] : this.m.sprites[id];
+      entry &&
+        ((kind === 'music' && entry.stream && !this.noStream) ||
+          promises.push(
+            this.buffer(entry.file, kind === 'music' ? 'music' : kind === 'amb' ? 'amb' : 'sfx'),
+          ));
     }
-    return Promise.all(t);
+    return Promise.all(promises);
   }
-  _warnOnce(e, t) {
-    this.warned.has(e) || (this.warned.add(e), console.warn(t));
+  _warnOnce(key, msg) {
+    this.warned.has(key) || (this.warned.add(key), console.warn(msg));
   }
-  setVolumes(e = {}) {
-    for (let t of ['master', 'music', 'ambience', 'sfx', 'ui'])
-      e[t] != null && Number.isFinite(+e[t]) && (this.vol[t] = Bs(+e[t], 0, 1));
+  /** Fija volúmenes (master, music, ambience, sfx, ui) en [0, 1]. */
+  setVolumes(vols = {}) {
+    for (let key of ['master', 'music', 'ambience', 'sfx', 'ui'])
+      vols[key] != null && Number.isFinite(+vols[key]) && (this.vol[key] = clamp(+vols[key], 0, 1));
     this._applyVolumes(0.15);
   }
-  _applyVolumes(e) {
+  _applyVolumes(fade) {
     if (!this.ctx) return;
-    let t = this.bus;
-    (qs(t.master.gain, vu(this.vol.master), e, this.ctx),
-      qs(t.music.gain, vu(this.vol.music), e, this.ctx),
-      qs(t.ambience.gain, vu(this.vol.ambience), e, this.ctx),
-      qs(t.sfx.gain, vu(this.vol.sfx), e, this.ctx),
-      qs(t.ui.gain, vu(this.vol.ui), e, this.ctx),
-      this._applyDucks(e));
+    let bus = this.bus;
+    (glideParam(bus.master.gain, volumeCurve(this.vol.master), fade, this.ctx),
+      glideParam(bus.music.gain, volumeCurve(this.vol.music), fade, this.ctx),
+      glideParam(bus.ambience.gain, volumeCurve(this.vol.ambience), fade, this.ctx),
+      glideParam(bus.sfx.gain, volumeCurve(this.vol.sfx), fade, this.ctx),
+      glideParam(bus.ui.gain, volumeCurve(this.vol.ui), fade, this.ctx),
+      this._applyDucks(fade));
   }
-  duck(e, t = 0.5, { ambience: a = null } = {}) {
-    (this.ducks.set(e, { m: Bs(t, 0, 1), a: a ?? 0.5 + t / 2 }), this._applyDucks(0.35));
+  /** Baja la música (a `amount`) y el ambiente mientras esté activo el motivo `key`. */
+  duck(key, amount = 0.5, { ambience = null } = {}) {
+    (this.ducks.set(key, { m: clamp(amount, 0, 1), a: ambience ?? 0.5 + amount / 2 }),
+      this._applyDucks(0.35));
   }
-  unduck(e) {
-    this.ducks.delete(e) && this._applyDucks(1.2);
+  unduck(key) {
+    this.ducks.delete(key) && this._applyDucks(1.2);
   }
-  _applyDucks(e) {
+  _applyDucks(fade) {
     if (!this.ctx) return;
-    let t = 1,
-      a = 1;
-    for (let n of this.ducks.values()) ((t = Math.min(t, n.m)), (a = Math.min(a, n.a)));
-    (qs(this.bus.musicOut.gain, t, e, this.ctx), qs(this.bus.ambOut.gain, a, e, this.ctx));
+    let musicGain = 1,
+      ambGain = 1;
+    for (let duck of this.ducks.values())
+      ((musicGain = Math.min(musicGain, duck.m)), (ambGain = Math.min(ambGain, duck.a)));
+    (glideParam(this.bus.musicOut.gain, musicGain, fade, this.ctx),
+      glideParam(this.bus.ambOut.gain, ambGain, fade, this.ctx));
   }
-  music(e, t = {}) {
-    let a = t.fade ?? 1.5;
-    if (e && !this.m.music[e]) {
-      this._warnOnce(`m:${e}`, `[sonido] m\xFAsica desconocida: ${e}`);
+  /**
+   * Cambia la música a `name` (null = silencio) con fundido `opts.fade`; `opts.then` es la pista (o
+   * función) que sigue a una pista de modo 'una'. Antes de desbloquear solo se recuerda.
+   */
+  music(name, opts = {}) {
+    let fade = opts.fade ?? 1.5;
+    if (name && !this.m.music[name]) {
+      this._warnOnce(`m:${name}`, `[sonido] m\xFAsica desconocida: ${name}`);
       return;
     }
     if (!this.ctx || !this.unlocked) {
-      ((this.want.music = e), (this.want.musicOpts = t));
+      ((this.want.music = name), (this.want.musicOpts = opts));
       return;
     }
     if (
-      ((this.want.music = e),
-      (this.want.musicOpts = t),
-      this.cur && this.cur.name === e && !t.restart && !this.cur.stopped)
+      ((this.want.music = name),
+      (this.want.musicOpts = opts),
+      this.cur && this.cur.name === name && !opts.restart && !this.cur.stopped)
     ) {
-      (t.volume != null && this.cur.setLevel(t.volume), (this.cur.opts.then = t.then ?? this.cur.opts.then));
+      (opts.volume != null && this.cur.setLevel(opts.volume),
+        (this.cur.opts.then = opts.then ?? this.cur.opts.then));
       return;
     }
-    let n = this.cur;
-    if (((this.cur = null), !e)) {
-      n && this._retire(n, a);
+    let prev = this.cur;
+    if (((this.cur = null), !name)) {
+      prev && this._retire(prev, fade);
       return;
     }
-    let s = new Fv(this, e, this.m.music[e], t);
-    this.cur = s;
-    let i = !1,
-      r = () => {
-        i || !n || ((i = !0), this._retire(n, a));
+    let track = new MusicTrack(this, name, this.m.music[name], opts);
+    this.cur = track;
+    let retired = !1,
+      retirePrev = () => {
+        retired || !prev || ((retired = !0), this._retire(prev, fade));
       },
-      l = setTimeout(r, 250);
-    s.start(a).then((c) => {
-      (clearTimeout(l), r(), !c && this.cur === s && (this.cur = null));
+      timer = setTimeout(retirePrev, 250);
+    track.start(fade).then((ok) => {
+      (clearTimeout(timer), retirePrev(), !ok && this.cur === track && (this.cur = null));
     });
   }
-  _retire(e, t) {
-    (this.fading.add(e), e.stop(t), setTimeout(() => this.fading.delete(e), (t + 0.3) * 1e3));
+  _retire(track, fade) {
+    (this.fading.add(track),
+      track.stop(fade),
+      setTimeout(() => this.fading.delete(track), (fade + 0.3) * 1e3));
   }
-  _afterOnce(e) {
-    if (this.cur !== e) return;
-    let t = typeof e.opts.then == 'function' ? e.opts.then() : e.opts.then;
-    t ? this.music(t, { fade: 2.5 }) : (this._retire(e, 0.5), (this.cur = null), (this.want.music = null));
+  _afterOnce(track) {
+    if (this.cur !== track) return;
+    let next = typeof track.opts.then == 'function' ? track.opts.then() : track.opts.then;
+    next
+      ? this.music(next, { fade: 2.5 })
+      : (this._retire(track, 0.5), (this.cur = null), (this.want.music = null));
   }
   get musicName() {
     return this.cur?.name ?? (this.unlocked ? null : this.want.music);
   }
-  ambience(e, { fade: t = 2.5 } = {}) {
-    let a = (e == null ? [] : Array.isArray(e) ? e : [e])
-      .map((s) => (typeof s == 'string' ? { id: s, vol: 1 } : { vol: 1, ...s }))
-      .filter((s) =>
-        this.m.ambience[s.id]
+  /** Deja sonando exactamente las capas de `list` (ids o {id, vol}). */
+  ambience(list, { fade = 2.5 } = {}) {
+    let wanted = (list == null ? [] : Array.isArray(list) ? list : [list])
+      .map((item) => (typeof item == 'string' ? { id: item, vol: 1 } : { vol: 1, ...item }))
+      .filter((item) =>
+        this.m.ambience[item.id]
           ? !0
-          : (this._warnOnce(`a:${s.id}`, `[sonido] ambiente desconocido: ${s.id}`), !1),
+          : (this._warnOnce(`a:${item.id}`, `[sonido] ambiente desconocido: ${item.id}`), !1),
       );
-    if (((this.want.ambience = a), !this.ctx || !this.unlocked)) {
-      for (let s of a) this.fetchRaw(this.m.ambience[s.id].file);
+    if (((this.want.ambience = wanted), !this.ctx || !this.unlocked)) {
+      for (let item of wanted) this.fetchRaw(this.m.ambience[item.id].file);
       return;
     }
-    let n = new Set(a.map((s) => s.id));
-    for (let [s, i] of this.layers) n.has(s) || (i.stop(t), this.layers.delete(s));
-    for (let s of a) {
-      let i = this.layers.get(s.id);
-      if (i) i.setLevel(s.vol, t);
+    let ids = new Set(wanted.map((item) => item.id));
+    for (let [id, layer] of this.layers) ids.has(id) || (layer.stop(fade), this.layers.delete(id));
+    for (let item of wanted) {
+      let layer = this.layers.get(item.id);
+      if (layer) layer.setLevel(item.vol, fade);
       else {
-        let r = new cm(this, s.id, this.m.ambience[s.id], this.bus.ambience, s.vol);
-        (this.layers.set(s.id, r), r.start(t));
+        let layer = new AmbienceLayer(this, item.id, this.m.ambience[item.id], this.bus.ambience, item.vol);
+        (this.layers.set(item.id, layer), layer.start(fade));
       }
     }
   }
-  emitter(e, { at: t = null, points: a = null, vol: n = 1, near: s = 3, far: i = 22 } = {}) {
-    let r = this.m.ambience[e];
-    if (!r) return (this._warnOnce(`a:${e}`, `[sonido] ambiente desconocido: ${e}`), { set() {}, stop() {} });
-    let l = this,
-      c = {
-        e: r,
-        id: e,
-        vol: n,
-        near: s,
-        far: i,
-        at: Vr(t),
-        points: a ? a.map(Vr).filter(Boolean) : null,
+  /** Emisor posicional de un ambiente en `at` o en el más cercano de `points`; devuelve {set, stop}. */
+  emitter(id, { at = null, points = null, vol = 1, near = 3, far = 22 } = {}) {
+    let entry = this.m.ambience[id];
+    if (!entry)
+      return (this._warnOnce(`a:${id}`, `[sonido] ambiente desconocido: ${id}`), { set() {}, stop() {} });
+    let eng = this,
+      em = {
+        e: entry,
+        id,
+        vol,
+        near,
+        far,
+        at: toPoint(at),
+        points: points ? points.map(toPoint).filter(Boolean) : null,
         voice: null,
         _start() {
-          if (!l.ctx || !l.unlocked || this.voice || this.dead) return;
-          this.voice = new cm(l, e, r, l.bus.ambience, this.vol);
-          let [d, u] = l._space(this);
-          ((this.voice.space = d), this.voice.pan && (this.voice.pan.pan.value = u), this.voice.start(2));
+          if (!eng.ctx || !eng.unlocked || this.voice || this.dead) return;
+          this.voice = new AmbienceLayer(eng, id, entry, eng.bus.ambience, this.vol);
+          let [gain, pan] = eng._space(this);
+          ((this.voice.space = gain),
+            this.voice.pan && (this.voice.pan.pan.value = pan),
+            this.voice.start(2));
         },
-        set(d = {}) {
-          (d.at !== void 0 && (this.at = Vr(d.at)),
-            d.points && (this.points = d.points.map(Vr).filter(Boolean)),
-            d.vol != null && ((this.vol = d.vol), this.voice?.setLevel(d.vol, 1)));
+        set(opts = {}) {
+          (opts.at !== void 0 && (this.at = toPoint(opts.at)),
+            opts.points && (this.points = opts.points.map(toPoint).filter(Boolean)),
+            opts.vol != null && ((this.vol = opts.vol), this.voice?.setLevel(opts.vol, 1)));
         },
-        stop(d = 2) {
-          ((this.dead = !0), l.emitters.delete(this), this.voice?.stop(d));
+        stop(fade = 2) {
+          ((this.dead = !0), eng.emitters.delete(this), this.voice?.stop(fade));
         },
       };
-    return (this.emitters.add(c), this.ctx && this.unlocked ? c._start() : this.fetchRaw(r.file), c);
+    return (this.emitters.add(em), this.ctx && this.unlocked ? em._start() : this.fetchRaw(entry.file), em);
   }
-  bindCamera(e, t = null) {
-    ((this.camera = e), (this.controls = t));
+  bindCamera(camera, controls = null) {
+    ((this.camera = camera), (this.controls = controls));
   }
-  _gainPan(e, t = 6, a = 30) {
-    let n = this.listener;
-    if (!e || !n.focus) return [1, 0];
-    let s = e.x - n.focus.x,
-      i = e.z - n.focus.z,
-      r = Math.sqrt(s * s + i * i),
-      l = r <= t ? 1 : 1 / (1 + ((r - t) / Math.max(1, (a - t) / 2)) ** 2);
-    l *= Bs(1.25 - n.dist / 70, 0.55, 1);
-    let c = 0;
-    if (n.pos) {
-      let d = e.x - n.pos.x,
-        u = e.y - n.pos.y,
-        h = e.z - n.pos.z,
-        p = d * n.right.x + h * n.right.z,
-        m = Math.max(1, d * n.fwd.x + u * n.fwd.y + h * n.fwd.z);
-      c = Bs(p / (m * n.tanH), -1, 1) * 0.75;
+  /** [ganancia, panorama] de un sonido en `pos` respecto al foco y a la cámara. */
+  _gainPan(pos, near = 6, far = 30) {
+    let lis = this.listener;
+    if (!pos || !lis.focus) return [1, 0];
+    let dx = pos.x - lis.focus.x,
+      dz = pos.z - lis.focus.z,
+      dist = Math.sqrt(dx * dx + dz * dz),
+      gain = dist <= near ? 1 : 1 / (1 + ((dist - near) / Math.max(1, (far - near) / 2)) ** 2);
+    gain *= clamp(1.25 - lis.dist / 70, 0.55, 1);
+    let pan = 0;
+    if (lis.pos) {
+      let rx = pos.x - lis.pos.x,
+        ry = pos.y - lis.pos.y,
+        rz = pos.z - lis.pos.z,
+        side = rx * lis.right.x + rz * lis.right.z,
+        depth = Math.max(1, rx * lis.fwd.x + ry * lis.fwd.y + rz * lis.fwd.z);
+      pan = clamp(side / (depth * lis.tanH), -1, 1) * 0.75;
     }
-    return [l, c];
+    return [gain, pan];
   }
-  _space(e) {
-    let t = e.at;
-    if (e.points?.length && this.listener.focus) {
-      let a = this.listener.focus,
-        n = 1 / 0;
-      for (let s of e.points) {
-        let i = (s.x - a.x) ** 2 + (s.z - a.z) ** 2;
-        i < n && ((n = i), (t = s));
+  _space(em) {
+    let pos = em.at;
+    if (em.points?.length && this.listener.focus) {
+      let focus = this.listener.focus,
+        best = 1 / 0;
+      for (let p of em.points) {
+        let d2 = (p.x - focus.x) ** 2 + (p.z - focus.z) ** 2;
+        d2 < best && ((best = d2), (pos = p));
       }
     }
-    return t ? this._gainPan(t, e.near, e.far) : [1, 0];
+    return pos ? this._gainPan(pos, em.near, em.far) : [1, 0];
   }
+  /** Actualiza posición, orientación y foco del oyente a partir de la cámara y sus controles. */
   _updateListener() {
-    let e = this.camera;
-    if (!e) return;
-    let t = e.matrixWorld?.elements,
-      a = this.listener;
-    if (((a.pos = { x: e.position.x, y: e.position.y, z: e.position.z }), t)) {
-      let s = Math.hypot(t[0], t[2]) || 1;
-      ((a.right = { x: t[0] / s, z: t[2] / s }), (a.fwd = { x: -t[8], y: -t[9], z: -t[10] }));
+    let camera = this.camera;
+    if (!camera) return;
+    let m = camera.matrixWorld?.elements,
+      lis = this.listener;
+    if (((lis.pos = { x: camera.position.x, y: camera.position.y, z: camera.position.z }), m)) {
+      let len = Math.hypot(m[0], m[2]) || 1;
+      ((lis.right = { x: m[0] / len, z: m[2] / len }), (lis.fwd = { x: -m[8], y: -m[9], z: -m[10] }));
     }
-    let n = this.controls?.target;
-    ((a.focus = n
-      ? { x: n.x, y: n.y, z: n.z }
-      : { x: a.pos.x + a.fwd.x * 15, y: 0, z: a.pos.z + a.fwd.z * 15 }),
-      (a.dist = Math.hypot(a.pos.x - a.focus.x, a.pos.y - a.focus.y, a.pos.z - a.focus.z)),
-      (a.tanH = Math.tan(((e.fov || 50) * Math.PI) / 360) * (e.aspect || 1.6)));
+    let target = this.controls?.target;
+    ((lis.focus = target
+      ? { x: target.x, y: target.y, z: target.z }
+      : { x: lis.pos.x + lis.fwd.x * 15, y: 0, z: lis.pos.z + lis.fwd.z * 15 }),
+      (lis.dist = Math.hypot(lis.pos.x - lis.focus.x, lis.pos.y - lis.focus.y, lis.pos.z - lis.focus.z)),
+      (lis.tanH = Math.tan(((camera.fov || 50) * Math.PI) / 360) * (camera.aspect || 1.6)));
   }
-  sfx(e, t = {}) {
-    let a = this.m.sfx[e];
-    if (!a) return (this._warnOnce(`s:${e}`, `[sonido] efecto desconocido: ${e}`), null);
+  /**
+   * Reproduce el efecto `id`. `opts`: at, volume, rate, pan, delay, variant, vary, near, far, force,
+   * late (si el sprite aún no está cargado, sonará al cargarse si llega a tiempo). Devuelve {stop} o null.
+   */
+  sfx(id, opts = {}) {
+    let def = this.m.sfx[id];
+    if (!def) return (this._warnOnce(`s:${id}`, `[sonido] efecto desconocido: ${id}`), null);
     if (!this.ctx || !this.unlocked || this.paused) return null;
-    let n = this.m.sprites[a.s],
-      s = this.ready.get(n.file);
-    return s
-      ? (this.lastUse.set(n.file, bu()), this._play(e, a, s, t))
-      : (this.buffer(n.file, 'sfx'),
-        t.late !== !1 && this.pending.push({ id: e, opts: t, t: bu(), file: n.file }),
+    let sprite = this.m.sprites[def.s],
+      buf = this.ready.get(sprite.file);
+    return buf
+      ? (this.lastUse.set(sprite.file, nowSeconds()), this._play(id, def, buf, opts))
+      : (this.buffer(sprite.file, 'sfx'),
+        opts.late !== !1 && this.pending.push({ id, opts, t: nowSeconds(), file: sprite.file }),
         null);
   }
-  _flushPending(e) {
-    let t = bu(),
-      a = this.pending.filter((n) => n.file === e);
-    this.pending = this.pending.filter((n) => n.file !== e && t - n.t < 2);
-    for (let n of a) t - n.t < 0.35 && this.sfx(n.id, { ...n.opts, late: !1 });
+  _flushPending(file) {
+    let now = nowSeconds(),
+      due = this.pending.filter((item) => item.file === file);
+    this.pending = this.pending.filter((item) => item.file !== file && now - item.t < 2);
+    for (let item of due) now - item.t < 0.35 && this.sfx(item.id, { ...item.opts, late: !1 });
   }
-  _play(e, t, a, n) {
-    let s = this.ctx,
-      i = bu(),
-      r = t.gap ?? 0.025;
-    if (i - (this.lastPlay.get(e) || 0) < r && !n.force) return null;
-    this.lastPlay.set(e, i);
-    let l = (this.voices.get(e) || []).filter((S) => !S.done),
-      c = t.max ?? 4;
-    for (; l.length >= c;) l.shift().kill(0.04);
-    let d = 0;
-    for (let S of this.voices.values()) d += S.length;
-    if (d > 48) return null;
-    let u = 0;
-    if (t.v.length > 1) {
-      let S = this.lastVar.get(e);
-      do u = Math.floor(Math.random() * t.v.length);
-      while (u === S && t.v.length > 1);
-      this.lastVar.set(e, u);
+  /** Reproduce un tramo del sprite con variante, tono y volumen al azar, límite de voces y ducking. */
+  _play(id, def, buf, opts) {
+    let ctx = this.ctx,
+      now = nowSeconds(),
+      gap = def.gap ?? 0.025;
+    if (now - (this.lastPlay.get(id) || 0) < gap && !opts.force) return null;
+    this.lastPlay.set(id, now);
+    let voices = (this.voices.get(id) || []).filter((voice) => !voice.done),
+      maxVoices = def.max ?? 4;
+    for (; voices.length >= maxVoices;) voices.shift().kill(0.04);
+    let total = 0;
+    for (let list of this.voices.values()) total += list.length;
+    if (total > 48) return null;
+    let variant = 0;
+    if (def.v.length > 1) {
+      let last = this.lastVar.get(id);
+      do variant = Math.floor(Math.random() * def.v.length);
+      while (variant === last && def.v.length > 1);
+      this.lastVar.set(id, variant);
     }
-    n.variant != null && (u = Bs(n.variant | 0, 0, t.v.length - 1));
-    let [h, p] = t.v[u],
-      m = n.vary !== !1,
-      _ = m ? (t.pitch ?? 0.04) : 0,
-      b = Bs((n.rate ?? 1) * (1 + BM(-_, _)), 0.25, 4),
-      f = (t.vol ?? 0.5) * (n.volume ?? 1) * (m ? BM(0.9, 1.06) : 1),
-      v = n.pan ?? 0,
-      x = Vr(n.at);
-    if (x) {
-      let [S, z] = this._gainPan(x, n.near ?? 7, n.far ?? 34);
-      ((f *= S), n.pan == null && (v = z));
+    opts.variant != null && (variant = clamp(opts.variant | 0, 0, def.v.length - 1));
+    let [offset, dur] = def.v[variant],
+      vary = opts.vary !== !1,
+      pitch = vary ? (def.pitch ?? 0.04) : 0,
+      rate = clamp((opts.rate ?? 1) * (1 + randRange(-pitch, pitch)), 0.25, 4),
+      gain = (def.vol ?? 0.5) * (opts.volume ?? 1) * (vary ? randRange(0.9, 1.06) : 1),
+      pan = opts.pan ?? 0,
+      at = toPoint(opts.at);
+    if (at) {
+      let [g, p] = this._gainPan(at, opts.near ?? 7, opts.far ?? 34);
+      ((gain *= g), opts.pan == null && (pan = p));
     }
-    if (f < 0.003) return null;
-    let g = s.createBufferSource();
-    ((g.buffer = a), (g.playbackRate.value = b));
-    let y = s.createGain();
-    ((y.gain.value = f), g.connect(y));
-    let w = y;
-    if (v && s.createStereoPanner) {
-      let S = s.createStereoPanner();
-      ((S.pan.value = Bs(v, -1, 1)), y.connect(S), (w = S));
+    if (gain < 0.003) return null;
+    let src = ctx.createBufferSource();
+    ((src.buffer = buf), (src.playbackRate.value = rate));
+    let gainNode = ctx.createGain();
+    ((gainNode.gain.value = gain), src.connect(gainNode));
+    let out = gainNode;
+    if (pan && ctx.createStereoPanner) {
+      let panner = ctx.createStereoPanner();
+      ((panner.pan.value = clamp(pan, -1, 1)), gainNode.connect(panner), (out = panner));
     }
-    let k = t.bus === 'ui' ? this.bus.ui : t.bus === 'amb' ? this.bus.ambience : this.bus.sfx;
-    w.connect(k);
-    let T = s.currentTime + Math.max(0, n.delay || 0);
-    g.start(T, h, p);
-    let E = {
+    let dest = def.bus === 'ui' ? this.bus.ui : def.bus === 'amb' ? this.bus.ambience : this.bus.sfx;
+    out.connect(dest);
+    let when = ctx.currentTime + Math.max(0, opts.delay || 0);
+    src.start(when, offset, dur);
+    let voice = {
       done: !1,
-      kill: (S = 0.08) => {
-        if (!E.done) {
-          E.done = !0;
+      kill: (fade = 0.08) => {
+        if (!voice.done) {
+          voice.done = !0;
           try {
-            (mc(y.gain, 0, S, s), g.stop(s.currentTime + S + 0.02));
+            (rampParam(gainNode.gain, 0, fade, ctx), src.stop(ctx.currentTime + fade + 0.02));
           } catch {}
         }
       },
     };
     if (
-      ((g.onended = () => {
-        E.done = !0;
+      ((src.onended = () => {
+        voice.done = !0;
         try {
-          (w.disconnect(), y.disconnect());
+          (out.disconnect(), gainNode.disconnect());
         } catch {}
-        let S = this.voices.get(e);
-        S &&
+        let list = this.voices.get(id);
+        list &&
           this.voices.set(
-            e,
-            S.filter((z) => z !== E),
+            id,
+            list.filter((v) => v !== voice),
           );
       }),
-      l.push(E),
-      this.voices.set(e, l),
-      t.duck)
+      voices.push(voice),
+      this.voices.set(id, voices),
+      def.duck)
     ) {
-      let S = `sfx:${e}`;
-      (this.duck(S, t.duck.amount),
-        clearTimeout(this._duckT?.[S]),
-        ((this._duckT ||= {})[S] = setTimeout(
-          () => this.unduck(S),
-          (t.duck.dur / b + (n.delay || 0)) * 1e3,
+      let key = `sfx:${id}`;
+      (this.duck(key, def.duck.amount),
+        clearTimeout(this._duckT?.[key]),
+        ((this._duckT ||= {})[key] = setTimeout(
+          () => this.unduck(key),
+          (def.duck.dur / rate + (opts.delay || 0)) * 1e3,
         )));
     }
-    return { stop: (S) => E.kill(S) };
+    return { stop: (fade) => voice.kill(fade) };
   }
-  stopAllSfx(e = 0.1) {
-    for (let t of this.voices.values()) for (let a of t) a.kill(e);
+  stopAllSfx(fade = 0.1) {
+    for (let list of this.voices.values()) for (let voice of list) voice.kill(fade);
     (this.voices.clear(), (this.pending = []));
   }
-  update(e) {
+  /** Por fotograma: oyente, espacialización de emisores y oyentes de `onUpdate`. */
+  update(dt) {
     if (!(!this.ctx || !this.unlocked)) {
       this._updateListener();
-      for (let t of this.emitters) {
-        if (!t.voice) continue;
-        let [a, n] = this._space(t);
-        t.voice.setSpace(a, n);
+      for (let em of this.emitters) {
+        if (!em.voice) continue;
+        let [gain, pan] = this._space(em);
+        em.voice.setSpace(gain, pan);
       }
-      for (let t of this.onUpdate)
+      for (let fn of this.onUpdate)
         try {
-          t(e);
-        } catch (a) {
-          console.error('[sonido] update', a);
+          fn(dt);
+        } catch (err) {
+          console.error('[sonido] update', err);
         }
     }
   }
@@ -745,4 +834,4 @@ const dm = class {
   }
 };
 
-export { Vr, dm };
+export { toPoint, AudioEngine };

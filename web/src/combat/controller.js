@@ -4,9 +4,9 @@
 import { MathUtils, Raycaster, Vector2, Vector3 } from 'three';
 import { worldToPlane, planeToCell, cellKey, hexDistance, HEX_SIZE } from '../explore/hex.js';
 import { Um, QS } from './hands.js';
-import { BS } from '../vfx/conditions.js';
+import { auraStatesOf as BS } from '../vfx/conditions.js';
 import efectosConjuros from '../datos/efectos/conjuros.json';
-import { o1 } from '../vfx/spells.js';
+import { SPELL_LIKE_FEATURES as o1 } from '../vfx/spells.js';
 import { DAMAGE_STYLE } from '../vfx/styles.js';
 import { FRAME } from '../vfx/atlas.js';
 import { jm } from './creatures.js';

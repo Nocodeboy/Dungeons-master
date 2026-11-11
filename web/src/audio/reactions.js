@@ -1,84 +1,104 @@
 // audio/reactions.js
-// Reconstruido de publicado/juego.js (módulo __esm «KM»). Nombres locales aún minificados.
+// Reacciones sonoras a los eventos del bus del juego: música por escena, nivel, banderas, combate,
+// sigilo, victoria y derrota; ambientes y emisores de cada nivel (hogueras, río, taberna, rebaños…)
+// con sonidos sueltos al azar («sprinkles»); pasos según el suelo; combate a partir de los eventos
+// del núcleo ('battle:event') y de los avisos de efectos visuales ('battle:fx'); objetos, cerraduras,
+// trampas, botín, misiones e interfaz. Los nombres de sonido son los de datos/audio.json.
+// Lo crea audio/index.js (createAudio) cuando hay bus.
+// Reconstruido de publicado/juego.js (módulo __esm «KM»).
 
-import { Vr } from './engine.js';
+import { toPoint } from './engine.js';
 
-function hm(o = '', e = 'melee') {
-  let t = String(o).toLowerCase();
-  return /crossbow/.test(t)
+/** Familia sonora de un arma (espada, ligera, pesada, contundente, arco, ballesta, honda, lanzar…). */
+function weaponSoundClass(weapon = '', kind = 'melee') {
+  let id = String(weapon).toLowerCase();
+  return /crossbow/.test(id)
     ? 'ballesta'
-    : /bow/.test(t)
+    : /bow/.test(id)
       ? 'arco'
-      : /sling/.test(t)
+      : /sling/.test(id)
         ? 'honda'
-        : e === 'thrown' || /thrown|javelin|dart/.test(t)
+        : kind === 'thrown' || /thrown|javelin|dart/.test(id)
           ? 'lanzar'
-          : e === 'ranged'
+          : kind === 'ranged'
             ? 'arco'
-            : /unarmed|fist|punch/.test(t)
+            : /unarmed|fist|punch/.test(id)
               ? 'punetazo'
-              : /bite|claw|slam|ram|hooves|tentacle|sting|gore|talon/.test(t)
+              : /bite|claw|slam|ram|hooves|tentacle|sting|gore|talon/.test(id)
                 ? 'natural'
-                : /great|maul|halberd|glaive|battleaxe|pike|lance/.test(t)
+                : /great|maul|halberd|glaive|battleaxe|pike|lance/.test(id)
                   ? 'pesada'
-                  : /club|mace|staff|hammer|flail|morningstar|war_pick/.test(t)
+                  : /club|mace|staff|hammer|flail|morningstar|war_pick/.test(id)
                     ? 'contundente'
-                    : /dagger|knife|sickle|handaxe|shortsword|rapier|scimitar/.test(t)
+                    : /dagger|knife|sickle|handaxe|shortsword|rapier|scimitar/.test(id)
                       ? 'ligera'
                       : 'espada';
 }
-function qv(o) {
-  let e = SD(o);
-  if (!e) return null;
-  for (let [t, a] of MD) if (t.test(e)) return a;
+/** Voz de criatura según el id de unidad («goblin_x#2» → trasgo); null si no es un monstruo. */
+function creatureVoice(who) {
+  let base = baseId(who);
+  if (!base) return null;
+  for (let [re, voice] of CREATURE_VOICES) if (re.test(base)) return voice;
   return 'bestia';
 }
-function AD(o, e) {
-  return o?.rows?.[e[1]]?.[e[0]];
+/** Carácter del terreno del nivel en una casilla. */
+function terrainAt(level, cell) {
+  return level?.rows?.[cell[1]]?.[cell[0]];
 }
-function RD(o, e) {
-  if (!o || !e) return 'tierra';
-  for (let a of o.paint || [])
-    if (a.cells?.some((n) => n[0] === e[0] && n[1] === e[1])) return Bv[a.ground] || 'tierra';
-  let t = AD(o, e);
-  return t === ',' || t === 'b'
+/** Superficie para los pasos (hierba, tierra, piedra, madera, agua, barro) en una casilla. */
+function surfaceAt(level, cell) {
+  if (!level || !cell) return 'tierra';
+  for (let patch of level.paint || [])
+    if (patch.cells?.some((c) => c[0] === cell[0] && c[1] === cell[1]))
+      return GROUND_SURFACE[patch.ground] || 'tierra';
+  let ch = terrainAt(level, cell);
+  return ch === ',' || ch === 'b'
     ? 'hierba'
-    : t === ':'
+    : ch === ':'
       ? 'tierra'
-      : t === '=' || t === 'x' || t === 'P' || t === 'S' || t === 'g'
+      : ch === '=' || ch === 'x' || ch === 'P' || ch === 'S' || ch === 'g'
         ? 'piedra'
-        : t === 'w'
+        : ch === 'w'
           ? 'agua'
-          : t === '~'
+          : ch === '~'
             ? 'barro'
-            : t === '.' || t == null
-              ? Bv[o.ground?.['.']] ||
-                (o.ambient === 'crypt' ? 'piedra' : o.floor ? Bv[o.floor] || 'madera' : 'tierra')
+            : ch === '.' || ch == null
+              ? GROUND_SURFACE[level.ground?.['.']] ||
+                (level.ambient === 'crypt'
+                  ? 'piedra'
+                  : level.floor
+                    ? GROUND_SURFACE[level.floor] || 'madera'
+                    : 'tierra')
               : 'tierra';
 }
-function CD(o) {
-  let e = Vr(o);
-  if (!e) return null;
-  let t = Math.round(e.z / (0.8660254 * UM));
-  return [Math.round(e.x / UM - 0.5 * (t & 1)), t];
+/** Casilla [col, fila] más cercana a un punto (inversa de toPoint). */
+function pointToCell(at) {
+  let p = toPoint(at);
+  if (!p) return null;
+  let row = Math.round(p.z / (0.8660254 * CELL_SIZE));
+  return [Math.round(p.x / CELL_SIZE - 0.5 * (row & 1)), row];
 }
-function YM(o, e) {
-  let t = o.bus,
-    a = [],
-    n = (M, R) =>
-      a.push(
-        t.on(M, (A) => {
+/**
+ * Suscribe las reacciones sonoras al bus de `game` usando la API `audio` de createAudio. Devuelve
+ * { state, step, levelMusic, onRulesEvent, onFx, dispose }.
+ */
+function createReactions(game, audio) {
+  let bus = game.bus,
+    offs = [],
+    listen = (event, fn) =>
+      offs.push(
+        bus.on(event, (data) => {
           try {
-            R(A || {});
-          } catch (P) {
-            console.error(`[sonido] ${M}`, P);
+            fn(data || {});
+          } catch (err) {
+            console.error(`[sonido] ${event}`, err);
           }
         }),
       ),
-    s = (M, R) => e.sfx(M, R),
-    i = (M, R) => setTimeout(R, M),
-    r = (M) => o.store?.flag?.(M),
-    l = {
+    sfx = (id, opts) => audio.sfx(id, opts),
+    later = (ms, fn) => setTimeout(fn, ms),
+    flag = (name) => game.store?.flag?.(name),
+    state = {
       scene: null,
       level: null,
       levelId: null,
@@ -93,336 +113,406 @@ function YM(o, e) {
       objectStateSeen: !1,
       lastPos: new Map(),
     },
-    c = (M) => ({ ...(xD[M?.id] || {}), ...(M || {}) });
-  function d() {
-    if (l.scene && l.scene !== 'explore' && um[l.scene]) return um[l.scene];
-    let M = c(l.level || { id: l.levelId });
-    for (let [R, A] of Object.entries(M.music_flags || {})) if (r(R)) return A;
-    return M.music || null;
+    levelInfo = (level) => ({ ...(LEVEL_SOUND[level?.id] || {}), ...(level || {}) });
+  /** Música que toca ahora: la de la escena o la del nivel según sus banderas. */
+  function levelMusic() {
+    if (state.scene && state.scene !== 'explore' && SCENE_MUSIC[state.scene]) return SCENE_MUSIC[state.scene];
+    let info = levelInfo(state.level || { id: state.levelId });
+    for (let [flagName, track] of Object.entries(info.music_flags || {})) if (flag(flagName)) return track;
+    return info.music || null;
   }
-  function u(M) {
-    let R = c(l.level || { id: l.levelId });
-    return (R.groups || []).find((P) => P.id === M)?.music || _D[M] || R.music_combat || 'combate';
+  /** Música de combate para un grupo de enemigos. */
+  function combatMusic(group) {
+    let info = levelInfo(state.level || { id: state.levelId });
+    return (
+      (info.groups || []).find((g) => g.id === group)?.music ||
+      GROUP_MUSIC[group] ||
+      info.music_combat ||
+      'combate'
+    );
   }
-  function h(M = 2) {
-    for (let R of l.emitters) R.stop(M);
-    ((l.emitters = []), (l.sprinkles = []));
+  function stopEmitters(fade = 2) {
+    for (let em of state.emitters) em.stop(fade);
+    ((state.emitters = []), (state.sprinkles = []));
   }
-  function p(M) {
-    return M.ambience && gc[M.ambience]
-      ? gc[M.ambience]
-      : Array.isArray(M.ambience)
-        ? { layers: M.ambience, sprinkles: [] }
-        : /posada|inn|taberna/.test(M.id || '')
-          ? gc.inn
-          : M.id === 'kesh'
-            ? gc.river
-            : gc[M.ambient] || gc.day;
+  function ambienceFor(info) {
+    return info.ambience && AMBIENCE_PRESETS[info.ambience]
+      ? AMBIENCE_PRESETS[info.ambience]
+      : Array.isArray(info.ambience)
+        ? { layers: info.ambience, sprinkles: [] }
+        : /posada|inn|taberna/.test(info.id || '')
+          ? AMBIENCE_PRESETS.inn
+          : info.id === 'kesh'
+            ? AMBIENCE_PRESETS.river
+            : AMBIENCE_PRESETS[info.ambient] || AMBIENCE_PRESETS.day;
   }
-  function m(M) {
-    h(1.5);
-    let R = c(M),
-      A = p(R);
-    (e.ambience(A.layers, { fade: 3 }),
-      (l.sprinkles = A.sprinkles.map((Z) => ({ ...Z, t: yu(Z.every[0] * 0.4, Z.every[1] * 0.6) }))));
-    let P = new Set(A.layers.map((Z) => Z.id)),
-      I = o.explore?.world?.spots?.sounds || o.world?.spots?.sounds || null;
-    if (I?.length) {
-      let Z = {};
-      for (let ge of I) ge?.pos && (Z[ge.kind] ||= []).push(ge.pos);
-      let K = (ge, ue, Q) => ue?.length && l.emitters.push(e.emitter(ge, { points: ue, ...Q }));
-      (K('fuego', [...(Z.fire || []), ...(Z.forge || [])], { vol: 0.9, near: 1.5, far: 13 }),
-        K('fuego', Z.torch, { vol: 0.22, near: 0.8, far: 6 }),
-        P.has('rio') ||
-          K('rio', [...(Z.river || []), ...(Z.watermill || [])], { vol: 0.42, near: 2, far: 14 }),
-        K('rio', Z.pond, { vol: 0.15, near: 1.5, far: 9 }),
-        K('taberna', Z.tavern, { vol: 0.45, near: 2, far: 12 }),
-        Z.blacksmith?.length &&
-          l.sprinkles.push({ id: 'yunque', every: [1.1, 3.5], cells: Z.blacksmith, t: 1, near: 3, far: 20 }));
-      let ve = [...(Z.windmill || []), ...(Z.watermill || [])];
-      ve.length && l.sprinkles.push({ id: 'molino', every: [2.5, 6], cells: ve, t: 2, near: 3, far: 22 });
+  /** Ambiente, emisores y sonidos sueltos de un nivel; precarga los sonidos de combate. */
+  function setupLevelSound(level) {
+    stopEmitters(1.5);
+    let info = levelInfo(level),
+      amb = ambienceFor(info);
+    (audio.ambience(amb.layers, { fade: 3 }),
+      (state.sprinkles = amb.sprinkles.map((sp) => ({
+        ...sp,
+        t: randRange(sp.every[0] * 0.4, sp.every[1] * 0.6),
+      }))));
+    let layerIds = new Set(amb.layers.map((layer) => layer.id)),
+      spots = game.explore?.world?.spots?.sounds || game.world?.spots?.sounds || null;
+    if (spots?.length) {
+      let byKind = {};
+      for (let spot of spots) spot?.pos && (byKind[spot.kind] ||= []).push(spot.pos);
+      let addEmitter = (id, points, opts) =>
+        points?.length && state.emitters.push(audio.emitter(id, { points, ...opts }));
+      (addEmitter('fuego', [...(byKind.fire || []), ...(byKind.forge || [])], {
+        vol: 0.9,
+        near: 1.5,
+        far: 13,
+      }),
+        addEmitter('fuego', byKind.torch, { vol: 0.22, near: 0.8, far: 6 }),
+        layerIds.has('rio') ||
+          addEmitter('rio', [...(byKind.river || []), ...(byKind.watermill || [])], {
+            vol: 0.42,
+            near: 2,
+            far: 14,
+          }),
+        addEmitter('rio', byKind.pond, { vol: 0.15, near: 1.5, far: 9 }),
+        addEmitter('taberna', byKind.tavern, { vol: 0.45, near: 2, far: 12 }),
+        byKind.blacksmith?.length &&
+          state.sprinkles.push({
+            id: 'yunque',
+            every: [1.1, 3.5],
+            cells: byKind.blacksmith,
+            t: 1,
+            near: 3,
+            far: 20,
+          }));
+      let mills = [...(byKind.windmill || []), ...(byKind.watermill || [])];
+      mills.length &&
+        state.sprinkles.push({ id: 'molino', every: [2.5, 6], cells: mills, t: 2, near: 3, far: 22 });
     } else {
-      let Z = [];
-      for (let K of R.objects || [])
-        (K.type === 'campfire' || /fire|hoguera|brasero|forge/.test(K.id || '')) && K.cell && Z.push(K.cell);
-      for (let K of R.decor || [])
-        /campfire|bonfire|brazier|hoguera|fogata|forge|hearth|chimenea/.test(K.key || '') &&
-          K.cell &&
-          Z.push(K.cell);
-      Z.length && l.emitters.push(e.emitter('fuego', { points: Z, vol: 0.9, near: 1.5, far: 13 }));
+      let fires = [];
+      for (let obj of info.objects || [])
+        (obj.type === 'campfire' || /fire|hoguera|brasero|forge/.test(obj.id || '')) &&
+          obj.cell &&
+          fires.push(obj.cell);
+      for (let decor of info.decor || [])
+        /campfire|bonfire|brazier|hoguera|fogata|forge|hearth|chimenea/.test(decor.key || '') &&
+          decor.cell &&
+          fires.push(decor.cell);
+      fires.length &&
+        state.emitters.push(audio.emitter('fuego', { points: fires, vol: 0.9, near: 1.5, far: 13 }));
     }
-    if (!I?.length && !P.has('rio') && R.rows) {
-      let Z = [];
-      (R.rows.forEach((K, ve) =>
-        [...K].forEach((ge, ue) => ge === 'w' && (ue + ve) % 2 === 0 && Z.push([ue, ve])),
+    if (!spots?.length && !layerIds.has('rio') && info.rows) {
+      let water = [];
+      (info.rows.forEach((row, y) =>
+        [...row].forEach((ch, x) => ch === 'w' && (x + y) % 2 === 0 && water.push([x, y])),
       ),
-        Z.length >= 4 && l.emitters.push(e.emitter('rio', { points: Z, vol: 0.3, near: 2, far: 13 })));
+        water.length >= 4 &&
+          state.emitters.push(audio.emitter('rio', { points: water, vol: 0.3, near: 2, far: 13 })));
     }
-    let U = {};
-    for (let Z of R.animals || []) jM[Z.kind] && Z.cell && (U[Z.kind] ||= []).push(Z.cell);
-    let j = [...(U.sheep || []), ...(U.cow || [])];
-    j.length >= 3 && l.emitters.push(e.emitter('rebano', { points: j, vol: 0.6, near: 3, far: 18 }));
-    for (let [Z, K] of Object.entries(U)) {
-      let [ve, ge, ue] = jM[Z];
-      l.sprinkles.push({ id: ve, every: [ge, ue], cells: K, t: yu(ge * 0.3, ue * 0.5), animal: !0 });
+    let herds = {};
+    for (let animal of info.animals || [])
+      ANIMAL_SOUNDS[animal.kind] && animal.cell && (herds[animal.kind] ||= []).push(animal.cell);
+    let flock = [...(herds.sheep || []), ...(herds.cow || [])];
+    flock.length >= 3 &&
+      state.emitters.push(audio.emitter('rebano', { points: flock, vol: 0.6, near: 3, far: 18 }));
+    for (let [kind, cells] of Object.entries(herds)) {
+      let [id, min, max] = ANIMAL_SOUNDS[kind];
+      state.sprinkles.push({ id, every: [min, max], cells, t: randRange(min * 0.3, max * 0.5), animal: !0 });
     }
-    e.preload(['sfx:mundo']);
-    let X = R.groups || [],
-      J = new Set([u(null), ...X.map((Z) => u(Z.id))].map((Z) => `music:${Z}`));
-    (X.length || R.id === 'merrowick') &&
-      i(2500, () => e.preload(['sfx:combate', 'sfx:criaturas', 'sfx:magia', ...J]));
+    audio.preload(['sfx:mundo']);
+    let groups = info.groups || [],
+      musicIds = new Set(
+        [combatMusic(null), ...groups.map((g) => combatMusic(g.id))].map((track) => `music:${track}`),
+      );
+    (groups.length || info.id === 'merrowick') &&
+      later(2500, () => audio.preload(['sfx:combate', 'sfx:criaturas', 'sfx:magia', ...musicIds]));
   }
-  function _(M) {
-    if (l.battle || !l.sprinkles.length) return;
-    let R = e.engine.listener.focus;
-    for (let A of l.sprinkles) {
-      if (((A.t -= M), A.t > 0 || ((A.t = yu(A.every[0], A.every[1])), A.unless && r(A.unless)))) continue;
-      let P = null;
-      if (A.cells?.length) P = yD(A.cells);
-      else if (R) {
-        let I = A.far ? yu(26, 40) : yu(9, 22),
-          U = Math.random() * Math.PI * 2;
-        P = [R.x + Math.cos(U) * I, 2, R.z + Math.sin(U) * I];
+  function updateSprinkles(dt) {
+    if (state.battle || !state.sprinkles.length) return;
+    let focus = audio.engine.listener.focus;
+    for (let sp of state.sprinkles) {
+      if (
+        ((sp.t -= dt),
+        sp.t > 0 || ((sp.t = randRange(sp.every[0], sp.every[1])), sp.unless && flag(sp.unless)))
+      )
+        continue;
+      let at = null;
+      if (sp.cells?.length) at = pick(sp.cells);
+      else if (focus) {
+        let dist = sp.far ? randRange(26, 40) : randRange(9, 22),
+          angle = Math.random() * Math.PI * 2;
+        at = [focus.x + Math.cos(angle) * dist, 2, focus.z + Math.sin(angle) * dist];
       }
-      s(A.id, {
-        at: P,
-        volume: A.vol ?? 1,
-        near: A.near,
-        far: typeof A.far == 'number' ? A.far : A.far ? 60 : 40,
+      sfx(sp.id, {
+        at,
+        volume: sp.vol ?? 1,
+        near: sp.near,
+        far: typeof sp.far == 'number' ? sp.far : sp.far ? 60 : 40,
       });
     }
   }
-  function b({ at: M, cell: R, surface: A, run: P, who: I, volume: U = 1 } = {}) {
-    let j = gi(),
-      X = I ?? 'grupo';
+  /** Paso (limitado a 7 por segundo y uno cada 0,18–0,24 s por quien camina). */
+  function playStep({ at, cell, surface, run, who, volume = 1 } = {}) {
+    let now = nowSeconds(),
+      key = who ?? 'grupo';
     if (
-      j - (l.lastStep.get(X) || 0) < (P ? 0.18 : 0.24) ||
-      (j - l.stepWindow > 1 && ((l.stepWindow = j), (l.stepsThisSec = 0)), ++l.stepsThisSec > 7)
+      now - (state.lastStep.get(key) || 0) < (run ? 0.18 : 0.24) ||
+      (now - state.stepWindow > 1 && ((state.stepWindow = now), (state.stepsThisSec = 0)),
+      ++state.stepsThisSec > 7)
     )
       return;
-    l.lastStep.set(X, j);
-    let J = R || (M ? CD(M) : null),
-      Z = A || RD(l.level, J),
-      K = wD[Z] || 'paso_tierra';
-    s(K, {
-      at: M || J,
-      volume: U * (P ? 1.15 : 1) * (Z === 'barro' ? 0.7 : 1) * (l.stealth ? 0.45 : 1),
-      rate: Z === 'barro' ? 0.82 : P ? 1.06 : 1,
+    state.lastStep.set(key, now);
+    let stepCell = cell || (at ? pointToCell(at) : null),
+      ground = surface || surfaceAt(state.level, stepCell),
+      sound = STEP_SOUND[ground] || 'paso_tierra';
+    sfx(sound, {
+      at: at || stepCell,
+      volume: volume * (run ? 1.15 : 1) * (ground === 'barro' ? 0.7 : 1) * (state.stealth ? 0.45 : 1),
+      rate: ground === 'barro' ? 0.82 : run ? 1.06 : 1,
     });
   }
-  let f = (M, R) => R || (M != null ? l.lastPos.get(M) : null) || null;
-  function v(M, R, { chance: A = 1, delay: P = 0, at: I } = {}) {
-    let U = qv(M),
-      j = U && ED[U][R];
-    !j || Math.random() > A || s(j, { at: f(M, I), delay: P });
+  let posOf = (id, at) => at || (id != null ? state.lastPos.get(id) : null) || null;
+  function creatureCry(who, kind, { chance = 1, delay = 0, at } = {}) {
+    let voice = creatureVoice(who),
+      sound = voice && VOICE_SOUNDS[voice][kind];
+    !sound || Math.random() > chance || sfx(sound, { at: posOf(who, at), delay });
   }
-  function x(M, { target: R, at: A, crit: P, ranged: I, ac: U } = {}) {
-    let j = GM[M] || (I ? 'impacto_perforante' : 'impacto_tajo');
-    s(j, { at: A, volume: P ? 1.15 : 1 });
-    let X = M === 'slashing' || M === 'piercing' || M === 'bludgeoning' || !M;
-    (X && qv(R) === 'esqueleto'
-      ? s('impacto_hueso', { at: A, volume: 0.8 })
-      : X && U >= 16 && s('impacto_metal', { at: A, volume: 0.45 }),
-      P && s('critico', { at: A, delay: 0.02 }));
+  function impactSound(type, { target, at, crit, ranged, ac } = {}) {
+    let sound = IMPACT_SOUND[type] || (ranged ? 'impacto_perforante' : 'impacto_tajo');
+    sfx(sound, { at, volume: crit ? 1.15 : 1 });
+    let physical = type === 'slashing' || type === 'piercing' || type === 'bludgeoning' || !type;
+    (physical && creatureVoice(target) === 'esqueleto'
+      ? sfx('impacto_hueso', { at, volume: 0.8 })
+      : physical && ac >= 16 && sfx('impacto_metal', { at, volume: 0.45 }),
+      crit && sfx('critico', { at, delay: 0.02 }));
   }
-  function g(M, R) {
-    let A = hm(M?.weapon, M?.kind);
-    if (M?.kind === 'ranged' || M?.kind === 'thrown' || pm[A] == null) return s('flecha_fallo', { at: R });
-    if (M?.natural === 1) return s('pifia', { at: R });
-    (M?.ac ?? 0) >= 15 && (M?.natural ?? 0) >= 8 && A !== 'natural' && A !== 'punetazo'
-      ? s('parada', { at: R })
-      : s('fallo', { at: R, volume: 0.9 });
+  function missSound(attack, at) {
+    let wclass = weaponSoundClass(attack?.weapon, attack?.kind);
+    if (attack?.kind === 'ranged' || attack?.kind === 'thrown' || SWING_SOUND[wclass] == null)
+      return sfx('flecha_fallo', { at });
+    if (attack?.natural === 1) return sfx('pifia', { at });
+    (attack?.ac ?? 0) >= 15 && (attack?.natural ?? 0) >= 8 && wclass !== 'natural' && wclass !== 'punetazo'
+      ? sfx('parada', { at })
+      : sfx('fallo', { at, volume: 0.9 });
   }
-  function y(M, R) {
-    (M === 'ballesta'
-      ? (s('ballesta', { at: R }), s('arco', { at: R, rate: 0.82, volume: 0.8 }))
-      : M === 'lanzar' || M === 'honda'
-        ? s('lanzar', { at: R })
-        : s('arco', { at: R }),
-      l.battle && (l.battle.lastShoot = gi()));
+  function shootSound(kind, at) {
+    (kind === 'ballesta'
+      ? (sfx('ballesta', { at }), sfx('arco', { at, rate: 0.82, volume: 0.8 }))
+      : kind === 'lanzar' || kind === 'honda'
+        ? sfx('lanzar', { at })
+        : sfx('arco', { at }),
+      state.battle && (state.battle.lastShoot = nowSeconds()));
   }
-  function w(M) {
-    let R = l.battle || (l.battle = T()),
-      A = R.fxSeen;
-    switch (M.t) {
+  /** Sonidos de un evento del núcleo de reglas (si no llegan avisos de efectos visuales). */
+  function onRulesEvent(ev) {
+    let battle = state.battle || (state.battle = newBattleState()),
+      fxSeen = battle.fxSeen;
+    switch (ev.t) {
       case 'attack': {
-        if ((R.pending.set(M.who, { ...M, t: gi() }), R.lastAttackOn.set(M.target, gi()), A)) break;
-        let P = hm(M.weapon, M.kind),
-          I = M.kind === 'ranged' || M.kind === 'thrown' || !pm[P],
-          U = f(M.who);
-        if (String(M.kind).includes('spell')) {
-          s('magia_carga', { at: U });
+        if (
+          (battle.pending.set(ev.who, { ...ev, t: nowSeconds() }),
+          battle.lastAttackOn.set(ev.target, nowSeconds()),
+          fxSeen)
+        )
+          break;
+        let wclass = weaponSoundClass(ev.weapon, ev.kind),
+          ranged = ev.kind === 'ranged' || ev.kind === 'thrown' || !SWING_SOUND[wclass],
+          at = posOf(ev.who);
+        if (String(ev.kind).includes('spell')) {
+          sfx('magia_carga', { at });
           break;
         }
-        (I ? y(P, U) : s(pm[P], { at: U }),
-          v(M.who, 'ataque', { chance: 0.35 }),
-          i(I ? 520 : 300, () => {
-            M.hit
-              ? x(TD[P], { target: M.target, at: f(M.target), crit: M.crit, ranged: I, ac: M.ac })
-              : g(M, f(M.target));
+        (ranged ? shootSound(wclass, at) : sfx(SWING_SOUND[wclass], { at }),
+          creatureCry(ev.who, 'ataque', { chance: 0.35 }),
+          later(ranged ? 520 : 300, () => {
+            ev.hit
+              ? impactSound(WEAPON_DAMAGE[wclass], {
+                  target: ev.target,
+                  at: posOf(ev.target),
+                  crit: ev.crit,
+                  ranged,
+                  ac: ev.ac,
+                })
+              : missSound(ev, posOf(ev.target));
           }));
         break;
       }
       case 'damage': {
-        let P = gi() - Math.max(R.lastAttackOn.get(M.who) || 0, R.lastCast || 0) < 1.6;
-        (!A && !P && M.amount > 0 && x(M.type, { target: M.who, at: f(M.who), crit: M.crit }),
-          M.amount > 0 && M.hp > 0 && v(M.who, 'dolor', { chance: 0.55, delay: 0.08 }));
+        let recent =
+          nowSeconds() - Math.max(battle.lastAttackOn.get(ev.who) || 0, battle.lastCast || 0) < 1.6;
+        (!fxSeen &&
+          !recent &&
+          ev.amount > 0 &&
+          impactSound(ev.type, { target: ev.who, at: posOf(ev.who), crit: ev.crit }),
+          ev.amount > 0 && ev.hp > 0 && creatureCry(ev.who, 'dolor', { chance: 0.55, delay: 0.08 }));
         break;
       }
       case 'cast': {
-        if (((R.lastCast = gi()), A)) break;
-        let P = xu(M.fx);
-        (s(P.cast || 'magia_carga', { at: f(M.who) }),
-          i(650, () => {
-            let I = (M.targets || [])[0];
-            M.cells?.length ? s(P.area || P.impact, {}) : P.impact && s(P.impact, { at: f(I) });
+        if (((battle.lastCast = nowSeconds()), fxSeen)) break;
+        let sounds = styleSounds(ev.fx);
+        (sfx(sounds.cast || 'magia_carga', { at: posOf(ev.who) }),
+          later(650, () => {
+            let target = (ev.targets || [])[0];
+            ev.cells?.length
+              ? sfx(sounds.area || sounds.impact, {})
+              : sounds.impact && sfx(sounds.impact, { at: posOf(target) });
           }));
         break;
       }
       case 'missile':
-        A || (s('arcano_lanzar', { at: f(M.who) }), i(380, () => s('arcano_impacto', { at: f(M.target) })));
+        fxSeen ||
+          (sfx('arcano_lanzar', { at: posOf(ev.who) }),
+          later(380, () => sfx('arcano_impacto', { at: posOf(ev.target) })));
         break;
       case 'heal':
-        !A && M.amount > 0 && s('curacion', { at: f(M.who) });
+        !fxSeen && ev.amount > 0 && sfx('curacion', { at: posOf(ev.who) });
         break;
       case 'downed':
-        s('caida', { at: f(M.who) });
+        sfx('caida', { at: posOf(ev.who) });
         break;
       case 'death': {
-        let P = qv(M.who);
-        (v(M.who, 'muerte'),
-          P !== 'esqueleto' && P !== 'espectro' && s('caida', { at: f(M.who), delay: 0.35 }));
+        let voice = creatureVoice(ev.who);
+        (creatureCry(ev.who, 'muerte'),
+          voice !== 'esqueleto' && voice !== 'espectro' && sfx('caida', { at: posOf(ev.who), delay: 0.35 }));
         break;
       }
       case 'death_save':
-        s('dados', { volume: 0.6 });
+        sfx('dados', { volume: 0.6 });
         break;
       case 'revive':
-        s('revivir', { at: f(M.who) });
+        sfx('revivir', { at: posOf(ev.who) });
         break;
       case 'condition':
-        M.on && M.cond === 'prone' && s('caida', { at: f(M.who), volume: 0.8 });
+        ev.on && ev.cond === 'prone' && sfx('caida', { at: posOf(ev.who), volume: 0.8 });
         break;
       case 'item':
-        (s('pocion_abrir', { at: f(M.who) }), s('pocion_beber', { at: f(M.who), delay: 0.4 }));
+        (sfx('pocion_abrir', { at: posOf(ev.who) }), sfx('pocion_beber', { at: posOf(ev.who), delay: 0.4 }));
         break;
       case 'hide':
-        s('sigilo_on', { at: f(M.who) });
+        sfx('sigilo_on', { at: posOf(ev.who) });
         break;
       case 'reveal':
-        s('sigilo_off', { at: f(M.who) });
+        sfx('sigilo_off', { at: posOf(ev.who) });
         break;
       case 'shove':
       case 'push':
-        s('empujon', { at: f(M.who), volume: M.t === 'push' ? 0.7 : 1 });
+        sfx('empujon', { at: posOf(ev.who), volume: ev.t === 'push' ? 0.7 : 1 });
         break;
       case 'blocked':
-        s('escudo', { at: f(M.target || M.who) });
+        sfx('escudo', { at: posOf(ev.target || ev.who) });
         break;
       case 'immune':
-        s('parada', { at: f(M.who), volume: 0.6 });
+        sfx('parada', { at: posOf(ev.who), volume: 0.6 });
         break;
       case 'reaction':
       case 'feature':
       case 'inspiration':
-        A || s(M.t === 'feature' ? 'mejora' : 'magia_carga', { at: f(M.who), volume: 0.8 });
+        fxSeen || sfx(ev.t === 'feature' ? 'mejora' : 'magia_carga', { at: posOf(ev.who), volume: 0.8 });
         break;
       case 'teleport':
-        A || s('teletransporte', {});
+        fxSeen || sfx('teletransporte', {});
         break;
       case 'summon':
-        A || s('invocar', {});
+        fxSeen || sfx('invocar', {});
         break;
       case 'round':
-        M.n > 1 && s('turno', { rate: 0.84, volume: 0.6 });
+        ev.n > 1 && sfx('turno', { rate: 0.84, volume: 0.6 });
         break;
       case 'end':
-        E(M.winner === 0);
+        endBattleMusic(ev.winner === 0);
         break;
       default:
         break;
     }
   }
-  function k(M) {
-    let R = l.battle || (l.battle = T());
-    R.fxSeen = !0;
-    let A = M.at;
-    M.who != null && A && l.lastPos.set(M.who, A);
-    let P = M.who != null ? R.pending.get(M.who) : null;
-    switch (M.kind) {
+  /** Sonidos de un aviso del director de efectos visuales (vfx.onFx). */
+  function onFx(fx) {
+    let battle = state.battle || (state.battle = newBattleState());
+    battle.fxSeen = !0;
+    let at = fx.at;
+    fx.who != null && at && state.lastPos.set(fx.who, at);
+    let pending = fx.who != null ? battle.pending.get(fx.who) : null;
+    switch (fx.kind) {
       case 'swing': {
-        let I = hm(P?.weapon ?? M.weapon, P?.kind);
-        (s(pm[I] || 'espada_aire', { at: A }),
-          v(M.who, 'ataque', { chance: 0.35, at: A }),
-          P && P.hit === !1 && i(110, () => g(P, M.target != null ? f(M.target) : A)));
+        let wclass = weaponSoundClass(pending?.weapon ?? fx.weapon, pending?.kind);
+        (sfx(SWING_SOUND[wclass] || 'espada_aire', { at }),
+          creatureCry(fx.who, 'ataque', { chance: 0.35, at }),
+          pending &&
+            pending.hit === !1 &&
+            later(110, () => missSound(pending, fx.target != null ? posOf(fx.target) : at)));
         break;
       }
       case 'shoot':
-        y(hm(P?.weapon ?? M.weapon, P?.kind || 'ranged'), A);
+        shootSound(weaponSoundClass(pending?.weapon ?? fx.weapon, pending?.kind || 'ranged'), at);
         break;
       case 'launch':
-        if (VM.has(M.style))
-          gi() - (R.lastShoot || 0) > 0.45 &&
-            y(M.style === 'bolt' ? 'ballesta' : M.style === 'arrow' ? 'arco' : 'lanzar', A);
+        if (AMMO_STYLES.has(fx.style))
+          nowSeconds() - (battle.lastShoot || 0) > 0.45 &&
+            shootSound(fx.style === 'bolt' ? 'ballesta' : fx.style === 'arrow' ? 'arco' : 'lanzar', at);
         else {
-          let I = xu(M.style).launch;
-          I && s(I, { at: A });
+          let launch = styleSounds(fx.style).launch;
+          launch && sfx(launch, { at });
         }
         break;
       case 'impact': {
-        let I = !M.type || M.type === 'slashing' || M.type === 'piercing' || M.type === 'bludgeoning',
-          U = M.who != null ? P : [...R.pending.values()].sort((j, X) => X.t - j.t)[0];
-        (I
-          ? x(M.type || 'slashing', {
-              target: M.target ?? U?.target,
-              at: A,
-              crit: M.crit,
-              ranged: U && U.kind !== 'melee',
-              ac: U?.ac,
+        let physical =
+            !fx.type || fx.type === 'slashing' || fx.type === 'piercing' || fx.type === 'bludgeoning',
+          last = fx.who != null ? pending : [...battle.pending.values()].sort((a, b) => b.t - a.t)[0];
+        (physical
+          ? impactSound(fx.type || 'slashing', {
+              target: fx.target ?? last?.target,
+              at,
+              crit: fx.crit,
+              ranged: last && last.kind !== 'melee',
+              ac: last?.ac,
             })
-          : (s(GM[M.type] || xu(M.style).impact || 'arcano_impacto', { at: A, volume: M.crit ? 1.15 : 1 }),
-            M.crit && s('critico', { at: A, volume: 0.7 })),
-          (R.lastImpact = gi()));
+          : (sfx(IMPACT_SOUND[fx.type] || styleSounds(fx.style).impact || 'arcano_impacto', {
+              at,
+              volume: fx.crit ? 1.15 : 1,
+            }),
+            fx.crit && sfx('critico', { at, volume: 0.7 })),
+          (battle.lastImpact = nowSeconds()));
         break;
       }
       case 'whiff':
-        VM.has(M.style) ? s('flecha_fallo', { at: A }) : s('fallo', { at: A, volume: 0.7 });
+        AMMO_STYLES.has(fx.style) ? sfx('flecha_fallo', { at }) : sfx('fallo', { at, volume: 0.7 });
         break;
       case 'miss':
-        g(P, A);
+        missSound(pending, at);
         break;
       case 'cast':
-        s(xu(M.style).cast || 'magia_carga', { at: A });
+        sfx(styleSounds(fx.style).cast || 'magia_carga', { at });
         break;
       case 'area': {
-        let I = xu(M.style);
-        s(I.area || I.impact || 'arcano_impacto', { at: A, volume: 1.1 });
+        let sounds = styleSounds(fx.style);
+        sfx(sounds.area || sounds.impact || 'arcano_impacto', { at, volume: 1.1 });
         break;
       }
       case 'heal':
-        s('curacion', { at: A });
+        sfx('curacion', { at });
         break;
       case 'crit':
-        gi() - (R.lastImpact || 0) > 0.2 && s('critico', { at: A });
+        nowSeconds() - (battle.lastImpact || 0) > 0.2 && sfx('critico', { at });
         break;
       case 'shield':
-        s('escudo_magico', { at: A });
+        sfx('escudo_magico', { at });
         break;
       case 'teleport':
-        s('teletransporte', { at: A });
+        sfx('teletransporte', { at });
         break;
       case 'summon':
-        s(M.token === 'flaming_sphere' ? 'fuego_lanzar' : 'invocar', { at: A });
+        sfx(fx.token === 'flaming_sphere' ? 'fuego_lanzar' : 'invocar', { at });
         break;
       case 'shape':
-        (s('mejora', { at: A }),
-          /wolf|mastiff|dog/.test(String(M.form || '')) && s('lobo_grunido', { at: A, delay: 0.35 }));
+        (sfx('mejora', { at }),
+          /wolf|mastiff|dog/.test(String(fx.form || '')) && sfx('lobo_grunido', { at, delay: 0.35 }));
         break;
       case 'aura_on':
-        s('aura', { at: A, volume: 0.8 });
+        sfx('aura', { at, volume: 0.8 });
         break;
       case 'zone_on': {
-        let I =
+        let sound =
           {
             web: 'naturaleza',
             entangle: 'naturaleza',
@@ -432,12 +522,12 @@ function YM(o, e) {
             grease: 'grasa',
             moonbeam: 'luz_carga',
             moon: 'luz_carga',
-          }[M.zone || M.style] || 'magia_carga';
-        s(I, { at: A, volume: 0.9 });
+          }[fx.zone || fx.style] || 'magia_carga';
+        sfx(sound, { at, volume: 0.9 });
         break;
       }
       case 'step':
-        b({ at: A, who: M.who, run: M.run, surface: M.surface, volume: 0.85 });
+        playStep({ at, who: fx.who, run: fx.run, surface: fx.surface, volume: 0.85 });
         break;
       case 'death':
         break;
@@ -445,7 +535,7 @@ function YM(o, e) {
         break;
     }
   }
-  function T() {
+  function newBattleState() {
     return {
       fxSeen: !1,
       pending: new Map(),
@@ -456,256 +546,281 @@ function YM(o, e) {
       lastImpact: 0,
     };
   }
-  function E(M) {
-    let R = l.battle;
-    R?.musicDone ||
-      (R && (R.musicDone = !0),
-      e.unduck('combate'),
-      M ? e.music('victoria', { fade: 0.6, then: () => d() }) : e.music('derrota', { fade: 0.8 }));
+  /** Música de victoria (y luego la del nivel) o de derrota, una sola vez por combate. */
+  function endBattleMusic(won) {
+    let battle = state.battle;
+    battle?.musicDone ||
+      (battle && (battle.musicDone = !0),
+      audio.unduck('combate'),
+      won
+        ? audio.music('victoria', { fade: 0.6, then: () => levelMusic() })
+        : audio.music('derrota', { fade: 0.8 }));
   }
-  (n('settings:changed', ({ settings: M }) => D(M)),
-    n('scene:enter', ({ name: M, params: R }) => {
-      ((l.scene = M),
-        um[M] &&
-          (e.music(um[M], { fade: 2 }),
-          M !== 'travel'
-            ? e.ambience(null, { fade: 2 })
-            : e.ambience([{ id: 'viento', vol: 0.5 }], { fade: 2 })),
-        M === 'explore' && R?.level && !l.level && (l.levelId = R.level));
+  (listen('settings:changed', ({ settings }) => applySettings(settings)),
+    listen('scene:enter', ({ name, params }) => {
+      ((state.scene = name),
+        SCENE_MUSIC[name] &&
+          (audio.music(SCENE_MUSIC[name], { fade: 2 }),
+          name !== 'travel'
+            ? audio.ambience(null, { fade: 2 })
+            : audio.ambience([{ id: 'viento', vol: 0.5 }], { fade: 2 })),
+        name === 'explore' && params?.level && !state.level && (state.levelId = params.level));
     }),
-    n('scene:leave', ({ name: M }) => {
-      M === 'explore' && (h(1.2), (l.level = null), (l.battle = null));
+    listen('scene:leave', ({ name }) => {
+      name === 'explore' && (stopEmitters(1.2), (state.level = null), (state.battle = null));
     }),
-    n('level:enter', ({ level: M }) => {
-      let R = M && typeof M == 'object' ? M : o.explore?.level?.id === M || !M ? o.explore?.level : null;
-      ((l.level = R || null),
-        (l.levelId = R?.id || (typeof M == 'string' ? M : null)),
-        (l.battle = null),
-        (l.stealth = !1),
-        m(l.level || { id: l.levelId }));
-      let A = d();
-      A && e.music(A, { fade: 2.5 });
+    listen('level:enter', ({ level }) => {
+      let lvl =
+        level && typeof level == 'object'
+          ? level
+          : game.explore?.level?.id === level || !level
+            ? game.explore?.level
+            : null;
+      ((state.level = lvl || null),
+        (state.levelId = lvl?.id || (typeof level == 'string' ? level : null)),
+        (state.battle = null),
+        (state.stealth = !1),
+        setupLevelSound(state.level || { id: state.levelId }));
+      let track = levelMusic();
+      track && audio.music(track, { fade: 2.5 });
     }),
-    n('level:leave', () => {
-      (h(1.5), e.ambience(null, { fade: 1.5 }));
+    listen('level:leave', () => {
+      (stopEmitters(1.5), audio.ambience(null, { fade: 1.5 }));
     }),
-    n('flag:set', ({ name: M }) => {
-      let R = c(l.level || { id: l.levelId });
+    listen('flag:set', ({ name }) => {
+      let info = levelInfo(state.level || { id: state.levelId });
       if (
-        !l.battle &&
-        !['victoria', 'derrota'].includes(e.engine.musicName) &&
-        R.music_flags &&
-        M in R.music_flags
+        !state.battle &&
+        !['victoria', 'derrota'].includes(audio.engine.musicName) &&
+        info.music_flags &&
+        name in info.music_flags
       ) {
-        let A = d();
-        A && e.music(A, { fade: 3 });
+        let track = levelMusic();
+        track && audio.music(track, { fade: 3 });
       }
     }),
-    n('battle:start', ({ group: M, surprise: R }) => {
-      ((l.battle = T()),
-        e.preload(['sfx:combate', 'sfx:criaturas', 'sfx:magia']),
-        e.music(u(M), { fade: R ? 0.4 : 0.8 }),
-        e.duck('combate', 1, { ambience: 0.5 }),
-        s('desenvainar', {}),
-        i(180, () => s('desenvainar', { volume: 0.8 })));
+    listen('battle:start', ({ group, surprise }) => {
+      ((state.battle = newBattleState()),
+        audio.preload(['sfx:combate', 'sfx:criaturas', 'sfx:magia']),
+        audio.music(combatMusic(group), { fade: surprise ? 0.4 : 0.8 }),
+        audio.duck('combate', 1, { ambience: 0.5 }),
+        sfx('desenvainar', {}),
+        later(180, () => sfx('desenvainar', { volume: 0.8 })));
     }),
-    n('battle:turn', ({ isPc: M }) => {
-      M && s('turno', { volume: 0.7 });
+    listen('battle:turn', ({ isPc }) => {
+      isPc && sfx('turno', { volume: 0.7 });
     }),
-    n('battle:event', ({ ev: M }) => M && w(M)),
-    n('battle:fx', (M) => k(M)),
-    n('battle:end', ({ won: M, fled: R }) => {
-      if ((e.unduck('combate'), R)) {
-        l.battle && (l.battle.musicDone = !0);
-        let A = d();
-        A && e.music(A, { fade: 2 });
-      } else E(!!M);
-      ((l.battle = null), l.lastPos.clear());
+    listen('battle:event', ({ ev }) => ev && onRulesEvent(ev)),
+    listen('battle:fx', (fx) => onFx(fx)),
+    listen('battle:end', ({ won, fled }) => {
+      if ((audio.unduck('combate'), fled)) {
+        state.battle && (state.battle.musicDone = !0);
+        let track = levelMusic();
+        track && audio.music(track, { fade: 2 });
+      } else endBattleMusic(!!won);
+      ((state.battle = null), state.lastPos.clear());
     }),
-    n('dialog:open', ({ important: M }) => e.duck('dialogo', M ? 0.4 : 0.55, { ambience: 0.75 })),
-    n('dialog:close', () => e.unduck('dialogo')));
-  let S = (M) => {
-    let R = M.roll || M;
-    (s('dados'), R && R.success != null && i(750, () => s(R.success ? 'tirada_exito' : 'tirada_fallo')));
+    listen('dialog:open', ({ important }) =>
+      audio.duck('dialogo', important ? 0.4 : 0.55, { ambience: 0.75 }),
+    ),
+    listen('dialog:close', () => audio.unduck('dialogo')));
+  let rollSound = (ev) => {
+    let roll = ev.roll || ev;
+    (sfx('dados'),
+      roll && roll.success != null && later(750, () => sfx(roll.success ? 'tirada_exito' : 'tirada_fallo')));
   };
-  (n('dialog:roll', S),
-    n('ui:roll', S),
-    n('interact', ({ object: M }) => {
-      if (M)
-        switch (M.type) {
+  (listen('dialog:roll', rollSound),
+    listen('ui:roll', rollSound),
+    listen('interact', ({ object }) => {
+      if (object)
+        switch (object.type) {
           case 'door':
-            !l.objectStateSeen && !M.locked && !M.lock && s('puerta_abrir', { at: M.cell });
+            !state.objectStateSeen &&
+              !object.locked &&
+              !object.lock &&
+              sfx('puerta_abrir', { at: object.cell });
             break;
           case 'chest':
-            !l.objectStateSeen && !M.locked && !M.lock && s('cofre_abrir', { at: M.cell });
+            !state.objectStateSeen &&
+              !object.locked &&
+              !object.lock &&
+              sfx('cofre_abrir', { at: object.cell });
             break;
           case 'cache':
           case 'loot':
-            s('rebuscar', { at: M.cell });
+            sfx('rebuscar', { at: object.cell });
             break;
           case 'sign':
           case 'board':
-            s('pagina', { at: M.cell });
+            sfx('pagina', { at: object.cell });
             break;
           case 'stairs':
-            for (let R = 0; R < 3; R++)
-              s('paso_piedra', { delay: R * 0.28, volume: 0.8 - R * 0.15, force: !0 });
+            for (let i = 0; i < 3; i++)
+              sfx('paso_piedra', { delay: i * 0.28, volume: 0.8 - i * 0.15, force: !0 });
             break;
           case 'campfire':
-            s('fuego_avivar', { at: M.cell });
+            sfx('fuego_avivar', { at: object.cell });
             break;
           case 'rune':
-            (s('runa', { at: M.cell }), s('runa_brillo', { at: M.cell, delay: 0.25 }));
+            (sfx('runa', { at: object.cell }), sfx('runa_brillo', { at: object.cell, delay: 0.25 }));
             break;
           case 'seal':
-            s('sello', { at: M.cell });
+            sfx('sello', { at: object.cell });
             break;
           case 'lever':
-            s('palanca', { at: M.cell });
+            sfx('palanca', { at: object.cell });
             break;
           default:
             break;
         }
     }),
-    n('object:state', ({ object: M, id: R, state: A }) => {
-      l.objectStateSeen = !0;
-      let P = M?.type,
-        I = M?.cell;
-      P === 'door'
-        ? s(
-            A === 'open'
-              ? /kesh|crypt|stone|piedra/.test(R || M?.id || '')
+    listen('object:state', ({ object, id, state: objState }) => {
+      state.objectStateSeen = !0;
+      let type = object?.type,
+        cell = object?.cell;
+      type === 'door'
+        ? sfx(
+            objState === 'open'
+              ? /kesh|crypt|stone|piedra/.test(id || object?.id || '')
                 ? 'losa'
                 : 'puerta_abrir'
               : 'puerta_cerrar',
-            { at: I },
+            { at: cell },
           )
-        : P === 'chest'
-          ? s(A === 'open' ? 'cofre_abrir' : 'cofre_cerrar', { at: I })
-          : A === 'revealed'
-            ? s('descubrir', { at: I })
-            : A === 'lit'
-              ? s('fuego_avivar', { at: I })
-              : P === 'lever' || A === 'on' || A === 'off'
-                ? s('palanca', { at: I })
-                : P === 'rune' && A === 'active' && s('runa_brillo', { at: I });
+        : type === 'chest'
+          ? sfx(objState === 'open' ? 'cofre_abrir' : 'cofre_cerrar', { at: cell })
+          : objState === 'revealed'
+            ? sfx('descubrir', { at: cell })
+            : objState === 'lit'
+              ? sfx('fuego_avivar', { at: cell })
+              : type === 'lever' || objState === 'on' || objState === 'off'
+                ? sfx('palanca', { at: cell })
+                : type === 'rune' && objState === 'active' && sfx('runa_brillo', { at: cell });
     }),
-    n('lock:opened', ({ object: M, how: R }) => {
-      let A = M?.cell,
-        P = String(R || '');
-      /force|break|bash|fuerza/.test(P)
-        ? s('forzar', { at: A })
-        : /pick|tools|ganz/.test(P)
-          ? (s('ganzua', { at: A }),
-            s('ganzua', { at: A, delay: 0.45 }),
-            s('cerradura', { at: A, delay: 0.9 }))
-          : /spell|knock|magic/.test(P)
-            ? (s('magia_carga', { at: A }), s('cerradura', { at: A, delay: 0.5 }))
-            : (s('llaves', { at: A }), s('cerradura', { at: A, delay: 0.4 }));
+    listen('lock:opened', ({ object, how }) => {
+      let cell = object?.cell,
+        method = String(how || '');
+      /force|break|bash|fuerza/.test(method)
+        ? sfx('forzar', { at: cell })
+        : /pick|tools|ganz/.test(method)
+          ? (sfx('ganzua', { at: cell }),
+            sfx('ganzua', { at: cell, delay: 0.45 }),
+            sfx('cerradura', { at: cell, delay: 0.9 }))
+          : /spell|knock|magic/.test(method)
+            ? (sfx('magia_carga', { at: cell }), sfx('cerradura', { at: cell, delay: 0.5 }))
+            : (sfx('llaves', { at: cell }), sfx('cerradura', { at: cell, delay: 0.4 }));
     }),
-    n('loot:taken', ({ items: M, gold: R }) => {
-      (R > 0 && (s('monedas'), s('monedas_recoger', { delay: 0.15 })),
-        M?.length && s('objeto', { delay: R > 0 ? 0.3 : 0 }));
+    listen('loot:taken', ({ items, gold }) => {
+      (gold > 0 && (sfx('monedas'), sfx('monedas_recoger', { delay: 0.15 })),
+        items?.length && sfx('objeto', { delay: gold > 0 ? 0.3 : 0 }));
     }),
-    n('hidden:found', ({ object: M }) => s('descubrir', { at: M?.cell })),
-    n('trap:triggered', ({ object: M }) => {
-      let R = M?.cell,
-        A = String(M?.trap || M?.kind || M?.effect || M?.id || '');
-      (s('trampa_click', { at: R }),
-        /pit|foso|hoyo/.test(A)
-          ? s('caida', { at: R, delay: 0.3 })
-          : /blade|cuchilla|scythe|saw/.test(A)
-            ? s('trampa_cuchilla', { at: R, delay: 0.12 })
-            : /snare|lazo|net|red/.test(A)
-              ? s('chirrido', { at: R, delay: 0.1 })
-              : s('trampa_dardos', { at: R, delay: 0.1 }));
+    listen('hidden:found', ({ object }) => sfx('descubrir', { at: object?.cell })),
+    listen('trap:triggered', ({ object }) => {
+      let cell = object?.cell,
+        kind = String(object?.trap || object?.kind || object?.effect || object?.id || '');
+      (sfx('trampa_click', { at: cell }),
+        /pit|foso|hoyo/.test(kind)
+          ? sfx('caida', { at: cell, delay: 0.3 })
+          : /blade|cuchilla|scythe|saw/.test(kind)
+            ? sfx('trampa_cuchilla', { at: cell, delay: 0.12 })
+            : /snare|lazo|net|red/.test(kind)
+              ? sfx('chirrido', { at: cell, delay: 0.1 })
+              : sfx('trampa_dardos', { at: cell, delay: 0.1 }));
     }),
-    n('trap:disarmed', ({ object: M }) => s('trampa_desarmar', { at: M?.cell })),
-    n('stealth:on', () => {
-      ((l.stealth = !0), (l.stealthT = 0), s('sigilo_on'));
+    listen('trap:disarmed', ({ object }) => sfx('trampa_desarmar', { at: object?.cell })),
+    listen('stealth:on', () => {
+      ((state.stealth = !0), (state.stealthT = 0), sfx('sigilo_on'));
     }),
-    n('stealth:off', () => {
-      if (((l.stealth = !1), s('sigilo_off'), e.engine.musicName === 'sigilo' && !l.battle)) {
-        let M = d();
-        M && e.music(M, { fade: 2.5 });
+    listen('stealth:off', () => {
+      if (((state.stealth = !1), sfx('sigilo_off'), audio.engine.musicName === 'sigilo' && !state.battle)) {
+        let track = levelMusic();
+        track && audio.music(track, { fade: 2.5 });
       }
     }),
-    n('spotted', () => s('desenvainar', { volume: 0.9 })),
-    n('step', (M) => b(M)),
-    n('rest:short', () => s('descanso')),
-    n('rest:long', () => {
-      (s('descanso'), e.duck('descanso', 0.15, { ambience: 0.6 }), i(6e3, () => e.unduck('descanso')));
+    listen('spotted', () => sfx('desenvainar', { volume: 0.9 })),
+    listen('step', (ev) => playStep(ev)),
+    listen('rest:short', () => sfx('descanso')),
+    listen('rest:long', () => {
+      (sfx('descanso'),
+        audio.duck('descanso', 0.15, { ambience: 0.6 }),
+        later(6e3, () => audio.unduck('descanso')));
     }),
-    n('levelup', () => s('subir_nivel')),
-    n('quest:update', ({ state: M }) => {
-      let R = String(M || '');
-      /done|complete|cumplid|hecha|success/.test(R)
-        ? s('mision_cumplida')
-        : /fail|fallid|lost/.test(R)
-          ? s('mision_fallida')
-          : s('diario');
+    listen('levelup', () => sfx('subir_nivel')),
+    listen('quest:update', ({ state }) => {
+      let text = String(state || '');
+      /done|complete|cumplid|hecha|success/.test(text)
+        ? sfx('mision_cumplida')
+        : /fail|fallid|lost/.test(text)
+          ? sfx('mision_fallida')
+          : sfx('diario');
     }),
-    n('companion:join', () => s('confirmar')),
-    n('companion:leave', () => s('atras')),
-    n('gold', ({ delta: M }) => s(M > 0 ? 'monedas_recoger' : 'monedas')),
-    n('item:gain', () => s('objeto', { volume: 0.8 })),
-    n('shop:buy', () => s('monedas')),
-    n('shop:sell', () => s('monedas')),
-    n('game:saved', ({ slot: M }) => M !== 'auto' && s('guardar')));
-  for (let [M, R] of Object.entries(kD)) n(M, () => s(R));
-  (n('ui:open', ({ name: M }) => {
-    let R = M in $M ? $M[M] : 'abrir';
-    R && s(R);
+    listen('companion:join', () => sfx('confirmar')),
+    listen('companion:leave', () => sfx('atras')),
+    listen('gold', ({ delta }) => sfx(delta > 0 ? 'monedas_recoger' : 'monedas')),
+    listen('item:gain', () => sfx('objeto', { volume: 0.8 })),
+    listen('shop:buy', () => sfx('monedas')),
+    listen('shop:sell', () => sfx('monedas')),
+    listen('game:saved', ({ slot }) => slot !== 'auto' && sfx('guardar')));
+  for (let [event, sound] of Object.entries(UI_EVENT_SOUND)) listen(event, () => sfx(sound));
+  (listen('ui:open', ({ name }) => {
+    let sound = name in UI_OPEN_SOUND ? UI_OPEN_SOUND[name] : 'abrir';
+    sound && sfx(sound);
   }),
-    n('ui:close', ({ name: M }) => {
-      let R = M in WM ? WM[M] : 'cerrar';
-      R && s(R);
+    listen('ui:close', ({ name }) => {
+      let sound = name in UI_CLOSE_SOUND ? UI_CLOSE_SOUND[name] : 'cerrar';
+      sound && sfx(sound);
     }),
-    n('ui:equip', ({ slot: M, item: R }) =>
-      s(/weapon|arma|main|off|mano/.test(String(M || R?.slot || '')) ? 'equipar_arma' : 'equipar_ropa'),
+    listen('ui:equip', ({ slot, item }) =>
+      sfx(
+        /weapon|arma|main|off|mano/.test(String(slot || item?.slot || '')) ? 'equipar_arma' : 'equipar_ropa',
+      ),
     ),
-    n('ui:sfx', ({ name: M, ...R }) => M && s(M, R)));
-  function z(M) {
-    (_(M),
-      l.stealth &&
-        !l.battle &&
-        ((l.stealthT += M),
-        l.stealthT > 3 &&
-          l.stealthT - M <= 3 &&
-          e.engine.musicName !== 'sigilo' &&
-          e.music('sigilo', { fade: 3 })));
+    listen('ui:sfx', ({ name, ...opts }) => name && sfx(name, opts)));
+  function tick(dt) {
+    (updateSprinkles(dt),
+      state.stealth &&
+        !state.battle &&
+        ((state.stealthT += dt),
+        state.stealthT > 3 &&
+          state.stealthT - dt <= 3 &&
+          audio.engine.musicName !== 'sigilo' &&
+          audio.music('sigilo', { fade: 3 })));
   }
-  e.engine.onUpdate.add(z);
-  function D(M = {}) {
-    e.setVolumes({
-      music: M.music,
-      sfx: M.sfx,
-      ambience: M.ambience,
-      ui: M.ui ?? M.sfx,
-      master: M.mute ? 0 : (M.master ?? 1),
+  audio.engine.onUpdate.add(tick);
+  function applySettings(settings = {}) {
+    audio.setVolumes({
+      music: settings.music,
+      sfx: settings.sfx,
+      ambience: settings.ambience,
+      ui: settings.ui ?? settings.sfx,
+      master: settings.mute ? 0 : (settings.master ?? 1),
     });
   }
   return (
-    D(o.store?.settings),
+    applySettings(game.store?.settings),
     {
-      state: l,
-      step: b,
-      levelMusic: d,
-      onRulesEvent: w,
-      onFx: k,
+      state,
+      step: playStep,
+      levelMusic,
+      onRulesEvent,
+      onFx,
       dispose() {
-        for (let M of a) M();
-        (e.engine.onUpdate.delete(z), h(0.5));
+        for (let off of offs) off();
+        (audio.engine.onUpdate.delete(tick), stopEmitters(0.5));
       },
     }
   );
 }
-const yu = (o, e) => o + Math.random() * (e - o);
-const yD = (o) => o[Math.floor(Math.random() * o.length)];
-const gi = () => performance.now() / 1e3;
-const UM = 1.5;
-const um = { menu: 'menu', creator: 'relato', travel: 'viaje', ending: 'epilogo' };
-const xD = {
+/** Número al azar en [min, max). */
+const randRange = (min, max) => min + Math.random() * (max - min);
+const pick = (list) => list[Math.floor(Math.random() * list.length)];
+const nowSeconds = () => performance.now() / 1e3;
+// Tamaño de casilla en metros (el mismo que HEX_SIZE de explore/hex.js).
+const CELL_SIZE = 1.5;
+// Música fija de cada escena (exploración depende del nivel).
+const SCENE_MUSIC = { menu: 'menu', creator: 'relato', travel: 'viaje', ending: 'epilogo' };
+// Música, música por banderas, música de combate y ambiente de cada nivel.
+const LEVEL_SOUND = {
   merrowick: {
     music: 'aldea_tarde',
     music_flags: { e1_done: 'aldea' },
@@ -717,8 +832,9 @@ const xD = {
   tumulo: { music: 'tumulo', music_combat: 'tumulo', ambient: 'crypt' },
   posada: { music: 'posada', ambient: 'inn' },
 };
-const _D = { guardians: 'jefe' };
-const gc = {
+const GROUP_MUSIC = { guardians: 'jefe' };
+// Capas de ambiente y sonidos sueltos (`every`: intervalo en s) de cada tipo de ambiente.
+const AMBIENCE_PRESETS = {
   dusk: {
     layers: [
       { id: 'atardecer', vol: 1 },
@@ -767,14 +883,15 @@ const gc = {
     sprinkles: [],
   },
 };
-const jM = {
+// Sonido e intervalo [mín, máx] de cada animal.
+const ANIMAL_SOUNDS = {
   sheep: ['oveja', 7, 18],
   cow: ['vaca', 25, 55],
   horse: ['caballo', 30, 70],
   donkey: ['caballo', 40, 80],
   dog: ['perro', 30, 70],
 };
-const Bv = {
+const GROUND_SURFACE = {
   paved: 'piedra',
   stone: 'piedra',
   cobble: 'piedra',
@@ -790,7 +907,7 @@ const Bv = {
   sand: 'tierra',
   water: 'agua',
 };
-const wD = {
+const STEP_SOUND = {
   hierba: 'paso_hierba',
   tierra: 'paso_tierra',
   piedra: 'paso_piedra',
@@ -798,7 +915,7 @@ const wD = {
   agua: 'paso_agua',
   barro: 'paso_agua',
 };
-const pm = {
+const SWING_SOUND = {
   espada: 'espada_aire',
   ligera: 'ligera_aire',
   pesada: 'pesada_aire',
@@ -806,7 +923,7 @@ const pm = {
   punetazo: 'punetazo_aire',
   natural: 'punetazo_aire',
 };
-const TD = {
+const WEAPON_DAMAGE = {
   contundente: 'bludgeoning',
   punetazo: 'bludgeoning',
   natural: 'piercing',
@@ -818,7 +935,7 @@ const TD = {
   espada: 'slashing',
   pesada: 'slashing',
 };
-const GM = {
+const IMPACT_SOUND = {
   slashing: 'impacto_tajo',
   piercing: 'impacto_perforante',
   bludgeoning: 'impacto_contundente',
@@ -833,8 +950,14 @@ const GM = {
   psychic: 'mente',
   force: 'arcano_impacto',
 };
-const XM = { cast: 'magia_carga', launch: 'arcano_lanzar', impact: 'arcano_impacto', area: 'arcano_impacto' };
-const Uv = {
+const ARCANE_SOUNDS = {
+  cast: 'magia_carga',
+  launch: 'arcano_lanzar',
+  impact: 'arcano_impacto',
+  area: 'arcano_impacto',
+};
+// Sonidos de cast/launch/impact/area de cada estilo de efecto (más los alias de abajo).
+const STYLE_SOUNDS = {
   fire: { cast: 'fuego_carga', launch: 'fuego_lanzar', impact: 'fuego_impacto', area: 'fuego_explosion' },
   frost: { cast: 'hielo_carga', launch: 'hielo_lanzar', impact: 'hielo_impacto', area: 'hielo_explosion' },
   lightning: { cast: 'rayo_carga', launch: 'rayo_lanzar', impact: 'rayo_impacto', area: 'rayo_impacto' },
@@ -843,7 +966,7 @@ const Uv = {
   necrotic: { cast: 'necro_carga', launch: 'arcano_lanzar', impact: 'necro_impacto', area: 'necro_impacto' },
   poison: { cast: 'magia_carga', launch: 'arcano_lanzar', impact: 'veneno', area: 'veneno' },
   acid: { cast: 'magia_carga', launch: 'arcano_lanzar', impact: 'acido', area: 'acido' },
-  arcane: XM,
+  arcane: ARCANE_SOUNDS,
   psychic: { cast: 'magia_carga', launch: null, impact: 'mente', area: 'mente' },
   curse: { cast: 'necro_carga', launch: null, impact: 'maldicion', area: 'maldicion' },
   nature: { cast: 'magia_carga', launch: 'arcano_lanzar', impact: 'naturaleza', area: 'naturaleza' },
@@ -855,7 +978,7 @@ const Uv = {
   darkness: { cast: 'necro_carga', launch: null, impact: 'oscuridad', area: 'oscuridad' },
   faerie: { cast: 'magia_carga', launch: null, impact: 'aura', area: 'descubrir' },
 };
-for (let [o, e] of Object.entries({
+for (let [alias, base] of Object.entries({
   fire_cone: 'fire',
   shatter: 'thunder',
   moon: 'radiant',
@@ -870,10 +993,11 @@ for (let [o, e] of Object.entries({
   color: 'faerie',
   cold: 'frost',
 }))
-  Uv[o] = Uv[e];
-const xu = (o) => Uv[o] || XM;
-const VM = new Set(['arrow', 'bolt', 'dagger', 'javelin', 'dart', 'stone', 'physical']);
-const MD = [
+  STYLE_SOUNDS[alias] = STYLE_SOUNDS[base];
+const styleSounds = (style) => STYLE_SOUNDS[style] || ARCANE_SOUNDS;
+const AMMO_STYLES = new Set(['arrow', 'bolt', 'dagger', 'javelin', 'dart', 'stone', 'physical']);
+// Patrón del id de criatura → voz.
+const CREATURE_VOICES = [
   [/^goblin/, 'trasgo'],
   [/^(wolf|mastiff|dog|jackal|hound)/, 'lobo'],
   [/^skeleton/, 'esqueleto'],
@@ -882,7 +1006,7 @@ const MD = [
   [/spider/, 'arana'],
   [/^(bandit|cultist|guard|thug|soldier|human|noble|scout|veteran|acolyte|holt)/, 'humano'],
 ];
-const ED = {
+const VOICE_SOUNDS = {
   trasgo: { ataque: 'trasgo_grito', dolor: 'trasgo_dolor', muerte: 'trasgo_muerte' },
   lobo: { ataque: 'lobo_grunido', dolor: 'lobo_dolor', muerte: 'lobo_muerte' },
   esqueleto: { ataque: 'esqueleto', dolor: 'impacto_hueso', muerte: 'esqueleto_muerte' },
@@ -892,8 +1016,9 @@ const ED = {
   humano: { ataque: null, dolor: 'humano_dolor', muerte: 'humano_muerte' },
   bestia: { ataque: null, dolor: 'bestia_dolor', muerte: 'bestia_muerte' },
 };
-const SD = (o) => (String(o ?? '').includes('#') ? String(o).split('#')[0] : null);
-const $M = {
+const baseId = (id) => (String(id ?? '').includes('#') ? String(id).split('#')[0] : null);
+// Sonidos al abrir y cerrar cada pantalla (null = ninguno).
+const UI_OPEN_SOUND = {
   inventario: 'mochila',
   diario: 'libro_abrir',
   tienda: 'monedas',
@@ -911,7 +1036,7 @@ const $M = {
   dialogo: null,
   dialog: null,
 };
-const WM = {
+const UI_CLOSE_SOUND = {
   diario: 'libro_cerrar',
   guardar: 'libro_cerrar',
   cargar: 'libro_cerrar',
@@ -921,7 +1046,7 @@ const WM = {
   dialogo: null,
   dialog: null,
 };
-const kD = {
+const UI_EVENT_SOUND = {
   'ui:click': 'click',
   'ui:hover': 'hover',
   'ui:error': 'error',
@@ -934,4 +1059,4 @@ const kD = {
   'ui:drop': 'soltar',
 };
 
-export { YM };
+export { createReactions };
