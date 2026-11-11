@@ -227,6 +227,11 @@ function firmaResolucion(est) {
 // Texto que sustituye a un identificador del enlace renombrado según su contexto.
 function sustituto(v, nuevo, opciones) {
   const { padre, clave, abuelo } = v;
+  // `{ clave: viejo }` → `{ clave }` (y `{ clave: viejo = 1 }` → `{ clave = 1 }`) cuando el nombre nuevo coincide.
+  const coincide = (p) => p?.type === 'ObjectProperty' && !p.shorthand && !p.computed && p.key.type === 'Identifier' && p.key.name === nuevo;
+  if (clave === 'value' && coincide(padre) && padre.value === v.nodo) return { inicio: padre.start, fin: v.nodo.end, texto: nuevo };
+  if (padre.type === 'AssignmentPattern' && clave === 'left' && coincide(abuelo) && abuelo.value === padre)
+    return { inicio: abuelo.start, fin: v.nodo.end, texto: nuevo };
   if (padre.type === 'ObjectProperty' && padre.shorthand && clave === 'value') return `${nombreClave(padre.key)}: ${nuevo}`;
   if (padre.type === 'AssignmentPattern' && clave === 'left' && abuelo?.type === 'ObjectProperty' && abuelo.shorthand && abuelo.value === padre)
     return `${nombreClave(abuelo.key)}: ${nuevo}`;
@@ -372,10 +377,16 @@ function aplicarMapa(abs, mapa, opciones) {
       const nombreViejo = i >= 0 ? clave.slice(i + 1) : clave;
       const rutaNueva = traducirRuta(rutaVieja, mapa);
       const junta = (r, n) => (r ? `${r}:${n}` : n);
+      // Primero, ¿ya está aplicada? (el nombre nuevo existe en la ruta; tras renombrar cambian los
+      // índices «#k» de los homónimos, así que basta con el nombre). Se mira antes que el nombre viejo
+      // en la ruta traducida porque otro enlace puede haber recibido ya ese nombre viejo.
+      const hay = (r) => (est.grupos.get(junta(r, nuevo)) || []).length > 0;
+      if (rutaNueva !== rutaVieja && (hay(rutaNueva) || hay(rutaVieja))) {
+        informe.yaAplicadas++;
+        continue;
+      }
       encontrados = buscar(junta(rutaNueva, nombreViejo));
       if (!encontrados.length) {
-        // Tras renombrar cambian los índices «#k» de los homónimos: basta con que exista el nombre nuevo.
-        const hay = (r) => (est.grupos.get(junta(r, nuevo)) || []).length > 0;
         if (hay(rutaNueva) || hay(rutaVieja)) {
           informe.yaAplicadas++;
           continue;
