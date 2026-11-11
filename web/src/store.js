@@ -1,8 +1,12 @@
-// store.js
-// Reconstruido de publicado/juego.js (parte sin envolver del final del bundle). Nombres locales aún minificados.
+// store.js — Estado persistente (game.store): ajustes, campaña activa y partidas guardadas.
+// Los ajustes van a localStorage (prefijo «mdg.»); las partidas, a la capacidad «db» del artefacto
+// (colección data/users/<id>) si existe y, si no, a localStorage. `store.cp` es la campaña del núcleo
+// de reglas más los campos propios de la web (flags, journal, levels, location, story, web).
+// Emite por el bus «game:start», «cp:changed», «flag:set», «settings:changed», «game:saved», «game:loaded».
 
 import { getCap, getUserId } from './caps.js';
 
+/** Prefijo de las claves de localStorage y ajustes por defecto. */
 var STORAGE_PREFIX = 'mdg.',
   DEFAULT_SETTINGS = {
     music: 0.7,
@@ -16,183 +20,203 @@ var STORAGE_PREFIX = 'mdg.',
     tips: !0,
     cameraSpeed: 1,
   };
-function loadLocal(o, e = null) {
+/** Lee y decodifica `mdg.<key>` de localStorage, o devuelve `fallback`. */
+function loadLocal(key, fallback = null) {
   try {
-    let t = localStorage.getItem(STORAGE_PREFIX + o);
-    return t == null ? e : JSON.parse(t);
+    let raw = localStorage.getItem(STORAGE_PREFIX + key);
+    return raw == null ? fallback : JSON.parse(raw);
   } catch {
-    return e;
+    return fallback;
   }
 }
-function saveLocal(o, e) {
+/** Guarda `value` como JSON en `mdg.<key>`; devuelve si se pudo. */
+function saveLocal(key, value) {
   try {
-    return (localStorage.setItem(STORAGE_PREFIX + o, JSON.stringify(e)), !0);
+    return (localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value)), !0);
   } catch {
     return !1;
   }
 }
-function removeLocal(o) {
+/** Borra `mdg.<key>` de localStorage. */
+function removeLocal(key) {
   try {
-    localStorage.removeItem(STORAGE_PREFIX + o);
+    localStorage.removeItem(STORAGE_PREFIX + key);
   } catch {}
 }
+/** Ajustes, campaña activa (`cp`) y ranuras de guardado. */
 var Store = class {
-  constructor(e) {
-    ((this.bus = e),
+  constructor(bus) {
+    ((this.bus = bus),
       (this.cp = null),
       (this.settings = { ...DEFAULT_SETTINGS, ...(loadLocal('settings', {}) || {}) }),
       (this._dbFolder = null));
   }
-  start(e) {
-    ((e.flags ??= {}),
-      (e.journal ??= []),
-      (e.levels ??= {}),
-      (e.location ??= {}),
-      (e.story ??= {}),
-      (e.web = { version: 1 }),
-      (this.cp = e),
-      this.bus.emit('game:start', { cp: e }));
+  /** Empieza una campaña nueva: completa los campos web y emite «game:start». */
+  start(cp) {
+    ((cp.flags ??= {}),
+      (cp.journal ??= []),
+      (cp.levels ??= {}),
+      (cp.location ??= {}),
+      (cp.story ??= {}),
+      (cp.web = { version: 1 }),
+      (this.cp = cp),
+      this.bus.emit('game:start', { cp }));
   }
-  set(e) {
-    if (!(!e || e.error)) {
-      for (let t of ['story', 'web', 'levels', 'flags', 'journal', 'location'])
-        e[t] === void 0 && this.cp?.[t] !== void 0 && (e[t] = this.cp[t]);
-      ((this.cp = e), this.bus.emit('cp:changed', { cp: e }));
+  /** Sustituye la campaña por la que devuelve el núcleo conservando los campos web; emite «cp:changed». */
+  set(cp) {
+    if (!(!cp || cp.error)) {
+      for (let key of ['story', 'web', 'levels', 'flags', 'journal', 'location'])
+        cp[key] === void 0 && this.cp?.[key] !== void 0 && (cp[key] = this.cp[key]);
+      ((this.cp = cp), this.bus.emit('cp:changed', { cp }));
     }
   }
-  flag(e) {
-    return this.cp?.flags?.[e];
+  /** Valor de una bandera de historia. */
+  flag(name) {
+    return this.cp?.flags?.[name];
   }
-  setFlag(e, t = !0) {
+  /** Pone una bandera de historia y emite «flag:set» si cambia. */
+  setFlag(name, value = !0) {
     if (!this.cp) return;
-    let a = this.cp.flags[e];
-    ((this.cp.flags[e] = t), a !== t && this.bus.emit('flag:set', { name: e, value: t, old: a }));
+    let old = this.cp.flags[name];
+    ((this.cp.flags[name] = value), old !== value && this.bus.emit('flag:set', { name, value, old }));
   }
-  levelState(e) {
-    return this.cp ? ((this.cp.levels[e] ??= {}), this.cp.levels[e]) : {};
+  /** Estado guardado de un nivel (se crea vacío si no existe). */
+  levelState(level) {
+    return this.cp ? ((this.cp.levels[level] ??= {}), this.cp.levels[level]) : {};
   }
-  saveSettings(e = {}) {
-    (Object.assign(this.settings, e),
+  /** Mezcla `patch` en los ajustes, los guarda y emite «settings:changed». */
+  saveSettings(patch = {}) {
+    (Object.assign(this.settings, patch),
       saveLocal('settings', this.settings),
-      this.bus.emit('settings:changed', { settings: this.settings, patch: e }));
+      this.bus.emit('settings:changed', { settings: this.settings, patch }));
   }
+  /** Colección de la nube del usuario (capacidad «db»), o false si no hay. */
   async _folder() {
     if (this._dbFolder !== null) return this._dbFolder;
-    let e = await getCap('db'),
-      t = e ? await getUserId() : null;
-    return ((this._dbFolder = e && t ? e.collection(`data/users/${t}`) : !1), this._dbFolder);
+    let db = await getCap('db'),
+      userId = db ? await getUserId() : null;
+    return ((this._dbFolder = db && userId ? db.collection(`data/users/${userId}`) : !1), this._dbFolder);
   }
+  /** ¿Se guarda en la nube? */
   async cloud() {
     return !!(await this._folder());
   }
-  meta(e) {
-    let t = this.cp,
-      a = t?.members?.hero || {};
+  /** Resumen de la partida actual para la lista de ranuras. */
+  meta(slot) {
+    let cp = this.cp,
+      hero = cp?.members?.hero || {};
     return {
-      slot: String(e),
-      hero: a.name || 'Sin nombre',
-      cls: a.class || '',
-      level: t?.party_level || 1,
-      place: t?.location?.name || t?.location?.level || '',
-      day: t?.day || 1,
-      playtime: Math.round(t?.playtime || 0),
-      party: (t?.party || []).map((n) => t.members?.[n]?.name || n),
+      slot: String(slot),
+      hero: hero.name || 'Sin nombre',
+      cls: hero.class || '',
+      level: cp?.party_level || 1,
+      place: cp?.location?.name || cp?.location?.level || '',
+      day: cp?.day || 1,
+      playtime: Math.round(cp?.playtime || 0),
+      party: (cp?.party || []).map((id) => cp.members?.[id]?.name || id),
       savedAt: new Date().toISOString(),
     };
   }
-  async save(e = 'auto') {
+  /** Guarda la campaña en la ranura (nube y, si falla, localStorage); emite «game:saved». */
+  async save(slot = 'auto') {
     if (!this.cp) return !1;
-    let t = this.meta(e),
-      a = { meta: t, data: JSON.stringify(this.cp) },
-      n = await this._folder(),
-      s = !1;
-    if (n)
+    let meta = this.meta(slot),
+      record = { meta, data: JSON.stringify(this.cp) },
+      folder = await this._folder(),
+      ok = !1;
+    if (folder)
       try {
-        (await n.doc(`partida_${e}`).set(a), (s = !0));
-      } catch (i) {
-        console.warn('[guardado] nube:', i?.code || i);
+        (await folder.doc(`partida_${slot}`).set(record), (ok = !0));
+      } catch (err) {
+        console.warn('[guardado] nube:', err?.code || err);
       }
     return (
-      s || (s = saveLocal(`partida.${e}`, a)),
-      s && this.bus.emit('game:saved', { slot: e, meta: t }),
-      s
+      ok || (ok = saveLocal(`partida.${slot}`, record)),
+      ok && this.bus.emit('game:saved', { slot, meta }),
+      ok
     );
   }
-  async _read(e) {
-    let t = await this._folder();
-    if (t)
+  /** Lee el registro { meta, data } de una ranura (nube primero). */
+  async _read(slot) {
+    let folder = await this._folder();
+    if (folder)
       try {
-        let a = await t.doc(`partida_${e}`).get();
-        if (a.exists) return a.data();
-      } catch (a) {
-        console.warn('[guardado] nube:', a?.code || a);
+        let doc = await folder.doc(`partida_${slot}`).get();
+        if (doc.exists) return doc.data();
+      } catch (err) {
+        console.warn('[guardado] nube:', err?.code || err);
       }
-    return loadLocal(`partida.${e}`);
+    return loadLocal(`partida.${slot}`);
   }
-  async load(e) {
-    let t = await this._read(e);
-    if (!t) return null;
-    let a = typeof t.data == 'string' ? JSON.parse(t.data) : t.data;
-    return ((this.cp = a), this.bus.emit('game:loaded', { slot: e, cp: a }), a);
+  /** Carga la campaña de una ranura y emite «game:loaded»; null si no existe. */
+  async load(slot) {
+    let record = await this._read(slot);
+    if (!record) return null;
+    let cp = typeof record.data == 'string' ? JSON.parse(record.data) : record.data;
+    return ((this.cp = cp), this.bus.emit('game:loaded', { slot, cp }), cp);
   }
+  /** Ranuras guardadas (nube y locales), de la más reciente a la más antigua. */
   async list() {
-    let e = new Map(),
-      t = await this._folder();
-    if (t)
+    let found = new Map(),
+      folder = await this._folder();
+    if (folder)
       try {
-        let a = await t.get();
-        for (let n of a.docs || []) {
-          let s = /^partida_(.+)$/.exec(n.id);
-          s && e.set(s[1], n.data().meta);
+        let snapshot = await folder.get();
+        for (let doc of snapshot.docs || []) {
+          let match = /^partida_(.+)$/.exec(doc.id);
+          match && found.set(match[1], doc.data().meta);
         }
-      } catch (a) {
-        console.warn('[guardado] nube:', a?.code || a);
+      } catch (err) {
+        console.warn('[guardado] nube:', err?.code || err);
       }
     try {
-      for (let a = 0; a < localStorage.length; a++) {
-        let n = localStorage.key(a),
-          s = n && new RegExp(`^${STORAGE_PREFIX}partida\\.(.+)$`).exec(n);
-        s && !e.has(s[1]) && e.set(s[1], loadLocal(`partida.${s[1]}`)?.meta);
+      for (let i = 0; i < localStorage.length; i++) {
+        let key = localStorage.key(i),
+          match = key && new RegExp(`^${STORAGE_PREFIX}partida\\.(.+)$`).exec(key);
+        match && !found.has(match[1]) && found.set(match[1], loadLocal(`partida.${match[1]}`)?.meta);
       }
     } catch {}
-    return [...e.entries()]
-      .filter(([, a]) => a)
-      .map(([a, n]) => ({ slot: a, meta: n }))
-      .sort((a, n) => String(n.meta.savedAt).localeCompare(String(a.meta.savedAt)));
+    return [...found.entries()]
+      .filter(([, meta]) => meta)
+      .map(([slot, meta]) => ({ slot, meta }))
+      .sort((a, b) => String(b.meta.savedAt).localeCompare(String(a.meta.savedAt)));
   }
-  async remove(e) {
-    let t = await this._folder();
-    if (t)
+  /** Borra una ranura de la nube y de localStorage. */
+  async remove(slot) {
+    let folder = await this._folder();
+    if (folder)
       try {
-        await t.doc(`partida_${e}`).delete();
+        await folder.doc(`partida_${slot}`).delete();
       } catch {}
-    removeLocal(`partida.${e}`);
+    removeLocal(`partida.${slot}`);
   }
-  async exportSlot(e) {
-    let t = await this._read(e);
-    if (!t) return !1;
-    let a = `marca-de-granito_${(t.meta?.hero || 'partida').replace(/[^\w-]+/g, '_')}_${e}.json`,
-      n = JSON.stringify(t),
-      s = await getCap('downloads');
-    if (s)
+  /** Descarga una ranura como .json (capacidad «downloads» o enlace temporal). */
+  async exportSlot(slot) {
+    let record = await this._read(slot);
+    if (!record) return !1;
+    let filename = `marca-de-granito_${(record.meta?.hero || 'partida').replace(/[^\w-]+/g, '_')}_${slot}.json`,
+      json = JSON.stringify(record),
+      downloads = await getCap('downloads');
+    if (downloads)
       try {
-        return (await s.save({ filename: a, data: n }), !0);
+        return (await downloads.save({ filename, data: json }), !0);
       } catch {
         return !1;
       }
-    let i = document.createElement('a');
+    let link = document.createElement('a');
     return (
-      (i.href = URL.createObjectURL(new Blob([n], { type: 'application/json' }))),
-      (i.download = a),
-      i.click(),
-      setTimeout(() => URL.revokeObjectURL(i.href), 2e3),
+      (link.href = URL.createObjectURL(new Blob([json], { type: 'application/json' }))),
+      (link.download = filename),
+      link.click(),
+      setTimeout(() => URL.revokeObjectURL(link.href), 2e3),
       !0
     );
   }
-  async importFile(e, t = '1') {
-    let a = JSON.parse(await e.text());
-    if (!a?.data) throw new Error('No es una partida de Marca de Granito');
-    return ((this.cp = typeof a.data == 'string' ? JSON.parse(a.data) : a.data), await this.save(t), this.cp);
+  /** Importa una partida desde un archivo .json y la guarda en `slot`. */
+  async importFile(file, slot = '1') {
+    let record = JSON.parse(await file.text());
+    if (!record?.data) throw new Error('No es una partida de Marca de Granito');
+    return ((this.cp = typeof record.data == 'string' ? JSON.parse(record.data) : record.data), await this.save(slot), this.cp);
   }
 };
 

@@ -1,29 +1,32 @@
-// caps.js
-// Reconstruido de publicado/juego.js (parte sin envolver del final del bundle). Nombres locales aún minificados.
+// caps.js — Capacidades del artefacto publicado (window.claude.use: «db», «user», «sample», «downloads»).
+// Cada capacidad se pide una sola vez y se cachea; fuera del artefacto devuelve null.
+// Lo usan main.js (game.caps.get), store.js (guardado en la nube) y story/narrator.js (narrador con IA).
 
 var capCache = new Map();
-function getCap(o) {
+/** Promesa con la capacidad `name` del artefacto, o null si no existe o falla. */
+function getCap(name) {
   return (
-    capCache.has(o) ||
+    capCache.has(name) ||
       capCache.set(
-        o,
+        name,
         (async () => {
           try {
             return !window.claude || typeof window.claude.use != 'function'
               ? null
-              : (await window.claude.use(o)) || null;
+              : (await window.claude.use(name)) || null;
           } catch {
             return null;
           }
         })(),
       ),
-    capCache.get(o)
+    capCache.get(name)
   );
 }
+/** Identificador del usuario (capacidad «user»), o null. */
 async function getUserId() {
-  let o = await getCap('user');
+  let user = await getCap('user');
   try {
-    return o ? await o.id() : null;
+    return user ? await user.id() : null;
   } catch {
     return null;
   }

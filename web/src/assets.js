@@ -1,5 +1,8 @@
-// assets.js
-// Reconstruido de publicado/juego.js (módulo __esm «Qo»). Nombres locales aún minificados.
+// assets.js — Carga de modelos glTF y texturas.
+// Los modelos son glTF en JSON con los binarios embebidos en URIs «data:» (la CSP del artefacto bloquea
+// fetch de data:/blob:), así que una extensión del cargador («mdg_recursos_embebidos») decodifica esos
+// búferes a mano. Usa meshopt y cachea modelos y texturas por URL.
+// Lo usan stage.js (anisotropía), main.js (loadingManager), actors/, world/ y scenes/menu.js.
 
 import {
   LoadingManager,
@@ -12,78 +15,91 @@ import {
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
-function dataUriToBuffer(o) {
-  let e = o.slice(o.indexOf(',') + 1);
-  if (Uint8Array.fromBase64) return Uint8Array.fromBase64(e).buffer;
-  let t = atob(e),
-    a = new Uint8Array(t.length);
-  for (let n = 0; n < t.length; n++) a[n] = t.charCodeAt(n);
-  return a.buffer;
+/** Decodifica una URI «data:…;base64,» a ArrayBuffer. */
+function dataUriToBuffer(uri) {
+  let base64 = uri.slice(uri.indexOf(',') + 1);
+  if (Uint8Array.fromBase64) return Uint8Array.fromBase64(base64).buffer;
+  let binary = atob(base64),
+    bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
 }
-function setAnisotropy(o) {
-  anisotropy = o;
+/** Anisotropía de las texturas que se carguen a partir de ahora (la fija stage.js según la GPU). */
+function setAnisotropy(value) {
+  anisotropy = value;
 }
-function loadGLTF(o) {
-  return (gltfCache.has(o) || gltfCache.set(o, gltfLoader.loadAsync(o)), gltfCache.get(o));
+/** Promesa del glTF de `url` (cacheada: se comparte entre llamadas). */
+function loadGLTF(url) {
+  return (gltfCache.has(url) || gltfCache.set(url, gltfLoader.loadAsync(url)), gltfCache.get(url));
 }
-function loadProp(o) {
-  return loadModel(`props/${o}`);
+/** Copia de la escena del objeto de decorado `assets/props/<name>.json`. */
+function loadProp(name) {
+  return loadModel(`props/${name}`);
 }
-async function loadModel(o) {
-  let t = (await loadGLTF(`assets/${o}.json`)).scene.clone(!0);
+/** Copia de la escena de `assets/<name>.json` con sombras activadas en sus mallas. */
+async function loadModel(name) {
+  let scene = (await loadGLTF(`assets/${name}.json`)).scene.clone(!0);
   return (
-    t.traverse((a) => {
-      a.isMesh && ((a.castShadow = !0), (a.receiveShadow = !0));
+    scene.traverse((obj) => {
+      obj.isMesh && ((obj.castShadow = !0), (obj.receiveShadow = !0));
     }),
-    t
+    scene
   );
 }
-function loadTexture(o, e) {
-  if (!textureCache.has(o)) {
-    let t = textureLoader.load(o);
-    ((t.wrapS = t.wrapT = RepeatWrapping),
-      (t.colorSpace = e ? SRGBColorSpace : NoColorSpace),
-      (t.anisotropy = anisotropy),
-      textureCache.set(o, t));
+/** Textura repetible cacheada por URL (`srgb` para mapas de color). */
+function loadTexture(url, srgb) {
+  if (!textureCache.has(url)) {
+    let texture = textureLoader.load(url);
+    ((texture.wrapS = texture.wrapT = RepeatWrapping),
+      (texture.colorSpace = srgb ? SRGBColorSpace : NoColorSpace),
+      (texture.anisotropy = anisotropy),
+      textureCache.set(url, texture));
   }
-  return textureCache.get(o);
+  return textureCache.get(url);
 }
+/**
+ * Material PBR con las texturas `assets/tex/<name>_{diff,nor,rough,ao}.webp`.
+ * @param {string} name prefijo de las texturas
+ * @param {object} [opts] repeat, tint, normalScale, roughness, ao (mapa de oclusión), rotation
+ */
 function pbrMaterial(
-  o,
+  name,
   {
-    repeat: e = [1, 1],
-    tint: t = 16777215,
-    normalScale: a = 1,
-    roughness: n = 1,
-    ao: s = !0,
-    rotation: i = 0,
+    repeat: repeat = [1, 1],
+    tint: tint = 16777215,
+    normalScale: normalScale = 1,
+    roughness: roughness = 1,
+    ao: ao = !0,
+    rotation: rotation = 0,
   } = {},
 ) {
-  let r = (c, d) => {
-      let u = loadTexture(`assets/tex/${o}_${c}.webp`, d).clone();
-      return (u.repeat.set(e[0], e[1]), (u.rotation = i), u.center.set(0.5, 0.5), (u.needsUpdate = !0), u);
+  let mapTexture = (kind, srgb) => {
+      let texture = loadTexture(`assets/tex/${name}_${kind}.webp`, srgb).clone();
+      return (texture.repeat.set(repeat[0], repeat[1]), (texture.rotation = rotation), texture.center.set(0.5, 0.5), (texture.needsUpdate = !0), texture);
     },
-    l = new MeshStandardMaterial({
-      map: r('diff', !0),
-      normalMap: r('nor', !1),
-      roughnessMap: r('rough', !1),
-      roughness: n,
-      color: t,
+    material = new MeshStandardMaterial({
+      map: mapTexture('diff', !0),
+      normalMap: mapTexture('nor', !1),
+      roughnessMap: mapTexture('rough', !1),
+      roughness,
+      color: tint,
       metalness: 0,
     });
-  return (l.normalScale.set(a, a), s && ((l.aoMap = r('ao', !1)), (l.aoMapIntensity = 0.9)), l);
+  return (material.normalScale.set(normalScale, normalScale), ao && ((material.aoMap = mapTexture('ao', !1)), (material.aoMapIntensity = 0.9)), material);
 }
+/** Gestor de carga común (main.js lo usa para la barra de la pantalla de carga). */
 const loadingManager = new LoadingManager();
 const gltfLoader = new GLTFLoader(loadingManager).setMeshoptDecoder(MeshoptDecoder);
-gltfLoader.register((o) => {
-  let e = o.loadBuffer.bind(o);
+// Extensión que resuelve los búferes «data:» sin fetch.
+gltfLoader.register((parser) => {
+  let originalLoadBuffer = parser.loadBuffer.bind(parser);
   return (
-    (o.loadBuffer = (t) => {
-      let a = o.json.buffers[t];
-      return a.uri && a.uri.startsWith('data:') ? Promise.resolve(dataUriToBuffer(a.uri)) : e(t);
+    (parser.loadBuffer = (index) => {
+      let buffer = parser.json.buffers[index];
+      return buffer.uri && buffer.uri.startsWith('data:') ? Promise.resolve(dataUriToBuffer(buffer.uri)) : originalLoadBuffer(index);
     }),
-    (o.textureLoader = new TextureLoader(o.options.manager)),
-    o.textureLoader.setCrossOrigin(o.options.crossOrigin),
+    (parser.textureLoader = new TextureLoader(parser.options.manager)),
+    parser.textureLoader.setCrossOrigin(parser.options.crossOrigin),
     { name: 'mdg_recursos_embebidos' }
   );
 });

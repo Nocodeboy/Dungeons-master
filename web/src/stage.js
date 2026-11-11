@@ -1,5 +1,8 @@
-// stage.js
-// Reconstruido de publicado/juego.js (parte sin envolver del final del bundle). Nombres locales aún minificados.
+// stage.js — Escenario de render (game.stage): renderer WebGL, cámara, OrbitControls y posprocesado.
+// Cadena del compositor: RenderPass → GTAO (calidad alta) → UnrealBloom → gradación de color propia
+// (viñeta, tinte, destello de daño, grano y fundido a negro) → OutputPass; main.js inserta después el
+// tilt-shift antes de la gradación. Lo crea main.js; escenas, combate y exploración usan camera, controls,
+// setScene, fade y grade.
 
 import {
   ACESFilmicToneMapping,
@@ -24,47 +27,51 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { setAnisotropy } from './assets.js';
 
-function createStage(o, e) {
-  let t = new WebGLRenderer({ canvas: o, antialias: !1, powerPreference: 'high-performance' });
-  (t.setPixelRatio(e.pixelRatio),
-    t.setSize(innerWidth, innerHeight, !1),
-    (t.toneMapping = ACESFilmicToneMapping),
-    (t.toneMappingExposure = 1),
-    (t.shadowMap.enabled = !0),
-    (t.shadowMap.type = PCFShadowMap),
-    setAnisotropy(Math.min(8, t.capabilities.getMaxAnisotropy())));
-  let a = new Scene(),
-    n = new PerspectiveCamera(32, innerWidth / innerHeight, 0.5, 600),
-    s = new OrbitControls(n, o);
-  ((s.enableDamping = !0),
-    (s.dampingFactor = 0.08),
-    (s.minDistance = 9),
-    (s.maxDistance = 58),
-    (s.minPolarAngle = MathUtils.degToRad(22)),
-    (s.maxPolarAngle = MathUtils.degToRad(64)),
-    (s.screenSpacePanning = !1),
-    (s.mouseButtons = { LEFT: null, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }),
-    (s.touches = { ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_ROTATE }),
-    (s.panSpeed = 1.2));
-  let i = new Vector2(innerWidth, innerHeight),
-    r = new WebGLRenderTarget(innerWidth * e.pixelRatio, innerHeight * e.pixelRatio, {
+/**
+ * Crea el escenario sobre `canvas` con los parámetros de calidad de quality.js.
+ * @returns {{renderer, scene, camera, controls, composer, grade, bloom, quality, resize, setScene, setLevel, fade, render}}
+ */
+function createStage(canvas, quality) {
+  let renderer = new WebGLRenderer({ canvas, antialias: !1, powerPreference: 'high-performance' });
+  (renderer.setPixelRatio(quality.pixelRatio),
+    renderer.setSize(innerWidth, innerHeight, !1),
+    (renderer.toneMapping = ACESFilmicToneMapping),
+    (renderer.toneMappingExposure = 1),
+    (renderer.shadowMap.enabled = !0),
+    (renderer.shadowMap.type = PCFShadowMap),
+    setAnisotropy(Math.min(8, renderer.capabilities.getMaxAnisotropy())));
+  let scene = new Scene(),
+    camera = new PerspectiveCamera(32, innerWidth / innerHeight, 0.5, 600),
+    controls = new OrbitControls(camera, canvas);
+  ((controls.enableDamping = !0),
+    (controls.dampingFactor = 0.08),
+    (controls.minDistance = 9),
+    (controls.maxDistance = 58),
+    (controls.minPolarAngle = MathUtils.degToRad(22)),
+    (controls.maxPolarAngle = MathUtils.degToRad(64)),
+    (controls.screenSpacePanning = !1),
+    (controls.mouseButtons = { LEFT: null, MIDDLE: MOUSE.DOLLY, RIGHT: MOUSE.ROTATE }),
+    (controls.touches = { ONE: TOUCH.PAN, TWO: TOUCH.DOLLY_ROTATE }),
+    (controls.panSpeed = 1.2));
+  let resolution = new Vector2(innerWidth, innerHeight),
+    renderTarget = new WebGLRenderTarget(innerWidth * quality.pixelRatio, innerHeight * quality.pixelRatio, {
       type: HalfFloatType,
-      samples: e.msaa ? 4 : 0,
+      samples: quality.msaa ? 4 : 0,
     }),
-    l = new EffectComposer(t, r);
-  l.setPixelRatio(e.pixelRatio);
-  let c = new RenderPass(a, n);
-  l.addPass(c);
-  let d = null;
-  e.ao &&
-    ((d = new GTAOPass(a, n, innerWidth, innerHeight)),
-    d.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.5, thickness: 1.5, scale: 1, samples: 12 }),
-    d.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 }),
-    (d.blendIntensity = 0.65),
-    l.addPass(d));
-  let u = new UnrealBloomPass(i, 0.28, 0.5, 0.95);
-  ((u.enabled = e.bloom !== !1), l.addPass(u));
-  let h = new ShaderPass({
+    composer = new EffectComposer(renderer, renderTarget);
+  composer.setPixelRatio(quality.pixelRatio);
+  let renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
+  let gtaoPass = null;
+  quality.ao &&
+    ((gtaoPass = new GTAOPass(scene, camera, innerWidth, innerHeight)),
+    gtaoPass.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.5, thickness: 1.5, scale: 1, samples: 12 }),
+    gtaoPass.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 }),
+    (gtaoPass.blendIntensity = 0.65),
+    composer.addPass(gtaoPass));
+  let bloom = new UnrealBloomPass(resolution, 0.28, 0.5, 0.95);
+  ((bloom.enabled = quality.bloom !== !1), composer.addPass(bloom));
+  let grade = new ShaderPass({
     uniforms: {
       tDiffuse: { value: null },
       uTime: { value: 0 },
@@ -94,63 +101,68 @@ function createStage(o, e) {
         gl_FragColor = c;
       }`,
   });
-  (l.addPass(h), l.addPass(new OutputPass()));
-  function p() {
-    ((n.aspect = innerWidth / innerHeight),
-      n.updateProjectionMatrix(),
-      t.setSize(innerWidth, innerHeight, !1),
-      l.setSize(innerWidth, innerHeight),
-      (h.uniforms.uAspect.value = innerWidth / innerHeight));
+  (composer.addPass(grade), composer.addPass(new OutputPass()));
+  /** Ajusta cámara, renderer y compositor al tamaño de la ventana. */
+  function resize() {
+    ((camera.aspect = innerWidth / innerHeight),
+      camera.updateProjectionMatrix(),
+      renderer.setSize(innerWidth, innerHeight, !1),
+      composer.setSize(innerWidth, innerHeight),
+      (grade.uniforms.uAspect.value = innerWidth / innerHeight));
   }
-  addEventListener('resize', p);
-  function m(v) {
-    ((a = v), (c.scene = v), d && (d.scene = v));
+  addEventListener('resize', resize);
+  /** Cambia la escena three que se dibuja. */
+  function setScene(next) {
+    ((scene = next), (renderPass.scene = next), gtaoPass && (gtaoPass.scene = next));
   }
-  function _(v, x) {
-    if (((e.level = v), v < 2 && d && (d.enabled = !1), v < 2))
-      for (let y of [l.renderTarget1, l.renderTarget2]) y.samples && ((y.samples = 0), y.dispose());
-    let g = v === 0 ? Math.min(devicePixelRatio, 0.85) : 1;
+  /** Baja la calidad en caliente (sin AO ni MSAA, menos píxeles y sombras más pequeñas). */
+  function setLevel(level, sun) {
+    if (((quality.level = level), level < 2 && gtaoPass && (gtaoPass.enabled = !1), level < 2))
+      for (let target of [composer.renderTarget1, composer.renderTarget2]) target.samples && ((target.samples = 0), target.dispose());
+    let ratio = level === 0 ? Math.min(devicePixelRatio, 0.85) : 1;
     if (
-      (t.setPixelRatio(g),
-      l.setPixelRatio(g),
-      p(),
-      v === 0 && (u.enabled = !1),
-      x && x.shadow.mapSize.x > (v === 0 ? 512 : 1024))
+      (renderer.setPixelRatio(ratio),
+      composer.setPixelRatio(ratio),
+      resize(),
+      level === 0 && (bloom.enabled = !1),
+      sun && sun.shadow.mapSize.x > (level === 0 ? 512 : 1024))
     ) {
-      let y = v === 0 ? 512 : 1024;
-      (x.shadow.mapSize.set(y, y), x.shadow.map && (x.shadow.map.dispose(), (x.shadow.map = null)));
+      let size = level === 0 ? 512 : 1024;
+      (sun.shadow.mapSize.set(size, size), sun.shadow.map && (sun.shadow.map.dispose(), (sun.shadow.map = null)));
     }
   }
-  function b(v, x = 0.5) {
-    let g = h.uniforms.uFade.value,
-      y = performance.now();
-    return new Promise((w) => {
-      let k = () => {
-        let T = Math.min(1, (performance.now() - y) / (x * 1e3));
-        ((h.uniforms.uFade.value = g + (v - g) * T), T < 1 ? requestAnimationFrame(k) : w());
+  /** Funde la imagen hacia `to` (0 visible, 1 negro) en `seconds`; devuelve una promesa. */
+  function fade(to, seconds = 0.5) {
+    let from = grade.uniforms.uFade.value,
+      start = performance.now();
+    return new Promise((resolve) => {
+      let step = () => {
+        let progress = Math.min(1, (performance.now() - start) / (seconds * 1e3));
+        ((grade.uniforms.uFade.value = from + (to - from) * progress), progress < 1 ? requestAnimationFrame(step) : resolve());
       };
-      k();
+      step();
     });
   }
-  function f(v) {
-    ((h.uniforms.uTime.value = v), s.update(), l.render());
+  /** Dibuja un fotograma con el compositor. */
+  function render(time) {
+    ((grade.uniforms.uTime.value = time), controls.update(), composer.render());
   }
   return {
-    renderer: t,
+    renderer,
     get scene() {
-      return a;
+      return scene;
     },
-    camera: n,
-    controls: s,
-    composer: l,
-    grade: h,
-    bloom: u,
-    quality: e,
-    resize: p,
-    setScene: m,
-    setLevel: _,
-    fade: b,
-    render: f,
+    camera,
+    controls,
+    composer,
+    grade,
+    bloom,
+    quality,
+    resize,
+    setScene,
+    setLevel,
+    fade,
+    render,
   };
 }
 

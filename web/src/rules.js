@@ -1,109 +1,192 @@
-// rules.js
-// Reconstruido de publicado/juego.js (parte sin envolver del final del bundle). Nombres locales aún minificados.
+// rules.js — Puente con el núcleo de reglas 5e en C++ compilado a WebAssembly.
+// Contrato único: `mdg_call(json) → json`, con la petición `{op, ...args}` y la respuesta en JSON
+// (`{error: '…'}` si la operación falla o no existe). `game.rules` es la función de `loadRules` y
+// `game.api = createApi(game.rules)` añade un método por operación. La interfaz tiene su propio
+// envoltorio con simulador (ui/rules-mock.js). Ejemplos reales de cada operación en web/MAPA.md.
 
+/** Promesa única de la función de llamada al núcleo (se carga una sola vez). */
 var rulesPromise = null;
+/**
+ * Carga `rules/rules.mjs` + `rules.wasm` (Emscripten) junto a la página y devuelve
+ * `call(op, args) → objeto`, que serializa `{op, ...args}`, llama a `_mdg_call` y decodifica la respuesta.
+ */
 function loadRules() {
   return (
     rulesPromise ||
     ((rulesPromise = (async () => {
-      let o = new URL('rules/', document.baseURI).href,
-        t = await (await import(`${o}rules.mjs`)).default({ locateFile: (a) => o + a });
-      return (a, n = {}) => {
-        let s = t.stringToNewUTF8(JSON.stringify({ op: a, ...n }));
+      let base = new URL('rules/', document.baseURI).href,
+        wasm = await (await import(`${base}rules.mjs`)).default({ locateFile: (file) => base + file });
+      return (op, args = {}) => {
+        let jsonPtr = wasm.stringToNewUTF8(JSON.stringify({ op, ...args }));
         try {
-          return JSON.parse(t.UTF8ToString(t._mdg_call(s)));
+          return JSON.parse(wasm.UTF8ToString(wasm._mdg_call(jsonPtr)));
         } finally {
-          t._free(s);
+          wasm._free(jsonPtr);
         }
       };
     })()),
     rulesPromise)
   );
 }
-function createApi(o) {
-  let e = (a, n = {}) => {
-      let s = o(a, n);
-      return (s && s.error && console.warn(`[api] ${a}: ${s.error}`), s);
+/**
+ * API con un método por operación del núcleo sobre la función de `loadRules`.
+ * Las operaciones de combate (move, attack, cast, simple, feature, ai_turn, end_turn, undo_move)
+ * devuelven `{events: [...]}`, que combat/controller.js convierte en animaciones y efectos.
+ */
+function createApi(rules) {
+  let call = (op, args = {}) => {
+      let res = rules(op, args);
+      return (res && res.error && console.warn(`[api] ${op}: ${res.error}`), res);
     },
-    t = (a) => (a && typeof a == 'object' ? a : {});
+    asObject = (value) => (value && typeof value == 'object' ? value : {});
   return {
-    call: e,
-    data: (a) => e('data', { name: a }),
-    loc: (a) => e('loc', a ? { keys: a } : {}),
-    monsterInfo: (a) => e('monster_info', { id: a }),
-    sheetNew: (a) => e('sheet_new', t(a)),
-    sheetSet: (a, n, s) =>
-      e('sheet_set', { sheet: a, ...(Array.isArray(n) ? { sets: n } : { set: n }), ...t(s) }),
-    sheetOptions: (a, n) => e('sheet_options', { sheet: a, ...t(n) }),
-    sheetComplete: (a, n = 1) => e('sheet_complete', { sheet: a, level: n }),
-    sheetValidate: (a, n) => e('sheet_validate', n ? { sheet: a, level: n } : { sheet: a }),
-    sheetFinish: (a) => e('sheet_finish', { sheet: a }),
-    randomName: (a, n = 'm', s) =>
-      e('random_name', s == null ? { species: a, pronoun: n } : { species: a, pronoun: n, seed: s }),
-    sheetSummary: (a, n, s) =>
-      e('sheet_summary', s ? { sheet: a, level: n, state: s } : { sheet: a, level: n }),
-    levelChoices: (a, n, s) => e('level_choices', { sheet: a, from: n, to: s }),
-    cpNew: (a, n = ['brenna'], s) =>
-      e('cp_new', s == null ? { hero: a, companions: n } : { hero: a, companions: n, seed: s }),
-    cpRecruit: (a, n) => e('cp_recruit', { cp: a, id: n }),
-    cpDismiss: (a, n) => e('cp_dismiss', { cp: a, id: n }),
-    cpHire: (a, n) => e('cp_hire', { cp: a, sheet: n }),
-    cpShortRest: (a, n, s) =>
-      e('cp_short_rest', { cp: a, ...(n ? { spend: n } : {}), ...(s == null ? {} : { seed: s }) }),
-    cpLongRest: (a, n) => e('cp_long_rest', n == null ? { cp: a } : { cp: a, seed: n }),
-    cpLevelUp: (a, n, s) => e('cp_level_up', { cp: a, level: n, ...(s ? { choices: s } : {}) }),
-    cpGold: (a, n) => e('cp_gold', { cp: a, delta: n }),
-    cpGive: (a, n, s = 1, i) => e('cp_give', { cp: a, item: n, n: s, ...t(i) }),
-    cpHeal: (a, n, s) => e('cp_heal', { cp: a, id: n, amount: s }),
-    cpDamage: (a, n, s, i, r) =>
-      e('cp_damage', { cp: a, id: n, amount: s, ...(i ? { type: i } : {}), ...t(r) }),
-    cpPassHours: (a, n) => e('cp_pass_hours', { cp: a, hours: n }),
-    cpRevive: (a, n) => e('cp_revive', { cp: a, id: n }),
-    cpLoad: (a) => e('cp_load', { cp: a }),
-    partySummary: (a) => e('party_summary', { cp: a }),
-    itemInfo: (a, n = !1) => e('item_info', { id: a, unid: n }),
-    inv: (a, n) => e('inv', { cp: a, who: n }),
-    invPreview: (a, n, s, i) => e('inv_preview', { cp: a, who: n, item: s, ...(i ? { slot: i } : {}) }),
-    invEquip: (a, n, s, i) => e('inv_equip', { cp: a, who: n, item: s, ...(i ? { slot: i } : {}) }),
-    invUnequip: (a, n, s) => e('inv_unequip', { cp: a, who: n, slot: s }),
-    invGive: (a, n, s, i, r = 1) => e('inv_give', { cp: a, from: n, to: s, item: i, n: r }),
-    invUse: (a, n, s, i) => e('inv_use', { cp: a, who: n, item: s, ...(i ? { target: i } : {}) }),
-    invDrop: (a, n, s, i = 1) => e('inv_drop', { cp: a, who: n, item: s, n: i }),
-    identify: (a) => e('identify', { cp: a }),
-    shop: (a, n, s) => e('shop', { cp: a, merchant: n, ...(s ? { who: s } : {}) }),
-    shopBuy: (a, n, s, i = 1, r) =>
-      e('shop_buy', { cp: a, merchant: n, item: s, n: i, ...(r ? { who: r } : {}) }),
-    shopSell: (a, n, s, i, r = 1) => e('shop_sell', { cp: a, merchant: n, who: s, item: i, n: r }),
-    check: (a, n, s) => e('check', { cp: a, who: n, ...t(s) }),
-    groupCheck: (a, n, s, i) => e('group_check', { cp: a, skill: n, dc: s, ...t(i) }),
-    passive: (a, n = 'perception') => e('passive', { cp: a, skill: n }),
-    best: (a, n) => e('best', { cp: a, skill: n }),
-    xmapLoad: (a) => e('xmap_load', { rows: a }),
-    xmapPath: (a, n, s) => e('xmap_path', { from: a, to: n, ...t(s) }),
-    xmapLos: (a, n) => e('xmap_los', { from: a, to: n }),
-    xmapWalkable: (a) => e('xmap_walkable', { cells: a }),
-    xmapReach: (a, n, s) => e('xmap_reach', { from: a, max: n, ...t(s) }),
-    xmapFree: (a, n, s) => e('xmap_free', { near: a, n, ...t(s) }),
-    xmapCell: (a) => e('xmap_cell', { cell: a }),
-    battleStart: (a) => e('battle_start', a),
-    battleEnd: (a, n, s) => e('battle_end', { cp: a, won: n, ...t(s) }),
-    init: (a, n) => e('init', { encounter: a, seed: n }),
-    state: () => e('state'),
-    options: () => e('options'),
-    threats: (a) => e('threats', { path: a }),
-    move: (a, n = !1) => e('move', { path: a, dash: n }),
-    undoMove: () => e('undo_move'),
-    attackPlan: (a, n) => e('attack_plan', n ? { target: a, key: n } : { target: a }),
-    attack: (a, n, s) => e('attack', { key: a, target: n, path: s }),
-    offhand: (a, n) => e('offhand', { key: a, target: n }),
-    spellBegin: (a, n) => e('spell_begin', { spell: a, slot: n }),
-    spellPreview: (a) => e('spell_preview', a),
-    cast: (a) => e('cast', a),
-    simpleTargets: (a) => e('simple_targets', { what: a }),
-    simple: (a, n) => e('simple', { what: a, target: n }),
-    feature: (a) => e('feature', a),
-    aiTurn: () => e('ai_turn'),
-    endTurn: () => e('end_turn'),
+    /** `call(op, args)`: llamada genérica; avisa por consola si la respuesta trae `error`. */
+    call,
+    /** `data`: tabla de datos del núcleo por nombre («species», «classes»…). */
+    data: (name) => call('data', { name }),
+    /** `loc`: textos localizados por clave (todos si no se dan claves). */
+    loc: (keys) => call('loc', keys ? { keys } : {}),
+    /** `monster_info`: ficha de un monstruo (tamaño, tipo, VD, PX, CA, PG…). */
+    monsterInfo: (id) => call('monster_info', { id }),
+    /** `sheet_new`: hoja de personaje nueva con los valores por defecto. */
+    sheetNew: (opts) => call('sheet_new', asObject(opts)),
+    /** `sheet_set`: aplica un cambio `{what, value}` (o una lista, `sets`) y devuelve `{sheet}`. */
+    sheetSet: (sheet, set, opts) =>
+      call('sheet_set', { sheet, ...(Array.isArray(set) ? { sets: set } : { set }), ...asObject(opts) }),
+    /** `sheet_options`: pasos y opciones del creador para la hoja (modo, nivel, pasos, kit). */
+    sheetOptions: (sheet, opts) => call('sheet_options', { sheet, ...asObject(opts) }),
+    /** `sheet_complete`: completa la hoja hasta `level` con elecciones por defecto. */
+    sheetComplete: (sheet, level = 1) => call('sheet_complete', { sheet, level }),
+    /** `sheet_validate`: `{ok, errors}` de la hoja (opcionalmente a un nivel). */
+    sheetValidate: (sheet, level) => call('sheet_validate', level ? { sheet, level } : { sheet }),
+    /** `sheet_finish`: cierra la creación y devuelve la hoja definitiva del héroe. */
+    sheetFinish: (sheet) => call('sheet_finish', { sheet }),
+    /** `random_name`: nombre aleatorio para una especie y un pronombre (semilla opcional). */
+    randomName: (species, pronoun = 'm', seed) =>
+      call('random_name', seed == null ? { species, pronoun } : { species, pronoun, seed }),
+    /** `sheet_summary`: resumen legible de la hoja (nombre, especie, clase…), con estado opcional. */
+    sheetSummary: (sheet, level, state) =>
+      call('sheet_summary', state ? { sheet, level, state } : { sheet, level }),
+    /** `level_choices`: elecciones pendientes para subir la hoja del nivel `from` a `to`. */
+    levelChoices: (sheet, from, to) => call('level_choices', { sheet, from, to }),
+    /** `cp_new`: campaña nueva con el héroe y los compañeros iniciales; devuelve `{cp}`. */
+    cpNew: (hero, companions = ['brenna'], seed) =>
+      call('cp_new', seed == null ? { hero, companions } : { hero, companions, seed }),
+    /** `cp_recruit`: une un compañero al grupo. */
+    cpRecruit: (cp, id) => call('cp_recruit', { cp, id }),
+    /** `cp_dismiss`: despide a un miembro del grupo. */
+    cpDismiss: (cp, id) => call('cp_dismiss', { cp, id }),
+    /** `cp_hire`: contrata un mercenario a partir de su hoja. */
+    cpHire: (cp, sheet) => call('cp_hire', { cp, sheet }),
+    /** `cp_short_rest`: descanso corto (`spend`: dados de golpe que gasta cada miembro). */
+    cpShortRest: (cp, spend, seed) =>
+      call('cp_short_rest', { cp, ...(spend ? { spend } : {}), ...(seed == null ? {} : { seed }) }),
+    /** `cp_long_rest`: descanso largo. */
+    cpLongRest: (cp, seed) => call('cp_long_rest', seed == null ? { cp } : { cp, seed }),
+    /** `cp_level_up`: sube el grupo a `level` con las elecciones dadas. */
+    cpLevelUp: (cp, level, choices) => call('cp_level_up', { cp, level, ...(choices ? { choices } : {}) }),
+    /** `cp_gold`: suma (o resta, si `delta` < 0) oro al grupo. */
+    cpGold: (cp, delta) => call('cp_gold', { cp, delta }),
+    /** `cp_give`: da `count` unidades de un objeto al grupo. */
+    cpGive: (cp, item, count = 1, opts) => call('cp_give', { cp, item, n: count, ...asObject(opts) }),
+    /** `cp_heal`: cura `amount` PG a un miembro. */
+    cpHeal: (cp, id, amount) => call('cp_heal', { cp, id, amount }),
+    /** `cp_damage`: inflige `amount` de daño (de tipo `type`) a un miembro. */
+    cpDamage: (cp, id, amount, type, opts) =>
+      call('cp_damage', { cp, id, amount, ...(type ? { type } : {}), ...asObject(opts) }),
+    /** `cp_pass_hours`: hace pasar horas en la campaña. */
+    cpPassHours: (cp, hours) => call('cp_pass_hours', { cp, hours }),
+    /** `cp_revive`: revive a un miembro caído. */
+    cpRevive: (cp, id) => call('cp_revive', { cp, id }),
+    /** `cp_load`: valida y normaliza una campaña guardada. */
+    cpLoad: (cp) => call('cp_load', { cp }),
+    /** `party_summary`: resumen de cada miembro del grupo. */
+    partySummary: (cp) => call('party_summary', { cp }),
+    /** `item_info`: ficha de un objeto (como se ve sin identificar si `unidentified`). */
+    itemInfo: (id, unidentified = !1) => call('item_info', { id, unid: unidentified }),
+    /** `inv`: inventario y huecos de equipo de un miembro. */
+    inv: (cp, who) => call('inv', { cp, who }),
+    /** `inv_preview`: qué cambiaría al equipar un objeto (`{ok, reason, lines}`). */
+    invPreview: (cp, who, item, slot) => call('inv_preview', { cp, who, item, ...(slot ? { slot } : {}) }),
+    /** `inv_equip`: equipa un objeto (en `slot` si se indica). */
+    invEquip: (cp, who, item, slot) => call('inv_equip', { cp, who, item, ...(slot ? { slot } : {}) }),
+    /** `inv_unequip`: quita lo equipado en un hueco. */
+    invUnequip: (cp, who, slot) => call('inv_unequip', { cp, who, slot }),
+    /** `inv_give`: pasa objetos de un miembro a otro. */
+    invGive: (cp, from, to, item, count = 1) => call('inv_give', { cp, from, to, item, n: count }),
+    /** `inv_use`: usa un objeto (poción…), sobre `target` si se indica. */
+    invUse: (cp, who, item, target) => call('inv_use', { cp, who, item, ...(target ? { target } : {}) }),
+    /** `inv_drop`: tira objetos del inventario. */
+    invDrop: (cp, who, item, count = 1) => call('inv_drop', { cp, who, item, n: count }),
+    /** `identify`: identifica los objetos del grupo. */
+    identify: (cp) => call('identify', { cp }),
+    /** `shop`: género, precios y qué compra un comerciante. */
+    shop: (cp, merchant, who) => call('shop', { cp, merchant, ...(who ? { who } : {}) }),
+    /** `shop_buy`: compra a un comerciante. */
+    shopBuy: (cp, merchant, item, count = 1, who) =>
+      call('shop_buy', { cp, merchant, item, n: count, ...(who ? { who } : {}) }),
+    /** `shop_sell`: vende a un comerciante. */
+    shopSell: (cp, merchant, who, item, count = 1) => call('shop_sell', { cp, merchant, who, item, n: count }),
+    /** `check`: prueba de característica o habilidad de un miembro (`opts`: skill/ability, dc…). */
+    check: (cp, who, opts) => call('check', { cp, who, ...asObject(opts) }),
+    /** `group_check`: prueba de grupo de una habilidad contra una CD. */
+    groupCheck: (cp, skill, dc, opts) => call('group_check', { cp, skill, dc, ...asObject(opts) }),
+    /** `passive`: puntuación pasiva de cada miembro (`{id: valor}`). */
+    passive: (cp, skill = 'perception') => call('passive', { cp, skill }),
+    /** `best`: miembro con mejor modificador en una habilidad. */
+    best: (cp, skill) => call('best', { cp, skill }),
+    /** `xmap_load`: carga el mapa de exploración (filas de caracteres de terreno). */
+    xmapLoad: (rows) => call('xmap_load', { rows }),
+    /** `xmap_path`: camino entre dos casillas. */
+    xmapPath: (from, to, opts) => call('xmap_path', { from, to, ...asObject(opts) }),
+    /** `xmap_los`: línea de visión entre dos casillas (`{los, cover, dist}`). */
+    xmapLos: (from, to) => call('xmap_los', { from, to }),
+    /** `xmap_walkable`: si cada casilla es transitable y si es terreno difícil. */
+    xmapWalkable: (cells) => call('xmap_walkable', { cells }),
+    /** `xmap_reach`: casillas alcanzables desde `from` con coste ≤ `max` (`[x, y, coste]`). */
+    xmapReach: (from, max, opts) => call('xmap_reach', { from, max, ...asObject(opts) }),
+    /** `xmap_free`: `count` casillas libres cerca de `near`. */
+    xmapFree: (near, count, opts) => call('xmap_free', { near, n: count, ...asObject(opts) }),
+    /** `xmap_cell`: terreno y propiedades de una casilla. */
+    xmapCell: (cell) => call('xmap_cell', { cell }),
+    /** `battle_start`: empieza un combate sobre el mapa (grupo, enemigos, sorpresa); devuelve `{state}`. */
+    battleStart: (request) => call('battle_start', request),
+    /** `battle_end`: cierra el combate y vuelca el resultado en la campaña (`{cp}`). */
+    battleEnd: (cp, won, opts) => call('battle_end', { cp, won, ...asObject(opts) }),
+    /** `init`: combate de un encuentro predefinido (banco de pruebas de combat/hud.js). */
+    init: (encounter, seed) => call('init', { encounter, seed }),
+    /** `state`: estado del combate (ronda, turno actual, orden, criaturas, mapa). */
+    state: () => call('state'),
+    /** `options`: acciones disponibles para la criatura del turno actual. */
+    options: () => call('options'),
+    /** `threats`: ataques de oportunidad que provocaría recorrer `path`. */
+    threats: (path) => call('threats', { path }),
+    /** `move`: mueve la criatura del turno por `path` (`dash`: con la acción de correr). */
+    move: (path, dash = !1) => call('move', { path, dash }),
+    /** `undo_move`: deshace el último movimiento. */
+    undoMove: () => call('undo_move'),
+    /** `attack_plan`: previsión de un ataque contra `target` (con el ataque `key`). */
+    attackPlan: (target, key) => call('attack_plan', key ? { target, key } : { target }),
+    /** `attack`: ataca a `target` con el ataque `key`, moviéndose antes por `path`. */
+    attack: (key, target, path) => call('attack', { key, target, path }),
+    /** `offhand`: ataque con la mano torpe. */
+    offhand: (key, target) => call('offhand', { key, target }),
+    /** `spell_begin`: empieza a lanzar un conjuro (con su nivel de espacio) y devuelve cómo se apunta. */
+    spellBegin: (spell, slot) => call('spell_begin', { spell, slot }),
+    /** `spell_preview`: criaturas afectadas y previsión del conjuro con los objetivos dados. */
+    spellPreview: (request) => call('spell_preview', request),
+    /** `cast`: lanza el conjuro. */
+    cast: (request) => call('cast', request),
+    /** `simple_targets`: objetivos válidos de una acción simple (`what`). */
+    simpleTargets: (what) => call('simple_targets', { what }),
+    /** `simple`: acción simple (`what`: esquivar, ayudar, destrabarse…) sobre `target`. */
+    simple: (what, target) => call('simple', { what, target }),
+    /** `feature`: usa un rasgo de clase (`{name}`: segundo aliento, oleada de acción…). */
+    feature: (request) => call('feature', request),
+    /** `ai_turn`: juega el turno de la criatura actual con la IA del núcleo. */
+    aiTurn: () => call('ai_turn'),
+    /** `end_turn`: termina el turno actual y pasa al siguiente. */
+    endTurn: () => call('end_turn'),
   };
 }
 

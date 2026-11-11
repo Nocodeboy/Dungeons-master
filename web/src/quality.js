@@ -1,38 +1,46 @@
-// quality.js
-// Reconstruido de publicado/juego.js (parte sin envolver del final del bundle). Nombres locales aún minificados.
+// quality.js — Detección del nivel de calidad gráfica (0 baja, 1 media, 2 alta).
+// Se decide por la GPU (integradas y SwiftShader bajan a media), el tamaño de pantalla y móviles (baja)
+// o se fuerza con ?calidad=baja|media|alta. Lo usa main.js; stage.js lee los campos del objeto.
 
 import './assets.js';
 
+/** Nombre del renderizador WebGL (extensión de depuración), o '' si no se puede saber. */
 function gpuRenderer() {
   try {
-    let o = document.createElement('canvas').getContext('webgl2'),
-      e = o && o.getExtension('WEBGL_debug_renderer_info');
-    return e ? o.getParameter(e.UNMASKED_RENDERER_WEBGL) : '';
+    let gl = document.createElement('canvas').getContext('webgl2'),
+      debugInfo = gl && gl.getExtension('WEBGL_debug_renderer_info');
+    return debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : '';
   } catch {
     return '';
   }
 }
-function qualityLevel(o) {
+/** Parámetros de render de un nivel: sombras, AO, MSAA, bloom, hierba y relación de píxeles. */
+function qualityLevel(level) {
   return {
-    level: o,
-    low: o === 0,
-    shadowMap: o === 2 ? 1024 : o === 1 ? 512 : 256,
-    ao: o === 2,
-    msaa: o === 2,
-    bloom: o > 0,
-    grass: o,
-    pixelRatio: o === 2 ? Math.min(devicePixelRatio, 1.6) : o === 1 ? 1 : Math.min(devicePixelRatio, 0.85),
+    level,
+    low: level === 0,
+    shadowMap: level === 2 ? 1024 : level === 1 ? 512 : 256,
+    ao: level === 2,
+    msaa: level === 2,
+    bloom: level > 0,
+    grass: level,
+    pixelRatio: level === 2 ? Math.min(devicePixelRatio, 1.6) : level === 1 ? 1 : Math.min(devicePixelRatio, 0.85),
   };
 }
-function detectQuality(o = new URLSearchParams(location.search)) {
-  let e = gpuRenderer(),
-    t = Math.min(innerWidth, innerHeight) < 700 || /Android|iPhone|iPad/i.test(navigator.userAgent),
-    a =
+/**
+ * Calidad inicial según el equipo y la URL.
+ * @param {URLSearchParams} params parámetros de la URL (usa «calidad»)
+ * @returns {object} parámetros de `qualityLevel` más { forced, gpu, small, integrated }
+ */
+function detectQuality(params = new URLSearchParams(location.search)) {
+  let gpu = gpuRenderer(),
+    small = Math.min(innerWidth, innerHeight) < 700 || /Android|iPhone|iPad/i.test(navigator.userAgent),
+    integrated =
       /Intel|Vega \d|Radeon\(TM\) Graphics|Radeon Graphics|UHD|Iris|Mali|Adreno|PowerVR|Apple GPU|SwiftShader|llvmpipe|Microsoft Basic/i.test(
-        e,
+        gpu,
       ),
-    n = { baja: 0, media: 1, alta: 2 }[o.get('calidad')];
-  return { ...qualityLevel(n ?? (t ? 0 : a ? 1 : 2)), forced: n !== void 0, gpu: e, small: t, integrated: a };
+    forcedLevel = { baja: 0, media: 1, alta: 2 }[params.get('calidad')];
+  return { ...qualityLevel(forcedLevel ?? (small ? 0 : integrated ? 1 : 2)), forced: forcedLevel !== void 0, gpu, small, integrated };
 }
 
 export { detectQuality };

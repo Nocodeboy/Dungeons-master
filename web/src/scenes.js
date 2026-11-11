@@ -1,54 +1,61 @@
-// scenes.js
-// Reconstruido de publicado/juego.js (parte sin envolver del final del bundle). Nombres locales aún minificados.
+// scenes.js — Gestor de escenas (game.scenes).
+// Cada escena es un módulo con `create(game, params)` que devuelve { three, sun, update, afterRender, dispose, … }.
+// `go` funde a negro, libera la escena anterior, crea la nueva y emite «scene:leave»/«scene:enter».
+// Lo crea main.js; registran escenas main.js (menu, explore) y ui/index.js (creator, travel, ending).
 
 import { Scene } from 'three';
 
+/** Gestor de escenas con transición fundida y un único cambio a la vez (`busy`). */
 var SceneManager = class {
-  constructor(e) {
-    ((this.game = e),
+  constructor(game) {
+    ((this.game = game),
       (this.registry = new Map()),
       (this.current = null),
       (this.name = null),
       (this.busy = null),
       (this.empty = new Scene()));
   }
-  register(e, t) {
-    this.registry.set(e, t);
+  /** Registra una escena: `loader` es el módulo o una función que lo carga (import()). */
+  register(name, loader) {
+    this.registry.set(name, loader);
   }
-  async go(e, t = {}) {
-    let a = this.registry.get(e);
-    if (!a) throw new Error(`escena desconocida: ${e}`);
+  /** Cambia a la escena `name` con `params`; espera a que termine cualquier cambio en curso. */
+  async go(name, params = {}) {
+    let loader = this.registry.get(name);
+    if (!loader) throw new Error(`escena desconocida: ${name}`);
     for (; this.busy;) await this.busy;
-    let n = (async () => {
-      let s = this.game;
-      this.current && (await s.stage.fade(1, 0.35));
-      let i = this.current;
+    let task = (async () => {
+      let game = this.game;
+      this.current && (await game.stage.fade(1, 0.35));
+      let previous = this.current;
       this.current = null;
       try {
-        i?.dispose?.();
-      } catch (c) {
-        console.error('[escenas] dispose', c);
+        previous?.dispose?.();
+      } catch (err) {
+        console.error('[escenas] dispose', err);
       }
-      (s.stage.setScene(this.empty), s.bus.emit('scene:leave', { name: this.name }));
-      let l = await (typeof a == 'function' ? await a() : a).create(s, t);
-      ((this.current = l),
-        (this.name = e),
-        s.stage.setScene(l.three || this.empty),
-        s.bus.emit('scene:enter', { name: e, params: t }),
-        await s.stage.fade(0, 0.45));
+      (game.stage.setScene(this.empty), game.bus.emit('scene:leave', { name: this.name }));
+      let scene = await (typeof loader == 'function' ? await loader() : loader).create(game, params);
+      ((this.current = scene),
+        (this.name = name),
+        game.stage.setScene(scene.three || this.empty),
+        game.bus.emit('scene:enter', { name, params }),
+        await game.stage.fade(0, 0.45));
     })();
-    this.busy = n;
+    this.busy = task;
     try {
-      await n;
+      await task;
     } finally {
       this.busy = null;
     }
   }
-  update(e, t) {
-    this.current?.update?.(e, t);
+  /** Avanza la escena actual (llamado en cada fotograma desde main.js). */
+  update(dt, elapsed) {
+    this.current?.update?.(dt, elapsed);
   }
-  afterRender(e) {
-    this.current?.afterRender?.(e);
+  /** Trabajo de la escena tras dibujar el fotograma (p. ej. etiquetas HTML). */
+  afterRender(dt) {
+    this.current?.afterRender?.(dt);
   }
 };
 
