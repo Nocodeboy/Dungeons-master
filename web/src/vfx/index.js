@@ -20,7 +20,7 @@ import { getStyle, resolveStyleKey, DAMAGE_STYLE } from './styles.js';
 import efectosConjuros from '../datos/efectos/conjuros.json';
 import { FS, OS } from './spells.js';
 import { Nm } from './conditions.js';
-import { Fm } from './zones.js';
+import { ZoneEffects } from './zones.js';
 
 function rsphere(o = 1, e = Oa()) {
   let t, a, n;
@@ -1227,7 +1227,7 @@ function createVfx({
     };
   return (
     (v.auras = new Nm(v)),
-    (v.zones = new Fm(v)),
+    (v.zones = new ZoneEffects(v)),
     (v.aura = (x, g, y, w) => v.auras.set(x, g, y, w)),
     (v.zone = (x, g, y, w) => v.zones.zone(x, g, y, w)),
     (v.zoneOff = (x) => v.zones.zoneOff(x)),
