@@ -24,7 +24,16 @@ import { ExploreInput } from './input.js';
 import { Floaters } from './floaters.js';
 import { ExploreMarks } from './marks.js';
 import { createExploreHud, fallbackDialog } from './hud.js';
-import { Ju, Xu, cy, Xk, Yk, m0, uy, Zk } from './interact.js';
+import {
+  lootOf,
+  revealObject,
+  springTrap,
+  useObject,
+  talkToMember,
+  talkToNpc,
+  openRest,
+  hoverInfo,
+} from './interact.js';
 import { perceive, search, toggleStealth, detect, checkTriggers } from './detection.js';
 import { attackEnemy, startBattle, withdrawGroup } from './battle.js';
 import { AmbientAnimals, Banter } from './animals.js';
@@ -627,7 +636,7 @@ const Explore = class {
         !(n.type !== 'trap' || !n.cell || n.cell[0] !== t[0] || n.cell[1] !== t[1]) &&
         !(this.ls.disarmed.includes(a) || !this.flag(n.requires))
       )
-        return (cy(this, a, e.id), !0);
+        return (springTrap(this, a, e.id), !0);
     return (perceive(this, e), !!(e.id === this.leader && (this.saveCell(), checkTriggers(this, !1, t))));
   }
   async spawnNpcs() {
@@ -789,7 +798,9 @@ const Explore = class {
       (e.hide_if && this.game.store.flag(e.hide_if)) ||
       (e.hidden && !this.ls.found.includes(e.id)) ||
       (e.type === 'trap' && this.ls.disarmed.includes(e.id)) ||
-      ((e.type === 'cache' || e.type === 'loot') && this.ls.opened.includes(e.id) && !Ju(this, e).length) ||
+      ((e.type === 'cache' || e.type === 'loot') &&
+        this.ls.opened.includes(e.id) &&
+        !lootOf(this, e).length) ||
       this.ls.states[e.id] === 'hidden'
     );
   }
@@ -808,7 +819,7 @@ const Explore = class {
         ? this.world.setObjectState(e, s)
         : (t.type === 'chest' || t.type === 'cache' || t.type === 'loot') &&
           this.ls.opened.includes(e) &&
-          this.world.setObjectState?.(e, Ju(this, t).length ? 'open' : 'empty'),
+          this.world.setObjectState?.(e, lootOf(this, t).length ? 'open' : 'empty'),
       t.type === 'trap' &&
         this.marks.trap(e, a && this.ls.found.includes(e) && !this.ls.disarmed.includes(e) ? t.cell : null),
       this.world.setObjectGlow)
@@ -1027,7 +1038,7 @@ const Explore = class {
             this.updateHud());
           break;
         case 'rest':
-          uy(this);
+          openRest(this);
           break;
         case 'journal':
           this.openScreen('diario');
@@ -1174,20 +1185,20 @@ const Explore = class {
           if (
             ((this._lastMemberTap = { id: n.id, t: s }), i?.id === n.id && s - i.t < 450 && n.id !== 'hero')
           ) {
-            ((this._lastMemberTap = null), Yk(this, n.id));
+            ((this._lastMemberTap = null), talkToMember(this, n.id));
             break;
           }
           this.setLeader(n.id, { additive: a.shift || a.ctrl });
           break;
         }
         case 'npc':
-          m0(this, n.id);
+          talkToNpc(this, n.id);
           break;
         case 'enemy':
           attackEnemy(this, n.id);
           break;
         case 'object':
-          Xk(this, n.id);
+          useObject(this, n.id);
           break;
         case 'exit':
           this.goExit(n.exit, n.cell);
@@ -1255,7 +1266,7 @@ const Explore = class {
       return;
     }
     let a = this.pick(this.mouse.x, this.mouse.y),
-      n = a ? Zk(this, a) : null;
+      n = a ? hoverInfo(this, a) : null;
     if (!n) {
       (this.overlay.setLabel(null),
         this.marks.setHover(null),
@@ -1436,7 +1447,7 @@ const Explore = class {
         let i = e.api().actor(t);
         return i ? (n ? i.once(a, { hold: s }) : (i.anim(a), Promise.resolve())) : Promise.resolve();
       },
-      reveal: (t) => Xu(e, t, e.leader, ''),
+      reveal: (t) => revealObject(e, t, e.leader, ''),
       members: () => e.members.map((t) => t.id),
       leader: () => e.leader,
       cell: (t) => (e.member(t) || e.npcs.get(t) || e.enemy(t))?.cell?.slice() || null,

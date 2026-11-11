@@ -7,7 +7,7 @@
 
 import { Vector3 } from 'three';
 import { hexDistance } from './hex.js';
-import { Wu, Xu } from './interact.js';
+import { storyInteract, revealObject } from './interact.js';
 import { startBattle } from './battle.js';
 import { SKILL_LABELS } from './checks.js';
 
@@ -30,7 +30,7 @@ function perceive(explore, member) {
     let dist = hexDistance(member.cell, obj.cell);
     dist > PASSIVE_RANGE ||
       (dist > 1 && !explore.xmap.los(member.cell, obj.cell)) ||
-      (pp >= (obj.hidden.dc ?? 15) && Xu(explore, id, member.id, `Percepci\xF3n pasiva ${pp}`));
+      (pp >= (obj.hidden.dc ?? 15) && revealObject(explore, id, member.id, `Percepci\xF3n pasiva ${pp}`));
   }
 }
 /**
@@ -72,7 +72,7 @@ async function search(explore) {
         dist > SEARCH_RANGE ||
           (dist > 1 && !explore.xmap.los(m.cell, obj.cell)) ||
           (res.total >= (obj.hidden.dc ?? 15) &&
-            (Xu(explore, id, m.id, `${SKILL_LABELS[skill]} ${res.total}`), (found = !0)));
+            (revealObject(explore, id, m.id, `${SKILL_LABELS[skill]} ${res.total}`), (found = !0)));
       }
       for (let [gid, group] of explore.groups) {
         if (!group.hidden) continue;
@@ -247,7 +247,7 @@ async function talkGroup(explore, gid, enemy = null, { stealth = !1 } = {}) {
   explore.stopAll();
   let lead = explore.lead();
   talker && lead && (explore.faceTo(talker.id, lead.id), explore.faceTo(lead.id, talker.cell));
-  let settled = await Wu(explore, {
+  let settled = await storyInteract(explore, {
     object: group.def,
     kind: 'group',
     actor: explore.leader,
