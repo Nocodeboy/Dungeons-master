@@ -12,7 +12,15 @@ import {
   TorusGeometry,
   Vector3,
 } from 'three';
-import { c2, d2, Gb, u2, h2, Vb, jb } from './rig.js';
+import {
+  loadHumanRig,
+  loadAnimClips,
+  triangleSubset,
+  cloneSkeleton,
+  scaleBones,
+  bakeSkinnedMeshes,
+  ANIM_PELVIS_HEIGHT,
+} from './rig.js';
 import { makeCharacterMaterial } from './materials.js';
 import {
   makeHeadSculpt,
@@ -126,18 +134,18 @@ function Nz(o) {
   return dc;
 }
 async function buildHumanoid(o) {
-  let [e, t] = await Promise.all([c2(), d2()]);
+  let [e, t] = await Promise.all([loadHumanRig(), loadAnimClips()]);
   if (!t.has('P_Bow_Shoot')) for (let ie of Y2(e.rootBone.m, t)) t.set(ie.name, ie);
   let a = o.body === 'f' ? 'f' : 'm',
     n = e.rootBone[a],
     s = new Map();
   n.traverse((ie) => ie.isBone && s.set(ie.name, ie));
-  let i = u2(n),
+  let i = cloneSkeleton(n),
     r = new Group();
   ((r.name = 'modelo'), r.add(i.root));
   let l = o.prop || {},
     c = Iz(l);
-  (h2(i, c), r.updateMatrixWorld(!0));
+  (scaleBones(i, c), r.updateMatrixWorld(!0));
   let d = tn(s, 'ball_l'),
     u = i.byName.get('ball_l').getWorldPosition(new Vector3()),
     h = i.byName.get('pelvis');
@@ -183,7 +191,11 @@ async function buildHumanoid(o) {
         Qe = w.tatters && /_(ca|ex)_(torso|piernas|brazos)$/.test(ie),
         N = o.gear?.robe && /_(ca|ex)_torso$/.test(ie);
       for (let L of ce) {
-        let O = Qe ? jz(L, w.tatters) : N ? Gb(L, ['torso', 'brazos', 'manos', 'cabeza']) : void 0;
+        let O = Qe
+          ? jz(L, w.tatters)
+          : N
+            ? triangleSubset(L, ['torso', 'brazos', 'manos', 'cabeza'])
+            : void 0;
         y.push({ mesh: L, material: ke ? v : f, deform: g, index: O, ...we });
       }
     },
@@ -197,7 +209,7 @@ async function buildHumanoid(o) {
     T.length)
   ) {
     let ie = e.parts.get(`${a}_cuerpo`)[0];
-    y.push({ mesh: ie, index: Gb(ie, T), material: f, deform: g });
+    y.push({ mesh: ie, index: triangleSubset(ie, T), material: f, deform: g });
   }
   let E = (ie, we) => {
     let ce = w[ie];
@@ -265,7 +277,7 @@ async function buildHumanoid(o) {
   let D = y.slice(),
     M = await oT(o, s, _, x, m);
   for (let ie of M) y.push(ie);
-  let R = Vb(i, y, c, r, s);
+  let R = bakeSkinnedMeshes(i, y, c, r, s);
   for (let ie of R.meshes) r.add(ie);
   let A = new Group();
   A.name = o.id ? `pj_${o.id}` : 'humanoide';
@@ -303,7 +315,7 @@ async function buildHumanoid(o) {
       ke = ce(we, { prefer: ie === 'ranged' ? 'ranged' : 'melee' });
     ie === 'none' && ((ke.gear.main = null), (ke.gear.off = null));
     let Qe = await oT(ke, s, gearPalette(ke), x, m),
-      N = Vb(i, [...D, ...Qe], c, r, s, X);
+      N = bakeSkinnedMeshes(i, [...D, ...Qe], c, r, s, X);
     for (let L of J) (r.remove(L), L.geometry.dispose());
     J = N.meshes;
     for (let L of J) r.add(L);
@@ -317,7 +329,7 @@ async function buildHumanoid(o) {
       ue(ke.grips || []));
   }),
     (j.userData.materials = { atlas: f }));
-  let Z = p / jb,
+  let Z = p / ANIM_PELVIS_HEIGHT,
     K = Fz(i, t, Z, h, J, A),
     ve = new Vector3(NaN, 0, 0);
   j.post.push(() => {

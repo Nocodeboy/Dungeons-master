@@ -1,5 +1,11 @@
 // actors/rig.js
-// Reconstruido de publicado/juego.js (módulo __esm «p2»). Nombres locales aún minificados.
+// Reconstruido de publicado/juego.js (módulo __esm «p2»).
+//
+// Esqueleto y animaciones de los humanoides. Carga assets/chars/humanos.json (cuerpos «m»/«f»,
+// piezas de ropa y pelo como SkinnedMesh) y assets/chars/anims.json (clips, con el movimiento
+// raíz recortado y la altura de la pelvis corregida con datos/animaciones.json). bakeSkinnedMeshes
+// «hornea» todas las piezas de un personaje (mallas del glTF y geometría procedural) en el
+// esqueleto clonado y escalado, fundiéndolas en una SkinnedMesh por material. Lo usa humanoid.js.
 
 import {
   AnimationClip,
@@ -17,356 +23,400 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import datosAnimaciones from '../datos/animaciones.json';
 import { loadGLTF } from '../assets.js';
 
-function c2() {
+/**
+ * Carga (una vez) humanos.json: devuelve {gltf, parts, rootBone}, donde `parts` agrupa las
+ * SkinnedMesh por pieza («m_…», «f_…», «pelo_…») y `rootBone` da el hueso raíz de cada cuerpo.
+ */
+function loadHumanRig() {
   return (
-    Bb ||
-      (Bb = loadGLTF('assets/chars/humanos.json').then((o) => {
-        (o.scene.traverse((a) => {
-          a.userData && a.userData.n && (a.name = a.userData.n);
+    rigPromise ||
+      (rigPromise = loadGLTF('assets/chars/humanos.json').then((gltf) => {
+        (gltf.scene.traverse((obj) => {
+          obj.userData && obj.userData.n && (obj.name = obj.userData.n);
         }),
-          o.scene.updateMatrixWorld(!0));
-        let e = new Map();
-        o.scene.traverse((a) => {
-          if (!a.isSkinnedMesh) return;
-          let n = a;
-          for (; n && !/^(m|f|pelo)_/.test(n.name);) n = n.parent;
-          let s = n ? n.name : a.name;
-          (e.has(s) || e.set(s, []), e.get(s).push(a));
+          gltf.scene.updateMatrixWorld(!0));
+        let parts = new Map();
+        gltf.scene.traverse((obj) => {
+          if (!obj.isSkinnedMesh) return;
+          let group = obj;
+          for (; group && !/^(m|f|pelo)_/.test(group.name);) group = group.parent;
+          let key = group ? group.name : obj.name;
+          (parts.has(key) || parts.set(key, []), parts.get(key).push(obj));
         });
-        let t = (a) =>
-          o.scene.getObjectByName(`humano_${a}`).children.find((s) => s.isBone || s.name === 'root');
-        return { gltf: o, parts: e, rootBone: { m: t('m'), f: t('f') } };
+        let rootOf = (body) =>
+          gltf.scene
+            .getObjectByName(`humano_${body}`)
+            .children.find((child) => child.isBone || child.name === 'root');
+        return { gltf, parts, rootBone: { m: rootOf('m'), f: rootOf('f') } };
       })),
-    Bb
+    rigPromise
   );
 }
-function d2() {
+/**
+ * Carga (una vez) anims.json y devuelve Map(nombre → AnimationClip) sin pistas de escala ni de
+ * posición salvo la de la pelvis, que se recorta (clampRootMotion) y se pega al suelo (groundTrack).
+ * Con `globalThis.__mdgSinSuelo` no se aplica la corrección de suelo.
+ */
+function loadAnimClips() {
   return (
-    qb ||
-      (qb = loadGLTF('assets/chars/anims.json').then((o) => {
-        let e = new Map(),
-          t = o.animations
-            .find((s) => s.name === 'Idle_Loop')
-            ?.tracks.find((s) => s.name === 'pelvis.position'),
-          a = t ? Array.from(t.values.slice(0, 3)) : [0, 0, jb],
-          n = [0, 1, 2].reduce((s, i) => (Math.abs(a[i]) > Math.abs(a[s]) ? i : s), 0);
-        for (let s of o.animations) {
-          let i = s.tracks.filter((l) =>
-              l.name.endsWith('.scale')
+    clipsPromise ||
+      (clipsPromise = loadGLTF('assets/chars/anims.json').then((gltf) => {
+        let clips = new Map(),
+          restTrack = gltf.animations
+            .find((anim) => anim.name === 'Idle_Loop')
+            ?.tracks.find((track) => track.name === 'pelvis.position'),
+          rest = restTrack ? Array.from(restTrack.values.slice(0, 3)) : [0, 0, ANIM_PELVIS_HEIGHT],
+          upAxis = [0, 1, 2].reduce(
+            (best, axis) => (Math.abs(rest[axis]) > Math.abs(rest[best]) ? axis : best),
+            0,
+          );
+        for (let anim of gltf.animations) {
+          let tracks = anim.tracks.filter((track) =>
+              track.name.endsWith('.scale')
                 ? !1
-                : l.name.endsWith('.position')
-                  ? l.name.startsWith('pelvis.')
-                  : !l.name.startsWith('Armature.'),
+                : track.name.endsWith('.position')
+                  ? track.name.startsWith('pelvis.')
+                  : !track.name.startsWith('Armature.'),
             ),
-            r = i.find((l) => l.name === 'pelvis.position');
-          if (r) {
-            dz(s.name, r, a, n);
-            let l =
-              datosAnimaciones[s.name] && !globalThis.__mdgSinSuelo
-                ? uz(r, datosAnimaciones[s.name], n)
+            pelvis = tracks.find((track) => track.name === 'pelvis.position');
+          if (pelvis) {
+            clampRootMotion(anim.name, pelvis, rest, upAxis);
+            let grounded =
+              datosAnimaciones[anim.name] && !globalThis.__mdgSinSuelo
+                ? groundTrack(pelvis, datosAnimaciones[anim.name], upAxis)
                 : null;
-            l && (i[i.indexOf(r)] = r = l);
+            grounded && (tracks[tracks.indexOf(pelvis)] = pelvis = grounded);
           }
-          e.set(s.name, new AnimationClip(s.name, s.duration, i));
+          clips.set(anim.name, new AnimationClip(anim.name, anim.duration, tracks));
         }
-        return e;
+        return clips;
       })),
-    qb
+    clipsPromise
   );
 }
-function dz(o, e, t, a) {
-  let n = e.values,
-    s = e.times,
-    i = s.length;
-  if (i < 2) return;
-  let [r, l] = [0, 1, 2].filter((m) => m !== a),
-    c = t[r],
-    d = t[l];
-  if (/Awaken_Standing/.test(o)) {
-    let m = n[r] - c,
-      _ = n[l] - d,
-      b = s[i - 1] - s[0] || 1;
-    for (let f = 0; f < i; f++) {
-      let v = 1 - (s[f] - s[0]) / b;
-      ((n[f * 3 + r] -= m * v), (n[f * 3 + l] -= _ * v));
+/** Limita el desplazamiento horizontal de la pelvis de un clip (y lo devuelve al origen en «Awaken»). */
+function clampRootMotion(name, track, rest, upAxis) {
+  let values = track.values,
+    times = track.times,
+    count = times.length;
+  if (count < 2) return;
+  let [ax1, ax2] = [0, 1, 2].filter((axis) => axis !== upAxis),
+    rest1 = rest[ax1],
+    rest2 = rest[ax2];
+  if (/Awaken_Standing/.test(name)) {
+    let off1 = values[ax1] - rest1,
+      off2 = values[ax2] - rest2,
+      span = times[count - 1] - times[0] || 1;
+    for (let k = 0; k < count; k++) {
+      let fade = 1 - (times[k] - times[0]) / span;
+      ((values[k * 3 + ax1] -= off1 * fade), (values[k * 3 + ax2] -= off2 * fade));
     }
   }
-  let u = 0;
-  for (let m = 0; m < i; m++) u = Math.max(u, Math.hypot(n[m * 3 + r] - c, n[m * 3 + l] - d));
-  let h = /Dodge/.test(o) ? 0.35 : /Skeletons/.test(o) ? 0.6 : 1.1;
-  if (u <= h) return;
-  let p = h / u;
-  for (let m = 0; m < i; m++)
-    ((n[m * 3 + r] = c + (n[m * 3 + r] - c) * p), (n[m * 3 + l] = d + (n[m * 3 + l] - d) * p));
+  let maxDist = 0;
+  for (let k = 0; k < count; k++)
+    maxDist = Math.max(maxDist, Math.hypot(values[k * 3 + ax1] - rest1, values[k * 3 + ax2] - rest2));
+  let limit = /Dodge/.test(name) ? 0.35 : /Skeletons/.test(name) ? 0.6 : 1.1;
+  if (maxDist <= limit) return;
+  let scale = limit / maxDist;
+  for (let k = 0; k < count; k++)
+    ((values[k * 3 + ax1] = rest1 + (values[k * 3 + ax1] - rest1) * scale),
+      (values[k * 3 + ax2] = rest2 + (values[k * 3 + ax2] - rest2) * scale));
 }
-function uz(o, [e, t], a) {
-  let n = t.length,
-    s = new Float32Array(n),
-    i = new Float32Array(n * 3),
-    r = o.createInterpolant();
-  for (let l = 0; l < n; l++) {
-    s[l] = l * e;
-    let c = r.evaluate(s[l]);
-    (i.set(c, l * 3), (i[l * 3 + a] += t[l]));
+/** Remuestrea la pista de la pelvis cada `step` s sumando `offsets` en el eje vertical. */
+function groundTrack(track, [step, offsets], upAxis) {
+  let count = offsets.length,
+    times = new Float32Array(count),
+    values = new Float32Array(count * 3),
+    interp = track.createInterpolant();
+  for (let k = 0; k < count; k++) {
+    times[k] = k * step;
+    let v = interp.evaluate(times[k]);
+    (values.set(v, k * 3), (values[k * 3 + upAxis] += offsets[k]));
   }
-  return new VectorKeyframeTrack(o.name, s, i);
+  return new VectorKeyframeTrack(track.name, times, values);
 }
-function Gb(o, e) {
-  let t = `${o.uuid}|${e.join(',')}`;
-  if (Ub.has(t)) return Ub.get(t);
-  let a = o.geometry,
-    n = a.attributes.skinIndex,
-    s = a.attributes.skinWeight,
-    i = o.skeleton.bones.map((u) => u.name),
-    r = e.map((u) => hz[u]),
-    l = new Uint8Array(n.count);
-  for (let u = 0; u < n.count; u++) {
-    let h = 0,
-      p = 0;
-    for (let m = 0; m < 4; m++) {
-      let _ = s.getComponent(u, m);
-      _ > h && ((h = _), (p = n.getComponent(u, m)));
+/**
+ * Índices de los triángulos de una SkinnedMesh cuyos tres vértices dependen sobre todo de huesos de
+ * las regiones dadas (BODY_REGIONS: cabeza, torso, brazos…). Se cachea por malla y regiones.
+ */
+function triangleSubset(mesh, regions) {
+  let key = `${mesh.uuid}|${regions.join(',')}`;
+  if (subsetCache.has(key)) return subsetCache.get(key);
+  let geo = mesh.geometry,
+    skinIndex = geo.attributes.skinIndex,
+    skinWeight = geo.attributes.skinWeight,
+    boneNames = mesh.skeleton.bones.map((bone) => bone.name),
+    patterns = regions.map((region) => BODY_REGIONS[region]),
+    keep = new Uint8Array(skinIndex.count);
+  for (let v = 0; v < skinIndex.count; v++) {
+    let best = 0,
+      bone = 0;
+    for (let j = 0; j < 4; j++) {
+      let w = skinWeight.getComponent(v, j);
+      w > best && ((best = w), (bone = skinIndex.getComponent(v, j)));
     }
-    l[u] = r.some((m) => m.test(i[p])) ? 1 : 0;
+    keep[v] = patterns.some((re) => re.test(boneNames[bone])) ? 1 : 0;
   }
-  let c = a.index,
-    d = [];
-  for (let u = 0; u < c.count; u += 3) {
-    let h = c.getX(u),
-      p = c.getX(u + 1),
-      m = c.getX(u + 2);
-    l[h] && l[p] && l[m] && d.push(h, p, m);
+  let index = geo.index,
+    tris = [];
+  for (let k = 0; k < index.count; k += 3) {
+    let a = index.getX(k),
+      b = index.getX(k + 1),
+      c = index.getX(k + 2);
+    keep[a] && keep[b] && keep[c] && tris.push(a, b, c);
   }
-  return (Ub.set(t, d), d);
+  return (subsetCache.set(key, tris), tris);
 }
-function u2(o) {
-  let e = o.clone(!0),
-    t = [],
-    a = new Map();
+/** Clona la jerarquía de huesos: {root, bones, byName}. */
+function cloneSkeleton(rootBone) {
+  let root = rootBone.clone(!0),
+    bones = [],
+    byName = new Map();
   return (
-    e.traverse((n) => {
-      n.isBone && (t.push(n), a.set(n.name, n));
+    root.traverse((obj) => {
+      obj.isBone && (bones.push(obj), byName.set(obj.name, obj));
     }),
-    { root: e, bones: t, byName: a }
+    { root, bones, byName }
   );
 }
-function h2(o, e) {
-  let t = new Vector3(1, 1, 1);
-  o.root.traverse((a) => {
-    if (!a.isBone) return;
-    let n = e.get(a.name) || t;
-    for (let s of a.children) s.isBone && s.position.multiply(n);
+/** Escala las posiciones de los hijos de cada hueso según `scales` (Map nombre → Vector3). */
+function scaleBones(rig, scales) {
+  let one = new Vector3(1, 1, 1);
+  rig.root.traverse((bone) => {
+    if (!bone.isBone) return;
+    let scale = scales.get(bone.name) || one;
+    for (let child of bone.children) child.isBone && child.position.multiply(scale);
   });
 }
-function Vb(o, e, t, a, n, s = null) {
-  a.updateMatrixWorld(!0);
-  let i = new Matrix4().copy(a.matrixWorld).invert(),
-    r = new Map(o.bones.map((S, z) => [S.name, z])),
-    l = s ? s.Wnew : o.bones.map((S) => i.clone().multiply(S.matrixWorld)),
-    c = new Vector3(1, 1, 1),
-    d = new Map(),
-    u = new Vector3(),
-    h = new Vector3(),
-    p = new Vector3(),
-    m = new Vector3(),
-    _ = new Vector3(),
-    b = new Vector3(),
-    f = new Vector3(),
-    v = new Map(),
-    x = (S, z) => {
-      let D = S;
-      if (z === void 0 && v.has(D)) return v.get(D);
-      let M = r.has(S) ? r.get(S) : 0,
-        R = t.get(S) || c,
-        A = z || n.get(S)?.matrixWorld || l[M],
-        P = l[M].clone()
-          .multiply(new Matrix4().makeScale(R.x, R.y, R.z))
-          .multiply(A.clone().invert()),
-        I = [P, new Matrix3().getNormalMatrix(P), M];
-      return (z === void 0 && v.set(D, I), I);
+/**
+ * Hornea las piezas de un personaje en el esqueleto `rig` (ya escalado). Cada pieza es
+ * {mesh, index?, material, deform?} (malla del glTF, se repielan sus vértices) o
+ * {geometry, material, bone | weights, deform?} (geometría procedural). `srcBones` son los huesos
+ * originales; `prev` ({Wnew, skeleton}) reutiliza el esqueleto al cambiar de arma.
+ * Devuelve {meshes, skeleton, Wnew, boneIndex}.
+ */
+function bakeSkinnedMeshes(rig, parts, scales, model, srcBones, prev = null) {
+  model.updateMatrixWorld(!0);
+  let modelInv = new Matrix4().copy(model.matrixWorld).invert(),
+    boneIndex = new Map(rig.bones.map((bone, idx) => [bone.name, idx])),
+    bindWorld = prev ? prev.Wnew : rig.bones.map((bone) => modelInv.clone().multiply(bone.matrixWorld)),
+    one = new Vector3(1, 1, 1),
+    byMaterial = new Map(),
+    pos = new Vector3(),
+    nrm = new Vector3(),
+    outPos = new Vector3(),
+    outNrm = new Vector3(),
+    srcPos = new Vector3(),
+    srcNrm = new Vector3(),
+    tmp = new Vector3(),
+    xformCache = new Map(),
+    boneXform = (name, srcMatrix) => {
+      let key = name;
+      if (srcMatrix === void 0 && xformCache.has(key)) return xformCache.get(key);
+      let idx = boneIndex.has(name) ? boneIndex.get(name) : 0,
+        scale = scales.get(name) || one,
+        src = srcMatrix || srcBones.get(name)?.matrixWorld || bindWorld[idx],
+        xf = bindWorld[idx]
+          .clone()
+          .multiply(new Matrix4().makeScale(scale.x, scale.y, scale.z))
+          .multiply(src.clone().invert()),
+        entry = [xf, new Matrix3().getNormalMatrix(xf), idx];
+      return (srcMatrix === void 0 && xformCache.set(key, entry), entry);
     },
-    g = n.get('Head'),
-    y = g ? new Vector3().setFromMatrixPosition(g.matrixWorld) : new Vector3();
-  for (let S of e) {
-    let z;
-    if ((S.mesh ? (z = w(S)) : (z = k(S)), !z)) continue;
-    let D = S.material;
-    (d.has(D) || d.set(D, []), d.get(D).push(z));
+    head = srcBones.get('Head'),
+    headPos = head ? new Vector3().setFromMatrixPosition(head.matrixWorld) : new Vector3();
+  for (let part of parts) {
+    let geo;
+    if ((part.mesh ? (geo = bakeMesh(part)) : (geo = bakeGeometry(part)), !geo)) continue;
+    let material = part.material;
+    (byMaterial.has(material) || byMaterial.set(material, []), byMaterial.get(material).push(geo));
   }
-  function w(S) {
-    let z = S.mesh,
-      D = z.skeleton,
-      M = [],
-      R = [],
-      A = [],
-      P = [],
-      I = -1;
-    for (let L = 0; L < D.bones.length; L++) {
-      let O = D.bones[L].name;
-      O === 'Head' && (I = L);
-      let B = D.bones[L].matrixWorld,
-        $ = B.clone().multiply(D.boneInverses[L]).multiply(z.bindMatrix);
-      (M.push($), R.push(new Matrix3().getNormalMatrix($)));
-      let ee = x(O, B);
-      (A.push(ee), P.push(ee[2]));
+  function bakeMesh(part) {
+    let mesh = part.mesh,
+      skel = mesh.skeleton,
+      skinMats = [],
+      normalMats = [],
+      boneXforms = [],
+      boneIdx = [],
+      headIdx = -1;
+    for (let j = 0; j < skel.bones.length; j++) {
+      let name = skel.bones[j].name;
+      name === 'Head' && (headIdx = j);
+      let world = skel.bones[j].matrixWorld,
+        skinMat = world.clone().multiply(skel.boneInverses[j]).multiply(mesh.bindMatrix);
+      (skinMats.push(skinMat), normalMats.push(new Matrix3().getNormalMatrix(skinMat)));
+      let xf = boneXform(name, world);
+      (boneXforms.push(xf), boneIdx.push(xf[2]));
     }
-    let U = I >= 0 ? new Vector3().setFromMatrixPosition(D.bones[I].matrixWorld) : y,
-      j = z.geometry,
-      X = j.attributes.position,
-      J = j.attributes.normal,
-      Z = j.attributes.uv,
-      K = j.attributes.skinIndex,
-      ve = j.attributes.skinWeight,
-      ge = S.index || (j.index ? Array.from(j.index.array) : [...Array(X.count).keys()]),
-      ue = new Int32Array(X.count).fill(-1),
-      Q = [];
-    for (let L of ge) ue[L] < 0 && ((ue[L] = Q.length), Q.push(L));
-    let oe = Q.length,
-      ie = new Float32Array(oe * 3),
-      we = new Float32Array(oe * 3),
-      ce = new Float32Array(oe * 2),
-      ke = new Uint16Array(oe * 4),
-      Qe = new Float32Array(oe * 4);
-    for (let L = 0; L < oe; L++) {
-      let O = Q[L];
-      (_.fromBufferAttribute(X, O), b.fromBufferAttribute(J, O), u.set(0, 0, 0), h.set(0, 0, 0));
-      let B = 0;
-      for (let $ = 0; $ < 4; $++) {
-        let ee = ve.getComponent(O, $);
-        if (ee === 0) continue;
-        let be = K.getComponent(O, $);
-        (be === I && (B += ee),
-          u.addScaledVector(f.copy(_).applyMatrix4(M[be]), ee),
-          h.addScaledVector(f.copy(b).applyMatrix3(R[be]), ee));
+    let center =
+        headIdx >= 0 ? new Vector3().setFromMatrixPosition(skel.bones[headIdx].matrixWorld) : headPos,
+      geo = mesh.geometry,
+      posAttr = geo.attributes.position,
+      nrmAttr = geo.attributes.normal,
+      uvAttr = geo.attributes.uv,
+      skinIdxAttr = geo.attributes.skinIndex,
+      skinWAttr = geo.attributes.skinWeight,
+      indices = part.index || (geo.index ? Array.from(geo.index.array) : [...Array(posAttr.count).keys()]),
+      remap = new Int32Array(posAttr.count).fill(-1),
+      used = [];
+    for (let v of indices) remap[v] < 0 && ((remap[v] = used.length), used.push(v));
+    let n = used.length,
+      positions = new Float32Array(n * 3),
+      normals = new Float32Array(n * 3),
+      uvs = new Float32Array(n * 2),
+      outIdx = new Uint16Array(n * 4),
+      outW = new Float32Array(n * 4);
+    for (let k = 0; k < n; k++) {
+      let v = used[k];
+      (srcPos.fromBufferAttribute(posAttr, v),
+        srcNrm.fromBufferAttribute(nrmAttr, v),
+        pos.set(0, 0, 0),
+        nrm.set(0, 0, 0));
+      let headW = 0;
+      for (let j = 0; j < 4; j++) {
+        let w = skinWAttr.getComponent(v, j);
+        if (w === 0) continue;
+        let bone = skinIdxAttr.getComponent(v, j);
+        (bone === headIdx && (headW += w),
+          pos.addScaledVector(tmp.copy(srcPos).applyMatrix4(skinMats[bone]), w),
+          nrm.addScaledVector(tmp.copy(srcNrm).applyMatrix3(normalMats[bone]), w));
       }
-      (h.normalize(), S.deform && S.deform(u, h, B, U, S), p.set(0, 0, 0), m.set(0, 0, 0));
-      for (let $ = 0; $ < 4; $++) {
-        let ee = ve.getComponent(O, $),
-          be = K.getComponent(O, $);
-        ((ke[L * 4 + $] = P[be]),
-          (Qe[L * 4 + $] = ee),
-          ee !== 0 &&
-            (p.addScaledVector(f.copy(u).applyMatrix4(A[be][0]), ee),
-            m.addScaledVector(f.copy(h).applyMatrix3(A[be][1]), ee)));
+      (nrm.normalize(),
+        part.deform && part.deform(pos, nrm, headW, center, part),
+        outPos.set(0, 0, 0),
+        outNrm.set(0, 0, 0));
+      for (let j = 0; j < 4; j++) {
+        let w = skinWAttr.getComponent(v, j),
+          bone = skinIdxAttr.getComponent(v, j);
+        ((outIdx[k * 4 + j] = boneIdx[bone]),
+          (outW[k * 4 + j] = w),
+          w !== 0 &&
+            (outPos.addScaledVector(tmp.copy(pos).applyMatrix4(boneXforms[bone][0]), w),
+            outNrm.addScaledVector(tmp.copy(nrm).applyMatrix3(boneXforms[bone][1]), w)));
       }
-      (m.normalize(),
-        (ie[L * 3] = p.x),
-        (ie[L * 3 + 1] = p.y),
-        (ie[L * 3 + 2] = p.z),
-        (we[L * 3] = m.x),
-        (we[L * 3 + 1] = m.y),
-        (we[L * 3 + 2] = m.z),
-        Z && ((ce[L * 2] = Z.getX(O)), (ce[L * 2 + 1] = Z.getY(O))));
+      (outNrm.normalize(),
+        (positions[k * 3] = outPos.x),
+        (positions[k * 3 + 1] = outPos.y),
+        (positions[k * 3 + 2] = outPos.z),
+        (normals[k * 3] = outNrm.x),
+        (normals[k * 3 + 1] = outNrm.y),
+        (normals[k * 3 + 2] = outNrm.z),
+        uvAttr && ((uvs[k * 2] = uvAttr.getX(v)), (uvs[k * 2 + 1] = uvAttr.getY(v))));
     }
-    let N = new BufferGeometry();
+    let out = new BufferGeometry();
     return (
-      N.setAttribute('position', new BufferAttribute(ie, 3)),
-      N.setAttribute('normal', new BufferAttribute(we, 3)),
-      N.setAttribute('uv', new BufferAttribute(ce, 2)),
-      N.setAttribute('gcol', new BufferAttribute(new Float32Array(oe * 3).fill(1), 3)),
-      N.setAttribute('gpar', new BufferAttribute(new Float32Array(oe * 3), 3)),
-      N.setAttribute('skinIndex', new BufferAttribute(ke, 4)),
-      N.setAttribute('skinWeight', new BufferAttribute(Qe, 4)),
-      N.setIndex(ge.map((L) => ue[L])),
-      N
+      out.setAttribute('position', new BufferAttribute(positions, 3)),
+      out.setAttribute('normal', new BufferAttribute(normals, 3)),
+      out.setAttribute('uv', new BufferAttribute(uvs, 2)),
+      out.setAttribute('gcol', new BufferAttribute(new Float32Array(n * 3).fill(1), 3)),
+      out.setAttribute('gpar', new BufferAttribute(new Float32Array(n * 3), 3)),
+      out.setAttribute('skinIndex', new BufferAttribute(outIdx, 4)),
+      out.setAttribute('skinWeight', new BufferAttribute(outW, 4)),
+      out.setIndex(indices.map((v) => remap[v])),
+      out
     );
   }
-  function k(S) {
-    let z = S.geometry;
-    if (!z) return null;
-    z.index && (z = z.toNonIndexed());
-    let D = z.attributes.position,
-      M = z.attributes.normal,
-      R = D.count,
-      A = new Float32Array(R * 3),
-      P = new Float32Array(R * 3),
-      I = new Uint16Array(R * 4),
-      U = new Float32Array(R * 4);
-    for (let ue = 0; ue < R; ue++) {
-      (u.fromBufferAttribute(D, ue), h.fromBufferAttribute(M, ue));
-      let Q = S.weights ? S.weights(u) : [[S.bone, 1]];
-      (S.deform && S.deform(u, h, 1, y, S), p.set(0, 0, 0), m.set(0, 0, 0));
-      let oe = 0,
-        ie = 0;
-      for (let [we, ce] of Q) {
-        if (ie >= 4 || !(ce > 0)) continue;
-        let ke = x(we);
-        ((I[ue * 4 + ie] = ke[2]),
-          (U[ue * 4 + ie] = ce),
-          p.addScaledVector(f.copy(u).applyMatrix4(ke[0]), ce),
-          m.addScaledVector(f.copy(h).applyMatrix3(ke[1]), ce),
-          (oe += ce),
-          ie++);
+  function bakeGeometry(part) {
+    let geo = part.geometry;
+    if (!geo) return null;
+    geo.index && (geo = geo.toNonIndexed());
+    let posAttr = geo.attributes.position,
+      nrmAttr = geo.attributes.normal,
+      count = posAttr.count,
+      positions = new Float32Array(count * 3),
+      normals = new Float32Array(count * 3),
+      outIdx = new Uint16Array(count * 4),
+      outW = new Float32Array(count * 4);
+    for (let v = 0; v < count; v++) {
+      (pos.fromBufferAttribute(posAttr, v), nrm.fromBufferAttribute(nrmAttr, v));
+      let weights = part.weights ? part.weights(pos) : [[part.bone, 1]];
+      (part.deform && part.deform(pos, nrm, 1, headPos, part), outPos.set(0, 0, 0), outNrm.set(0, 0, 0));
+      let total = 0,
+        slot = 0;
+      for (let [bone, w] of weights) {
+        if (slot >= 4 || !(w > 0)) continue;
+        let xf = boneXform(bone);
+        ((outIdx[v * 4 + slot] = xf[2]),
+          (outW[v * 4 + slot] = w),
+          outPos.addScaledVector(tmp.copy(pos).applyMatrix4(xf[0]), w),
+          outNrm.addScaledVector(tmp.copy(nrm).applyMatrix3(xf[1]), w),
+          (total += w),
+          slot++);
       }
-      if (oe) {
-        p.multiplyScalar(1 / oe);
-        for (let we = 0; we < 4; we++) U[ue * 4 + we] /= oe;
-        (m.normalize(), A.set([p.x, p.y, p.z], ue * 3), P.set([m.x, m.y, m.z], ue * 3));
+      if (total) {
+        outPos.multiplyScalar(1 / total);
+        for (let j = 0; j < 4; j++) outW[v * 4 + j] /= total;
+        (outNrm.normalize(),
+          positions.set([outPos.x, outPos.y, outPos.z], v * 3),
+          normals.set([outNrm.x, outNrm.y, outNrm.z], v * 3));
       }
     }
-    let j = new BufferGeometry();
-    (j.setAttribute('position', new BufferAttribute(A, 3)),
-      j.setAttribute('normal', new BufferAttribute(P, 3)));
-    let X = z.attributes.uv,
-      J = z.attributes.color,
-      Z = z.attributes.metal,
-      K = new Float32Array(R * 2),
-      ve = new Float32Array(R * 3).fill(1),
-      ge = new Float32Array(R * 3);
-    for (let ue = 0; ue < R; ue++)
-      (X && ((K[ue * 2] = X.getX(ue)), (K[ue * 2 + 1] = X.getY(ue))),
-        J &&
-          ((ve[ue * 3] = J.getX(ue)),
-          (ve[ue * 3 + 1] = J.getY(ue)),
-          (ve[ue * 3 + 2] = J.getZ(ue)),
-          (ge[ue * 3] = Z ? Z.getX(ue) : 0),
-          (ge[ue * 3 + 1] = Z ? Z.getY(ue) : 0),
-          (ge[ue * 3 + 2] = 1)));
+    let out = new BufferGeometry();
+    (out.setAttribute('position', new BufferAttribute(positions, 3)),
+      out.setAttribute('normal', new BufferAttribute(normals, 3)));
+    let uvAttr = geo.attributes.uv,
+      colAttr = geo.attributes.color,
+      metalAttr = geo.attributes.metal,
+      uvs = new Float32Array(count * 2),
+      gcol = new Float32Array(count * 3).fill(1),
+      gpar = new Float32Array(count * 3);
+    for (let v = 0; v < count; v++)
+      (uvAttr && ((uvs[v * 2] = uvAttr.getX(v)), (uvs[v * 2 + 1] = uvAttr.getY(v))),
+        colAttr &&
+          ((gcol[v * 3] = colAttr.getX(v)),
+          (gcol[v * 3 + 1] = colAttr.getY(v)),
+          (gcol[v * 3 + 2] = colAttr.getZ(v)),
+          (gpar[v * 3] = metalAttr ? metalAttr.getX(v) : 0),
+          (gpar[v * 3 + 1] = metalAttr ? metalAttr.getY(v) : 0),
+          (gpar[v * 3 + 2] = 1)));
     return (
-      j.setAttribute('uv', new BufferAttribute(K, 2)),
-      j.setAttribute('gcol', new BufferAttribute(ve, 3)),
-      j.setAttribute('gpar', new BufferAttribute(ge, 3)),
-      j.setAttribute('skinIndex', new BufferAttribute(I, 4)),
-      j.setAttribute('skinWeight', new BufferAttribute(U, 4)),
-      j
+      out.setAttribute('uv', new BufferAttribute(uvs, 2)),
+      out.setAttribute('gcol', new BufferAttribute(gcol, 3)),
+      out.setAttribute('gpar', new BufferAttribute(gpar, 3)),
+      out.setAttribute('skinIndex', new BufferAttribute(outIdx, 4)),
+      out.setAttribute('skinWeight', new BufferAttribute(outW, 4)),
+      out
     );
   }
-  let T =
-      s?.skeleton ||
+  let skeleton =
+      prev?.skeleton ||
       new Skeleton(
-        o.bones,
-        l.map((S) => S.clone().invert()),
+        rig.bones,
+        bindWorld.map((m) => m.clone().invert()),
       ),
-    E = [];
-  for (let [S, z] of d) {
-    let M = z.some((P) => P.index) ? z.map((P) => (P.index ? P : pz(P))) : z,
-      R = M.length > 1 ? mergeGeometries(M, !1) : M[0];
-    if (!R) {
-      console.warn('[personajes] no se pudieron fundir las piezas de', S.name || S.type);
+    meshes = [];
+  for (let [material, geos] of byMaterial) {
+    let indexed = geos.some((g) => g.index) ? geos.map((g) => (g.index ? g : ensureIndex(g))) : geos,
+      merged = indexed.length > 1 ? mergeGeometries(indexed, !1) : indexed[0];
+    if (!merged) {
+      console.warn('[personajes] no se pudieron fundir las piezas de', material.name || material.type);
       continue;
     }
-    for (let P of M) P !== R && P.dispose();
-    R.computeBoundingSphere();
-    let A = new SkinnedMesh(R, S);
-    (A.bind(T, new Matrix4()),
-      (A.castShadow = !0),
-      (A.receiveShadow = !0),
-      (A.boundingSphere = new Sphere(new Vector3(0, 0.9, 0), 1.6)),
-      (A.frustumCulled = !0),
-      E.push(A));
+    for (let g of indexed) g !== merged && g.dispose();
+    merged.computeBoundingSphere();
+    let mesh = new SkinnedMesh(merged, material);
+    (mesh.bind(skeleton, new Matrix4()),
+      (mesh.castShadow = !0),
+      (mesh.receiveShadow = !0),
+      (mesh.boundingSphere = new Sphere(new Vector3(0, 0.9, 0), 1.6)),
+      (mesh.frustumCulled = !0),
+      meshes.push(mesh));
   }
-  return { meshes: E, skeleton: T, Wnew: l, boneIndex: r };
+  return { meshes, skeleton, Wnew: bindWorld, boneIndex };
 }
-function pz(o) {
-  let e = o.attributes.position.count,
-    t = new (e > 65535 ? Uint32Array : Uint16Array)(e);
-  for (let a = 0; a < e; a++) t[a] = a;
-  return (o.setIndex(new BufferAttribute(t, 1)), o);
+/** Añade un índice trivial a una geometría no indexada (para poder fundirla con otras). */
+function ensureIndex(geo) {
+  let count = geo.attributes.position.count,
+    index = new (count > 65535 ? Uint32Array : Uint16Array)(count);
+  for (let i = 0; i < count; i++) index[i] = i;
+  return (geo.setIndex(new BufferAttribute(index, 1)), geo);
 }
-let Bb = null;
-let qb = null;
-const jb = 0.917;
-const hz = {
+let rigPromise = null;
+let clipsPromise = null;
+/** Altura de la pelvis (m) del esqueleto con el que se grabaron las animaciones. */
+const ANIM_PELVIS_HEIGHT = 0.917;
+/** Regiones del cuerpo → huesos que las forman (para quitar la piel tapada por la ropa). */
+const BODY_REGIONS = {
   cabeza: /^(Head|neck_01)$/,
   torso: /^(spine_0[123]|clavicle_[lr])$/,
   cadera: /^pelvis$/,
@@ -376,6 +426,14 @@ const hz = {
   pantorrillas: /^calf_[lr]$/,
   pies: /^(foot|ball)(_leaf)?_[lr]$/,
 };
-const Ub = new Map();
+const subsetCache = new Map();
 
-export { Gb, Vb, c2, d2, h2, jb, u2 };
+export {
+  triangleSubset,
+  bakeSkinnedMeshes,
+  loadHumanRig,
+  loadAnimClips,
+  scaleBones,
+  ANIM_PELVIS_HEIGHT,
+  cloneSkeleton,
+};
