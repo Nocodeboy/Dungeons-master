@@ -39,7 +39,7 @@ import {
   G,
 } from './geometry.js';
 import { Character } from './character.js';
-import { nc, Nb, Fb } from './anims.js';
+import { ANIM_CLIPS, GRIP_CLIPS, RACE_CLIPS } from './anims.js';
 import { V2, rc, $2, W2 } from './monster-parts.js';
 import { Y2 } from './poses.js';
 
@@ -261,7 +261,7 @@ async function buildHumanoid(o) {
   let P = (l.scale ?? 1) * (l.height ?? 1);
   (r.scale.setScalar(P), A.add(r));
   let I = new AnimationMixer(i.root),
-    U = { ...nc, ...(Fb[o.family] || {}), ...(Nb[o.style] || {}) },
+    U = { ...ANIM_CLIPS, ...(RACE_CLIPS[o.family] || {}), ...(GRIP_CLIPS[o.style] || {}) },
     j = new Character({
       id: o.id,
       kind: o.kind || 'hero',
@@ -298,7 +298,11 @@ async function buildHumanoid(o) {
     for (let L of J) r.add(L);
     ((o.gear = ke.gear),
       (o.style = ke.style),
-      Object.assign(j.anims, { ...nc, ...(Fb[o.family] || {}), ...(Nb[ke.style] || {}) }),
+      Object.assign(j.anims, {
+        ...ANIM_CLIPS,
+        ...(RACE_CLIPS[o.family] || {}),
+        ...(GRIP_CLIPS[ke.style] || {}),
+      }),
       ue(ke.grips || []));
   }),
     (j.userData.materials = { atlas: f }));

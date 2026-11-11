@@ -19,7 +19,7 @@ import {
   TubeGeometry,
   Vector3,
 } from 'three';
-import { Fs } from '../actors/character.js';
+import { makeCharacter as Fs } from '../actors/character.js';
 import { hc } from '../actors/roster.js';
 import { cellToWorld } from '../explore/hex.js';
 import { t3, a3, jm } from './creatures.js';

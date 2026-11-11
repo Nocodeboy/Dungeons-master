@@ -13,7 +13,7 @@ import {
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLTF } from '../assets.js';
 import { Character } from './character.js';
-import { i2, r2 } from './anims.js';
+import { WILD_ANIMAL_CLIPS, FARM_ANIMAL_CLIPS } from './anims.js';
 import { Yn } from './appearance.js';
 import { m2 } from './materials.js';
 
@@ -131,7 +131,7 @@ async function gv(o, { index: e = 0, tint: t = null } = {}) {
   n.farm && !n.bird && (_ = eL(i, _));
   let b = n.farm
       ? {
-          ...r2,
+          ...FARM_ANIMAL_CLIPS,
           ...(n.bird
             ? {
                 walk: ['Walk'],
@@ -143,7 +143,7 @@ async function gv(o, { index: e = 0, tint: t = null } = {}) {
               }
             : {}),
         }
-      : i2,
+      : WILD_ANIMAL_CLIPS,
     f = i.getObjectByName('Head') || i.getObjectByName('Head_1') || null,
     v = new Character({
       id: a,

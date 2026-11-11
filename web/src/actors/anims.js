@@ -1,7 +1,13 @@
 // actors/anims.js
-// Reconstruido de publicado/juego.js (módulo __esm «Hf»). Nombres locales aún minificados.
+// Reconstruido de publicado/juego.js (módulo __esm «Hf»).
+//
+// Tablas de animación de los personajes: nombres lógicos («idle», «attack_melee»…) y los clips
+// reales de los glTF (paquetes de animación de KayKit y Quaternius) que pueden reproducirlos.
+// Las usan Character (character.js) para resolver un nombre lógico a un clip, humanoid.js para
+// montar el juego de clips de cada humanoide y animals.js para los animales.
 
-const Hb = new Set([
+/** Animaciones lógicas que se reproducen en bucle (el resto son de una sola vez). */
+const LOOPING_ANIMS = new Set([
   'idle',
   'idle_combat',
   'idle_alt',
@@ -33,7 +39,8 @@ const Hb = new Set([
   'fly',
   'inactive',
 ]);
-const s2 = {
+/** Sustituta de cada animación lógica cuando el modelo no tiene ningún clip para ella. */
+const ANIM_FALLBACK = {
   idle_combat: 'idle',
   idle_alt: 'idle',
   sprint: 'run',
@@ -87,7 +94,8 @@ const s2 = {
   sleep: 'prone',
   inactive: 'idle',
 };
-const If = {
+/** Nombre de clip suelto → animación lógica equivalente (para pedir clips por su nombre real). */
+const CLIP_ALIASES = {
   Idle_Loop: 'idle',
   Sword_Idle: 'idle_combat',
   Spell_Simple_Idle_Loop: 'idle_combat',
@@ -111,13 +119,15 @@ const If = {
   Dance_Loop: 'dance',
   Idle_Torch_Loop: 'torch',
 };
-const cz = [
+/** Ataques cuerpo a cuerpo con arma de una mano. */
+const MELEE_1H_CLIPS = [
   'K_1H_Melee_Attack_Chop',
   'K_1H_Melee_Attack_Slice_Diagonal',
   'K_1H_Melee_Attack_Stab',
   'Sword_Attack',
 ];
-const nc = {
+/** Animación lógica → clips candidatos (se elige uno al azar o por variante). */
+const ANIM_CLIPS = {
   idle: ['Idle_Loop'],
   idle_combat: ['Sword_Idle'],
   idle_alt: ['K_Idle_B'],
@@ -125,7 +135,7 @@ const nc = {
   run: ['Jog_Fwd_Loop'],
   sprint: ['Sprint_Loop'],
   walk_back: ['K_Walking_Backwards'],
-  attack_melee: cz,
+  attack_melee: MELEE_1H_CLIPS,
   attack_2h: ['K_2H_Melee_Attack_Chop', 'K_2H_Melee_Attack_Slice', 'K_2H_Melee_Attack_Stab'],
   attack_unarmed: ['K_Unarmed_Melee_Attack_Punch_A', 'Punch_Cross', 'K_Unarmed_Melee_Attack_Kick'],
   attack_ranged: ['K_1H_Ranged_Shoot'],
@@ -168,7 +178,8 @@ const nc = {
   jump: ['Jump_Start'],
   awaken: ['K_Skeletons_Awaken_Standing'],
 };
-const Nb = {
+/** Clips que sustituyen a los de ANIM_CLIPS según cómo se empuña el arma (dos manos, arco…). */
+const GRIP_CLIPS = {
   unarmed: {
     idle_combat: ['K_Unarmed_Idle'],
     attack_melee: [
@@ -206,7 +217,8 @@ const Nb = {
     attack_melee: ['K_1H_Melee_Attack_Chop', 'K_1H_Melee_Attack_Stab'],
   },
 };
-const Fb = {
+/** Clips propios de algunos tipos de criatura (esqueletos, zombis, trasgos). */
+const RACE_CLIPS = {
   skeleton: {
     walk: ['K_Walking_D_Skeletons'],
     run: ['Jog_Fwd_Loop'],
@@ -231,7 +243,8 @@ const Fb = {
     cheer: ['K_Cheer', 'K_Taunt'],
   },
 };
-const i2 = {
+/** Clips de los animales salvajes (lobos, ciervos…; modelos de Quaternius). */
+const WILD_ANIMAL_CLIPS = {
   idle: ['Idle', 'Idle_2'],
   idle_combat: ['Idle_2', 'Idle'],
   idle_alt: ['Idle_2_HeadLow', 'Idle_Headlow', 'Idle_2'],
@@ -249,10 +262,20 @@ const i2 = {
   taunt: ['Idle_2'],
   sleep: ['Death'],
 };
-const r2 = {
+/** Clips de los animales de granja y las aves (modelos con «Armature|…»). */
+const FARM_ANIMAL_CLIPS = {
   idle: ['Idle', 'Armature|Idle'],
   walk: ['Walk', 'Armature|Walk', 'Idle', 'Armature|Idle'],
   eat: ['Eating', 'Idle', 'Armature|Idle'],
 };
 
-export { Fb, Hb, If, Nb, i2, nc, r2, s2 };
+export {
+  RACE_CLIPS,
+  LOOPING_ANIMS,
+  CLIP_ALIASES,
+  GRIP_CLIPS,
+  WILD_ANIMAL_CLIPS,
+  ANIM_CLIPS,
+  FARM_ANIMAL_CLIPS,
+  ANIM_FALLBACK,
+};

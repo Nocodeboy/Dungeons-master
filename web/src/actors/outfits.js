@@ -29,7 +29,7 @@ import {
   TorusGeometry,
   WebGLRenderer,
 } from 'three';
-import { Fs } from './character.js';
+import { makeCharacter } from './character.js';
 import '../assets.js';
 
 function vL(o) {
@@ -293,7 +293,7 @@ const mu = class {
       n = null,
       s = this.game.actors;
     try {
-      ((n = s?.makeHero ? await s.makeHero(e) : await Fs(Tv(e))),
+      ((n = s?.makeHero ? await s.makeHero(e) : await makeCharacter(Tv(e))),
         s?.texturesReady && (await s.texturesReady()));
     } catch (i) {
       console.warn('[interfaz] figura del h\xE9roe', i);

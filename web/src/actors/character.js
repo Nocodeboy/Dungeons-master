@@ -1,57 +1,79 @@
 // actors/character.js
-// Reconstruido de publicado/juego.js (módulo __esm «pi»). Nombres locales aún minificados.
+// Reconstruido de publicado/juego.js (módulo __esm «pi»).
+//
+// Clase Character: envoltorio común de todos los personajes 3D (humanoides, bestias, animales).
+// Gestiona el AnimationMixer (animaciones lógicas → clips, bucles y de una sola vez, posturas),
+// el movimiento por una ruta de puntos, el LOD de animación, destellos de impacto y la liberación.
+// makeCharacter crea un personaje a partir de una definición de nivel (explore/actors.js,
+// combat/units.js, ui/portraits.js, outfits.js).
 
 import { Color, LoopOnce, LoopRepeat, MathUtils, Vector3 } from 'three';
-import { Hb, s2, If, nc } from './anims.js';
+import { LOOPING_ANIMS, ANIM_FALLBACK, CLIP_ALIASES, ANIM_CLIPS } from './anims.js';
 
-async function Fs(o) {
-  let e = await import('./index.js'),
-    t,
-    a = o.id || '';
-  if (e.COMPANIONS[a]) t = await e.makeCompanion(a);
-  else if (o.skinLum || /goblin|trasgo/i.test(a)) {
-    let s = (o.attach || []).some((i) => i.bone === 'hand_l' && i.make)
+/**
+ * Crea un personaje a partir de una definición de nivel/escena ({id, pos, y, face, anim, walk…}):
+ * compañero si el id es de uno, trasgo si lo parece (piel o nombre) y PNJ en otro caso.
+ * Lo coloca, lo orienta y arranca su animación de reposo en un instante al azar.
+ */
+async function makeCharacter(def) {
+  let actorsApi = await import('./index.js'),
+    character,
+    id = def.id || '';
+  if (actorsApi.COMPANIONS[id]) character = await actorsApi.makeCompanion(id);
+  else if (def.skinLum || /goblin|trasgo/i.test(id)) {
+    let monsterId = (def.attach || []).some((item) => item.bone === 'hand_l' && item.make)
       ? 'goblin_archer'
-      : (o.scale ?? 0) >= 0.7
+      : (def.scale ?? 0) >= 0.7
         ? 'goblin_boss'
-        : o.outfit === 'Male_Ranger'
+        : def.outfit === 'Male_Ranger'
           ? 'goblin_warrior'
           : 'goblin_minion';
-    t = await e.makeMonster(s, { index: [...a].reduce((i, r) => i + r.charCodeAt(0), 0) });
-  } else t = await e.makeNpc({ id: a });
+    character = await actorsApi.makeMonster(monsterId, {
+      index: [...id].reduce((sum, ch) => sum + ch.charCodeAt(0), 0),
+    });
+  } else character = await actorsApi.makeNpc({ id });
   return (
-    (t.def = { ...o, scale: t.def.scale, anim: o.anim || 'idle', walk: o.walk || 'walk' }),
-    (t.idle = t.def.anim),
-    t.root.position.set(o.pos?.[0] ?? 0, o.y ?? 0, o.pos?.[1] ?? 0),
-    (t.root.rotation.y = MathUtils.degToRad(o.face ?? 0)),
-    t.play(t.idle, 0),
-    t.current && (t.current.time = Math.random() * t.current.getClip().duration),
-    t
+    (character.def = {
+      ...def,
+      scale: character.def.scale,
+      anim: def.anim || 'idle',
+      walk: def.walk || 'walk',
+    }),
+    (character.idle = character.def.anim),
+    character.root.position.set(def.pos?.[0] ?? 0, def.y ?? 0, def.pos?.[1] ?? 0),
+    (character.root.rotation.y = MathUtils.degToRad(def.face ?? 0)),
+    character.play(character.idle, 0),
+    character.current && (character.current.time = Math.random() * character.current.getClip().duration),
+    character
   );
 }
-const wv = new Vector3();
+const tmpRootPos = new Vector3();
+/**
+ * Personaje animado. Se construye con un objeto de opciones ({def, root, mixer, clips, anims,
+ * actions, procedural, head, height, radius, gait…}) o con la firma antigua (def, root, mixer, actions).
+ */
 const Character = class {
-  constructor(e, t, a, n) {
-    (t &&
-      (e = {
-        def: e,
-        root: t,
-        mixer: a,
-        clips: new Map([...n].map(([s, i]) => [s, i.getClip()])),
-        anims: nc,
-        actions: n,
+  constructor(opts, root, mixer, actions) {
+    (root &&
+      (opts = {
+        def: opts,
+        root,
+        mixer,
+        clips: new Map([...actions].map(([name, action]) => [name, action.getClip()])),
+        anims: ANIM_CLIPS,
+        actions,
       }),
-      (this.def = e.def || {}),
-      (this.id = e.id || this.def.id || ''),
-      (this.kind = e.kind || 'hero'),
-      (this.root = e.root),
-      (this.model = e.model || e.root),
-      (this.mixer = e.mixer || null),
-      (this.clips = e.clips || new Map()),
-      (this.anims = e.anims || nc),
-      (this.speeds = e.speeds || {}),
-      (this.actions = e.actions || new Map()),
-      (this.procedural = e.procedural || null),
+      (this.def = opts.def || {}),
+      (this.id = opts.id || this.def.id || ''),
+      (this.kind = opts.kind || 'hero'),
+      (this.root = opts.root),
+      (this.model = opts.model || opts.root),
+      (this.mixer = opts.mixer || null),
+      (this.clips = opts.clips || new Map()),
+      (this.anims = opts.anims || ANIM_CLIPS),
+      (this.speeds = opts.speeds || {}),
+      (this.actions = opts.actions || new Map()),
+      (this.procedural = opts.procedural || null),
       (this.current = null),
       (this.currentName = ''),
       (this.path = []),
@@ -59,96 +81,108 @@ const Character = class {
       (this.walkAnim = 'walk'),
       (this.stance = 'calm'),
       (this.idle = this.def.anim || 'idle'),
-      (this.headBone = e.head || this.root.getObjectByName('Head')),
-      (this.height = e.height || 1.8),
-      (this.radius = e.radius || 0.35),
+      (this.headBone = opts.head || this.root.getObjectByName('Head')),
+      (this.height = opts.height || 1.8),
+      (this.radius = opts.radius || 0.35),
       (this.post = []),
-      (this.gait = e.gait || { walk: 1.35, run: 3.1, sprint: 5, crouch_walk: 1 }),
+      (this.gait = opts.gait || { walk: 1.35, run: 3.1, sprint: 5, crouch_walk: 1 }),
       (this.onDispose = []),
       (this.userData = {}));
   }
-  resolve(e, t = -1) {
-    let a = e;
-    for (let s = 0; a && s < 8; s++) {
-      let i = this.anims[a];
-      if (i) {
-        let r = i.filter((l) => this.clips.has(l));
-        if (r.length) return r[t >= 0 ? t % r.length : Math.floor(Math.random() * r.length)];
+  /** Clip real para una animación lógica, siguiendo alias y sustitutas (variante o al azar). */
+  resolve(name, variant = -1) {
+    let current = name;
+    for (let hop = 0; current && hop < 8; hop++) {
+      let candidates = this.anims[current];
+      if (candidates) {
+        let available = candidates.filter((clipName) => this.clips.has(clipName));
+        if (available.length)
+          return available[
+            variant >= 0 ? variant % available.length : Math.floor(Math.random() * available.length)
+          ];
       } else {
-        if (this.clips.has(a)) return a;
-        if (If[a]) {
-          a = If[a];
+        if (this.clips.has(current)) return current;
+        if (CLIP_ALIASES[current]) {
+          current = CLIP_ALIASES[current];
           continue;
         }
       }
-      a = s2[a];
+      current = ANIM_FALLBACK[current];
     }
-    return this.anims.idle?.find((s) => this.clips.has(s)) || null;
+    return this.anims.idle?.find((clipName) => this.clips.has(clipName)) || null;
   }
-  has(e) {
-    let t = this.anims[e];
-    return t ? t.some((a) => this.clips.has(a)) : this.clips.has(e);
+  /** ¿Tiene el modelo algún clip para esta animación? */
+  has(name) {
+    let candidates = this.anims[name];
+    return candidates ? candidates.some((clipName) => this.clips.has(clipName)) : this.clips.has(name);
   }
-  action(e) {
-    if (!this.actions.has(e)) {
-      let t = this.clips.get(e);
-      if (!t || !this.mixer) return null;
-      this.actions.set(e, this.mixer.clipAction(t));
+  /** AnimationAction de un clip (se crea y se guarda la primera vez). */
+  action(clipName) {
+    if (!this.actions.has(clipName)) {
+      let clip = this.clips.get(clipName);
+      if (!clip || !this.mixer) return null;
+      this.actions.set(clipName, this.mixer.clipAction(clip));
     }
-    return this.actions.get(e);
+    return this.actions.get(clipName);
   }
-  isLoop(e) {
-    if (Hb.has(e)) return !0;
-    let t = this.anims[e] ? e : If[e];
-    return t ? Hb.has(t) : /Loop|Idle|Walk|Run|Gallop|Sprint|Eating/.test(e);
+  /** ¿Es una animación en bucle? */
+  isLoop(name) {
+    if (LOOPING_ANIMS.has(name)) return !0;
+    let logical = this.anims[name] ? name : CLIP_ALIASES[name];
+    return logical ? LOOPING_ANIMS.has(logical) : /Loop|Idle|Walk|Run|Gallop|Sprint|Eating/.test(name);
   }
-  play(e, t = 0.3, { speed: a, variant: n = -1 } = {}) {
-    if (this.procedural) return this.procedural.play?.(e, { fade: t, speed: a, loop: !0 });
-    if (!this.isLoop(e) && e !== this.idle) {
-      this.playOnce(e, { fade: Math.min(t, 0.15), speed: a, variant: n });
+  /** Reproduce una animación en bucle con fundido; las de una sola vez pasan a playOnce. */
+  play(name, fade = 0.3, { speed, variant = -1 } = {}) {
+    if (this.procedural) return this.procedural.play?.(name, { fade, speed, loop: !0 });
+    if (!this.isLoop(name) && name !== this.idle) {
+      this.playOnce(name, { fade: Math.min(fade, 0.15), speed, variant });
       return;
     }
-    let s = this.resolve(e, n),
-      i = s && this.action(s);
-    if (i) {
-      if (((i.timeScale = a ?? this.speeds[e] ?? 1), i === this.current)) {
-        this.currentName = e;
+    let clipName = this.resolve(name, variant),
+      action = clipName && this.action(clipName);
+    if (action) {
+      if (((action.timeScale = speed ?? this.speeds[name] ?? 1), action === this.current)) {
+        this.currentName = name;
         return;
       }
-      (i.reset(),
-        i.setLoop(LoopRepeat, 1 / 0),
-        (i.clampWhenFinished = !1),
-        i.setEffectiveWeight(1).fadeIn(t).play(),
-        this.current && this.current.fadeOut(t),
-        (this.current = i),
-        (this.currentName = e));
+      (action.reset(),
+        action.setLoop(LoopRepeat, 1 / 0),
+        (action.clampWhenFinished = !1),
+        action.setEffectiveWeight(1).fadeIn(fade).play(),
+        this.current && this.current.fadeOut(fade),
+        (this.current = action),
+        (this.currentName = name));
     }
   }
-  playOnce(e, { fade: t = 0.12, speed: a, hold: n = !1, variant: s = -1 } = {}) {
-    if (this.procedural)
-      return this.procedural.playOnce?.(e, { fade: t, speed: a, hold: n }) || Promise.resolve();
-    let i = this.resolve(e, s),
-      r = i && this.action(i);
-    return r
-      ? (r.reset(),
-        r.setLoop(LoopOnce, 1),
-        (r.clampWhenFinished = n),
-        (r.timeScale = a ?? this.speeds[e] ?? 1),
-        r.setEffectiveWeight(1).fadeIn(t).play(),
-        this.current && this.current !== r && this.current.fadeOut(t),
-        (this.current = r),
-        (this.currentName = e),
-        new Promise((l) => {
-          let c = (d) => {
-            d.action === r &&
-              (this.mixer.removeEventListener('finished', c),
-              !n && this.current === r && this.play(this.restName(), 0.2),
-              l());
+  /**
+   * Reproduce una animación una vez y devuelve una promesa que se cumple al terminar; después
+   * vuelve a la de reposo salvo con `hold`.
+   */
+  playOnce(name, { fade = 0.12, speed, hold = !1, variant = -1 } = {}) {
+    if (this.procedural) return this.procedural.playOnce?.(name, { fade, speed, hold }) || Promise.resolve();
+    let clipName = this.resolve(name, variant),
+      action = clipName && this.action(clipName);
+    return action
+      ? (action.reset(),
+        action.setLoop(LoopOnce, 1),
+        (action.clampWhenFinished = hold),
+        (action.timeScale = speed ?? this.speeds[name] ?? 1),
+        action.setEffectiveWeight(1).fadeIn(fade).play(),
+        this.current && this.current !== action && this.current.fadeOut(fade),
+        (this.current = action),
+        (this.currentName = name),
+        new Promise((resolveDone) => {
+          let onFinished = (ev) => {
+            ev.action === action &&
+              (this.mixer.removeEventListener('finished', onFinished),
+              !hold && this.current === action && this.play(this.restName(), 0.2),
+              resolveDone());
           };
-          this.mixer.addEventListener('finished', c);
+          this.mixer.addEventListener('finished', onFinished);
         }))
       : Promise.resolve();
   }
+  /** Animación de reposo según la situación: caminar si hay ruta, guardia en combate o reposo. */
   restName() {
     return this.path.length
       ? this.walkAnim
@@ -156,120 +190,141 @@ const Character = class {
         ? 'idle_combat'
         : this.idle;
   }
-  setStance(e) {
-    ((this.stance = e),
+  /** Cambia la postura («calm» o «combat») y actualiza la animación de reposo si toca. */
+  setStance(stance) {
+    ((this.stance = stance),
       !this.path.length && this.current && this.isLoop(this.currentName) && this.play(this.restName(), 0.35));
   }
-  clipLength(e) {
-    if (this.procedural) return this.procedural.length?.(e) ?? 0.8;
-    let t = this.clips.get(this.resolve(e, 0));
-    return t ? t.duration / (this.speeds[e] ?? 1) : 0;
+  /** Duración en segundos de una animación con su velocidad. */
+  clipLength(name) {
+    if (this.procedural) return this.procedural.length?.(name) ?? 0.8;
+    let clip = this.clips.get(this.resolve(name, 0));
+    return clip ? clip.duration / (this.speeds[name] ?? 1) : 0;
   }
-  walkTo(e, t, { run: a = !1, anim: n } = {}) {
-    ((this.path = e.slice()),
-      (this.onArrive = t),
+  /** Recorre una lista de puntos (Vector3) y llama a onArrive al llegar al último. */
+  walkTo(path, onArrive, { run = !1, anim } = {}) {
+    ((this.path = path.slice()),
+      (this.onArrive = onArrive),
       this.path.length &&
-        ((this.walkAnim = n || (a ? 'run' : this.def.walk || 'walk')), this.play(this.walkAnim, 0.2)));
+        ((this.walkAnim = anim || (run ? 'run' : this.def.walk || 'walk')), this.play(this.walkAnim, 0.2)));
   }
+  /** Detiene el recorrido y vuelve al reposo. */
   stopWalking() {
     ((this.path = []), this.play(this.restName(), 0.3));
   }
-  setLod(e) {
-    this.lod = e;
+  /** Nivel de detalle de animación: el mixer se actualiza 1 de cada 2^level fotogramas. */
+  setLod(level) {
+    this.lod = level;
   }
-  setShadows(e) {
-    let t = !0;
-    this.root.traverse((a) => {
-      a.isMesh && ((a.castShadow = e === 'todas' || (e === 'cuerpo' && t)), (t = !1));
+  /** Sombras: «todas», «cuerpo» (solo la primera malla) u otra cosa para ninguna. */
+  setShadows(mode) {
+    let first = !0;
+    this.root.traverse((obj) => {
+      obj.isMesh && ((obj.castShadow = mode === 'todas' || (mode === 'cuerpo' && first)), (first = !1));
     });
   }
-  update(e) {
+  /** Avanza animaciones, efectos posteriores (`post`) y el movimiento por la ruta. */
+  update(dt) {
     if (
-      ((this._lodAcc = (this._lodAcc || 0) + e),
+      ((this._lodAcc = (this._lodAcc || 0) + dt),
       (this._lodN = ((this._lodN || 0) + 1) % (this.lod ? 1 << this.lod : 1)),
       this._lodN === 0)
     ) {
-      let c = this._lodAcc;
+      let elapsed = this._lodAcc;
       ((this._lodAcc = 0),
-        this.mixer && this.mixer.update(c),
-        this.procedural && this.procedural.update(c, this));
-      for (let d of this.post) d(c, this);
+        this.mixer && this.mixer.update(elapsed),
+        this.procedural && this.procedural.update(elapsed, this));
+      for (let post of this.post) post(elapsed, this);
     }
     if (!this.path.length) return;
-    let t = this.gait[this.walkAnim];
-    t &&
+    let gaitSpeed = this.gait[this.walkAnim];
+    gaitSpeed &&
       this.current &&
       !this.procedural &&
-      (this.current.timeScale = Math.min(1.9, Math.max(0.55, this.speed / t)));
-    let a = this.path[0],
-      n = this.root.position,
-      s = a.x - n.x,
-      i = a.z - n.z,
-      r = Math.hypot(s, i),
-      l = this.speed * e;
-    if (r > 1e-4) {
-      let d = Math.atan2(s, i) - this.root.rotation.y;
-      ((d = Math.atan2(Math.sin(d), Math.cos(d))), (this.root.rotation.y += d * Math.min(1, e * 10)));
+      (this.current.timeScale = Math.min(1.9, Math.max(0.55, this.speed / gaitSpeed)));
+    let target = this.path[0],
+      pos = this.root.position,
+      dx = target.x - pos.x,
+      dz = target.z - pos.z,
+      dist = Math.hypot(dx, dz),
+      step = this.speed * dt;
+    if (dist > 1e-4) {
+      let turn = Math.atan2(dx, dz) - this.root.rotation.y;
+      ((turn = Math.atan2(Math.sin(turn), Math.cos(turn))),
+        (this.root.rotation.y += turn * Math.min(1, dt * 10)));
     }
-    if ((a.y !== void 0 && (n.y += (a.y - n.y) * Math.min(1, e * 8)), r <= l)) {
-      if (((n.x = a.x), (n.z = a.z), this.path.shift(), !this.path.length)) {
+    if ((target.y !== void 0 && (pos.y += (target.y - pos.y) * Math.min(1, dt * 8)), dist <= step)) {
+      if (((pos.x = target.x), (pos.z = target.z), this.path.shift(), !this.path.length)) {
         this.play(this.restName(), 0.35);
-        let c = this.onArrive;
-        ((this.onArrive = null), c && c());
+        let onArrive = this.onArrive;
+        ((this.onArrive = null), onArrive && onArrive());
       }
-    } else ((n.x += (s / r) * l), (n.z += (i / r) * l));
+    } else ((pos.x += (dx / dist) * step), (pos.z += (dz / dist) * step));
   }
-  headWorld(e = new Vector3()) {
+  /** Posición mundial de la cabeza (o de la altura estimada si no hay hueso). */
+  headWorld(out = new Vector3()) {
     return this.headBone
-      ? (this.headBone.getWorldPosition(e), e)
-      : (this.root.getWorldPosition(e), (e.y += this.height * this.root.scale.y), e);
+      ? (this.headBone.getWorldPosition(out), out)
+      : (this.root.getWorldPosition(out), (out.y += this.height * this.root.scale.y), out);
   }
-  chestWorld(e = new Vector3()) {
-    return (this.headWorld(e), this.root.getWorldPosition(wv), (e.y = wv.y + (e.y - wv.y) * 0.78), e);
+  /** Posición mundial aproximada del pecho (78 % de la altura de la cabeza). */
+  chestWorld(out = new Vector3()) {
+    return (
+      this.headWorld(out),
+      this.root.getWorldPosition(tmpRootPos),
+      (out.y = tmpRootPos.y + (out.y - tmpRootPos.y) * 0.78),
+      out
+    );
   }
-  handWorld(e = 'r', t = new Vector3()) {
-    let a = this.root.getObjectByName(`hand_${e}`);
-    return a ? a.getWorldPosition(t) : this.chestWorld(t);
+  /** Posición mundial de una mano («r» o «l»); el pecho si no hay hueso. */
+  handWorld(side = 'r', out = new Vector3()) {
+    let hand = this.root.getObjectByName(`hand_${side}`);
+    return hand ? hand.getWorldPosition(out) : this.chestWorld(out);
   }
-  flash(e = 16777215, t = 0.6, a = 0.25) {
-    let n = this.materials(),
-      s = new Color(e).multiplyScalar(t);
-    ((this._flash = { c: s, t: a, total: a, mats: n }),
+  /** Destello de color que se desvanece (uniforme uFlash de los materiales del personaje). */
+  flash(color = 16777215, intensity = 0.6, duration = 0.25) {
+    let mats = this.materials(),
+      tint = new Color(color).multiplyScalar(intensity);
+    ((this._flash = { c: tint, t: duration, total: duration, mats }),
       this._flashPost ||
-        ((this._flashPost = (i) => {
-          let r = this._flash;
-          if (!r) return;
-          r.t -= i;
-          let l = Math.max(0, r.t / r.total);
-          for (let c of r.mats) c.userData.u?.uFlash && c.userData.u.uFlash.value.copy(r.c).multiplyScalar(l);
-          r.t <= 0 && (this._flash = null);
+        ((this._flashPost = (dt) => {
+          let state = this._flash;
+          if (!state) return;
+          state.t -= dt;
+          let k = Math.max(0, state.t / state.total);
+          for (let mat of state.mats)
+            mat.userData.u?.uFlash && mat.userData.u.uFlash.value.copy(state.c).multiplyScalar(k);
+          state.t <= 0 && (this._flash = null);
         }),
         this.post.push(this._flashPost)));
   }
-  setTint(e) {
-    for (let t of this.materials())
-      t.userData.u?.uFlash && t.userData.u.uFlash.value.set(e || 0).multiplyScalar(e ? 0.25 : 0);
+  /** Tinte fijo con el mismo uniforme uFlash (0 o vacío lo quita). */
+  setTint(color) {
+    for (let mat of this.materials())
+      mat.userData.u?.uFlash && mat.userData.u.uFlash.value.set(color || 0).multiplyScalar(color ? 0.25 : 0);
   }
+  /** Materiales distintos de todas las mallas del personaje. */
   materials() {
-    let e = new Set();
+    let set = new Set();
     return (
-      this.root.traverse((t) => {
-        if (t.isMesh) for (let a of [].concat(t.material)) e.add(a);
+      this.root.traverse((obj) => {
+        if (obj.isMesh) for (let mat of [].concat(obj.material)) set.add(mat);
       }),
-      [...e]
+      [...set]
     );
   }
-  setWeapon(e) {
-    this.userData.setWeapon?.(e);
+  setWeapon(weapon) {
+    this.userData.setWeapon?.(weapon);
   }
+  /** Libera geometrías propias, para el mixer y saca el modelo de la escena. */
   dispose() {
-    for (let e of this.onDispose) e();
+    for (let fn of this.onDispose) fn();
     (this.mixer?.stopAllAction(),
-      this.root.traverse((e) => {
-        e.isMesh && e.userData.ownGeometry !== !1 && e.geometry?.dispose();
+      this.root.traverse((obj) => {
+        obj.isMesh && obj.userData.ownGeometry !== !1 && obj.geometry?.dispose();
       }),
       this.root.removeFromParent());
   }
 };
 
-export { Character, Fs };
+export { Character, makeCharacter };

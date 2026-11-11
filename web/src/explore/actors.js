@@ -12,7 +12,7 @@ import {
   Quaternion,
   Vector3,
 } from 'three';
-import { Fs } from '../actors/character.js';
+import { makeCharacter as Fs } from '../actors/character.js';
 import { hc } from '../actors/roster.js';
 
 function q1(o, e = 1.4) {

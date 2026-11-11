@@ -10,7 +10,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { Fs } from '../actors/character.js';
+import { makeCharacter as Fs } from '../actors/character.js';
 import { hc } from '../actors/roster.js';
 import { Tv } from '../actors/outfits.js';
 
