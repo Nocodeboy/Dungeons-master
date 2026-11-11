@@ -13,7 +13,7 @@ import {
 } from 'three';
 import { hasPiece, pieceBounds, instancePiece, composeMatrix, MeshMerger } from './kit.js';
 import { worldMaterial } from './materials.js';
-import { Le } from './ground.js';
+import { LAYER } from './ground.js';
 import { cellToWorld, worldToCell, neighbors, HEX_SIZE } from './grid.js';
 import { WATER_LEVEL } from './water.js';
 
@@ -119,7 +119,7 @@ function H3(o) {
     let A = I3(n, r),
       P = (i === 'forest' ? 0.6 : i === 'kesh' ? 0.72 : 0.8) + n() * 0.26,
       I = s.level >= 2 || v(D, M);
-    (b(A, d.x + (n() - 0.5) * 0.4, d.z + (n() - 0.5) * 0.4, P, I, !I), a.blob(Le.ao, d.x, d.z, 1.6, 0.35));
+    (b(A, d.x + (n() - 0.5) * 0.4, d.z + (n() - 0.5) * 0.4, P, I, !I), a.blob(LAYER.ao, d.x, d.z, 1.6, 0.35));
   });
   let x = -HEX_SIZE * 0.5,
     g = t.sizeX,
@@ -137,8 +137,8 @@ function H3(o) {
       if (
         P < 1.2 ||
         o.blocked?.(R, A) ||
-        a.maskAt(Le.path, R, A) > 0.25 ||
-        a.maskAt(Le.gravel, R, A) > 0.3 ||
+        a.maskAt(LAYER.path, R, A) > 0.25 ||
+        a.maskAt(LAYER.gravel, R, A) > 0.3 ||
         a.waterAt(R, A) > 0.05
       )
         continue;
@@ -271,12 +271,12 @@ function OH(o) {
         E = Math.max(h - k, k - p, m - T, T - _);
       if ((E > 2 && n() > Math.max(0.25, 1 - E / 14)) || o.blocked?.(k, T) || a.waterAt(k, T) > 0.02)
         continue;
-      let S = a.maskAt(Le.path, k, T),
-        z = a.maskAt(Le.pave, k, T),
-        D = a.maskAt(Le.mud, k, T),
-        M = a.maskAt(Le.gravel, k, T),
-        R = a.maskAt(Le.field, k, T),
-        A = a.maskAt(Le.litter, k, T),
+      let S = a.maskAt(LAYER.path, k, T),
+        z = a.maskAt(LAYER.pave, k, T),
+        D = a.maskAt(LAYER.mud, k, T),
+        M = a.maskAt(LAYER.gravel, k, T),
+        R = a.maskAt(LAYER.field, k, T),
+        A = a.maskAt(LAYER.litter, k, T),
         P = a.heightAt(k, T);
       if (S > 0.45 || z > 0.3 || M > 0.35 || R > 0.3) {
         (S > 0.45 || M > 0.35) &&

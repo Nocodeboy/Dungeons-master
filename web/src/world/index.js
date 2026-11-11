@@ -5,7 +5,7 @@ import { Box3, Group, MathUtils, Raycaster, Vector3 } from 'three';
 import { loadKits, MeshMerger } from './kit.js';
 import { worldUniforms } from './materials.js';
 import { TIMES, Sky } from './times.js';
-import { Le, Ym } from './ground.js';
+import { LAYER, Ground } from './ground.js';
 import { H3 } from './vegetation.js';
 import { j3 } from './buildings.js';
 import { J3, K3 } from './props.js';
@@ -37,7 +37,7 @@ async function buildLevel(
     await loadKits(_));
   let b = new Group();
   ((b.name = `nivel:${e.id}`), o.add(b));
-  let f = new Ym(h, e, { ambient: i, quality: t, seed: d, margin: c ? 3 : 12 }),
+  let f = new Ground(h, e, { ambient: i, quality: t, seed: d, margin: c ? 3 : 12 }),
     v = new Vector3(h.sizeX / 2, 0, h.sizeZ / 2),
     x = n || q9[i] || 'dusk';
   !n && e.id === 'merrowick' && a?.flag?.('e1_done') && (x = 'day');
@@ -78,7 +78,7 @@ async function buildLevel(
         haloSize: 1.1 + ee * 0.5,
         haloAlpha: 0.45,
       }),
-      f.blob(Le.light, O.x, O.z, (L.range ?? 4) * HEX_SIZE * 0.45, Math.min(1, 0.55 + ee * 0.3)));
+      f.blob(LAYER.light, O.x, O.z, (L.range ?? 4) * HEX_SIZE * 0.45, Math.min(1, 0.55 + ee * 0.3)));
   }
   for (let L of T) {
     for (let O of L.lamps)
@@ -88,10 +88,10 @@ async function buildLevel(
           haloSize: O.kind === 'forge' ? 2.2 : 1.3,
           haloAlpha: O.kind === 'forge' ? 0.5 : 0.45,
         }),
-        f.blob(Le.light, O.pos.x, O.pos.z, O.range * 0.45, 0.8));
+        f.blob(LAYER.light, O.pos.x, O.pos.z, O.range * 0.45, 0.8));
     for (let O of L.windows) {
       let B = O.clone().sub(L.center).setY(0).normalize();
-      f.blob(Le.light, O.x + B.x * 1.2, O.z + B.z * 1.2, 1.5, 0.5);
+      f.blob(LAYER.light, O.x + B.x * 1.2, O.z + B.z * 1.2, 1.5, 0.5);
     }
   }
   ((y.smokeOrigins = T.flatMap((L) => L.smoke)), f.readMasks());
@@ -116,7 +116,7 @@ async function buildLevel(
       h.each((L, O, B) => {
         if (B !== '#') return;
         let $ = cellToWorld(L, O);
-        f.blob(Le.ao, $.x, $.z, 1.2, 1);
+        f.blob(LAYER.ao, $.x, $.z, 1.2, 1);
       }),
     f.build(b));
   let I = c ? null : buildWater(b, f, g, t),

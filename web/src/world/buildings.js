@@ -22,7 +22,7 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { hasPiece, pieceBounds, composeMatrix, pieceMesh } from './kit.js';
 import { worldMaterial } from './materials.js';
-import { Le } from './ground.js';
+import { LAYER } from './ground.js';
 import { cellToWorld, worldToCell, HEX_SIZE, cellKey, degToRad } from './grid.js';
 
 function BH(o, e, t) {
@@ -325,7 +325,7 @@ function j3(o) {
       (v.idx = u.key === 'well' || u.key === 'market' ? 0 : c++),
       B3(o, v));
     for (let [w, k] of p)
-      (cellToWorld(w, k, d), s.blob(Le.ao, d.x, d.z, 1.5, 0.5), s.blob(Le.path, d.x, d.z, 1.4, 0.5));
+      (cellToWorld(w, k, d), s.blob(LAYER.ao, d.x, d.z, 1.5, 0.5), s.blob(LAYER.path, d.x, d.z, 1.4, 0.5));
     r.push(v);
   }
   if (((o._nextBld = c), o.ambient === 'dusk' || o.ambient === 'day'))
@@ -350,8 +350,8 @@ function j3(o) {
       };
       if (h.idx > 62) break;
       (B3(o, h),
-        o.ground.blob(Le.path, u.c.x, u.c.z, 3.4, 0.45),
-        o.ground.blob(Le.ao, u.c.x, u.c.z, 3.2, 0.5),
+        o.ground.blob(LAYER.path, u.c.x, u.c.z, 3.4, 0.45),
+        o.ground.blob(LAYER.ao, u.c.x, u.c.z, 3.2, 0.5),
         r.push(h));
     }
   return r;
@@ -374,12 +374,12 @@ function VH(o) {
     for (let v = 0; v < 8; v++) {
       let x = u + Math.cos((v / 8) * Math.PI * 2) * 4.5,
         g = h + Math.sin((v / 8) * Math.PI * 2) * 4.5;
-      (t.maskAt(Le.path, x, g) > 0.4 && (m = !0), t.waterAt(x, g) > 0.02 && (_ = !0));
+      (t.maskAt(LAYER.path, x, g) > 0.4 && (m = !0), t.waterAt(x, g) > 0.02 && (_ = !0));
     }
     for (let v = 0; v < 6; v++) {
       let x = u + Math.cos((v / 6) * Math.PI * 2) * 2.6,
         g = h + Math.sin((v / 6) * Math.PI * 2) * 2.6;
-      (t.maskAt(Le.path, x, g) > 0.3 || t.waterAt(x, g) > 0.01) && (_ = !0);
+      (t.maskAt(LAYER.path, x, g) > 0.3 || t.waterAt(x, g) > 0.01) && (_ = !0);
     }
     if (_ || (!m && a() < 0.75) || n.some((v) => v.c.distanceTo(new Vector3(u, 0, h)) < 9)) continue;
     let b = Math.atan2((s + i) / 2 - u, (r + l) / 2 - h) + (a() - 0.5) * 0.6,

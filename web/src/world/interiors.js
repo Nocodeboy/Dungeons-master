@@ -20,7 +20,7 @@ import {
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadProp, pbrMaterial } from '../assets.js';
 import { fixGlass, MeshMerger } from './kit.js';
-import { Le } from './ground.js';
+import { LAYER } from './ground.js';
 import { cellToWorld, HEX_SIZE, HEX_RADIUS, cellKey, degToRad } from './grid.js';
 
 function V3() {
@@ -263,7 +263,7 @@ async function $3(o) {
         (Ft(z, r.timber, ge + 0.3, 0.18, Ba + 0.12, ue.x, K.v1, ue.z, M, 1.2),
           Ft(z, r.slate, ge, 0.05, Ba + 0.12, ue.x, 0, ue.z, M, 1),
           Ft(D, r.slate, ge, 0.05, Ba + 0.12, ue.x, 0, ue.z, M, 1),
-          n.blob(Le.ao, ue.x, ue.z, 1, 0.35));
+          n.blob(LAYER.ao, ue.x, ue.z, 1, 0.35));
       } else {
         let ue = y(S, ve, Ba / 2);
         (Ft(z, r.timber, ge + 0.16, 0.1, Ba + 0.06, ue.x, K.v1, ue.z, M, 1.2),
@@ -284,7 +284,7 @@ async function $3(o) {
           S.along === 'x' ? (S.n.z > 0 ? Math.PI : 0) : S.n.x > 0 ? -Math.PI / 2 : Math.PI / 2),
         X.add(ve));
       let ue = y(S, (K.a + K.b) / 2, -1.4);
-      n.blob(Le.light, ue.x, ue.z, 1.2, 0.35);
+      n.blob(LAYER.light, ue.x, ue.z, 1.2, 0.35);
     }
     for (let K of J.children) K.castShadow = !1;
     (d.add(X, J), (J.visible = !1));
@@ -325,7 +325,7 @@ async function $3(o) {
           haloAlpha: 0.45,
         });
         (z.lamps.push(R || M.clone().setY(1.85)),
-          o.ground.blob(Le.light, M.x - z.s.n.x * 1.2, M.z - z.s.n.z * 1.2, 2.2, 0.7));
+          o.ground.blob(LAYER.light, M.x - z.s.n.x * 1.2, M.z - z.s.n.z * 1.2, 2.2, 0.7));
         break;
       }
       case 'rug': {
@@ -348,7 +348,7 @@ async function $3(o) {
             (R.translate(0, 0.066 + D * 0.115, (M - (3 - D) / 2) * 0.135), z.push(R));
           }
         (i.addGeometry(mergeGeometries(z), r.bark, qo(S.x, 0, S.z - 0.3, Math.PI / 2 + (c() - 0.5) * 0.2)),
-          n.blob(Le.ao, S.x, S.z - 0.3, 0.6, 0.45));
+          n.blob(LAYER.ao, S.x, S.z - 0.3, 0.6, 0.45));
         break;
       }
       default:
@@ -364,7 +364,7 @@ async function $3(o) {
   for (let E of Object.values(g))
     for (let S = E.u0; S <= E.u1; S += 0.8) {
       let z = y(E, S, -0.2);
-      n.blob(Le.ao, z.x, z.z, 0.7, 0.4);
+      n.blob(LAYER.ao, z.x, z.z, 0.7, 0.4);
     }
   let T = '';
   return {
@@ -421,8 +421,8 @@ async function i9(o, e, t, a, n, s) {
       haloSize: 2.4,
       haloAlpha: 0.5,
     }),
-    r.blob(Le.light, d, c + 1.6, 3.4, 1),
-    r.blob(Le.ao, d, c + 0.3, 1.2, 0.5));
+    r.blob(LAYER.light, d, c + 1.6, 3.4, 1),
+    r.blob(LAYER.ao, d, c + 0.3, 1.2, 0.5));
   try {
     let m = fixGlass(await loadProp('bull_head'));
     (m.scale.setScalar(1.55),
@@ -445,7 +445,7 @@ async function i9(o, e, t, a, n, s) {
     });
   (t.extra.add('q_shield', qo(d + 2.25, 1.55, c + 0.11, 0, 1.25)),
     i.add('q_cauldron', qo(d - 1.75, 0, c + 0.75, 0.6)),
-    o.ground.blob(Le.ao, d - 1.75, c + 0.75, 0.6, 0.4));
+    o.ground.blob(LAYER.ao, d - 1.75, c + 0.75, 0.6, 0.4));
 }
 function r9(o, e, t, a, n) {
   let s = o.static,
@@ -481,9 +481,9 @@ function r9(o, e, t, a, n) {
       haloSize: 1,
       haloAlpha: 0.45,
     }),
-    o.ground.blob(Le.light, i + 0.6, h, 2, 0.7),
-    o.ground.blob(Le.ao, i, d, 1, 0.45));
-  for (let m = r; m <= l; m += 0.6) o.ground.blob(Le.ao, i, m, 0.7, 0.3);
+    o.ground.blob(LAYER.light, i + 0.6, h, 2, 0.7),
+    o.ground.blob(LAYER.ao, i, d, 1, 0.45));
+  for (let m = r; m <= l; m += 0.6) o.ground.blob(LAYER.ao, i, m, 0.7, 0.3);
 }
 function l9(o, e, t, a, n, s) {
   let i = o.static,
@@ -554,7 +554,7 @@ function c9(o, e, t, a, n, s, i) {
   (Ft(g, e.soot, 0.04, 2, 0.9, s.x1 - 0.02, h, y),
     Ft(g, e.timber, 0.12, 0.14, 1.15, s.x1 - 0.05, h + 2, y, 0, 1));
   for (let w of [-0.52, 0.52]) Ft(g, e.timber, 0.12, 2, 0.12, s.x1 - 0.05, h, y + w, 0, 1);
-  (t.full.add(g.build('puerta_habitaciones')), o.ground.blob(Le.ao, c, (d + u) / 2, 1.2, 0.4));
+  (t.full.add(g.build('puerta_habitaciones')), o.ground.blob(LAYER.ao, c, (d + u) / 2, 1.2, 0.4));
 }
 async function d9(o, e, t, a, n) {
   let s = o.static;
@@ -580,7 +580,7 @@ async function d9(o, e, t, a, n) {
       haloSize: 1.6,
       haloAlpha: 0.45,
     }),
-    o.ground.blob(Le.light, t.x, t.z, 3.5, 0.75));
+    o.ground.blob(LAYER.light, t.x, t.z, 3.5, 0.75));
 }
 const D1 = new Set([
   'hearth',

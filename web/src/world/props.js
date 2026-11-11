@@ -28,7 +28,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { hasPiece, pieceBounds, composeMatrix, fixGlass } from './kit.js';
 import { standardMaterial } from './materials.js';
-import { z3, Le } from './ground.js';
+import { worldTexture, LAYER } from './ground.js';
 import { cellToWorld, neighbors, HEX_SIZE, cellKey, degToRad } from './grid.js';
 import { loadGLTF, loadProp, pbrMaterial } from '../assets.js';
 import { D1 } from './interiors.js';
@@ -74,7 +74,7 @@ async function J3(o) {
     (X3.has(f.key)
       ? u(f.key, composeMatrix(v, n.heightAt(v, x), x, g, f.scale || 1))
       : h(f.key, v, x, g, f.scale || 1),
-      n.blob(Le.ao, v, x, 0.9, 0.35));
+      n.blob(LAYER.ao, v, x, 0.9, 0.35));
   }
   for (let f of a.decor || []) {
     cellToWorld(f.cell[0], f.cell[1], c);
@@ -98,7 +98,7 @@ async function J3(o) {
           (k.rotation.y = g),
           k.scale.setScalar(f.scale || 1),
           e.add(k),
-          n.blob(Le.ao, v, x, 0.8, 0.4));
+          n.blob(LAYER.ao, v, x, 0.8, 0.4));
       } catch (k) {
         console.warn('[mundo] pieza de Poly Haven', f.key, k);
       }
@@ -142,7 +142,7 @@ async function J3(o) {
             ),
             h(s() < 0.5 ? 'q_barrel' : 'barrel', g + 0.45, y + 0.35, s() * 6.28, 1),
             s() < 0.5 && h('sack', g - 0.4, y + 0.45, s() * 6.28, 0.9)),
-          n.blob(Le.ao, c.x, c.z, 1, 0.45));
+          n.blob(LAYER.ao, c.x, c.z, 1, 0.45));
         break;
       case 'r': {
         let w = ['Rock_Medium_1', 'Rock_Medium_2', 'Rock_Medium_3'][Math.floor(s() * 3)];
@@ -189,11 +189,11 @@ async function J3(o) {
         break;
       case 'o':
         if (p.has(cellKey(f, v)) || i === 'inn') break;
-        (f9(o, h, u, c, i), n.blob(Le.ao, c.x, c.z, 0.8, 0.35));
+        (f9(o, h, u, c, i), n.blob(LAYER.ao, c.x, c.z, 0.8, 0.35));
         break;
       case 'O':
         if (p.has(cellKey(f, v)) || i === 'inn') break;
-        (m9(o, h, c, i), n.blob(Le.ao, c.x, c.z, 1, 0.4));
+        (m9(o, h, c, i), n.blob(LAYER.ao, c.x, c.z, 1, 0.4));
         break;
       case 'P':
         l
@@ -297,8 +297,8 @@ function u9(o, e, t, a, n, s) {
           haloSize: 2.2,
           haloAlpha: 0.55,
         }),
-        i.blob(Le.ao, t, a, 0.9, 0.6),
-        i.blob(Le.light, t, a, 3, 0.9),
+        i.blob(LAYER.ao, t, a, 0.9, 0.6),
+        i.blob(LAYER.light, t, a, 3, 0.9),
         !0
       );
     }
@@ -314,7 +314,7 @@ function u9(o, e, t, a, n, s) {
         h.rotation.set(0, c() * 6, 0),
         h.updateMatrix(),
         o.webs.push(new CircleGeometry(u * 0.55, 10).rotateX(-Math.PI / 2).applyMatrix4(h.matrix)),
-        i.blob(Le.ao, t, a, 1, 0.35),
+        i.blob(LAYER.ao, t, a, 1, 0.35),
         !0
       );
     }
@@ -354,7 +354,7 @@ function u9(o, e, t, a, n, s) {
         let S = new MeshStandardMaterial({ color: v[Math.floor(c() * v.length)], roughness: 0.95 });
         (l.addGeometry(T, S, p(-h + 2 * h * w, k, 0)), (x = w + g / (4 * h) + 0.04 + c() * 0.08));
       }
-      return (i.blob(Le.ao, t, a, 1.2, 0.25), !0);
+      return (i.blob(LAYER.ao, t, a, 1.2, 0.25), !0);
     }
     case 'egg_sac': {
       let u = p9();
@@ -601,7 +601,7 @@ function g9(o, e, t) {
         );
         (s.addGeometry(T, m.darkPlank, S), s.addGeometry(E, m.plank, S));
       }
-      n.blob(Le.path, (d.x + u.x) / 2, (d.z + u.z) / 2, 0.8, 0.25);
+      n.blob(LAYER.path, (d.x + u.x) / 2, (d.z + u.z) / 2, 0.8, 0.25);
     }
     return;
   }
@@ -615,7 +615,7 @@ function g9(o, e, t) {
       v = Math.atan2(-(u.z - d.z), u.x - d.x),
       x = d.distanceTo(u),
       g = new Vector3((x / p) * 1.02, 1, 1);
-    (s.add(h, composeMatrix(b, n.heightAt(b, f), f, v, g)), n.blob(Le.path, b, f, 0.7, 0.12));
+    (s.add(h, composeMatrix(b, n.heightAt(b, f), f, v, g)), n.blob(LAYER.path, b, f, 0.7, 0.12));
   }
 }
 function b9(o, e, t, a, n, s) {
@@ -685,9 +685,9 @@ function v9(o, e, t, a, n) {
     ));
   let p = o.ground;
   if (
-    (p.blob(Le.ao, e, t, 3.2, 0.55),
-    p.blob(Le.litter, e, t, 3.5, 0.6),
-    p.blob(Le.pave, e, t, 2.6, 0.7),
+    (p.blob(LAYER.ao, e, t, 3.2, 0.55),
+    p.blob(LAYER.litter, e, t, 3.5, 0.6),
+    p.blob(LAYER.pave, e, t, 2.6, 0.7),
     hasPiece('Prop_Brick1'))
   )
     for (let m = 0; m < 8; m++)
@@ -721,7 +721,7 @@ function y9(o, e, t, a, n) {
       `Prop_Brick${1 + (c % 4)}`,
       composeMatrix(e + (i() - 0.5) * 5, r, t + (i() - 0.5) * 5, i() * 6.28, 1.5),
     );
-  o.ground.blob(Le.pave, e, t, 2.6, 0.55);
+  o.ground.blob(LAYER.pave, e, t, 2.6, 0.55);
 }
 async function x9(o, e, t) {
   let { scene: a, ground: n } = o,
@@ -751,7 +751,7 @@ async function x9(o, e, t) {
     color: 11842736,
     roughness: 0.82,
     metalness: 0,
-    map: z3('rock_ground_diff'),
+    map: worldTexture('rock_ground_diff'),
   });
   if (
     ((u.onBeforeCompile = (h) => {
@@ -835,8 +835,8 @@ varying vec3 vTp; varying vec3 vTn;`,
       h.isMesh && ((h.castShadow = !h.userData.noShadow), (h.receiveShadow = !0));
     }),
     a.add(l),
-    n.blob(Le.pave, s.x, s.z, 3.4, 0.9),
-    n.blob(Le.ao, s.x, s.z, 2.8, 0.45),
+    n.blob(LAYER.pave, s.x, s.z, 3.4, 0.9),
+    n.blob(LAYER.ao, s.x, s.z, 2.8, 0.45),
     (o.statue = l),
     l
   );

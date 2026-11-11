@@ -26,7 +26,7 @@ import {
 import { hasPiece, isFlatMaterial, pieceMesh, MeshMerger } from './kit.js';
 import { standardMaterial } from './materials.js';
 import { cellToWorld, degToRad } from './grid.js';
-import { Le } from './ground.js';
+import { LAYER } from './ground.js';
 
 function mo() {
   return (
@@ -596,7 +596,7 @@ function ok(o) {
           ((k.castShadow = !w && (k.castShadow || k.geometry.boundingSphere?.radius > 0.2)),
           (k.receiveShadow = !0));
       }),
-        w && !y.isEmpty() && v.type !== 'trap' && a.blob(Le.ao, x.position.x, x.position.z, 0.75, 0.5),
+        w && !y.isEmpty() && v.type !== 'trap' && a.blob(LAYER.ao, x.position.x, x.position.z, 0.75, 0.5),
         x.add(g),
         (x.userData.vis = g));
     }
