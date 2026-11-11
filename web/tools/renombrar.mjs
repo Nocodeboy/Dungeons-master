@@ -131,12 +131,19 @@ function partirClave(clave) {
 function resolver(prog, mapa, archivo) {
   const enlaces = todosLosEnlaces(prog);
   const cadenas = new Map(enlaces.map((b) => [b, cadenaDeAmbito(b.scope)]));
-  // Una componente de ruta «c» (prefijo p) casa con el nombre actual «c» o con su nombre nuevo.
+  // Una componente de ruta «c» (prefijo p) casa con el nombre actual «c» o con su nombre nuevo
+  // (el de la clave «p» o el de cualquier «p#k»).
+  const nuevosDe = new Map();
+  for (const [clave, nuevo] of Object.entries(mapa)) {
+    const base = clave.replace(/#\d+$/, '');
+    if (!nuevosDe.has(base)) nuevosDe.set(base, new Set());
+    nuevosDe.get(base).add(nuevo);
+  }
   const casaRuta = (ruta, cadena) =>
     ruta.length === cadena.length &&
     ruta.every((c, i) => {
       const prefijo = ruta.slice(0, i + 1).join('/');
-      return cadena[i] === c || cadena[i] === mapa[prefijo];
+      return cadena[i] === c || !!nuevosDe.get(prefijo)?.has(cadena[i]);
     });
   const plan = [];
   const aplicadas = []; // claves del módulo ya aplicadas (para propagar a importadores rezagados)

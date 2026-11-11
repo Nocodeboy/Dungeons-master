@@ -13,7 +13,7 @@ import { buildVegetation } from './vegetation.js';
 import { buildBuildings } from './buildings.js';
 import { buildProps, propPiece } from './props.js';
 import { $3 } from './interiors.js';
-import { ok } from './procedural.js';
+import { buildObjects } from './procedural.js';
 import { buildWater, WATER_LEVEL } from './water.js';
 import { CryptWalls } from './crypt.js';
 import { WorldFx } from './particles.js';
@@ -130,7 +130,7 @@ async function buildLevel(
     return !1;
   };
   let vegetation = buildVegetation(ctx),
-    objects = ok(ctx);
+    objects = buildObjects(ctx);
   fx.flames.push(...objects.flames);
   let walls = null,
     hasWalls = level.rows?.some((line) => line.includes('#'));

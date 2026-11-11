@@ -25,6 +25,8 @@ en el código y queda para decidir más adelante.
 - `props.js`: parámetros sin uso en `decorSpecial` (`queue`), `smallProp` (`queue`) y `brokenColumn`
   (`place`).
 
+- `procedural.js`, `buildObjects`: `tickFn` es un alias de `tick` que solo usa `update`; sobra la indirección.
+
 ## Duplicados
 
 - `grid.js` repite las fórmulas de rejilla de `explore/hex.js` (`cellToWorld`, `worldToCell` ≈

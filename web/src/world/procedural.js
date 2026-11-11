@@ -1,5 +1,9 @@
-// world/procedural.js
-// Reconstruido de publicado/juego.js (módulo __esm «sk»). Nombres locales aún minificados.
+// world/procedural.js — objetos interactivos del nivel (`level.objects`) hechos con geometría sencilla:
+// puertas de cripta, cofres y sarcófagos, alijos, botín, carteles y tablones, hogueras, escaleras,
+// trampas (foso, placa, cuerda, cepo), piedras rúnicas con glifos, sellos, palancas, estelas y el
+// zócalo del cuerno. `buildObjects` los crea, gestiona su estado (abrir, encender, disparar, romper…)
+// con interpolaciones y los resalta con un anillo.
+// Reconstruido de publicado/juego.js (módulo __esm «sk»). Lo usa index.js (`world.objects`, `setObjectState`).
 
 import {
   AdditiveBlending,
@@ -28,10 +32,11 @@ import { standardMaterial } from './materials.js';
 import { cellToWorld, degToRad } from './grid.js';
 import { LAYER } from './ground.js';
 
-function mo() {
+/** Materiales compartidos de los objetos (madera, hierro, piedra, runas, brasas…). */
+function objectMats() {
   return (
-    a0 ||
-    ((a0 = {
+    objectMatsCache ||
+    ((objectMatsCache = {
       wood: standardMaterial({ color: 8016438, roughness: 0.8 }),
       dark: standardMaterial({ color: 3876889, roughness: 0.9 }),
       iron: standardMaterial({ color: 4538684, roughness: 0.5, metalness: 0.7 }),
@@ -66,687 +71,762 @@ function mo() {
         roughness: 1,
       }),
     }),
-    a0)
+    objectMatsCache)
   );
 }
-function T9(o = 1) {
-  let e = mo(),
-    t = new Group(),
-    a = ia(0.9, 0.48, 0.58, e.wood);
-  t.add(a);
-  for (let i of [-0.36, 0.36]) t.add(ia(0.07, 0.5, 0.6, e.iron, i, 0, 0));
-  let n = new Group();
-  n.position.set(0, 0.48, -0.29);
-  let s = new Mesh(
+/** Cofre con tapa abatible (`userData.lid`). */
+function makeChest(scale = 1) {
+  let mats = objectMats(),
+    group = new Group(),
+    body = box(0.9, 0.48, 0.58, mats.wood);
+  group.add(body);
+  for (let x of [-0.36, 0.36]) group.add(box(0.07, 0.5, 0.6, mats.iron, x, 0, 0));
+  let lid = new Group();
+  lid.position.set(0, 0.48, -0.29);
+  let lidMesh = new Mesh(
     new CylinderGeometry(0.29, 0.29, 0.9, 12, 1, !1, 0, Math.PI).rotateZ(Math.PI / 2).rotateX(Math.PI / 2),
-    e.wood,
+    mats.wood,
   );
-  (s.position.set(0, 0, 0.29), s.scale.set(1, 0.7, 1), (s.castShadow = !0), n.add(s));
-  for (let i of [-0.36, 0.36]) {
-    let r = new Mesh(
+  (lidMesh.position.set(0, 0, 0.29),
+    lidMesh.scale.set(1, 0.7, 1),
+    (lidMesh.castShadow = !0),
+    lid.add(lidMesh));
+  for (let x of [-0.36, 0.36]) {
+    let band = new Mesh(
       new CylinderGeometry(0.3, 0.3, 0.07, 12, 1, !1, 0, Math.PI).rotateZ(Math.PI / 2).rotateX(Math.PI / 2),
-      e.iron,
+      mats.iron,
     );
-    (r.position.set(i, 0, 0.29), r.scale.set(1, 0.7, 1), n.add(r));
+    (band.position.set(x, 0, 0.29), band.scale.set(1, 0.7, 1), lid.add(band));
   }
   return (
-    t.add(n),
-    t.add(ia(0.12, 0.14, 0.04, e.brass, 0, 0.32, 0.3)),
-    t.scale.setScalar(o),
-    (t.userData.lid = n),
-    t
+    group.add(lid),
+    group.add(box(0.12, 0.14, 0.04, mats.brass, 0, 0.32, 0.3)),
+    group.scale.setScalar(scale),
+    (group.userData.lid = lid),
+    group
   );
 }
-function ek(o, e, t) {
-  (o.clearRect(0, 0, t, t),
-    (o.strokeStyle = '#fff'),
-    (o.lineWidth = t * 0.07),
-    (o.lineCap = 'round'),
-    (o.lineJoin = 'round'));
-  let a = t / 2;
-  switch ((o.beginPath(), e)) {
+/** Dibuja en un lienzo el glifo dado (agua, monte, cuernos, ojo, llama u otro por defecto). */
+function drawGlyph(g2d, glyph, size) {
+  (g2d.clearRect(0, 0, size, size),
+    (g2d.strokeStyle = '#fff'),
+    (g2d.lineWidth = size * 0.07),
+    (g2d.lineCap = 'round'),
+    (g2d.lineJoin = 'round'));
+  let mid = size / 2;
+  switch ((g2d.beginPath(), glyph)) {
     case 'agua':
-      for (let n = 0; n < 3; n++) {
-        let s = a - t * 0.18 + n * t * 0.18;
-        (o.moveTo(t * 0.2, s),
-          o.bezierCurveTo(t * 0.35, s - t * 0.12, t * 0.45, s + t * 0.12, a, s),
-          o.bezierCurveTo(t * 0.55, s - t * 0.12, t * 0.65, s + t * 0.12, t * 0.8, s));
+      for (let k = 0; k < 3; k++) {
+        let y = mid - size * 0.18 + k * size * 0.18;
+        (g2d.moveTo(size * 0.2, y),
+          g2d.bezierCurveTo(size * 0.35, y - size * 0.12, size * 0.45, y + size * 0.12, mid, y),
+          g2d.bezierCurveTo(size * 0.55, y - size * 0.12, size * 0.65, y + size * 0.12, size * 0.8, y));
       }
       break;
     case 'monte':
-      (o.moveTo(t * 0.15, t * 0.75),
-        o.lineTo(t * 0.4, t * 0.3),
-        o.lineTo(t * 0.55, t * 0.55),
-        o.lineTo(t * 0.68, t * 0.38),
-        o.lineTo(t * 0.85, t * 0.75),
-        o.closePath());
+      (g2d.moveTo(size * 0.15, size * 0.75),
+        g2d.lineTo(size * 0.4, size * 0.3),
+        g2d.lineTo(size * 0.55, size * 0.55),
+        g2d.lineTo(size * 0.68, size * 0.38),
+        g2d.lineTo(size * 0.85, size * 0.75),
+        g2d.closePath());
       break;
     case 'cuernos':
-      (o.moveTo(t * 0.2, t * 0.25),
-        o.quadraticCurveTo(t * 0.25, t * 0.6, a, t * 0.62),
-        o.quadraticCurveTo(t * 0.75, t * 0.6, t * 0.8, t * 0.25),
-        o.moveTo(a, t * 0.62),
-        o.lineTo(a, t * 0.85));
+      (g2d.moveTo(size * 0.2, size * 0.25),
+        g2d.quadraticCurveTo(size * 0.25, size * 0.6, mid, size * 0.62),
+        g2d.quadraticCurveTo(size * 0.75, size * 0.6, size * 0.8, size * 0.25),
+        g2d.moveTo(mid, size * 0.62),
+        g2d.lineTo(mid, size * 0.85));
       break;
     case 'ojo':
-      (o.moveTo(t * 0.15, a),
-        o.quadraticCurveTo(a, t * 0.2, t * 0.85, a),
-        o.quadraticCurveTo(a, t * 0.8, t * 0.15, a),
-        o.moveTo(a + t * 0.09, a),
-        o.arc(a, a, t * 0.09, 0, Math.PI * 2));
+      (g2d.moveTo(size * 0.15, mid),
+        g2d.quadraticCurveTo(mid, size * 0.2, size * 0.85, mid),
+        g2d.quadraticCurveTo(mid, size * 0.8, size * 0.15, mid),
+        g2d.moveTo(mid + size * 0.09, mid),
+        g2d.arc(mid, mid, size * 0.09, 0, Math.PI * 2));
       break;
     case 'llama':
-      (o.moveTo(a, t * 0.15),
-        o.bezierCurveTo(t * 0.75, t * 0.45, t * 0.7, t * 0.8, a, t * 0.85),
-        o.bezierCurveTo(t * 0.3, t * 0.8, t * 0.25, t * 0.5, t * 0.45, t * 0.4),
-        o.bezierCurveTo(t * 0.45, t * 0.55, t * 0.55, t * 0.6, a, t * 0.15));
+      (g2d.moveTo(mid, size * 0.15),
+        g2d.bezierCurveTo(size * 0.75, size * 0.45, size * 0.7, size * 0.8, mid, size * 0.85),
+        g2d.bezierCurveTo(size * 0.3, size * 0.8, size * 0.25, size * 0.5, size * 0.45, size * 0.4),
+        g2d.bezierCurveTo(size * 0.45, size * 0.55, size * 0.55, size * 0.6, mid, size * 0.15));
       break;
     default:
-      (o.moveTo(a, t * 0.15),
-        o.lineTo(a, t * 0.85),
-        o.moveTo(a, t * 0.35),
-        o.lineTo(t * 0.72, t * 0.2),
-        o.moveTo(a, t * 0.55),
-        o.lineTo(t * 0.28, t * 0.4));
+      (g2d.moveTo(mid, size * 0.15),
+        g2d.lineTo(mid, size * 0.85),
+        g2d.moveTo(mid, size * 0.35),
+        g2d.lineTo(size * 0.72, size * 0.2),
+        g2d.moveTo(mid, size * 0.55),
+        g2d.lineTo(size * 0.28, size * 0.4));
   }
-  o.stroke();
+  g2d.stroke();
 }
-function E9() {
-  let o = mo(),
-    e = new Group();
-  (e.add(ia(2.1, 0.85, 0.95, o.stone, 0, 0, 0)), e.add(ia(2.25, 0.12, 1.08, o.stoneDark, 0, 0, 0)));
-  let t = new Group(),
-    a = ia(2.2, 0.16, 1.02, o.stone, 0, 0, 0);
-  t.add(a);
-  let n = ia(1.3, 0.1, 0.36, o.stoneDark, 0, 0.16, 0);
-  t.add(n);
-  let s = new Mesh(new SphereGeometry(0.17, 10, 8), o.stoneDark);
+/** Sarcófago con losa deslizante (`userData.lid`, `slide`). */
+function makeSarcophagus() {
+  let mats = objectMats(),
+    group = new Group();
+  (group.add(box(2.1, 0.85, 0.95, mats.stone, 0, 0, 0)),
+    group.add(box(2.25, 0.12, 1.08, mats.stoneDark, 0, 0, 0)));
+  let lid = new Group(),
+    slab = box(2.2, 0.16, 1.02, mats.stone, 0, 0, 0);
+  lid.add(slab);
+  let panel = box(1.3, 0.1, 0.36, mats.stoneDark, 0, 0.16, 0);
+  lid.add(panel);
+  let knob = new Mesh(new SphereGeometry(0.17, 10, 8), mats.stoneDark);
   return (
-    s.position.set(-0.8, 0.24, 0),
-    s.scale.set(1, 0.6, 1),
-    t.add(s),
-    (t.position.y = 0.85),
-    e.add(t),
-    (e.userData.lid = t),
-    (e.userData.slide = !0),
-    e
+    knob.position.set(-0.8, 0.24, 0),
+    knob.scale.set(1, 0.6, 1),
+    lid.add(knob),
+    (lid.position.y = 0.85),
+    group.add(lid),
+    (group.userData.lid = lid),
+    (group.userData.slide = !0),
+    group
   );
 }
-function S9(o = !1) {
-  let e = mo(),
-    t = new Group(),
-    a = new CylinderGeometry(0.32, 0.42, 1.5, 6, 3),
-    n = a.getAttribute('position');
-  for (let h = 0; h < n.count; h++) {
-    let p = n.getY(h);
-    (n.setX(h, n.getX(h) * (1 + Math.sin(h * 1.7) * 0.06)),
-      n.setZ(h, n.getZ(h) * 0.62 * (1 + Math.cos(h * 2.3) * 0.06)),
-      p > 0.6 && n.setX(h, n.getX(h) * 0.8));
+/** Piedra rúnica giratoria con glifo luminoso; `userData.setGlyph(glifo)` lo cambia. */
+function makeRuneStone(blue = !1) {
+  let mats = objectMats(),
+    group = new Group(),
+    geo = new CylinderGeometry(0.32, 0.42, 1.5, 6, 3),
+    pos = geo.getAttribute('position');
+  for (let k = 0; k < pos.count; k++) {
+    let y = pos.getY(k);
+    (pos.setX(k, pos.getX(k) * (1 + Math.sin(k * 1.7) * 0.06)),
+      pos.setZ(k, pos.getZ(k) * 0.62 * (1 + Math.cos(k * 2.3) * 0.06)),
+      y > 0.6 && pos.setX(k, pos.getX(k) * 0.8));
   }
-  a.computeVertexNormals();
-  let s = new Group(),
-    i = new Mesh(a, e.stone);
-  ((i.position.y = 0.72), (i.castShadow = !0), (i.receiveShadow = !0), s.add(i));
-  let r = 128,
-    l = document.createElement('canvas');
-  ((l.width = l.height = r), ek(l.getContext('2d'), null, r));
-  let c = new CanvasTexture(l),
-    d = new MeshStandardMaterial({
+  geo.computeVertexNormals();
+  let turn = new Group(),
+    stone = new Mesh(geo, mats.stone);
+  ((stone.position.y = 0.72), (stone.castShadow = !0), (stone.receiveShadow = !0), turn.add(stone));
+  let size = 128,
+    canvas = document.createElement('canvas');
+  ((canvas.width = canvas.height = size), drawGlyph(canvas.getContext('2d'), null, size));
+  let tex = new CanvasTexture(canvas),
+    glowMat = new MeshStandardMaterial({
       color: 1709072,
-      emissive: o ? 7387391 : 16752704,
-      emissiveMap: c,
-      alphaMap: c,
+      emissive: blue ? 7387391 : 16752704,
+      emissiveMap: tex,
+      alphaMap: tex,
       transparent: !0,
       emissiveIntensity: 0.35,
       roughness: 0.8,
       depthWrite: !1,
     }),
-    u = new Mesh(new PlaneGeometry(0.42, 0.42), d);
+    face = new Mesh(new PlaneGeometry(0.42, 0.42), glowMat);
   return (
-    u.position.set(0, 0.95, 0.265),
-    (u.rotation.x = -0.05),
-    s.add(u),
-    t.add(s),
-    (t.userData.glow = d),
-    (t.userData.turn = s),
-    (t.userData.setGlyph = (h) => {
-      (ek(l.getContext('2d'), h, r), (c.needsUpdate = !0));
+    face.position.set(0, 0.95, 0.265),
+    (face.rotation.x = -0.05),
+    turn.add(face),
+    group.add(turn),
+    (group.userData.glow = glowMat),
+    (group.userData.turn = turn),
+    (group.userData.setGlyph = (glyph) => {
+      (drawGlyph(canvas.getContext('2d'), glyph, size), (tex.needsUpdate = !0));
     }),
-    t
+    group
   );
 }
-function k9() {
-  let o = mo(),
-    e = new Group(),
-    t = ia(1.1, 1.7, 0.3, o.stone, 0, 0, 0);
-  (e.add(t), e.add(ia(1.3, 0.2, 0.42, o.stoneDark, 0, 0, 0)));
-  let a = o.rune.clone();
-  a.emissiveIntensity = 0.6;
-  for (let n = 0; n < 4; n++) {
-    let s = new Mesh(new PlaneGeometry(0.7 - (n % 2) * 0.15, 0.05), a);
-    (s.position.set(0, 1.3 - n * 0.2, 0.152), e.add(s));
+/** Estela con líneas de runas brillantes. */
+function makeStele() {
+  let mats = objectMats(),
+    group = new Group(),
+    slab = box(1.1, 1.7, 0.3, mats.stone, 0, 0, 0);
+  (group.add(slab), group.add(box(1.3, 0.2, 0.42, mats.stoneDark, 0, 0, 0)));
+  let glowMat = mats.rune.clone();
+  glowMat.emissiveIntensity = 0.6;
+  for (let k = 0; k < 4; k++) {
+    let line = new Mesh(new PlaneGeometry(0.7 - (k % 2) * 0.15, 0.05), glowMat);
+    (line.position.set(0, 1.3 - k * 0.2, 0.152), group.add(line));
   }
-  return ((e.userData.glow = a), e);
+  return ((group.userData.glow = glowMat), group);
 }
-function A9() {
-  let o = mo(),
-    e = new Group(),
-    t = new Mesh(new CylinderGeometry(0.42, 0.5, 0.95, 8), o.stone);
-  ((t.position.y = 0.47), (t.castShadow = !0), e.add(t));
-  let a = new Mesh(new CylinderGeometry(0.5, 0.42, 0.12, 8), o.stoneDark);
-  ((a.position.y = 1), e.add(a));
-  let n = new Mesh(new CircleGeometry(0.16, 12).rotateX(-Math.PI / 2), o.hole);
-  ((n.position.y = 1.065), e.add(n));
-  let s = new Mesh(new ConeGeometry(0.1, 0.65, 10, 4, !1), o.stone),
-    i = s.geometry.getAttribute('position');
-  for (let r = 0; r < i.count; r++) {
-    let l = i.getY(r) + 0.325;
-    i.setX(r, i.getX(r) + l * l * 0.35);
+/** Pedestal con hueco y el cuerno oculto (`userData.horn`). */
+function makeHornSocket() {
+  let mats = objectMats(),
+    group = new Group(),
+    pedestal = new Mesh(new CylinderGeometry(0.42, 0.5, 0.95, 8), mats.stone);
+  ((pedestal.position.y = 0.47), (pedestal.castShadow = !0), group.add(pedestal));
+  let cap = new Mesh(new CylinderGeometry(0.5, 0.42, 0.12, 8), mats.stoneDark);
+  ((cap.position.y = 1), group.add(cap));
+  let hole = new Mesh(new CircleGeometry(0.16, 12).rotateX(-Math.PI / 2), mats.hole);
+  ((hole.position.y = 1.065), group.add(hole));
+  let horn = new Mesh(new ConeGeometry(0.1, 0.65, 10, 4, !1), mats.stone),
+    pos = horn.geometry.getAttribute('position');
+  for (let k = 0; k < pos.count; k++) {
+    let y = pos.getY(k) + 0.325;
+    pos.setX(k, pos.getX(k) + y * y * 0.35);
   }
   return (
-    s.geometry.computeVertexNormals(),
-    s.position.set(0, 1.35, 0),
-    (s.visible = !1),
-    e.add(s),
-    (e.userData.horn = s),
-    e
+    horn.geometry.computeVertexNormals(),
+    horn.position.set(0, 1.35, 0),
+    (horn.visible = !1),
+    group.add(horn),
+    (group.userData.horn = horn),
+    group
   );
 }
-function R9(o = 'toro') {
-  let e = mo(),
-    t = new Group(),
-    a = new Mesh(new CylinderGeometry(0.62, 0.66, 0.12, 6), e.stone);
-  ((a.position.y = 0.06), (a.rotation.y = Math.PI / 6), (a.receiveShadow = !0), t.add(a));
-  let n = e.rune.clone(),
-    s = new Group(),
-    i = (r, l, c, d = 0) => {
-      let u = new Mesh(r, n);
-      ((u.rotation.x = -Math.PI / 2), (u.rotation.z = d), u.position.set(l, 0.125, c), s.add(u));
+/** Losa de sello con el símbolo «toro», «rio» o «piedra» en runas. */
+function makeSealPlate(symbol = 'toro') {
+  let mats = objectMats(),
+    group = new Group(),
+    base = new Mesh(new CylinderGeometry(0.62, 0.66, 0.12, 6), mats.stone);
+  ((base.position.y = 0.06), (base.rotation.y = Math.PI / 6), (base.receiveShadow = !0), group.add(base));
+  let glowMat = mats.rune.clone(),
+    marks = new Group(),
+    addMark = (geo, x, z, rot = 0) => {
+      let mesh = new Mesh(geo, glowMat);
+      ((mesh.rotation.x = -Math.PI / 2),
+        (mesh.rotation.z = rot),
+        mesh.position.set(x, 0.125, z),
+        marks.add(mesh));
     };
-  if (o === 'toro')
-    (i(new RingGeometry(0.16, 0.22, 16, 1, 0, Math.PI), 0, -0.02, Math.PI),
-      i(new CircleGeometry(0.16, 16), 0, 0.12));
-  else if (o === 'rio')
-    for (let r = 0; r < 3; r++)
-      i(
+  if (symbol === 'toro')
+    (addMark(new RingGeometry(0.16, 0.22, 16, 1, 0, Math.PI), 0, -0.02, Math.PI),
+      addMark(new CircleGeometry(0.16, 16), 0, 0.12));
+  else if (symbol === 'rio')
+    for (let k = 0; k < 3; k++)
+      addMark(
         new RingGeometry(0.08, 0.12, 12, 1, 0, Math.PI),
-        -0.2 + r * 0.2,
-        -0.05 + (r % 2) * 0.1,
-        (r % 2) * Math.PI,
+        -0.2 + k * 0.2,
+        -0.05 + (k % 2) * 0.1,
+        (k % 2) * Math.PI,
       );
   else
-    (i(new RingGeometry(0.2, 0.26, 4), 0, 0, Math.PI / 4), i(new CircleGeometry(0.08, 4), 0, 0, Math.PI / 4));
-  return (t.add(s), (t.userData.glow = n), t);
+    (addMark(new RingGeometry(0.2, 0.26, 4), 0, 0, Math.PI / 4),
+      addMark(new CircleGeometry(0.08, 4), 0, 0, Math.PI / 4));
+  return (group.add(marks), (group.userData.glow = glowMat), group);
 }
-function C9() {
-  let o = mo(),
-    e = new Group(),
-    t = new Mesh(new CylinderGeometry(1.5, 1.6, 0.25, 32), o.stoneDark);
-  ((t.position.y = 0.12), (t.receiveShadow = !0), e.add(t));
-  let a = o.sealGlow.clone(),
-    n = new Mesh(new RingGeometry(1, 1.15, 40), a);
-  ((n.rotation.x = -Math.PI / 2), (n.position.y = 0.255), e.add(n));
-  for (let i = 0; i < 7; i++) {
-    let r = new Mesh(new PlaneGeometry(0.05, 0.9 + Math.random() * 0.4), a);
-    ((r.rotation.x = -Math.PI / 2),
-      (r.rotation.z = (i / 7) * Math.PI * 2 + Math.random() * 0.3),
-      (r.position.y = 0.256),
-      r.translateY(0.5),
-      e.add(r));
+/** Gran sello rojo con grietas y el bloque central (`userData.boss`). */
+function makeSeal() {
+  let mats = objectMats(),
+    group = new Group(),
+    disc = new Mesh(new CylinderGeometry(1.5, 1.6, 0.25, 32), mats.stoneDark);
+  ((disc.position.y = 0.12), (disc.receiveShadow = !0), group.add(disc));
+  let glowMat = mats.sealGlow.clone(),
+    ring = new Mesh(new RingGeometry(1, 1.15, 40), glowMat);
+  ((ring.rotation.x = -Math.PI / 2), (ring.position.y = 0.255), group.add(ring));
+  for (let k = 0; k < 7; k++) {
+    let crack = new Mesh(new PlaneGeometry(0.05, 0.9 + Math.random() * 0.4), glowMat);
+    ((crack.rotation.x = -Math.PI / 2),
+      (crack.rotation.z = (k / 7) * Math.PI * 2 + Math.random() * 0.3),
+      (crack.position.y = 0.256),
+      crack.translateY(0.5),
+      group.add(crack));
   }
-  let s = new Mesh(new CylinderGeometry(0.45, 0.55, 0.35, 6), o.stone);
+  let boss = new Mesh(new CylinderGeometry(0.45, 0.55, 0.35, 6), mats.stone);
   return (
-    (s.position.y = 0.3),
-    (s.castShadow = !0),
-    e.add(s),
-    (e.userData.glow = a),
-    (e.userData.boss = s),
-    e
+    (boss.position.y = 0.3),
+    (boss.castShadow = !0),
+    group.add(boss),
+    (group.userData.glow = glowMat),
+    (group.userData.boss = boss),
+    group
   );
 }
-function tk(o) {
-  let e = mo(),
-    t = new Group();
-  if (o) {
-    (t.add(ia(0.1, 1.9, 0.1, e.dark, -0.55, 0, 0)),
-      t.add(ia(0.1, 1.9, 0.1, e.dark, 0.55, 0, 0)),
-      t.add(ia(1.35, 0.85, 0.06, e.wood, 0, 0.85, 0)));
-    let a = ia(1.5, 0.06, 0.4, e.dark, 0, 1.78, 0.02);
-    ((a.rotation.x = -0.25), t.add(a));
-    for (let n = 0; n < 4; n++) {
-      let s = ia(
+/** Poste con carteles, o tablón de anuncios si `board`. */
+function makeSign(board) {
+  let mats = objectMats(),
+    group = new Group();
+  if (board) {
+    (group.add(box(0.1, 1.9, 0.1, mats.dark, -0.55, 0, 0)),
+      group.add(box(0.1, 1.9, 0.1, mats.dark, 0.55, 0, 0)),
+      group.add(box(1.35, 0.85, 0.06, mats.wood, 0, 0.85, 0)));
+    let roof = box(1.5, 0.06, 0.4, mats.dark, 0, 1.78, 0.02);
+    ((roof.rotation.x = -0.25), group.add(roof));
+    for (let k = 0; k < 4; k++) {
+      let paper = box(
         0.26 + Math.random() * 0.08,
         0.32,
         0.01,
-        e.paper,
-        -0.45 + n * 0.3,
-        1.05 + (n % 2) * 0.12,
+        mats.paper,
+        -0.45 + k * 0.3,
+        1.05 + (k % 2) * 0.12,
         0.04,
       );
-      ((s.rotation.z = (Math.random() - 0.5) * 0.15), t.add(s));
+      ((paper.rotation.z = (Math.random() - 0.5) * 0.15), group.add(paper));
     }
   } else {
-    t.add(ia(0.12, 1.7, 0.12, e.dark, 0, 0, 0));
-    let a = ia(0.95, 0.26, 0.05, e.wood, 0.35, 1.32, 0.05);
-    t.add(a);
-    let n = ia(0.8, 0.22, 0.05, e.wood, -0.28, 1, 0.05);
-    ((n.rotation.y = 0.3), t.add(n));
+    group.add(box(0.12, 1.7, 0.12, mats.dark, 0, 0, 0));
+    let plankA = box(0.95, 0.26, 0.05, mats.wood, 0.35, 1.32, 0.05);
+    group.add(plankA);
+    let plankB = box(0.8, 0.22, 0.05, mats.wood, -0.28, 1, 0.05);
+    ((plankB.rotation.y = 0.3), group.add(plankB));
   }
-  return t;
+  return group;
 }
-function P9() {
-  let o = mo(),
-    e = new Group();
-  for (let a = 0; a < 9; a++) {
-    let n = (a / 9) * Math.PI * 2,
-      s = new Mesh(new DodecahedronGeometry(0.16, 0), o.stone);
-    (s.position.set(Math.cos(n) * 0.55, 0.08, Math.sin(n) * 0.55),
-      s.rotation.set(Math.random(), Math.random(), Math.random()),
-      s.scale.set(1.2, 0.8, 1),
-      (s.castShadow = !0),
-      e.add(s));
+/** Hoguera de piedras y leños con brasas (`userData.coals`). */
+function makeCampfire() {
+  let mats = objectMats(),
+    group = new Group();
+  for (let k = 0; k < 9; k++) {
+    let angle = (k / 9) * Math.PI * 2,
+      stone = new Mesh(new DodecahedronGeometry(0.16, 0), mats.stone);
+    (stone.position.set(Math.cos(angle) * 0.55, 0.08, Math.sin(angle) * 0.55),
+      stone.rotation.set(Math.random(), Math.random(), Math.random()),
+      stone.scale.set(1.2, 0.8, 1),
+      (stone.castShadow = !0),
+      group.add(stone));
   }
-  for (let a = 0; a < 4; a++) {
-    let n = new Mesh(new CylinderGeometry(0.06, 0.07, 0.8, 7).rotateZ(Math.PI / 2), o.dark);
-    ((n.rotation.y = (a * Math.PI) / 4), (n.rotation.z = 0.25), (n.position.y = 0.12), e.add(n));
+  for (let k = 0; k < 4; k++) {
+    let log = new Mesh(new CylinderGeometry(0.06, 0.07, 0.8, 7).rotateZ(Math.PI / 2), mats.dark);
+    ((log.rotation.y = (k * Math.PI) / 4), (log.rotation.z = 0.25), (log.position.y = 0.12), group.add(log));
   }
-  let t = new Mesh(new CircleGeometry(0.36, 12).rotateX(-Math.PI / 2), o.ember.clone());
-  return ((t.position.y = 0.04), e.add(t), (e.userData.coals = t), e);
+  let coals = new Mesh(new CircleGeometry(0.36, 12).rotateX(-Math.PI / 2), mats.ember.clone());
+  return ((coals.position.y = 0.04), group.add(coals), (group.userData.coals = coals), group);
 }
-function ak() {
-  let o = mo(),
-    e = new Group(),
-    t = new Mesh(new PlaneGeometry(1.2, 1.5).rotateX(-Math.PI / 2), o.hole);
-  ((t.position.y = 0.02), e.add(t));
-  for (let a = 0; a < 4; a++)
-    e.add(ia(1.2, 0.08, 0.3, o.stone, 0, -0.05 - a * 0.18 + 0.02, -0.55 + a * 0.32));
+/** Hueco con peldaños que bajan. */
+function makeStairsDown() {
+  let mats = objectMats(),
+    group = new Group(),
+    hole = new Mesh(new PlaneGeometry(1.2, 1.5).rotateX(-Math.PI / 2), mats.hole);
+  ((hole.position.y = 0.02), group.add(hole));
+  for (let k = 0; k < 4; k++)
+    group.add(box(1.2, 0.08, 0.3, mats.stone, 0, -0.05 - k * 0.18 + 0.02, -0.55 + k * 0.32));
   return (
-    e.add(ia(0.16, 0.2, 1.7, o.stoneDark, -0.7, -0.05, 0)),
-    e.add(ia(0.16, 0.2, 1.7, o.stoneDark, 0.7, -0.05, 0)),
-    e
+    group.add(box(0.16, 0.2, 1.7, mats.stoneDark, -0.7, -0.05, 0)),
+    group.add(box(0.16, 0.2, 1.7, mats.stoneDark, 0.7, -0.05, 0)),
+    group
   );
 }
-function z9(o) {
-  let e = mo(),
-    t = new Group();
-  if (o === 'pit') {
-    let a = new Mesh(new CircleGeometry(0.6, 10).rotateX(-Math.PI / 2), e.dark);
-    ((a.position.y = 0.02), t.add(a), (t.userData.cover = a));
-    for (let n = 0; n < 5; n++) {
-      let s = new Mesh(new ConeGeometry(0.04, 0.4, 5), e.wood);
-      (s.position.set((Math.random() - 0.5) * 0.6, -0.1, (Math.random() - 0.5) * 0.6),
-        (s.visible = !1),
-        t.add(s),
-        (t.userData.spikes ??= []).push(s));
+/** Trampa del tipo `kind`: pit, plate, wire o cepo; pinchos en `userData.spikes`. */
+function makeTrap(kind) {
+  let mats = objectMats(),
+    group = new Group();
+  if (kind === 'pit') {
+    let cover = new Mesh(new CircleGeometry(0.6, 10).rotateX(-Math.PI / 2), mats.dark);
+    ((cover.position.y = 0.02), group.add(cover), (group.userData.cover = cover));
+    for (let k = 0; k < 5; k++) {
+      let spike = new Mesh(new ConeGeometry(0.04, 0.4, 5), mats.wood);
+      (spike.position.set((Math.random() - 0.5) * 0.6, -0.1, (Math.random() - 0.5) * 0.6),
+        (spike.visible = !1),
+        group.add(spike),
+        (group.userData.spikes ??= []).push(spike));
     }
-  } else if (o === 'plate') {
-    let a = ia(0.9, 0.04, 0.9, e.stoneDark, 0, -0.01, 0);
-    (t.add(a), (t.userData.plate = a));
-    for (let n = 0; n < 9; n++) {
-      let s = new Mesh(new ConeGeometry(0.035, 0.45, 5), e.iron);
-      (s.position.set(-0.3 + (n % 3) * 0.3, -0.2, -0.3 + Math.floor(n / 3) * 0.3),
-        (s.visible = !1),
-        t.add(s),
-        (t.userData.spikes ??= []).push(s));
+  } else if (kind === 'plate') {
+    let plate = box(0.9, 0.04, 0.9, mats.stoneDark, 0, -0.01, 0);
+    (group.add(plate), (group.userData.plate = plate));
+    for (let k = 0; k < 9; k++) {
+      let spike = new Mesh(new ConeGeometry(0.035, 0.45, 5), mats.iron);
+      (spike.position.set(-0.3 + (k % 3) * 0.3, -0.2, -0.3 + Math.floor(k / 3) * 0.3),
+        (spike.visible = !1),
+        group.add(spike),
+        (group.userData.spikes ??= []).push(spike));
     }
-  } else if (o === 'wire') {
-    let a = ia(1.3, 0.012, 0.012, e.dark, 0, 0.12, 0);
-    t.add(a);
-    for (let s of [-0.65, 0.65]) t.add(ia(0.04, 0.2, 0.04, e.wood, s, 0, 0));
-    let n = new Mesh(new CylinderGeometry(0.05, 0.05, 0.1, 8), e.iron);
-    (n.position.set(0.7, 0.2, 0.05), t.add(n));
+  } else if (kind === 'wire') {
+    let wire = box(1.3, 0.012, 0.012, mats.dark, 0, 0.12, 0);
+    group.add(wire);
+    for (let x of [-0.65, 0.65]) group.add(box(0.04, 0.2, 0.04, mats.wood, x, 0, 0));
+    let bell = new Mesh(new CylinderGeometry(0.05, 0.05, 0.1, 8), mats.iron);
+    (bell.position.set(0.7, 0.2, 0.05), group.add(bell));
   } else {
-    let a = new Mesh(new TorusGeometry(0.22, 0.025, 6, 16).rotateX(Math.PI / 2), e.iron);
-    ((a.position.y = 0.03), t.add(a));
-    for (let n = 0; n < 8; n++) {
-      let s = new Mesh(new ConeGeometry(0.025, 0.1, 4), e.iron),
-        i = (n / 8) * Math.PI * 2;
-      (s.position.set(Math.cos(i) * 0.2, 0.08, Math.sin(i) * 0.2), t.add(s));
+    let ring = new Mesh(new TorusGeometry(0.22, 0.025, 6, 16).rotateX(Math.PI / 2), mats.iron);
+    ((ring.position.y = 0.03), group.add(ring));
+    for (let k = 0; k < 8; k++) {
+      let tooth = new Mesh(new ConeGeometry(0.025, 0.1, 4), mats.iron),
+        angle = (k / 8) * Math.PI * 2;
+      (tooth.position.set(Math.cos(angle) * 0.2, 0.08, Math.sin(angle) * 0.2), group.add(tooth));
     }
   }
-  return t;
+  return group;
 }
-function L9() {
-  let o = mo(),
-    e = new Group();
-  e.add(ia(0.4, 0.3, 0.3, o.stoneDark));
-  let t = new Group();
-  t.position.y = 0.3;
-  let a = ia(0.05, 0.7, 0.05, o.iron);
-  t.add(a);
-  let n = new Mesh(new SphereGeometry(0.06, 8, 6), o.dark);
-  return ((n.position.y = 0.7), t.add(n), (t.rotation.x = -0.6), e.add(t), (e.userData.arm = t), e);
+/** Palanca con brazo móvil (`userData.arm`). */
+function makeLever() {
+  let mats = objectMats(),
+    group = new Group();
+  group.add(box(0.4, 0.3, 0.3, mats.stoneDark));
+  let arm = new Group();
+  arm.position.y = 0.3;
+  let rod = box(0.05, 0.7, 0.05, mats.iron);
+  arm.add(rod);
+  let knob = new Mesh(new SphereGeometry(0.06, 8, 6), mats.dark);
+  return (
+    (knob.position.y = 0.7),
+    arm.add(knob),
+    (arm.rotation.x = -0.6),
+    group.add(arm),
+    (group.userData.arm = arm),
+    group
+  );
 }
-function D9(o = 'stone') {
-  let e = mo(),
-    t = new Group(),
-    a = new Group();
-  (a.add(ia(0.35, 2.6, 0.5, e.stoneDark, -0.95, 0, 0)),
-    a.add(ia(0.35, 2.6, 0.5, e.stoneDark, 0.95, 0, 0)),
-    a.add(ia(2.3, 0.4, 0.55, e.stoneDark, 0, 2.5, 0)),
-    t.add(a));
-  let n = new Group(),
-    s = ia(1.6, 2.5, 0.22, o === 'stone' ? e.stone : e.iron, 0, 0, 0);
-  n.add(s);
-  let i = e.rune.clone(),
-    r = new Mesh(new RingGeometry(0.22, 0.3, 6), i);
-  return (r.position.set(0, 1.45, 0.12), n.add(r), t.add(n), (t.userData.slab = n), (t.userData.glow = i), t);
+/** Puerta de cripta: marco y losa que baja (`userData.slab`) con una runa. */
+function makeVaultDoor(style = 'stone') {
+  let mats = objectMats(),
+    group = new Group(),
+    frame = new Group();
+  (frame.add(box(0.35, 2.6, 0.5, mats.stoneDark, -0.95, 0, 0)),
+    frame.add(box(0.35, 2.6, 0.5, mats.stoneDark, 0.95, 0, 0)),
+    frame.add(box(2.3, 0.4, 0.55, mats.stoneDark, 0, 2.5, 0)),
+    group.add(frame));
+  let slabGroup = new Group(),
+    slab = box(1.6, 2.5, 0.22, style === 'stone' ? mats.stone : mats.iron, 0, 0, 0);
+  slabGroup.add(slab);
+  let glowMat = mats.rune.clone(),
+    rune = new Mesh(new RingGeometry(0.22, 0.3, 6), glowMat);
+  return (
+    rune.position.set(0, 1.45, 0.12),
+    slabGroup.add(rune),
+    group.add(slabGroup),
+    (group.userData.slab = slabGroup),
+    (group.userData.glow = glowMat),
+    group
+  );
 }
-function I9(o) {
-  let e = new Set();
-  for (let t of ['lid', 'arm', 'slab', 'turn', 'horn', 'boss', 'coals', 'cover'])
-    o.userData[t] && e.add(o.userData[t]);
-  for (let t of o.userData.spikes || []) e.add(t);
-  nk(o, e, 'objeto');
-  for (let t of e) t.isMesh || nk(t, new Set([...e].filter((a) => a !== t)), 'pieza');
+/** Funde las mallas lisas que no se mueven de un objeto (y de cada parte móvil). */
+function mergeObjectStatic(root) {
+  let moving = new Set();
+  for (let key of ['lid', 'arm', 'slab', 'turn', 'horn', 'boss', 'coals', 'cover'])
+    root.userData[key] && moving.add(root.userData[key]);
+  for (let spike of root.userData.spikes || []) moving.add(spike);
+  mergeFlatMeshes(root, moving, 'objeto');
+  for (let part of moving)
+    part.isMesh || mergeFlatMeshes(part, new Set([...moving].filter((other) => other !== part)), 'pieza');
 }
-function nk(o, e, t) {
-  o.updateMatrixWorld(!0);
-  let a = new Matrix4().copy(o.matrixWorld).invert(),
-    n = new MeshMerger({ contactH: 0.5, contactMin: 0.6, metal: !1 }),
-    s = [];
+/** Funde en `root` sus mallas de material liso, salvo las que cuelgan de `skip`. */
+function mergeFlatMeshes(root, skip, name) {
+  root.updateMatrixWorld(!0);
+  let inverse = new Matrix4().copy(root.matrixWorld).invert(),
+    merger = new MeshMerger({ contactH: 0.5, contactMin: 0.6, metal: !1 }),
+    meshes = [];
   if (
-    (o.traverse((i) => {
-      if (!(i === o || !i.isMesh || !isFlatMaterial(i.material))) {
-        for (let r = i; r && r !== o; r = r.parent) if (e.has(r)) return;
-        s.push(i);
+    (root.traverse((node) => {
+      if (!(node === root || !node.isMesh || !isFlatMaterial(node.material))) {
+        for (let p = node; p && p !== root; p = p.parent) if (skip.has(p)) return;
+        meshes.push(node);
       }
     }),
-    !(s.length < 2))
+    !(meshes.length < 2))
   ) {
-    for (let i of s)
-      (n.addGeometry(i.geometry, i.material, new Matrix4().multiplyMatrices(a, i.matrixWorld)),
-        i.parent.remove(i));
-    o.add(n.build(t));
+    for (let mesh of meshes)
+      (merger.addGeometry(
+        mesh.geometry,
+        mesh.material,
+        new Matrix4().multiplyMatrices(inverse, mesh.matrixWorld),
+      ),
+        mesh.parent.remove(mesh));
+    root.add(merger.build(name));
   }
 }
-function ok(o) {
-  let { scene: e, level: t, ground: a } = o,
-    n = new Map(),
-    s = [],
-    i = new Vector3(),
-    r = new Map();
-  for (let v of o.buildings || []) v.doorObj && r.set(v.doorObj.id, v);
-  let l = [];
-  function c(v) {
-    if (!v.cell || n.has(v.id)) return null;
-    cellToWorld(v.cell[0], v.cell[1], i);
-    let x = new Group();
-    ((x.name = `obj:${v.id}`),
-      x.position.set(i.x, a.heightAt(i.x, i.z), i.z),
-      (x.rotation.y = degToRad(v.rot ?? v.face ?? 0)),
-      (x.userData = { id: v.id, type: v.type, def: v, state: null }));
-    let g = null;
-    switch (v.type) {
+/**
+ * Crea los objetos de `ctx.level.objects` y devuelve `{anchors, flames, create(def), set(id, estado),
+ * update(dt), setGlow(id, color|false)}`. Los estados (closed/open, lit/out, hidden/revealed,
+ * triggered, broken…) se animan con interpolaciones suaves.
+ */
+function buildObjects(ctx) {
+  let { scene, level, ground } = ctx,
+    anchors = new Map(),
+    tweens = [],
+    pos = new Vector3(),
+    doorBuildings = new Map();
+  for (let bld of ctx.buildings || []) bld.doorObj && doorBuildings.set(bld.doorObj.id, bld);
+  let flames = [];
+  function create(def) {
+    if (!def.cell || anchors.has(def.id)) return null;
+    cellToWorld(def.cell[0], def.cell[1], pos);
+    let anchor = new Group();
+    ((anchor.name = `obj:${def.id}`),
+      anchor.position.set(pos.x, ground.heightAt(pos.x, pos.z), pos.z),
+      (anchor.rotation.y = degToRad(def.rot ?? def.face ?? 0)),
+      (anchor.userData = { id: def.id, type: def.type, def, state: null }));
+    let vis = null;
+    switch (def.type) {
       case 'door': {
-        let y = r.get(v.id);
-        y
-          ? ((x.userData.building = y), (x.userData.leaf = y.doorLeaf))
-          : ((g = D9(v.style || 'stone')),
-            (x.userData.slab = g.userData.slab),
-            (x.userData.glow = g.userData.glow));
+        let bld = doorBuildings.get(def.id);
+        bld
+          ? ((anchor.userData.building = bld), (anchor.userData.leaf = bld.doorLeaf))
+          : ((vis = makeVaultDoor(def.style || 'stone')),
+            (anchor.userData.slab = vis.userData.slab),
+            (anchor.userData.glow = vis.userData.glow));
         break;
       }
       case 'chest':
-        ((g = /sarc/i.test(v.id + (v.name || '')) ? E9() : T9(v.big ? 1.25 : 1)),
-          (x.userData.lid = g.userData.lid),
-          (x.userData.slide = g.userData.slide),
-          (g.rotation.y = (((v.id.length * 37) % 50) - 25) * 0.01));
+        ((vis = /sarc/i.test(def.id + (def.name || '')) ? makeSarcophagus() : makeChest(def.big ? 1.25 : 1)),
+          (anchor.userData.lid = vis.userData.lid),
+          (anchor.userData.slide = vis.userData.slide),
+          (vis.rotation.y = (((def.id.length * 37) % 50) - 25) * 0.01));
         break;
       case 'cache': {
-        if (((g = new Group()), hasPiece('sack'))) {
-          let y = pieceMesh('sack');
-          (y.scale.setScalar(0.8), g.add(y));
+        if (((vis = new Group()), hasPiece('sack'))) {
+          let sack = pieceMesh('sack');
+          (sack.scale.setScalar(0.8), vis.add(sack));
         }
         if (hasPiece('Pebble_Round_4'))
-          for (let y = 0; y < 3; y++) {
-            let w = pieceMesh('Pebble_Round_4');
-            (w.position.set(0.25 + y * 0.1, 0, -0.15 + y * 0.12), w.scale.setScalar(1.5), g.add(w));
+          for (let j = 0; j < 3; j++) {
+            let pebble = pieceMesh('Pebble_Round_4');
+            (pebble.position.set(0.25 + j * 0.1, 0, -0.15 + j * 0.12),
+              pebble.scale.setScalar(1.5),
+              vis.add(pebble));
           }
         break;
       }
       case 'loot': {
         if (
-          ((g = new Group()),
-          hasPiece('q_bag') && g.add(pieceMesh('q_bag')),
-          hasPiece('skull') && /peregrin|restos/i.test(v.name || ''))
+          ((vis = new Group()),
+          hasPiece('q_bag') && vis.add(pieceMesh('q_bag')),
+          hasPiece('skull') && /peregrin|restos/i.test(def.name || ''))
         ) {
-          let y = pieceMesh('skull');
-          (y.position.set(0.35, 0, 0.1), g.add(y));
+          let skull = pieceMesh('skull');
+          (skull.position.set(0.35, 0, 0.1), vis.add(skull));
         }
         break;
       }
       case 'sign':
-        g = tk(!1);
+        vis = makeSign(!1);
         break;
       case 'board':
-        g = tk(!0);
+        vis = makeSign(!0);
         break;
       case 'campfire': {
-        ((g = P9()), (x.userData.coals = g.userData.coals));
-        let y = x.position.clone().add(new Vector3(0, 0.15, 0));
-        (l.push({ pos: y, scale: 1.3, id: v.id }),
-          o.fx?.addLamp({
-            pos: y.clone().add(new Vector3(0, 0.6, 0)),
+        ((vis = makeCampfire()), (anchor.userData.coals = vis.userData.coals));
+        let firePos = anchor.position.clone().add(new Vector3(0, 0.15, 0));
+        (flames.push({ pos: firePos, scale: 1.3, id: def.id }),
+          ctx.fx?.addLamp({
+            pos: firePos.clone().add(new Vector3(0, 0.6, 0)),
             color: 16744496,
             range: 7,
             energy: 1.6,
             kind: 'fire',
-            id: v.id,
+            id: def.id,
             haloSize: 2.4,
             haloAlpha: 0.6,
           }));
         break;
       }
       case 'stairs':
-        /up|subir|arriba/i.test(v.id) || (v.to || '').includes(':merrowick')
-          ? ((g = hasPiece('stairs') ? pieceMesh('stairs') : ak()),
-            hasPiece('stairs') && g.scale.setScalar(0.6))
-          : (g = ak());
+        /up|subir|arriba/i.test(def.id) || (def.to || '').includes(':merrowick')
+          ? ((vis = hasPiece('stairs') ? pieceMesh('stairs') : makeStairsDown()),
+            hasPiece('stairs') && vis.scale.setScalar(0.6))
+          : (vis = makeStairsDown());
         break;
       case 'trap': {
-        let y = /pit|foso/.test(v.id + v.name)
+        let trapKind = /pit|foso/.test(def.id + def.name)
           ? 'pit'
-          : /wire|cuerda/.test(v.id + v.name)
+          : /wire|cuerda/.test(def.id + def.name)
             ? 'wire'
-            : /trap_\d/.test(v.id) || t.ambient === 'crypt'
+            : /trap_\d/.test(def.id) || level.ambient === 'crypt'
               ? 'plate'
               : 'snare';
-        ((g = z9(y)), (x.userData.spikes = g.userData.spikes), (x.userData.trapKind = y));
+        ((vis = makeTrap(trapKind)),
+          (anchor.userData.spikes = vis.userData.spikes),
+          (anchor.userData.trapKind = trapKind));
         break;
       }
       case 'rune':
-        (/seal_/.test(v.id)
-          ? (g = R9(v.symbol || ['toro', 'rio', 'piedra'][Number(v.id.slice(-1)) - 1] || 'toro'))
-          : ((g = S9(!1)), (x.userData.setGlyph = g.userData.setGlyph), (x.userData.turn = g.userData.turn)),
-          (x.userData.glow = g.userData.glow));
+        (/seal_/.test(def.id)
+          ? (vis = makeSealPlate(
+              def.symbol || ['toro', 'rio', 'piedra'][Number(def.id.slice(-1)) - 1] || 'toro',
+            ))
+          : ((vis = makeRuneStone(!1)),
+            (anchor.userData.setGlyph = vis.userData.setGlyph),
+            (anchor.userData.turn = vis.userData.turn)),
+          (anchor.userData.glow = vis.userData.glow));
         break;
       case 'seal':
-        ((g = C9()),
-          (x.userData.glow = g.userData.glow),
-          (x.userData.boss = g.userData.boss),
-          o.fx?.addLamp({
-            pos: x.position.clone().add(new Vector3(0, 0.8, 0)),
+        ((vis = makeSeal()),
+          (anchor.userData.glow = vis.userData.glow),
+          (anchor.userData.boss = vis.userData.boss),
+          ctx.fx?.addLamp({
+            pos: anchor.position.clone().add(new Vector3(0, 0.8, 0)),
             color: 16723992,
             range: 7,
             energy: 1.6,
             kind: 'fire',
-            id: v.id,
+            id: def.id,
             haloSize: 3.2,
             haloAlpha: 0.35,
           }));
         break;
       case 'lever':
-        ((g = L9()), (x.userData.arm = g.userData.arm));
+        ((vis = makeLever()), (anchor.userData.arm = vis.userData.arm));
         break;
       case 'inspect':
-        v.stele
-          ? ((g = k9()), (x.userData.glow = g.userData.glow))
-          : v.socket && ((g = A9()), (x.userData.horn = g.userData.horn));
+        def.stele
+          ? ((vis = makeStele()), (anchor.userData.glow = vis.userData.glow))
+          : def.socket && ((vis = makeHornSocket()), (anchor.userData.horn = vis.userData.horn));
         break;
       default:
         break;
     }
-    if (g) {
-      I9(g);
-      let y = new Box3().setFromObject(g),
-        w = y.isEmpty() || y.max.y - y.min.y < 1.1;
-      (g.traverse((k) => {
-        k.isMesh &&
-          ((k.castShadow = !w && (k.castShadow || k.geometry.boundingSphere?.radius > 0.2)),
-          (k.receiveShadow = !0));
+    if (vis) {
+      mergeObjectStatic(vis);
+      let box = new Box3().setFromObject(vis),
+        small = box.isEmpty() || box.max.y - box.min.y < 1.1;
+      (vis.traverse((node) => {
+        node.isMesh &&
+          ((node.castShadow = !small && (node.castShadow || node.geometry.boundingSphere?.radius > 0.2)),
+          (node.receiveShadow = !0));
       }),
-        w && !y.isEmpty() && v.type !== 'trap' && a.blob(LAYER.ao, x.position.x, x.position.z, 0.75, 0.5),
-        x.add(g),
-        (x.userData.vis = g));
+        small &&
+          !box.isEmpty() &&
+          def.type !== 'trap' &&
+          ground.blob(LAYER.ao, anchor.position.x, anchor.position.z, 0.75, 0.5),
+        anchor.add(vis),
+        (anchor.userData.vis = vis));
     }
     return (
-      e.add(x),
-      n.set(v.id, x),
-      v.hidden || v.hidden_until || v.type === 'trap'
-        ? d(x, 'hidden', !0)
-        : v.type === 'campfire'
-          ? d(x, v.requires ? 'out' : 'lit', !0)
-          : v.type === 'seal'
-            ? d(x, 'active', !0)
-            : d(x, v.type === 'door' || v.type === 'chest' ? 'closed' : 'idle', !0),
-      x
+      scene.add(anchor),
+      anchors.set(def.id, anchor),
+      def.hidden || def.hidden_until || def.type === 'trap'
+        ? setState(anchor, 'hidden', !0)
+        : def.type === 'campfire'
+          ? setState(anchor, def.requires ? 'out' : 'lit', !0)
+          : def.type === 'seal'
+            ? setState(anchor, 'active', !0)
+            : setState(anchor, def.type === 'door' || def.type === 'chest' ? 'closed' : 'idle', !0),
+      anchor
     );
   }
-  for (let v of t.objects || []) c(v);
-  function d(v, x, g = !1) {
-    let y = v.userData,
-      w = y.state;
-    y.state = x;
-    let k = (T, E, S, z) => s.push({ t: g ? S : 0, dur: S, from: T, to: E, fn: z });
+  for (let def of level.objects || []) create(def);
+  function setState(anchor, state, instant = !1) {
+    let ud = anchor.userData,
+      prev = ud.state;
+    ud.state = state;
+    let tween = (from, to, dur, fn) => tweens.push({ t: instant ? dur : 0, dur, from, to, fn });
     if (
-      (x === 'sprung' && (x = 'triggered'),
-      x === 'empty' && (x = 'open'),
-      x !== 'hidden' && (v.visible = !0),
-      M9.includes(x) && y.setGlyph)
+      (state === 'sprung' && (state = 'triggered'),
+      state === 'empty' && (state = 'open'),
+      state !== 'hidden' && (anchor.visible = !0),
+      GLYPHS.includes(state) && ud.setGlyph)
     )
       return (
-        y.setGlyph(x),
-        y.turn && k(y.turn.rotation.y, y.turn.rotation.y + Math.PI * 2, 0.9, (T) => (y.turn.rotation.y = T)),
-        y.glow && k(y.glow.emissiveIntensity, 1.6, 0.6, (T) => (y.glow.emissiveIntensity = T)),
-        (y.glyph = x),
-        w
+        ud.setGlyph(state),
+        ud.turn &&
+          tween(
+            ud.turn.rotation.y,
+            ud.turn.rotation.y + Math.PI * 2,
+            0.9,
+            (val) => (ud.turn.rotation.y = val),
+          ),
+        ud.glow && tween(ud.glow.emissiveIntensity, 1.6, 0.6, (val) => (ud.glow.emissiveIntensity = val)),
+        (ud.glyph = state),
+        prev
       );
-    if ((x === 'pressed' || x === 'up') && y.vis && /seal_/.test(y.id))
+    if ((state === 'pressed' || state === 'up') && ud.vis && /seal_/.test(ud.id))
       return (
-        k(y.vis.position.y, x === 'pressed' ? -0.09 : 0, 0.35, (T) => (y.vis.position.y = T)),
-        y.glow &&
-          k(y.glow.emissiveIntensity, x === 'pressed' ? 2 : 0.3, 0.4, (T) => (y.glow.emissiveIntensity = T)),
-        w
+        tween(ud.vis.position.y, state === 'pressed' ? -0.09 : 0, 0.35, (val) => (ud.vis.position.y = val)),
+        ud.glow &&
+          tween(
+            ud.glow.emissiveIntensity,
+            state === 'pressed' ? 2 : 0.3,
+            0.4,
+            (val) => (ud.glow.emissiveIntensity = val),
+          ),
+        prev
       );
-    if (y.horn && (x === 'solved' || x === 'placed'))
-      return ((y.horn.visible = !0), k(1.9, 1.35, 0.8, (T) => (y.horn.position.y = T)), w);
-    switch (x) {
+    if (ud.horn && (state === 'solved' || state === 'placed'))
+      return ((ud.horn.visible = !0), tween(1.9, 1.35, 0.8, (val) => (ud.horn.position.y = val)), prev);
+    switch (state) {
       case 'hidden':
-        v.visible = !1;
+        anchor.visible = !1;
         break;
       case 'revealed':
       case 'idle':
-        v.visible = !0;
+        anchor.visible = !0;
         break;
       case 'open':
-        (y.vis && (y.vis.visible = !0),
-          y.leaf && k(y.leaf.rotation.y, -1.75, 0.8, (T) => (y.leaf.rotation.y = T)),
-          y.lid && y.slide
-            ? (k(y.lid.position.x, 0.75, 1.2, (T) => (y.lid.position.x = T)),
-              k(y.lid.rotation.z, -0.12, 1.2, (T) => (y.lid.rotation.z = T)))
-            : y.lid && k(y.lid.rotation.x, -1.9, 0.6, (T) => (y.lid.rotation.x = T)),
-          y.slab && k(y.slab.position.y, -2.45, 2.2, (T) => (y.slab.position.y = T)));
+        (ud.vis && (ud.vis.visible = !0),
+          ud.leaf && tween(ud.leaf.rotation.y, -1.75, 0.8, (val) => (ud.leaf.rotation.y = val)),
+          ud.lid && ud.slide
+            ? (tween(ud.lid.position.x, 0.75, 1.2, (val) => (ud.lid.position.x = val)),
+              tween(ud.lid.rotation.z, -0.12, 1.2, (val) => (ud.lid.rotation.z = val)))
+            : ud.lid && tween(ud.lid.rotation.x, -1.9, 0.6, (val) => (ud.lid.rotation.x = val)),
+          ud.slab && tween(ud.slab.position.y, -2.45, 2.2, (val) => (ud.slab.position.y = val)));
         break;
       case 'closed':
-        (y.vis && (y.vis.visible = !0),
-          y.leaf && k(y.leaf.rotation.y, 0, 0.6, (T) => (y.leaf.rotation.y = T)),
-          y.lid && y.slide
-            ? (k(y.lid.position.x, 0, 1, (T) => (y.lid.position.x = T)),
-              k(y.lid.rotation.z, 0, 1, (T) => (y.lid.rotation.z = T)))
-            : y.lid && k(y.lid.rotation.x, 0, 0.5, (T) => (y.lid.rotation.x = T)),
-          y.slab && k(y.slab.position.y, 0, 1.2, (T) => (y.slab.position.y = T)));
+        (ud.vis && (ud.vis.visible = !0),
+          ud.leaf && tween(ud.leaf.rotation.y, 0, 0.6, (val) => (ud.leaf.rotation.y = val)),
+          ud.lid && ud.slide
+            ? (tween(ud.lid.position.x, 0, 1, (val) => (ud.lid.position.x = val)),
+              tween(ud.lid.rotation.z, 0, 1, (val) => (ud.lid.rotation.z = val)))
+            : ud.lid && tween(ud.lid.rotation.x, 0, 0.5, (val) => (ud.lid.rotation.x = val)),
+          ud.slab && tween(ud.slab.position.y, 0, 1.2, (val) => (ud.slab.position.y = val)));
         break;
       case 'lit':
       case 'on':
       case 'active':
       case 'solved':
-        (y.vis && (y.vis.visible = !0),
-          y.glow &&
-            k(
-              y.glow.emissiveIntensity,
-              x === 'active' ? 1.2 : 2.4,
+        (ud.vis && (ud.vis.visible = !0),
+          ud.glow &&
+            tween(
+              ud.glow.emissiveIntensity,
+              state === 'active' ? 1.2 : 2.4,
               0.8,
-              (T) => (y.glow.emissiveIntensity = T),
+              (val) => (ud.glow.emissiveIntensity = val),
             ),
-          y.coals && (y.coals.material.emissiveIntensity = 1.5),
-          y.arm && k(y.arm.rotation.x, 0.6, 0.4, (T) => (y.arm.rotation.x = T)),
-          y.type === 'campfire' && o.onFire?.(y.id, !0));
+          ud.coals && (ud.coals.material.emissiveIntensity = 1.5),
+          ud.arm && tween(ud.arm.rotation.x, 0.6, 0.4, (val) => (ud.arm.rotation.x = val)),
+          ud.type === 'campfire' && ctx.onFire?.(ud.id, !0));
         break;
       case 'out':
       case 'off':
-        (y.glow && k(y.glow.emissiveIntensity, 0, 0.6, (T) => (y.glow.emissiveIntensity = T)),
-          y.coals && (y.coals.material.emissiveIntensity = 0.05),
-          y.arm && k(y.arm.rotation.x, -0.6, 0.4, (T) => (y.arm.rotation.x = T)),
-          y.type === 'campfire' && o.onFire?.(y.id, !1));
+        (ud.glow && tween(ud.glow.emissiveIntensity, 0, 0.6, (val) => (ud.glow.emissiveIntensity = val)),
+          ud.coals && (ud.coals.material.emissiveIntensity = 0.05),
+          ud.arm && tween(ud.arm.rotation.x, -0.6, 0.4, (val) => (ud.arm.rotation.x = val)),
+          ud.type === 'campfire' && ctx.onFire?.(ud.id, !1));
         break;
       case 'disarmed':
-        if ((y.vis && (y.vis.visible = !0), y.spikes)) for (let T of y.spikes) T.visible = !1;
-        y.vis && y.vis.traverse((T) => T.isMesh && (T.rotation.z = 0.4));
+        if ((ud.vis && (ud.vis.visible = !0), ud.spikes)) for (let spike of ud.spikes) spike.visible = !1;
+        ud.vis && ud.vis.traverse((node) => node.isMesh && (node.rotation.z = 0.4));
         break;
       case 'triggered':
-        if ((y.vis && (y.vis.visible = !0), y.spikes))
-          for (let T of y.spikes) ((T.visible = !0), k(-0.2, 0.18, 0.12, (E) => (T.position.y = E)));
-        y.trapKind === 'pit' && y.vis.userData.cover && (y.vis.userData.cover.visible = !1);
+        if ((ud.vis && (ud.vis.visible = !0), ud.spikes))
+          for (let spike of ud.spikes)
+            ((spike.visible = !0), tween(-0.2, 0.18, 0.12, (val) => (spike.position.y = val)));
+        ud.trapKind === 'pit' && ud.vis.userData.cover && (ud.vis.userData.cover.visible = !1);
         break;
       case 'broken':
-        (y.glow && k(y.glow.emissiveIntensity, 0, 2, (T) => (y.glow.emissiveIntensity = T)),
-          y.boss &&
-            (k(y.boss.position.y, 0.12, 1.5, (T) => (y.boss.position.y = T)),
-            y.boss.rotation.set(0.3, 0.4, 0.2)),
-          o.onSeal?.(y.id, 'broken'));
+        (ud.glow && tween(ud.glow.emissiveIntensity, 0, 2, (val) => (ud.glow.emissiveIntensity = val)),
+          ud.boss &&
+            (tween(ud.boss.position.y, 0.12, 1.5, (val) => (ud.boss.position.y = val)),
+            ud.boss.rotation.set(0.3, 0.4, 0.2)),
+          ctx.onSeal?.(ud.id, 'broken'));
         break;
       case 'restored':
-        (y.glow &&
-          (y.glow.emissive?.set(6340863),
-          k(y.glow.emissiveIntensity, 2.2, 1.5, (T) => (y.glow.emissiveIntensity = T))),
-          o.onSeal?.(y.id, 'restored'));
+        (ud.glow &&
+          (ud.glow.emissive?.set(6340863),
+          tween(ud.glow.emissiveIntensity, 2.2, 1.5, (val) => (ud.glow.emissiveIntensity = val))),
+          ctx.onSeal?.(ud.id, 'restored'));
         break;
       default:
-        y.vis && (y.vis.visible = !0);
+        ud.vis && (ud.vis.visible = !0);
     }
-    return w;
+    return prev;
   }
-  let u = 0;
-  function h(v) {
-    u += v;
-    for (let x = s.length - 1; x >= 0; x--) {
-      let g = s[x];
-      g.t = Math.min(g.dur, g.t + v);
-      let y = g.t / g.dur,
-        w = y < 0.5 ? 2 * y * y : 1 - Math.pow(-2 * y + 2, 2) / 2;
-      (g.fn(g.from + (g.to - g.from) * w), g.t >= g.dur && s.splice(x, 1));
+  let clock = 0;
+  function tick(dt) {
+    clock += dt;
+    for (let k = tweens.length - 1; k >= 0; k--) {
+      let tw = tweens[k];
+      tw.t = Math.min(tw.dur, tw.t + dt);
+      let p = tw.t / tw.dur,
+        ease = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+      (tw.fn(tw.from + (tw.to - tw.from) * ease), tw.t >= tw.dur && tweens.splice(k, 1));
     }
-    for (let [, x] of n) {
-      let g = x.userData;
-      if (g.glow && (g.state === 'active' || g.state === 'lit' || g.state === 'solved') && !s.length) {
-        let y = g.state === 'active' ? 1 : 2.2;
-        g.glow.emissiveIntensity = y * (0.8 + 0.2 * Math.sin(u * (g.type === 'seal' ? 1.4 : 2.2)));
+    for (let [, anchor] of anchors) {
+      let ud = anchor.userData;
+      if (
+        ud.glow &&
+        (ud.state === 'active' || ud.state === 'lit' || ud.state === 'solved') &&
+        !tweens.length
+      ) {
+        let base = ud.state === 'active' ? 1 : 2.2;
+        ud.glow.emissiveIntensity = base * (0.8 + 0.2 * Math.sin(clock * (ud.type === 'seal' ? 1.4 : 2.2)));
       }
     }
   }
-  let p = new Map(),
-    m = new RingGeometry(0.35, 0.95, 40).rotateX(-Math.PI / 2);
-  function _(v, x) {
-    let g = n.get(v);
-    if (!g) return;
-    let y = p.get(v);
-    if (x == null || x === !1) {
-      y && (g.remove(y), y.material.dispose(), p.delete(v));
+  let glows = new Map(),
+    glowRing = new RingGeometry(0.35, 0.95, 40).rotateX(-Math.PI / 2);
+  function setGlow(id, color) {
+    let anchor = anchors.get(id);
+    if (!anchor) return;
+    let ring = glows.get(id);
+    if (color == null || color === !1) {
+      ring && (anchor.remove(ring), ring.material.dispose(), glows.delete(id));
       return;
     }
-    if (!y) {
-      let w = new ShaderMaterial({
+    if (!ring) {
+      let mat = new ShaderMaterial({
         transparent: !0,
         depthWrite: !1,
         blending: AdditiveBlending,
@@ -757,34 +837,36 @@ function ok(o) {
           void main(){ float d = length(vP); float a = smoothstep(0.35, 0.6, d) * smoothstep(0.95, 0.62, d);
             a *= 0.55 + 0.45 * sin(uTime * 3.5); gl_FragColor = vec4(uColor * a * 1.6, a); }`,
       });
-      ((y = new Mesh(m, w)),
-        (y.position.y = 0.05),
-        (y.renderOrder = 6),
-        (y.name = 'resalte'),
-        g.add(y),
-        p.set(v, y));
+      ((ring = new Mesh(glowRing, mat)),
+        (ring.position.y = 0.05),
+        (ring.renderOrder = 6),
+        (ring.name = 'resalte'),
+        anchor.add(ring),
+        glows.set(id, ring));
     }
-    y.material.uniforms.uColor.value.set(x === !0 ? 16767088 : x);
+    ring.material.uniforms.uColor.value.set(color === !0 ? 16767088 : color);
   }
-  let b = h;
-  function f(v) {
-    b(v);
-    for (let [, x] of p) x.material.uniforms.uTime.value = u;
+  let tickFn = tick;
+  function update(dt) {
+    tickFn(dt);
+    for (let [, ring] of glows) ring.material.uniforms.uTime.value = clock;
   }
   return {
-    anchors: n,
-    flames: l,
-    create: c,
-    set: (v, x) => (n.has(v) ? d(n.get(v), x) : void 0),
-    update: f,
-    setGlow: _,
+    anchors,
+    flames,
+    create,
+    set: (id, state) => (anchors.has(id) ? setState(anchors.get(id), state) : void 0),
+    update,
+    setGlow,
   };
 }
-let a0 = null;
-const ia = (o, e, t, a, n = 0, s = 0, i = 0) => {
-  let r = new Mesh(new BoxGeometry(o, e, t), a);
-  return (r.position.set(n, s + e / 2, i), (r.castShadow = !0), (r.receiveShadow = !0), r);
+let objectMatsCache = null;
+/** Caja w×h×d con material, apoyada en (x, y, z) y con sombras. */
+const box = (w, h, d, mat, x = 0, y = 0, z = 0) => {
+  let mesh = new Mesh(new BoxGeometry(w, h, d), mat);
+  return (mesh.position.set(x, y + h / 2, z), (mesh.castShadow = !0), (mesh.receiveShadow = !0), mesh);
 };
-const M9 = ['agua', 'monte', 'cuernos', 'ojo', 'llama'];
+/** Glifos de las piedras rúnicas. */
+const GLYPHS = ['agua', 'monte', 'cuernos', 'ojo', 'llama'];
 
-export { ok };
+export { buildObjects };
