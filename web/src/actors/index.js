@@ -5,7 +5,7 @@ import { buildHumanoid } from './humanoid.js';
 import { heroLook } from './look.js';
 import { allTexturesReady } from './materials.js';
 import { MONSTER_DEFS } from './monsters.js';
-import { cT } from './beasts.js';
+import { makeGiantSpider } from './beasts.js';
 import { uu, gv } from './animals.js';
 import { companionLook, npcLook, COMPANIONS } from './companions.js';
 import { vT, yT } from './portraits.js';
@@ -53,7 +53,7 @@ async function makeMonster(o, { index: e = 0 } = {}) {
       console.warn(`[personajes] monstruo desconocido \xAB${o}\xBB: uso un trasgo`),
       makeMonster('goblin_minion', { index: e })
     );
-  if (t.type === 'spider') a = await cT({ index: e });
+  if (t.type === 'spider') a = await makeGiantSpider({ index: e });
   else if (t.type === 'animal') a = await gv(t.kind, { index: e });
   else {
     let n = t.look(e);
