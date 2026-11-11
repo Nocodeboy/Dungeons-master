@@ -84,6 +84,18 @@ Gravedad: **alta** (bloquea o rompe la partida), **media** (molesta o confunde, 
 
 - **Pasos:** en el vado de Kesh, resolver las piedras rúnicas y abrir el «Pedestal del cuerno» (botín: cuerno de piedra, 40 po, monedas durn, poción mayor). El oro se suma bien (70 → 110 po), pero la consola avisa `[exploración] item_info: Ese objeto no existe: gold`: la exploración pide al núcleo la ficha de «gold» como si fuera un objeto.
 
+### F10 · Con el grupo lleno, Odvar promete esperar en la posada pero no espera — gravedad **media**
+
+- **Pasos:** llegar al vado de Kesh con cuatro en el grupo (héroe, Brenna, Pip, Ilyra). Hablar con Odvar hasta «¿Venís con nosotros?» → «Bienvenido, Maese»: sale el aviso de grupo completo y se elige «Que Odvar espere en la posada de Merrowick» (`odvar_waiting = true`). Volver a hablarle: nodo `waiting` → «Nos vamos, Maese.», cuyo efecto es `["recruit:odvar", "set:odvar_waiting=false"]`. Con el grupo lleno, `recruit` vuelve a preguntar; si se elige otra vez que Odvar espere, `recruit` pone `odvar_waiting = true`… y la opción lo pisa inmediatamente con `false`.
+- **Resultado:** el aviso dice «Odvar os esperará en la posada», pero no está en el grupo ni en la posada (`odvar_waiting = false`, `odvar_joined` sin poner); solo queda la figura de Odvar en Kesh. Observado en `qa/salida/flujo3` (eventos `flag:set odvar_waiting false (antes true)` a los 247 s). Además, después de la primera promesa de esperar, Odvar sigue de pie en Kesh.
+- Arreglo probable: que la opción no fuerce `odvar_waiting=false` si `recruit` no llega a reclutar (o que `recruit` lo haga él).
+
+### F11 · Dos flujos de historia a la vez: el primero se queda colgado (posible B3) — gravedad **media**
+
+- **Causa (código):** al entrar en un nivel, `story.onLevelEnter` programa con `setTimeout` la narración de «vuelta» (`returns`, a los 1,2 s) y, si toca, la subida a nivel 3 (a los 2,5 s), ambas dentro de `story.exclusive()`. Pero `exclusive()` no encola cuando ya hay un flujo en curso (`if (this._inFlow) return e()`): el segundo se ejecuta a la vez. Su narración llama a `ui.dialog`, que sustituye la conversación visible **sin resolver la promesa pendiente** del primero. El primer flujo no termina nunca y `story._inFlow` queda en `true` hasta recargar.
+- **Pasos:** con el cuerno de piedra (`seal_key`) y Kesh terminado, viajar de Kesh a Merrowick y quedarse leyendo la narración del cuerno («El cuerno de piedra pesa en la mochila…») más de 1,3 s: la sustituye de golpe «Lo que habéis visto en Kesh os ha cambiado…» y se abre la subida a nivel 3.
+- **Efecto:** el texto del cuerno desaparece a medio leer; después, con `_inFlow` atascado, no vuelven a salir charlas entre compañeros (`banter` exige `!_inFlow`) y `exclusive()` ya no serializa ningún flujo, así que cualquier otra pareja de flujos simultáneos (tras combate, disparadores, descansos) puede chocar igual. Lo detectó `qa/flujo.cjs` en `qa/salida/flujo3`: tras el viaje Kesh → Merrowick y la subida a nivel 3 la exploración no volvía a quedar libre (`story._inFlow` en `true` sin diálogo ni pantalla abiertos). El arnés ahora lo anota como aviso y sigue.
+
 <!-- MAS_FALLOS -->
 
 ## 4. Hasta dónde llega la partida automática

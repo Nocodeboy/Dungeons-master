@@ -91,8 +91,10 @@ class Sesion {
       return await this.pagina.waitForFunction(fn, arg, { timeout, polling: intervalo });
     } catch (e) {
       const st = await this.estado().catch(() => ({}));
-      const err = new Error(`Tiempo agotado esperando ${desc} (${timeout} ms). Escena=${st.escena} nivel=${st.nivel} capas=${(st.capas || []).join(',')} dialogo=${st.dialogo?.quien || '-'}`);
+      const oc = /libre|fin del|fin de la|tras el combate/.test(desc) ? await this.porQueOcupado() : null;
+      const err = new Error(`Tiempo agotado esperando ${desc} (${timeout} ms). Escena=${st.escena} nivel=${st.nivel} capas=${(st.capas || []).join(',')} dialogo=${st.dialogo?.quien || '-'}${oc ? ' ocupado=' + JSON.stringify(oc) : ''}`);
       err.estado = st;
+      err.ocupado = oc;
       throw err;
     }
   }
@@ -116,9 +118,19 @@ class Sesion {
       if (!ex || ex.inBattle || ex.isBusy() || !ex.entered) return false;
       if (g.ui.layers.stack.length) return false;
       if (g.ui.dialogOpen?.()) return false;
-      if (g.story?.active || g.story?._inFlow) return false;
+      if (g.story?.active) return false;
       return true;
     }, null, { timeout, desc });
+    // story._inFlow marca un flujo de historia en curso (p. ej. entre dos diálogos encadenados).
+    // Se espera un poco a que acabe; si no acaba con todo lo demás quieto, es un flujo colgado
+    // (fallo del juego: ver INVENTARIO F11) y se anota en vez de bloquear el arnés.
+    const colgado = await this.esperar(() => !window.__mdg.story?._inFlow, null, { timeout: 12000, desc: 'fin del flujo de historia', intervalo: 300 }).then(() => false, () => true);
+    if (colgado && !this._avisoFlujo) {
+      this._avisoFlujo = true;
+      const oc = await this.porQueOcupado();
+      this.log('AVISO: story._inFlow sigue a true con la exploración quieta (flujo de historia colgado) ' + JSON.stringify(oc));
+      (this.avisos ||= []).push('Flujo de historia colgado: story._inFlow = true con la exploración quieta (' + (oc.escena || '') + ')');
+    }
     await espera(400);
     // Puede haberse abierto algo justo después (narración diferida): segunda comprobación.
     await this.esperar(() => {
@@ -126,6 +138,20 @@ class Sesion {
       const ex = g.scenes.current?.explore;
       return g.scenes.name === 'explore' && ex && !ex.inBattle && !ex.isBusy() && !g.ui.layers.stack.length && !g.ui.dialogOpen?.() && !g.story?.active;
     }, null, { timeout, desc });
+  }
+
+  // Qué impide que la exploración esté libre (para los mensajes de error).
+  async porQueOcupado() {
+    return await this.pagina.evaluate(() => {
+      const g = window.__mdg;
+      const ex = g?.scenes.current?.explore;
+      return {
+        escena: g?.scenes.name, transicion: !!g?.scenes.busy, entrado: !!ex?.entered, enCombate: !!ex?.inBattle,
+        busyN: ex?.busyN, dispuesta: !!ex?.disposed, capas: g?.ui.layers.stack.map((s) => s.name),
+        dialogo: !!g?.ui.dialogOpen?.(), historiaActiva: g?.story?.active || null, historiaEnFlujo: !!g?.story?._inFlow,
+        traza: (ex?._trace || []).slice(-8),
+      };
+    }).catch((e) => ({ error: e.message }));
   }
 
   async politica(p) {
