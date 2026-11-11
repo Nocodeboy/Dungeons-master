@@ -1,5 +1,8 @@
-// scenes/menu.js
-// Reconstruido de publicado/juego.js (módulo __esm «Iv»). Nombres locales aún minificados.
+// scenes/menu.js — Escena «menu»: menú principal (continuar, nueva partida, cargar, ajustes, ayuda,
+// créditos) sobre un fondo 3D: el toro de granito en su pedestal con la grieta que brilla, cielo nocturno
+// (o del alba), pinos, rocas, hierba y luciérnagas. El fondo (buildBackdrop) lo reutiliza scenes/ending.js.
+// La registra main.js.
+// Reconstruido de publicado/juego.js (módulo __esm «Iv»).
 
 import {
   AdditiveBlending,
@@ -33,55 +36,83 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLTF, pbrMaterial } from '../assets.js';
 import { iconHtml, escapeHtml, elem, Yl, Kl } from '../ui/dom.js';
 
-function hD() {
-  let o = 7,
-    e = () => (o = (o * 16807) % 2147483647) / 2147483647,
-    t = [],
-    a = (c, d, u) => {
-      for (let h = 0; h < c.length - 1; h++) {
-        let [p, m] = c[h],
-          [_, b] = c[h + 1],
-          f = d + (u - d) * (h / (c.length - 1)),
-          v = d + (u - d) * ((h + 1) / (c.length - 1));
-        t.push(p - f, m, 0, p + f, m, 0, _ + v, b, 0, p - f, m, 0, _ + v, b, 0, _ - v, b, 0);
+/** Geometría de la grieta luminosa del pedestal (tiras con una rama), siempre igual (semilla fija). */
+function crackGeometry() {
+  let seed = 7,
+    rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647,
+    verts = [],
+    addStrip = (pts, w0, w1) => {
+      for (let k = 0; k < pts.length - 1; k++) {
+        let [x0, y0] = pts[k],
+          [x1, y1] = pts[k + 1],
+          wa = w0 + (w1 - w0) * (k / (pts.length - 1)),
+          wb = w0 + (w1 - w0) * ((k + 1) / (pts.length - 1));
+        verts.push(
+          x0 - wa,
+          y0,
+          0,
+          x0 + wa,
+          y0,
+          0,
+          x1 + wb,
+          y1,
+          0,
+          x0 - wa,
+          y0,
+          0,
+          x1 + wb,
+          y1,
+          0,
+          x1 - wb,
+          y1,
+          0,
+        );
       }
     },
-    n = [],
-    s = 0;
-  for (let c = 0; c <= 9; c++) (n.push([s, (c / 9) * 0.88]), (s += (e() - 0.5) * 0.09));
-  a(n, 0.022, 0.006);
-  let [i, r] = n[4];
-  a(
+    main = [],
+    x = 0;
+  for (let k = 0; k <= 9; k++) (main.push([x, (k / 9) * 0.88]), (x += (rand() - 0.5) * 0.09));
+  addStrip(main, 0.022, 0.006);
+  let [bx, by] = main[4];
+  addStrip(
     [
-      [i, r],
-      [i + 0.07, r + 0.1],
-      [i + 0.1, r + 0.2],
-      [i + 0.16, r + 0.26],
+      [bx, by],
+      [bx + 0.07, by + 0.1],
+      [bx + 0.1, by + 0.2],
+      [bx + 0.16, by + 0.26],
     ],
     0.012,
     0.003,
   );
-  let l = new BufferGeometry();
-  return (l.setAttribute('position', new Float32BufferAttribute(t, 3)), l.computeVertexNormals(), l);
+  let geo = new BufferGeometry();
+  return (
+    geo.setAttribute('position', new Float32BufferAttribute(verts, 3)),
+    geo.computeVertexNormals(),
+    geo
+  );
 }
-async function buildBackdrop(o, { dawn: e = !1 } = {}) {
-  let t = o.quality?.low,
-    a = new Scene(),
-    n = new Color(e ? 3813448 : 856608);
-  ((a.background = n), (a.fog = new FogExp2(e ? 4864586 : 1054246, e ? 0.03 : 0.045)));
-  let s = [],
-    i = (P) => (s.push(P), P),
-    r = i(
+/**
+ * Fondo 3D del menú y del final. Devuelve {scene, sun, statue, update(dt, camera), dispose}; `update`
+ * mueve las luciérnagas, hace parpadear las luces y gira la cámara despacio.
+ */
+async function buildBackdrop(game, { dawn = !1 } = {}) {
+  let low = game.quality?.low,
+    scene = new Scene(),
+    bg = new Color(dawn ? 3813448 : 856608);
+  ((scene.background = bg), (scene.fog = new FogExp2(dawn ? 4864586 : 1054246, dawn ? 0.03 : 0.045)));
+  let disposables = [],
+    track = (obj) => (disposables.push(obj), obj),
+    skyMat = track(
       new ShaderMaterial({
         side: BackSide,
         depthWrite: !1,
         fog: !1,
         uniforms: {
-          uTop: { value: new Color(e ? 2898534 : 461332) },
-          uMid: { value: new Color(e ? 14256730 : 1712696) },
-          uLow: { value: new Color(e ? 16763018 : 3811888) },
+          uTop: { value: new Color(dawn ? 2898534 : 461332) },
+          uMid: { value: new Color(dawn ? 14256730 : 1712696) },
+          uLow: { value: new Color(dawn ? 16763018 : 3811888) },
           uMoon: { value: new Vector3(-0.45, 0.42, -0.78).normalize() },
-          uDawn: { value: e ? 1 : 0 },
+          uDawn: { value: dawn ? 1 : 0 },
         },
         vertexShader:
           'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
@@ -101,54 +132,54 @@ async function buildBackdrop(o, { dawn: e = !1 } = {}) {
         }`,
       }),
     );
-  a.add(new Mesh(i(new SphereGeometry(180, 32, 16)), r));
-  let l = new HemisphereLight(e ? 16767152 : 5925530, e ? 4861984 : 1709072, e ? 1.2 : 0.75);
-  a.add(l);
-  let c = new DirectionalLight(e ? 16763024 : 10466536, e ? 2.6 : 1.5);
-  (c.position.set(-14, 16, -18),
-    (c.castShadow = !t),
-    c.shadow.mapSize.set(1024, 1024),
-    (c.shadow.camera.left = c.shadow.camera.bottom = -12),
-    (c.shadow.camera.right = c.shadow.camera.top = 12),
-    (c.shadow.bias = -5e-4),
-    a.add(c));
-  let d = new PointLight(16722452, e ? 1.5 : 6, 6, 2);
-  (d.position.set(0.3, 1.4, 1.6), a.add(d));
-  let u = new PointLight(16752720, e ? 0 : 14, 16, 2);
-  (u.position.set(6, 2.2, 3.5), a.add(u));
-  let h = i(new PlaneGeometry(90, 90, 60, 60));
-  h.rotateX(-Math.PI / 2);
-  let p = h.attributes.position;
-  for (let P = 0; P < p.count; P++) {
-    let I = p.getX(P),
-      U = p.getZ(P);
-    p.setY(
-      P,
-      Math.sin(I * 0.12) * 0.35 + Math.cos(U * 0.09) * 0.45 - Math.max(0, Math.hypot(I, U) - 6) * 0.05,
+  scene.add(new Mesh(track(new SphereGeometry(180, 32, 16)), skyMat));
+  let hemi = new HemisphereLight(dawn ? 16767152 : 5925530, dawn ? 4861984 : 1709072, dawn ? 1.2 : 0.75);
+  scene.add(hemi);
+  let sun = new DirectionalLight(dawn ? 16763024 : 10466536, dawn ? 2.6 : 1.5);
+  (sun.position.set(-14, 16, -18),
+    (sun.castShadow = !low),
+    sun.shadow.mapSize.set(1024, 1024),
+    (sun.shadow.camera.left = sun.shadow.camera.bottom = -12),
+    (sun.shadow.camera.right = sun.shadow.camera.top = 12),
+    (sun.shadow.bias = -5e-4),
+    scene.add(sun));
+  let crackLight = new PointLight(16722452, dawn ? 1.5 : 6, 6, 2);
+  (crackLight.position.set(0.3, 1.4, 1.6), scene.add(crackLight));
+  let torch = new PointLight(16752720, dawn ? 0 : 14, 16, 2);
+  (torch.position.set(6, 2.2, 3.5), scene.add(torch));
+  let groundGeo = track(new PlaneGeometry(90, 90, 60, 60));
+  groundGeo.rotateX(-Math.PI / 2);
+  let posAttr = groundGeo.attributes.position;
+  for (let k = 0; k < posAttr.count; k++) {
+    let x = posAttr.getX(k),
+      z = posAttr.getZ(k);
+    posAttr.setY(
+      k,
+      Math.sin(x * 0.12) * 0.35 + Math.cos(z * 0.09) * 0.45 - Math.max(0, Math.hypot(x, z) - 6) * 0.05,
     );
   }
-  h.computeVertexNormals();
-  let m = pbrMaterial('leafy_grass', { repeat: [22, 22], tint: e ? 10133616 : 6978138 }),
-    _ = new Mesh(h, m);
-  ((_.receiveShadow = !0), a.add(_));
-  let b = new Group(),
-    f = new Mesh(
-      i(new BoxGeometry(3.6, 0.9, 1.9)),
+  groundGeo.computeVertexNormals();
+  let groundMat = pbrMaterial('leafy_grass', { repeat: [22, 22], tint: dawn ? 10133616 : 6978138 }),
+    ground = new Mesh(groundGeo, groundMat);
+  ((ground.receiveShadow = !0), scene.add(ground));
+  let statue = new Group(),
+    pedestal = new Mesh(
+      track(new BoxGeometry(3.6, 0.9, 1.9)),
       pbrMaterial('stacked_stone_wall', { repeat: [2.2, 0.6], tint: 12103840 }),
     );
-  ((f.position.y = 0.45), (f.castShadow = f.receiveShadow = !0), b.add(f));
-  let v = new Mesh(
-    i(new BoxGeometry(4.2, 0.22, 2.5)),
+  ((pedestal.position.y = 0.45), (pedestal.castShadow = pedestal.receiveShadow = !0), statue.add(pedestal));
+  let base = new Mesh(
+    track(new BoxGeometry(4.2, 0.22, 2.5)),
     pbrMaterial('monastery_stone_floor', { repeat: [1.6, 1] }),
   );
-  ((v.position.y = 0.11), (v.receiveShadow = !0), b.add(v));
+  ((base.position.y = 0.11), (base.receiveShadow = !0), statue.add(base));
   try {
-    let P = await loadGLTF('assets/nature/Bull.json'),
-      I = clone(P.scene),
-      U = pbrMaterial('rock_ground', { ao: !1 }),
-      j = i(new MeshStandardMaterial({ color: 11051668, roughness: 0.92, map: U.map }));
-    ((j.onBeforeCompile = (Z) => {
-      ((Z.vertexShader = Z.vertexShader
+    let gltf = await loadGLTF('assets/nature/Bull.json'),
+      bull = clone(gltf.scene),
+      rock = pbrMaterial('rock_ground', { ao: !1 }),
+      stoneMat = track(new MeshStandardMaterial({ color: 11051668, roughness: 0.92, map: rock.map }));
+    ((stoneMat.onBeforeCompile = (shader) => {
+      ((shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
           `#include <common>
@@ -159,7 +190,7 @@ varying vec3 vTp; varying vec3 vTn;`,
           `#include <project_vertex>
 vTp = (modelMatrix * vec4(transformed, 1.0)).xyz; vTn = normalize(mat3(modelMatrix) * objectNormal);`,
         )),
-        (Z.fragmentShader = Z.fragmentShader
+        (shader.fragmentShader = shader.fragmentShader
           .replace(
             '#include <common>',
             `#include <common>
@@ -172,37 +203,41 @@ varying vec3 vTp; varying vec3 vTn;`,
          diffuseColor.rgb *= tx * 1.7;`,
           )));
     }),
-      (j.customProgramCacheKey = () => 'piedra-triplanar-menu'),
-      I.traverse((Z) => {
-        Z.isMesh && ((Z.material = j), (Z.castShadow = !0), (Z.receiveShadow = !0), (Z.frustumCulled = !1));
+      (stoneMat.customProgramCacheKey = () => 'piedra-triplanar-menu'),
+      bull.traverse((obj) => {
+        obj.isMesh &&
+          ((obj.material = stoneMat),
+          (obj.castShadow = !0),
+          (obj.receiveShadow = !0),
+          (obj.frustumCulled = !1));
       }),
-      (I.rotation.y = Math.PI / 2),
-      b.add(I),
-      b.updateMatrixWorld(!0));
-    let X = new Box3().setFromObject(I, !0),
-      J = X.getSize(new Vector3());
-    (I.scale.multiplyScalar(3 / Math.max(J.x, J.z)),
-      b.updateMatrixWorld(!0),
-      (X = new Box3().setFromObject(I, !0)),
-      (I.position.y += 0.9 - X.min.y),
-      (I.position.x -= (X.min.x + X.max.x) / 2),
-      (I.position.z -= (X.min.z + X.max.z) / 2));
-  } catch (P) {
-    console.warn('[men\xFA] toro', P);
+      (bull.rotation.y = Math.PI / 2),
+      statue.add(bull),
+      statue.updateMatrixWorld(!0));
+    let box = new Box3().setFromObject(bull, !0),
+      size = box.getSize(new Vector3());
+    (bull.scale.multiplyScalar(3 / Math.max(size.x, size.z)),
+      statue.updateMatrixWorld(!0),
+      (box = new Box3().setFromObject(bull, !0)),
+      (bull.position.y += 0.9 - box.min.y),
+      (bull.position.x -= (box.min.x + box.max.x) / 2),
+      (bull.position.z -= (box.min.z + box.max.z) / 2));
+  } catch (err) {
+    console.warn('[men\xFA] toro', err);
   }
-  let x = i(
+  let crackMat = track(
       new MeshStandardMaterial({
         color: 2753283,
         emissive: 16722448,
-        emissiveIntensity: e ? 0.6 : 2.2,
+        emissiveIntensity: dawn ? 0.6 : 2.2,
         roughness: 0.2,
       }),
     ),
-    g = new Mesh(i(hD()), x);
-  (g.position.set(0.3, 0.05, 0.957), b.add(g));
-  let y = new Mesh(
-    i(new CircleGeometry(0.42, 24)),
-    i(
+    crack = new Mesh(track(crackGeometry()), crackMat);
+  (crack.position.set(0.3, 0.05, 0.957), statue.add(crack));
+  let pool = new Mesh(
+    track(new CircleGeometry(0.42, 24)),
+    track(
       new MeshStandardMaterial({
         color: 1835780,
         emissive: 3801092,
@@ -212,87 +247,91 @@ varying vec3 vTp; varying vec3 vTn;`,
       }),
     ),
   );
-  ((y.rotation.x = -Math.PI / 2),
-    y.scale.set(1.3, 0.75, 1),
-    y.position.set(0.35, 0.235, 1.05),
-    b.add(y),
-    a.add(b));
-  let w = (() => {
-    let P = 7;
-    return () => (P = (P * 16807) % 2147483647) / 2147483647;
+  ((pool.rotation.x = -Math.PI / 2),
+    pool.scale.set(1.3, 0.75, 1),
+    pool.position.set(0.35, 0.235, 1.05),
+    statue.add(pool),
+    scene.add(statue));
+  let rand = (() => {
+    let seed = 7;
+    return () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   })();
-  async function k(P, I, U, j, X, J, Z) {
+  /**
+   * Esparce instancias de un modelo de assets/nature en un anillo alrededor del toro (radio y escala
+   * aleatorios, sin tapar el frente).
+   */
+  async function scatter(name, count, rMin, rMax, sMin, sMax, tint) {
     try {
-      let K = await loadGLTF(`assets/nature/${P}.json`);
-      K.scene.updateMatrixWorld(!0);
-      let ve = new Matrix4(),
-        ge = new Matrix4(),
-        ue = new Quaternion(),
-        Q = [];
-      for (let oe = 0; oe < I; oe++) {
-        let ie = w() * Math.PI * 2,
-          we = U + w() * (j - U),
-          ce = Math.cos(ie) * we,
-          ke = Math.sin(ie) * we;
-        if (ke > 4 && Math.abs(ce) < 9) continue;
-        let Qe = X + w() * (J - X);
-        (ue.setFromAxisAngle(new Vector3(0, 1, 0), w() * Math.PI * 2),
-          Q.push(
-            ve
+      let gltf = await loadGLTF(`assets/nature/${name}.json`);
+      gltf.scene.updateMatrixWorld(!0);
+      let base = new Matrix4(),
+        m = new Matrix4(),
+        q = new Quaternion(),
+        mats = [];
+      for (let i = 0; i < count; i++) {
+        let angle = rand() * Math.PI * 2,
+          r = rMin + rand() * (rMax - rMin),
+          x = Math.cos(angle) * r,
+          z = Math.sin(angle) * r;
+        if (z > 4 && Math.abs(x) < 9) continue;
+        let s = sMin + rand() * (sMax - sMin);
+        (q.setFromAxisAngle(new Vector3(0, 1, 0), rand() * Math.PI * 2),
+          mats.push(
+            base
               .clone()
               .compose(
                 new Vector3(
-                  ce,
-                  Math.sin(ce * 0.12) * 0.35 +
-                    Math.cos(ke * 0.09) * 0.45 -
-                    Math.max(0, Math.hypot(ce, ke) - 6) * 0.05 -
+                  x,
+                  Math.sin(x * 0.12) * 0.35 +
+                    Math.cos(z * 0.09) * 0.45 -
+                    Math.max(0, Math.hypot(x, z) - 6) * 0.05 -
                     0.05,
-                  ke,
+                  z,
                 ),
-                ue,
-                new Vector3(Qe, Qe, Qe),
+                q,
+                new Vector3(s, s, s),
               ),
           ));
       }
-      K.scene.traverse((oe) => {
-        if (!oe.isMesh) return;
-        let ie = oe.material;
-        Z && ((ie = ie.clone()), ie.color.multiply(new Color(Z)), s.push(ie));
-        let we = new InstancedMesh(oe.geometry, ie, Q.length);
-        (Q.forEach((ce, ke) => we.setMatrixAt(ke, ge.multiplyMatrices(ce, oe.matrixWorld))),
-          (we.castShadow = !t),
-          (we.receiveShadow = !0),
-          a.add(we));
+      gltf.scene.traverse((obj) => {
+        if (!obj.isMesh) return;
+        let mat = obj.material;
+        tint && ((mat = mat.clone()), mat.color.multiply(new Color(tint)), disposables.push(mat));
+        let mesh = new InstancedMesh(obj.geometry, mat, mats.length);
+        (mats.forEach((mt, j) => mesh.setMatrixAt(j, m.multiplyMatrices(mt, obj.matrixWorld))),
+          (mesh.castShadow = !low),
+          (mesh.receiveShadow = !0),
+          scene.add(mesh));
       });
-    } catch (K) {
-      console.warn('[men\xFA]', P, K);
+    } catch (err) {
+      console.warn('[men\xFA]', name, err);
     }
   }
   await Promise.all([
-    k('Pine_1', t ? 18 : 34, 9, 30, 0.9, 1.6, e ? 9083514 : 5925466),
-    k('Pine_3', t ? 10 : 20, 11, 34, 0.9, 1.5, e ? 9083514 : 5925466),
-    k('Rock_Medium_1', 10, 4, 14, 0.6, 1.3),
-    k('Rock_Medium_3', 8, 5, 16, 0.5, 1.1),
-    t ? null : k('Grass_Wispy_Tall', 140, 2.6, 14, 0.8, 1.4, 10133632),
+    scatter('Pine_1', low ? 18 : 34, 9, 30, 0.9, 1.6, dawn ? 9083514 : 5925466),
+    scatter('Pine_3', low ? 10 : 20, 11, 34, 0.9, 1.5, dawn ? 9083514 : 5925466),
+    scatter('Rock_Medium_1', 10, 4, 14, 0.6, 1.3),
+    scatter('Rock_Medium_3', 8, 5, 16, 0.5, 1.1),
+    low ? null : scatter('Grass_Wispy_Tall', 140, 2.6, 14, 0.8, 1.4, 10133632),
   ]);
-  let T = t ? 50 : 130,
-    E = new Float32Array(T * 3),
-    S = new Float32Array(T);
-  for (let P = 0; P < T; P++) {
-    let I = w() * Math.PI * 2,
-      U = 2.5 + w() * 12;
-    ((E[P * 3] = Math.cos(I) * U),
-      (E[P * 3 + 1] = 0.3 + w() * 2.4),
-      (E[P * 3 + 2] = Math.sin(I) * U),
-      (S[P] = w() * 100));
+  let nMotes = low ? 50 : 130,
+    motePos = new Float32Array(nMotes * 3),
+    phase = new Float32Array(nMotes);
+  for (let k = 0; k < nMotes; k++) {
+    let angle = rand() * Math.PI * 2,
+      r = 2.5 + rand() * 12;
+    ((motePos[k * 3] = Math.cos(angle) * r),
+      (motePos[k * 3 + 1] = 0.3 + rand() * 2.4),
+      (motePos[k * 3 + 2] = Math.sin(angle) * r),
+      (phase[k] = rand() * 100));
   }
-  let z = i(new BufferGeometry());
-  z.setAttribute('position', new BufferAttribute(E, 3));
-  let D = new Points(
-    z,
-    i(
+  let moteGeo = track(new BufferGeometry());
+  moteGeo.setAttribute('position', new BufferAttribute(motePos, 3));
+  let motes = new Points(
+    moteGeo,
+    track(
       new PointsMaterial({
-        color: e ? 16771264 : 14221194,
+        color: dawn ? 16771264 : 14221194,
         size: 0.09,
         transparent: !0,
         opacity: 0.85,
@@ -301,60 +340,69 @@ varying vec3 vTp; varying vec3 vTn;`,
       }),
     ),
   );
-  a.add(D);
-  let M = E.slice(),
-    R = 0,
-    A = e ? 0 : 1;
+  scene.add(motes);
+  let moteBase = motePos.slice(),
+    time = 0,
+    shift = dawn ? 0 : 1;
   return {
-    scene: a,
-    sun: c,
-    statue: b,
-    update(P, I) {
-      R += P;
-      for (let U = 0; U < T; U++)
-        ((E[U * 3] = M[U * 3] + Math.sin(R * 0.4 + S[U]) * 0.6),
-          (E[U * 3 + 1] = M[U * 3 + 1] + Math.sin(R * 0.7 + S[U] * 2) * 0.35),
-          (E[U * 3 + 2] = M[U * 3 + 2] + Math.cos(R * 0.35 + S[U]) * 0.6));
+    scene,
+    sun,
+    statue,
+    update(dt, camera) {
+      time += dt;
+      for (let k = 0; k < nMotes; k++)
+        ((motePos[k * 3] = moteBase[k * 3] + Math.sin(time * 0.4 + phase[k]) * 0.6),
+          (motePos[k * 3 + 1] = moteBase[k * 3 + 1] + Math.sin(time * 0.7 + phase[k] * 2) * 0.35),
+          (motePos[k * 3 + 2] = moteBase[k * 3 + 2] + Math.cos(time * 0.35 + phase[k]) * 0.6));
       if (
-        ((z.attributes.position.needsUpdate = !0),
-        (D.material.opacity = 0.6 + Math.sin(R * 3) * 0.25),
-        (d.intensity = (e ? 1.2 : 5.5) + Math.sin(R * 2.2) * 1.2 + Math.sin(R * 9.1) * 0.4),
-        (x.emissiveIntensity = (e ? 0.5 : 2) + Math.sin(R * 2.2) * 0.5),
-        (u.intensity = e ? 0 : 13 + Math.sin(R * 13) * 1.2 + Math.sin(R * 7.7) * 1.4),
-        I)
+        ((moteGeo.attributes.position.needsUpdate = !0),
+        (motes.material.opacity = 0.6 + Math.sin(time * 3) * 0.25),
+        (crackLight.intensity = (dawn ? 1.2 : 5.5) + Math.sin(time * 2.2) * 1.2 + Math.sin(time * 9.1) * 0.4),
+        (crackMat.emissiveIntensity = (dawn ? 0.5 : 2) + Math.sin(time * 2.2) * 0.5),
+        (torch.intensity = dawn ? 0 : 13 + Math.sin(time * 13) * 1.2 + Math.sin(time * 7.7) * 1.4),
+        camera)
       ) {
-        let U = innerHeight > innerWidth * 1.1,
-          j = -0.45 + Math.sin(R * 0.045) * 0.4,
-          X = U ? 15 : 11.5;
-        (I.position.set(Math.sin(j) * X, 2.9 + Math.sin(R * 0.08) * 0.25, Math.cos(j) * X),
-          I.lookAt(0, 1.5, 0));
-        let J = innerWidth,
-          Z = innerHeight;
-        A && I.setViewOffset(J, Z, U ? 0 : -J * 0.2 * A, U ? Z * 0.16 * A : 0, J, Z);
+        let portrait = innerHeight > innerWidth * 1.1,
+          yaw = -0.45 + Math.sin(time * 0.045) * 0.4,
+          dist = portrait ? 15 : 11.5;
+        (camera.position.set(Math.sin(yaw) * dist, 2.9 + Math.sin(time * 0.08) * 0.25, Math.cos(yaw) * dist),
+          camera.lookAt(0, 1.5, 0));
+        let vw = innerWidth,
+          vh = innerHeight;
+        shift &&
+          camera.setViewOffset(
+            vw,
+            vh,
+            portrait ? 0 : -vw * 0.2 * shift,
+            portrait ? vh * 0.16 * shift : 0,
+            vw,
+            vh,
+          );
       }
     },
     dispose() {
-      for (let P of s) P.dispose?.();
-      a.clear();
+      for (let obj of disposables) obj.dispose?.();
+      scene.clear();
     },
   };
 }
-async function crearEscenaMenu(o) {
-  let e = o.ui;
-  (await e.ready, e.loading('Encendiendo las antorchas'));
-  let t = o.stage,
-    a = t.camera,
-    n = t.controls,
-    s = {
-      enabled: n.enabled,
-      min: n.minDistance,
-      max: n.maxDistance,
-      minP: n.minPolarAngle,
-      maxP: n.maxPolarAngle,
-      damping: n.enableDamping,
-      target: n.target.clone(),
+/** Crea la escena del menú principal (exportada como `create`). Al entrar descarta la campaña activa. */
+async function crearEscenaMenu(game) {
+  let ui = game.ui;
+  (await ui.ready, ui.loading('Encendiendo las antorchas'));
+  let stage = game.stage,
+    camera = stage.camera,
+    controls = stage.controls,
+    saved = {
+      enabled: controls.enabled,
+      min: controls.minDistance,
+      max: controls.maxDistance,
+      minP: controls.minPolarAngle,
+      maxP: controls.maxPolarAngle,
+      damping: controls.enableDamping,
+      target: controls.target.clone(),
     };
-  (Object.assign(n, {
+  (Object.assign(controls, {
     enabled: !1,
     enableDamping: !1,
     minDistance: 0.1,
@@ -362,11 +410,11 @@ async function crearEscenaMenu(o) {
     minPolarAngle: 0,
     maxPolarAngle: Math.PI,
   }),
-    n.target.set(0, 1.5, 0));
-  let i = await buildBackdrop(o);
-  ((o.store.cp = null), e.hud.hide());
-  let r = elem('div.mg-menu');
-  ((r.innerHTML = `
+    controls.target.set(0, 1.5, 0));
+  let backdrop = await buildBackdrop(game);
+  ((game.store.cp = null), ui.hud.hide());
+  let root = elem('div.mg-menu');
+  ((root.innerHTML = `
     <div class="mg-menu-col">
       <div class="mg-menu-title">
         <span class="mg-menu-pre">Marca de</span>
@@ -375,110 +423,113 @@ async function crearEscenaMenu(o) {
       </div>
       <nav class="mg-menu-nav" aria-label="Men\xFA principal"></nav>
     </div>
-    <footer class="mg-menu-foot"><span>${escapeHtml(uD)} \xB7 Compatible con la quinta edici\xF3n (SRD 5.2.1)</span></footer>`),
-    e.root.append(r));
-  let l = r.querySelector('.mg-menu-nav'),
-    c = await o.store.list().catch(() => []),
-    d = c[0],
-    u = (m, _, b, { primary: f, sub: v, key: x } = {}) => {
-      let g = elem(`button.mg-menu-btn${f ? '.primary' : ''}`, { onclick: b });
+    <footer class="mg-menu-foot"><span>${escapeHtml(VERSION_LABEL)} \xB7 Compatible con la quinta edici\xF3n (SRD 5.2.1)</span></footer>`),
+    ui.root.append(root));
+  let nav = root.querySelector('.mg-menu-nav'),
+    saves = await game.store.list().catch(() => []),
+    last = saves[0],
+    addButton = (label, icon, onclick, { primary, sub, key } = {}) => {
+      let btn = elem(`button.mg-menu-btn${primary ? '.primary' : ''}`, { onclick });
       return (
-        (g.innerHTML = `${iconHtml(_)}<span class="t"><b>${escapeHtml(m)}</b>${v ? `<small>${v}</small>` : ''}</span>`),
-        x && (g.dataset.k = x),
-        l.append(g),
-        g
+        (btn.innerHTML = `${iconHtml(icon)}<span class="t"><b>${escapeHtml(label)}</b>${sub ? `<small>${sub}</small>` : ''}</span>`),
+        key && (btn.dataset.k = key),
+        nav.append(btn),
+        btn
       );
     },
-    h = () => o.audio?.unlock?.();
-  (r.addEventListener('pointerdown', h, { once: !0 }), addEventListener('keydown', h, { once: !0 }));
-  async function p(m) {
-    e.loading('Abriendo la partida');
-    let _ = await o.store.load(m);
-    if (!_) {
-      (e.loading(null), e.toast('No se ha podido cargar esa partida.', 'mal'));
+    unlockAudio = () => game.audio?.unlock?.();
+  (root.addEventListener('pointerdown', unlockAudio, { once: !0 }),
+    addEventListener('keydown', unlockAudio, { once: !0 }));
+  /** Carga una ranura guardada y reanuda la partida. */
+  async function loadSlot(slot) {
+    ui.loading('Abriendo la partida');
+    let cp = await game.store.load(slot);
+    if (!cp) {
+      (ui.loading(null), ui.toast('No se ha podido cargar esa partida.', 'mal'));
       return;
     }
-    let b = e.R.call('cp_load', { cp: _ });
-    (b?.cp && !b.error && o.store.set(b.cp), e.resume());
+    let res = ui.R.call('cp_load', { cp });
+    (res?.cp && !res.error && game.store.set(res.cp), ui.resume());
   }
-  if (d) {
-    let m = d.meta || {};
-    u('Continuar', 'play', () => p(d.slot), {
+  if (last) {
+    let meta = last.meta || {};
+    addButton('Continuar', 'play', () => loadSlot(last.slot), {
       primary: !0,
       key: 'continuar',
-      sub: `${escapeHtml(m.hero || 'Sin nombre')} \xB7 nivel ${escapeHtml(m.level || 1)} \xB7 ${escapeHtml(m.place || '')}${m.savedAt ? ` \xB7 ${escapeHtml(Kl(m.savedAt))}` : ''}`,
+      sub: `${escapeHtml(meta.hero || 'Sin nombre')} \xB7 nivel ${escapeHtml(meta.level || 1)} \xB7 ${escapeHtml(meta.place || '')}${meta.savedAt ? ` \xB7 ${escapeHtml(Kl(meta.savedAt))}` : ''}`,
     });
   }
   return (
-    u(
+    addButton(
       'Nueva partida',
       'quill',
       async () => {
-        (c.length &&
-          !(await e.confirm(
+        (saves.length &&
+          !(await ui.confirm(
             'Empezar\xE1s con un h\xE9roe nuevo. Tus partidas guardadas se conservan; el guardado autom\xE1tico se sustituir\xE1 por el de la nueva partida.',
             { titulo: 'Nueva partida', si: 'Crear un h\xE9roe', no: 'Cancelar' },
           ))) ||
-          o.go('creator');
+          game.go('creator');
       },
-      { primary: !d, key: 'nueva', sub: d ? '' : 'Crea a tu h\xE9roe y parte hacia Merrowick' },
+      { primary: !last, key: 'nueva', sub: last ? '' : 'Crea a tu h\xE9roe y parte hacia Merrowick' },
     ),
-    (u(
+    (addButton(
       'Cargar partida',
       'load',
       async () => {
-        (await e.open('cargar'))?.slot && e.resume();
+        (await ui.open('cargar'))?.slot && ui.resume();
       },
       {
         key: 'cargar',
-        sub: c.length
-          ? `${c.length} ${c.length === 1 ? 'partida guardada' : 'partidas guardadas'}`
+        sub: saves.length
+          ? `${saves.length} ${saves.length === 1 ? 'partida guardada' : 'partidas guardadas'}`
           : 'No hay partidas guardadas',
       },
-    ).disabled = !c.length),
-    u('Ajustes', 'settings', () => e.open('ajustes'), { key: 'ajustes' }),
-    u('C\xF3mo se juega', 'open_book', () => e.open('ayuda'), { key: 'ayuda' }),
-    u('Cr\xE9ditos', 'scroll_quill', () => e.open('creditos'), { key: 'creditos' }),
-    d?.meta?.playtime &&
-      l
+    ).disabled = !saves.length),
+    addButton('Ajustes', 'settings', () => ui.open('ajustes'), { key: 'ajustes' }),
+    addButton('C\xF3mo se juega', 'open_book', () => ui.open('ayuda'), { key: 'ayuda' }),
+    addButton('Cr\xE9ditos', 'scroll_quill', () => ui.open('creditos'), { key: 'creditos' }),
+    last?.meta?.playtime &&
+      nav
         .querySelector('[data-k="continuar"] small')
-        .insertAdjacentHTML('beforeend', ` \xB7 ${escapeHtml(Yl(d.meta.playtime))}`),
-    requestAnimationFrame(() => l.querySelector('button:not(:disabled)')?.focus({ preventScroll: !0 })),
-    l.addEventListener('keydown', (m) => {
-      if (m.key !== 'ArrowDown' && m.key !== 'ArrowUp') return;
-      let _ = [...l.querySelectorAll('button:not(:disabled)')],
-        b = _.indexOf(document.activeElement);
-      (_[(b + (m.key === 'ArrowDown' ? 1 : _.length - 1) + _.length) % _.length]?.focus(),
-        m.preventDefault());
+        .insertAdjacentHTML('beforeend', ` \xB7 ${escapeHtml(Yl(last.meta.playtime))}`),
+    requestAnimationFrame(() => nav.querySelector('button:not(:disabled)')?.focus({ preventScroll: !0 })),
+    nav.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+      let btns = [...nav.querySelectorAll('button:not(:disabled)')],
+        idx = btns.indexOf(document.activeElement);
+      (btns[(idx + (ev.key === 'ArrowDown' ? 1 : btns.length - 1) + btns.length) % btns.length]?.focus(),
+        ev.preventDefault());
     }),
-    o.audio?.music?.('menu', { fade: 2 }),
-    e.loading(null),
+    game.audio?.music?.('menu', { fade: 2 }),
+    ui.loading(null),
     {
-      three: i.scene,
-      sun: i.sun,
-      update(m) {
-        i.update(m, a);
+      three: backdrop.scene,
+      sun: backdrop.sun,
+      update(dt) {
+        backdrop.update(dt, camera);
       },
       dispose() {
-        ((r.style.transition = 'opacity .35s'),
-          (r.style.opacity = '0'),
-          (r.style.pointerEvents = 'none'),
-          setTimeout(() => r.remove(), 400),
-          i.dispose(),
-          a.clearViewOffset(),
-          Object.assign(n, {
-            enabled: s.enabled,
-            minDistance: s.min,
-            maxDistance: s.max,
-            minPolarAngle: s.minP,
-            maxPolarAngle: s.maxP,
-            enableDamping: s.damping,
+        ((root.style.transition = 'opacity .35s'),
+          (root.style.opacity = '0'),
+          (root.style.pointerEvents = 'none'),
+          setTimeout(() => root.remove(), 400),
+          backdrop.dispose(),
+          camera.clearViewOffset(),
+          Object.assign(controls, {
+            enabled: saved.enabled,
+            minDistance: saved.min,
+            maxDistance: saved.max,
+            minPolarAngle: saved.minP,
+            maxPolarAngle: saved.maxP,
+            enableDamping: saved.damping,
           }),
-          n.target.copy(s.target));
+          controls.target.copy(saved.target));
       },
     }
   );
 }
-const uD = 'Cap\xEDtulo I \xB7 versi\xF3n web 0.9';
+/** Texto de versión del pie del menú. */
+const VERSION_LABEL = 'Cap\xEDtulo I \xB7 versi\xF3n web 0.9';
 
 export { buildBackdrop, crearEscenaMenu as create };

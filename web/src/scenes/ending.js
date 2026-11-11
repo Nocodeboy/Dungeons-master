@@ -1,18 +1,21 @@
-// scenes/ending.js
-// Reconstruido de publicado/juego.js (módulo __esm «IM»). Nombres locales aún minificados.
+// scenes/ending.js — Escena «ending»: epílogo del capítulo I en láminas sobre el fondo del menú al alba
+// (story.epilogue o un epílogo por defecto según el sello) y créditos finales que suben solos.
+// La registra ui/index.js.
+// Reconstruido de publicado/juego.js (módulo __esm «IM»).
 
 import { buildBackdrop } from './menu.js';
 import { CREDITS_HTML } from '../ui/screens/creditos.js';
 import { Xl, elem, makeButton, reducedMotion } from '../ui/dom.js';
 
-function fD(o) {
+/** Epílogo por defecto si la historia no da uno; la primera lámina depende de `flags.seal_choice`. */
+function defaultEpilogue(cp) {
   return {
     title: 'Fin del cap\xEDtulo I',
     slides: [
       {
         title: 'El primer sello',
         text:
-          (o?.flags || {}).seal_choice === 'broken'
+          (cp?.flags || {}).seal_choice === 'broken'
             ? '*La piedra del sello se parti\xF3 con un ruido de hueso viejo.* La Marca de tu piel dej\xF3 de arder esa misma noche, y por primera vez en tu vida no sentiste el latido de la roca bajo los pies. Lo que dorm\xEDa bajo Merrowick sigue ah\xED, pero ya no te llama por tu nombre.'
             : '*Tu sangre corri\xF3 por los surcos del sello y la piedra bebi\xF3.* El toro de granito dej\xF3 de sangrar al amanecer. La Marca sigue en tu piel, m\xE1s fr\xEDa que nunca, como una promesa que alguien tendr\xE1 que cumplir.',
       },
@@ -27,22 +30,23 @@ function fD(o) {
     ],
   };
 }
-async function crearEscenaEnding(o, e = {}) {
-  let t = o.ui;
-  (await t.ready, t.loading('El alba sobre Merrowick'), t.hud.hide());
-  let a = o.stage,
-    n = a.camera,
-    s = a.controls,
-    i = {
-      enabled: s.enabled,
-      min: s.minDistance,
-      max: s.maxDistance,
-      minP: s.minPolarAngle,
-      maxP: s.maxPolarAngle,
-      damping: s.enableDamping,
-      target: s.target.clone(),
+/** Crea la escena del final (exportada como `create`); marca la bandera chapter1_done. */
+async function crearEscenaEnding(game, params = {}) {
+  let ui = game.ui;
+  (await ui.ready, ui.loading('El alba sobre Merrowick'), ui.hud.hide());
+  let stage = game.stage,
+    camera = stage.camera,
+    controls = stage.controls,
+    saved = {
+      enabled: controls.enabled,
+      min: controls.minDistance,
+      max: controls.maxDistance,
+      minP: controls.minPolarAngle,
+      maxP: controls.maxPolarAngle,
+      damping: controls.enableDamping,
+      target: controls.target.clone(),
     };
-  (Object.assign(s, {
+  (Object.assign(controls, {
     enabled: !1,
     enableDamping: !1,
     minDistance: 0.1,
@@ -50,88 +54,91 @@ async function crearEscenaEnding(o, e = {}) {
     minPolarAngle: 0,
     maxPolarAngle: Math.PI,
   }),
-    s.target.set(0, 1.4, 0));
-  let r = await buildBackdrop(o, { dawn: !0 });
-  o.store.setFlag?.('chapter1_done', !0);
-  let l = e.epilogue || null;
-  if (!l?.slides?.length)
+    controls.target.set(0, 1.4, 0));
+  let backdrop = await buildBackdrop(game, { dawn: !0 });
+  game.store.setFlag?.('chapter1_done', !0);
+  let epi = params.epilogue || null;
+  if (!epi?.slides?.length)
     try {
-      l = await o.story?.epilogue?.();
-    } catch (m) {
-      console.warn('[final] ep\xEDlogo', m);
+      epi = await game.story?.epilogue?.();
+    } catch (err) {
+      console.warn('[final] ep\xEDlogo', err);
     }
-  (l?.slides?.length || (l = fD(o.store.cp)),
-    (l = { ...l, slides: [...l.slides] }),
-    l.closing &&
-      l.slides.push({ title: l.subtitle || 'Fin del cap\xEDtulo I', text: l.closing, closing: !0 }));
-  let c = elem('div.mg-ending');
-  t.root.append(c);
-  let d = 0,
-    u = !1;
-  function h() {
-    let m = l.slides[d];
-    c.innerHTML = '';
-    let _ = elem(`article.mg-ending-slide.mg-parchment${m.closing ? '.cierre' : ''}`);
-    _.append(elem('h1.mg-h1', m.title || l.title || 'Ep\xEDlogo'));
-    let b = (d === 0 && l.title) || '';
-    (b && m.title && _.prepend(elem('div.mg-ending-kicker', b)),
-      _.append(elem('div.txt', { html: Xl(String(m.text || '').split(/\n{2,}/)) })));
-    let f = elem('div.pie');
-    f.append(elem('span.mg-dim', `${d + 1} / ${l.slides.length}`));
-    let v = makeButton(d < l.slides.length - 1 ? 'Seguir' : 'Cr\xE9ditos', {
-      icon: d < l.slides.length - 1 ? 'redo' : 'scroll_quill',
+  (epi?.slides?.length || (epi = defaultEpilogue(game.store.cp)),
+    (epi = { ...epi, slides: [...epi.slides] }),
+    epi.closing &&
+      epi.slides.push({ title: epi.subtitle || 'Fin del cap\xEDtulo I', text: epi.closing, closing: !0 }));
+  let root = elem('div.mg-ending');
+  ui.root.append(root);
+  let idx = 0,
+    rolling = !1;
+  /** Pinta la lámina actual con su botón «Seguir» (o «Créditos» en la última). */
+  function showSlide() {
+    let slide = epi.slides[idx];
+    root.innerHTML = '';
+    let card = elem(`article.mg-ending-slide.mg-parchment${slide.closing ? '.cierre' : ''}`);
+    card.append(elem('h1.mg-h1', slide.title || epi.title || 'Ep\xEDlogo'));
+    let kicker = (idx === 0 && epi.title) || '';
+    (kicker && slide.title && card.prepend(elem('div.mg-ending-kicker', kicker)),
+      card.append(elem('div.txt', { html: Xl(String(slide.text || '').split(/\n{2,}/)) })));
+    let foot = elem('div.pie');
+    foot.append(elem('span.mg-dim', `${idx + 1} / ${epi.slides.length}`));
+    let btn = makeButton(idx < epi.slides.length - 1 ? 'Seguir' : 'Cr\xE9ditos', {
+      icon: idx < epi.slides.length - 1 ? 'redo' : 'scroll_quill',
       variant: 'primary',
-      onclick: () => (d < l.slides.length - 1 ? (d++, h()) : p()),
+      onclick: () => (idx < epi.slides.length - 1 ? (idx++, showSlide()) : showCredits()),
     });
-    (f.append(v), _.append(f), c.append(_), v.focus());
+    (foot.append(btn), card.append(foot), root.append(card), btn.focus());
   }
-  function p() {
-    ((u = !0), o.audio?.music?.('victoria', { fade: 2 }), (c.innerHTML = ''));
-    let m = elem('div.mg-roll-credits'),
-      _ = elem('div.mg-credits', {
+  /** Créditos con desplazamiento lento; al acabar vuelve al menú. */
+  function showCredits() {
+    ((rolling = !0), game.audio?.music?.('victoria', { fade: 2 }), (root.innerHTML = ''));
+    let roll = elem('div.mg-roll-credits'),
+      credits = elem('div.mg-credits', {
         html: `<div class="grande">Marca de Granito</div><p style="font:500 1.2rem/1.3 var(--f-sc);letter-spacing:.1em">Fin del cap\xEDtulo I \xB7 El toro que sangra</p>${CREDITS_HTML}<p style="margin-top:3rem;font-style:italic">Continuar\xE1 en Valdrecht\u2026</p>`,
       });
-    (m.append(_), c.append(m));
-    let b = makeButton('Volver al men\xFA', { icon: 'return', onclick: () => o.go('menu') });
-    ((b.style.cssText =
+    (roll.append(credits), root.append(roll));
+    let backBtn = makeButton('Volver al men\xFA', { icon: 'return', onclick: () => game.go('menu') });
+    ((backBtn.style.cssText =
       'position:fixed;right:max(16px,2vw);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:5'),
-      c.append(b));
-    let f = _.offsetHeight + innerHeight;
+      root.append(backBtn));
+    let dist = credits.offsetHeight + innerHeight;
     (reducedMotion()
-      ? (_.style.top = '8%')
-      : _.animate([{ transform: 'translate(-50%, 0)' }, { transform: `translate(-50%, ${-f}px)` }], {
-          duration: Math.max(4e4, f * 28),
-          easing: 'linear',
-          fill: 'forwards',
-        })
-          .finished.then(() => u && o.go('menu'))
+      ? (credits.style.top = '8%')
+      : credits
+          .animate([{ transform: 'translate(-50%, 0)' }, { transform: `translate(-50%, ${-dist}px)` }], {
+            duration: Math.max(4e4, dist * 28),
+            easing: 'linear',
+            fill: 'forwards',
+          })
+          .finished.then(() => rolling && game.go('menu'))
           .catch(() => null),
-      b.focus());
+      backBtn.focus());
   }
   return (
-    o.audio?.music?.('epilogo', { fade: 2 }),
-    t.loading(null),
-    h(),
-    o.store.save?.('auto').catch(() => null),
+    game.audio?.music?.('epilogo', { fade: 2 }),
+    ui.loading(null),
+    showSlide(),
+    game.store.save?.('auto').catch(() => null),
     {
-      three: r.scene,
-      sun: r.sun,
-      update(m) {
-        r.update(m, n);
+      three: backdrop.scene,
+      sun: backdrop.sun,
+      update(dt) {
+        backdrop.update(dt, camera);
       },
       dispose() {
-        ((u = !1),
-          c.remove(),
-          r.dispose(),
-          Object.assign(s, {
-            enabled: i.enabled,
-            minDistance: i.min,
-            maxDistance: i.max,
-            minPolarAngle: i.minP,
-            maxPolarAngle: i.maxP,
-            enableDamping: i.damping,
+        ((rolling = !1),
+          root.remove(),
+          backdrop.dispose(),
+          Object.assign(controls, {
+            enabled: saved.enabled,
+            minDistance: saved.min,
+            maxDistance: saved.max,
+            minPolarAngle: saved.minP,
+            maxPolarAngle: saved.maxP,
+            enableDamping: saved.damping,
           }),
-          s.target.copy(i.target));
+          controls.target.copy(saved.target));
       },
     }
   );
