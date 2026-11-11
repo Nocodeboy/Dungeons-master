@@ -1,5 +1,12 @@
 // actors/humanoid.js
-// Reconstruido de publicado/juego.js (módulo __esm «Wf»). Nombres locales aún minificados.
+// Reconstruido de publicado/juego.js (módulo __esm «Wf»).
+//
+// Construcción de humanoides (héroes, compañeros, PNJ y monstruos con forma humana) a partir de
+// un «look» (look.js, companions.js, monsters.js): clona y escala el esqueleto de humanos.json,
+// elige cuerpo, ropa y pelo del glTF, esculpe la cabeza, añade equipo procedural (geometry.js,
+// sculpt.js, monster-parts.js), lo hornea todo en SkinnedMesh (rig.js) y devuelve un Character
+// con sus clips, empuñadura de dedos, postura encorvada y ajuste de la pelvis al tumbarse.
+// Es un espacio de nombres (portraits.js lo carga con import()). Lo usan index.js y preview.js.
 
 import {
   AnimationMixer,
@@ -62,570 +69,658 @@ import { ANIM_CLIPS, GRIP_CLIPS, RACE_CLIPS } from './anims.js';
 import { loadMonsterPieces, pieceGeometry, skeletonParts, ragsGeometry } from './monster-parts.js';
 import { makeBowClips } from './poses.js';
 
-function tn(o, e) {
-  return o.get(e).getWorldPosition(new Vector3());
+/** Posición mundial de un hueso por nombre. */
+function bonePos(bones, name) {
+  return bones.get(name).getWorldPosition(new Vector3());
 }
-function Iz(o) {
-  let e = new Map(),
-    t = (i, r) => {
-      for (let l of Hz) i.test(l) && e.set(l, (e.get(l) || an(1, 1, 1)).clone().multiply(r));
+/** Escalas por hueso (Map nombre → Vector3) según las proporciones `prop` (width, thick, arms, legs…). */
+function boneScales(prop) {
+  let scales = new Map(),
+    scale = (re, v) => {
+      for (let name of SCALED_BONES)
+        re.test(name) && scales.set(name, (scales.get(name) || vec3(1, 1, 1)).clone().multiply(v));
     },
-    a = o.width ?? 1,
-    n = o.thick ?? 1;
-  (t(/^spine_0[123]$|^pelvis$/, an(a, 1, a)),
-    t(/^clavicle_[lr]$/, an(1, 1 + (a - 1) * 0.7, 1)),
-    t(/^(upperarm|lowerarm)_[lr]$/, an(n * (1 + (a - 1) * 0.7), o.arms ?? 1, n * (1 + (a - 1) * 0.7))),
-    t(/^(thigh|calf)_[lr]$/, an(n * (1 + (a - 1) * 0.6), o.legs ?? 1, n * (1 + (a - 1) * 0.6))),
-    t(/^hand_[lr]$/, an(o.hands ?? 1, o.hands ?? 1, o.hands ?? 1)),
-    t(/^neck_01$/, an(1 + (a - 1) * 0.5, o.neck ?? 1, 1 + (a - 1) * 0.5)));
-  let s = o.head ?? 1;
-  return (t(/^Head$/, an(s, s, s)), o.spine && t(/^spine_0[123]$/, an(1, o.spine, 1)), e);
+    width = prop.width ?? 1,
+    thick = prop.thick ?? 1;
+  (scale(/^spine_0[123]$|^pelvis$/, vec3(width, 1, width)),
+    scale(/^clavicle_[lr]$/, vec3(1, 1 + (width - 1) * 0.7, 1)),
+    scale(
+      /^(upperarm|lowerarm)_[lr]$/,
+      vec3(thick * (1 + (width - 1) * 0.7), prop.arms ?? 1, thick * (1 + (width - 1) * 0.7)),
+    ),
+    scale(
+      /^(thigh|calf)_[lr]$/,
+      vec3(thick * (1 + (width - 1) * 0.6), prop.legs ?? 1, thick * (1 + (width - 1) * 0.6)),
+    ),
+    scale(/^hand_[lr]$/, vec3(prop.hands ?? 1, prop.hands ?? 1, prop.hands ?? 1)),
+    scale(/^neck_01$/, vec3(1 + (width - 1) * 0.5, prop.neck ?? 1, 1 + (width - 1) * 0.5)));
+  let head = prop.head ?? 1;
+  return (
+    scale(/^Head$/, vec3(head, head, head)),
+    prop.spine && scale(/^spine_0[123]$/, vec3(1, prop.spine, 1)),
+    scales
+  );
 }
-function sT(o) {
-  if (dv.has(o)) return dv.get(o);
-  let e = o.geometry,
-    t = o.skeleton,
-    a = t.bones.map((u, h) => u.matrixWorld.clone().multiply(t.boneInverses[h]).multiply(o.bindMatrix)),
-    n = e.attributes.position,
-    s = e.attributes.skinIndex,
-    i = e.attributes.skinWeight,
-    r = new Float32Array(n.count * 3),
-    l = new Vector3(),
-    c = new Vector3(),
-    d = new Vector3();
-  for (let u = 0; u < n.count; u++) {
-    (l.fromBufferAttribute(n, u), c.set(0, 0, 0));
-    for (let h = 0; h < 4; h++) {
-      let p = i.getComponent(u, h);
-      p && c.addScaledVector(d.copy(l).applyMatrix4(a[s.getComponent(u, h)]), p);
+/** Posiciones de los vértices de una SkinnedMesh en su pose de reposo, en mundo (cacheadas). */
+function bindPositions(mesh) {
+  if (bindPosCache.has(mesh)) return bindPosCache.get(mesh);
+  let geo = mesh.geometry,
+    skel = mesh.skeleton,
+    mats = skel.bones.map((bone, k) =>
+      bone.matrixWorld.clone().multiply(skel.boneInverses[k]).multiply(mesh.bindMatrix),
+    ),
+    posAttr = geo.attributes.position,
+    skinIdx = geo.attributes.skinIndex,
+    skinW = geo.attributes.skinWeight,
+    out = new Float32Array(posAttr.count * 3),
+    v = new Vector3(),
+    acc = new Vector3(),
+    tmp = new Vector3();
+  for (let k = 0; k < posAttr.count; k++) {
+    (v.fromBufferAttribute(posAttr, k), acc.set(0, 0, 0));
+    for (let j = 0; j < 4; j++) {
+      let w = skinW.getComponent(k, j);
+      w && acc.addScaledVector(tmp.copy(v).applyMatrix4(mats[skinIdx.getComponent(k, j)]), w);
     }
-    r.set([c.x, c.y, c.z], u * 3);
+    out.set([acc.x, acc.y, acc.z], k * 3);
   }
-  return (dv.set(o, r), r);
+  return (bindPosCache.set(mesh, out), out);
 }
-function nT(o) {
-  return new Vector3().setFromMatrixPosition(o.skeleton.bones.find((e) => e.name === 'Head').matrixWorld);
+/** Posición mundial del hueso Head del esqueleto de una malla. */
+function headCenter(mesh) {
+  return new Vector3().setFromMatrixPosition(
+    mesh.skeleton.bones.find((bone) => bone.name === 'Head').matrixWorld,
+  );
 }
-function uv(o, e, t) {
-  let a = sT(o),
-    n = o.geometry.index,
-    s = [],
-    i = new Vector3(),
-    r = (l) => t(i.set(a[l * 3] - e.x, a[l * 3 + 1] - e.y, a[l * 3 + 2] - e.z));
-  for (let l = 0; l < n.count; l += 3) {
-    let c = n.getX(l),
-      d = n.getX(l + 1),
-      u = n.getX(l + 2);
-    r(c) && r(d) && r(u) && s.push(c, d, u);
+/** Triángulos cuyos tres vértices (relativos a `center`) cumplen `keep` (recortes de barba y cresta). */
+function filterTriangles(mesh, center, keep) {
+  let positions = bindPositions(mesh),
+    index = mesh.geometry.index,
+    tris = [],
+    rel = new Vector3(),
+    test = (v) =>
+      keep(
+        rel.set(
+          positions[v * 3] - center.x,
+          positions[v * 3 + 1] - center.y,
+          positions[v * 3 + 2] - center.z,
+        ),
+      );
+  for (let k = 0; k < index.count; k += 3) {
+    let a = index.getX(k),
+      b = index.getX(k + 1),
+      c = index.getX(k + 2);
+    test(a) && test(b) && test(c) && tris.push(a, b, c);
   }
-  return s;
+  return tris;
 }
-function Nz(o) {
-  if (dc) return dc;
-  dc = new Map();
-  let e = o.get('Sword_Idle');
-  if (!e) return dc;
-  for (let t of e.tracks) {
-    let [a, n] = t.name.split('.');
-    n !== 'quaternion' ||
-      !/^(index|middle|ring|pinky|thumb)_/.test(a) ||
-      dc.set(a, new Quaternion().fromArray(t.values, 0));
+/** Cuaterniones de los dedos cerrados sobre el arma (primer fotograma de Sword_Idle), cacheados. */
+function fingerGripPose(clips) {
+  if (fingerPoseCache) return fingerPoseCache;
+  fingerPoseCache = new Map();
+  let clip = clips.get('Sword_Idle');
+  if (!clip) return fingerPoseCache;
+  for (let track of clip.tracks) {
+    let [bone, prop] = track.name.split('.');
+    prop !== 'quaternion' ||
+      !/^(index|middle|ring|pinky|thumb)_/.test(bone) ||
+      fingerPoseCache.set(bone, new Quaternion().fromArray(track.values, 0));
   }
-  return dc;
+  return fingerPoseCache;
 }
-async function buildHumanoid(o) {
-  let [e, t] = await Promise.all([loadHumanRig(), loadAnimClips()]);
-  if (!t.has('P_Bow_Shoot')) for (let ie of makeBowClips(e.rootBone.m, t)) t.set(ie.name, ie);
-  let a = o.body === 'f' ? 'f' : 'm',
-    n = e.rootBone[a],
-    s = new Map();
-  n.traverse((ie) => ie.isBone && s.set(ie.name, ie));
-  let i = cloneSkeleton(n),
-    r = new Group();
-  ((r.name = 'modelo'), r.add(i.root));
-  let l = o.prop || {},
-    c = Iz(l);
-  (scaleBones(i, c), r.updateMatrixWorld(!0));
-  let d = tn(s, 'ball_l'),
-    u = i.byName.get('ball_l').getWorldPosition(new Vector3()),
-    h = i.byName.get('pelvis');
+/**
+ * Construye un humanoide animado a partir de su look ({body, prop, colors, outfit, gear, hair, beard,
+ * head, extras, style, grips, family, posture…}). Devuelve un Character con `userData.look`,
+ * `userData.rig` y `userData.setWeapon(modo)` («melee», «ranged» o «none») para los héroes.
+ */
+async function buildHumanoid(look) {
+  let [rig, clips] = await Promise.all([loadHumanRig(), loadAnimClips()]);
+  if (!clips.has('P_Bow_Shoot'))
+    for (let clip of makeBowClips(rig.rootBone.m, clips)) clips.set(clip.name, clip);
+  let body = look.body === 'f' ? 'f' : 'm',
+    rootBone = rig.rootBone[body],
+    srcBones = new Map();
+  rootBone.traverse((obj) => obj.isBone && srcBones.set(obj.name, obj));
+  let skel = cloneSkeleton(rootBone),
+    model = new Group();
+  ((model.name = 'modelo'), model.add(skel.root));
+  let prop = look.prop || {},
+    scales = boneScales(prop);
+  (scaleBones(skel, scales), model.updateMatrixWorld(!0));
+  let srcBall = bonePos(srcBones, 'ball_l'),
+    ball = skel.byName.get('ball_l').getWorldPosition(new Vector3()),
+    pelvis = skel.byName.get('pelvis');
   {
-    let ie = h.getWorldPosition(new Vector3());
-    ((ie.y -= u.y - d.y), h.position.copy(h.parent.worldToLocal(ie)), r.updateMatrixWorld(!0));
+    let pos = pelvis.getWorldPosition(new Vector3());
+    ((pos.y -= ball.y - srcBall.y),
+      pelvis.position.copy(pelvis.parent.worldToLocal(pos)),
+      model.updateMatrixWorld(!0));
   }
-  let p = h.getWorldPosition(new Vector3()).y,
-    m = tn(s, 'Head'),
-    _ = gearPalette(o),
-    b = o.colors || {},
-    f = makeCharacterMaterial(
-      a,
+  let pelvisY = pelvis.getWorldPosition(new Vector3()).y,
+    headPos = bonePos(srcBones, 'Head'),
+    palette = gearPalette(look),
+    colors = look.colors || {},
+    atlasMat = makeCharacterMaterial(
+      body,
       {
-        skin: b.skin,
-        cloth1: b.cloth1,
-        cloth2: b.cloth2,
-        metal: o.metalColor,
-        leather: b.leather,
-        hair: b.hair,
-        eyes: b.eyes,
+        skin: colors.skin,
+        cloth1: colors.cloth1,
+        cloth2: colors.cloth2,
+        metal: look.metalColor,
+        leather: colors.leather,
+        hair: colors.hair,
+        eyes: colors.eyes,
       },
       {
-        pattern: o.skinFx?.pattern || 0,
-        patternColor: o.skinFx?.patternColor,
-        mail: o.mail || 0,
-        glowEyes: o.glowEyes || 0,
+        pattern: look.skinFx?.pattern || 0,
+        patternColor: look.skinFx?.patternColor,
+        mail: look.mail || 0,
+        glowEyes: look.glowEyes || 0,
       },
     ),
-    v = f,
-    x = f,
-    g = makeHeadSculpt(o.head || {}),
-    y = [],
-    w = o.outfit || {},
-    k = (ie, we = {}) => {
-      let ce = e.parts.get(ie);
-      if (!ce) {
-        ce = [];
-        for (let L = 1; e.parts.has(`${ie}_${L}`); L++) ce.push(...e.parts.get(`${ie}_${L}`));
-        if (!ce.length) return;
+    hairMat = atlasMat,
+    gearMat = atlasMat,
+    sculpt = makeHeadSculpt(look.head || {}),
+    parts = [],
+    outfit = look.outfit || {},
+    addMesh = (name, extra = {}) => {
+      let meshes = rig.parts.get(name);
+      if (!meshes) {
+        meshes = [];
+        for (let k = 1; rig.parts.has(`${name}_${k}`); k++) meshes.push(...rig.parts.get(`${name}_${k}`));
+        if (!meshes.length) return;
       }
-      let ke = /^pelo_|_ojos$|_cejas$/.test(ie),
-        Qe = w.tatters && /_(ca|ex)_(torso|piernas|brazos)$/.test(ie),
-        N = o.gear?.robe && /_(ca|ex)_torso$/.test(ie);
-      for (let L of ce) {
-        let O = Qe
-          ? jz(L, w.tatters)
-          : N
-            ? triangleSubset(L, ['torso', 'brazos', 'manos', 'cabeza'])
+      let isHair = /^pelo_|_ojos$|_cejas$/.test(name),
+        tattered = outfit.tatters && /_(ca|ex)_(torso|piernas|brazos)$/.test(name),
+        robed = look.gear?.robe && /_(ca|ex)_torso$/.test(name);
+      for (let mesh of meshes) {
+        let index = tattered
+          ? tatteredTriangles(mesh, outfit.tatters)
+          : robed
+            ? triangleSubset(mesh, ['torso', 'brazos', 'manos', 'cabeza'])
             : void 0;
-        y.push({ mesh: L, material: ke ? v : f, deform: g, index: O, ...we });
+        parts.push({ mesh, material: isHair ? hairMat : atlasMat, deform: sculpt, index, ...extra });
       }
     },
-    T = [];
+    bareRegions = [];
   if (
-    (o.noHead || T.push('cabeza'),
-    (w.torso === 'piel' || w.under) && T.push('torso'),
-    (w.brazos === 'piel' || w.under) && T.push('brazos', 'manos'),
-    (w.piernas === 'piel' || w.under) && T.push('piernas', 'cadera'),
-    w.pies === 'piel' && T.push('pies', 'pantorrillas'),
-    T.length)
+    (look.noHead || bareRegions.push('cabeza'),
+    (outfit.torso === 'piel' || outfit.under) && bareRegions.push('torso'),
+    (outfit.brazos === 'piel' || outfit.under) && bareRegions.push('brazos', 'manos'),
+    (outfit.piernas === 'piel' || outfit.under) && bareRegions.push('piernas', 'cadera'),
+    outfit.pies === 'piel' && bareRegions.push('pies', 'pantorrillas'),
+    bareRegions.length)
   ) {
-    let ie = e.parts.get(`${a}_cuerpo`)[0];
-    y.push({ mesh: ie, index: triangleSubset(ie, T), material: f, deform: g });
+    let bodyMesh = rig.parts.get(`${body}_cuerpo`)[0];
+    parts.push({
+      mesh: bodyMesh,
+      index: triangleSubset(bodyMesh, bareRegions),
+      material: atlasMat,
+      deform: sculpt,
+    });
   }
-  let E = (ie, we) => {
-    let ce = w[ie];
-    ce && ce !== 'piel' && we[ce] && k(`${a}_${ce}_${we[ce]}`);
+  let addClothing = (zone, variants) => {
+    let kind = outfit[zone];
+    kind && kind !== 'piel' && variants[kind] && addMesh(`${body}_${kind}_${variants[kind]}`);
   };
-  (E('torso', { ex: 'torso', ca: 'torso' }),
-    E('brazos', { ex: 'brazos', ca: 'brazos' }),
-    E('piernas', { ex: 'piernas', ca: 'piernas' }),
-    E('pies', { ex: 'botas', ca: 'pies' }),
-    w.capucha && k(`${a}_ex_capucha`),
-    w.hombrera && k(`${a}_ex_hombrera`),
-    w.brazales && k(`${a}_ex_brazales`),
-    w.cintos && (k(`${a}_ex_cinto1`), k(`${a}_ex_cinto2`)),
-    o.noHead || (k(`${a}_ojos`, { hair: !0 }), o.brows !== !1 && k(`${a}_cejas`, { hair: !0 })));
-  let S = w.capucha || o.gear?.helmet === 'yelmo' ? null : Dz[o.hair || 'raya'];
-  if (S && !o.noHead) {
-    let ie = e.parts.get(`pelo_${S === 'rapado' && a === 'f' ? 'rapado_f' : S}`)?.[0];
-    ie &&
-      (o.hair === 'cresta'
-        ? y.push({
-            mesh: ie,
-            index: uv(ie, nT(ie), (we) => Math.abs(we.x) < 0.028),
-            material: v,
-            deform: g,
+  (addClothing('torso', { ex: 'torso', ca: 'torso' }),
+    addClothing('brazos', { ex: 'brazos', ca: 'brazos' }),
+    addClothing('piernas', { ex: 'piernas', ca: 'piernas' }),
+    addClothing('pies', { ex: 'botas', ca: 'pies' }),
+    outfit.capucha && addMesh(`${body}_ex_capucha`),
+    outfit.hombrera && addMesh(`${body}_ex_hombrera`),
+    outfit.brazales && addMesh(`${body}_ex_brazales`),
+    outfit.cintos && (addMesh(`${body}_ex_cinto1`), addMesh(`${body}_ex_cinto2`)),
+    look.noHead ||
+      (addMesh(`${body}_ojos`, { hair: !0 }), look.brows !== !1 && addMesh(`${body}_cejas`, { hair: !0 })));
+  let hairStyle = outfit.capucha || look.gear?.helmet === 'yelmo' ? null : HAIR_MESHES[look.hair || 'raya'];
+  if (hairStyle && !look.noHead) {
+    let hairMesh = rig.parts.get(
+      `pelo_${hairStyle === 'rapado' && body === 'f' ? 'rapado_f' : hairStyle}`,
+    )?.[0];
+    hairMesh &&
+      (look.hair === 'cresta'
+        ? parts.push({
+            mesh: hairMesh,
+            index: filterTriangles(hairMesh, headCenter(hairMesh), (p) => Math.abs(p.x) < 0.028),
+            material: hairMat,
+            deform: sculpt,
             hair: !0,
           })
-        : y.push({ mesh: ie, material: v, deform: g, hair: !0 }));
+        : parts.push({ mesh: hairMesh, material: hairMat, deform: sculpt, hair: !0 }));
   }
-  if (!o.noHead && o.gear?.helmet !== 'yelmo') {
-    let ie = {
+  if (!look.noHead && look.gear?.helmet !== 'yelmo') {
+    let buildHair = {
         coleta: () => ponytailGeometry(1),
-        trenza: () => braidGeometry(o.hairLong ?? 1),
-        cresta: () => (w.capucha ? null : mohawkGeometry()),
-      }[o.hair],
-      we = ie && ie();
-    we &&
-      (we.translate(m.x, m.y, m.z),
-      y.push({
-        geometry: we,
-        material: v,
-        weights: o.hair === 'cresta' ? null : hairWeights(m.y),
+        trenza: () => braidGeometry(look.hairLong ?? 1),
+        cresta: () => (outfit.capucha ? null : mohawkGeometry()),
+      }[look.hair],
+      hairGeo = buildHair && buildHair();
+    hairGeo &&
+      (hairGeo.translate(headPos.x, headPos.y, headPos.z),
+      parts.push({
+        geometry: hairGeo,
+        material: hairMat,
+        weights: look.hair === 'cresta' ? null : hairWeights(headPos.y),
         bone: 'Head',
-        deform: g,
+        deform: sculpt,
         hair: !0,
       }));
   }
-  let z = o.beard && o.beard !== 'ninguna' && !o.noHead ? o.beard : null;
-  if (z) {
-    let ie = e.parts.get('pelo_barba')[0],
-      we = nT(ie),
-      ce;
-    z === 'perilla'
-      ? (ce = uv(ie, we, (N) => Math.abs(N.x) < 0.032 && (N.y < 0.012 || N.y > 0.022)))
-      : z === 'bigote' && (ce = uv(ie, we, (N) => N.y > 0.004 && N.y < 0.04 && N.z > 0.07));
-    let ke = z === 'larga' || z === 'trenzada',
-      Qe = (N, L, O, B, $) => {
-        if ((g && g(N, L, O, B, $), ke)) {
-          let ee = N.clone().sub(B),
-            be = Math.max(0, 0.02 - ee.y);
-          ((N.y -= be * 2.2), (N.z += be * 0.35), (N.x -= ee.x * Math.min(0.5, be * 6)));
+  let beard = look.beard && look.beard !== 'ninguna' && !look.noHead ? look.beard : null;
+  if (beard) {
+    let beardMesh = rig.parts.get('pelo_barba')[0],
+      center = headCenter(beardMesh),
+      index;
+    beard === 'perilla'
+      ? (index = filterTriangles(
+          beardMesh,
+          center,
+          (p) => Math.abs(p.x) < 0.032 && (p.y < 0.012 || p.y > 0.022),
+        ))
+      : beard === 'bigote' &&
+        (index = filterTriangles(beardMesh, center, (p) => p.y > 0.004 && p.y < 0.04 && p.z > 0.07));
+    let long = beard === 'larga' || beard === 'trenzada',
+      beardDeform = (pos, normal, weight, center, part) => {
+        if ((sculpt && sculpt(pos, normal, weight, center, part), long)) {
+          let rel = pos.clone().sub(center),
+            drop = Math.max(0, 0.02 - rel.y);
+          ((pos.y -= drop * 2.2), (pos.z += drop * 0.35), (pos.x -= rel.x * Math.min(0.5, drop * 6)));
         }
       };
-    y.push({ mesh: ie, index: ce, material: v, deform: Qe, hair: !0 });
+    parts.push({ mesh: beardMesh, index, material: hairMat, deform: beardDeform, hair: !0 });
   }
-  let D = y.slice(),
-    M = await oT(o, s, _, x, m);
-  for (let ie of M) y.push(ie);
-  let R = bakeSkinnedMeshes(i, y, c, r, s);
-  for (let ie of R.meshes) r.add(ie);
-  let A = new Group();
-  A.name = o.id ? `pj_${o.id}` : 'humanoide';
-  let P = (l.scale ?? 1) * (l.height ?? 1);
-  (r.scale.setScalar(P), A.add(r));
-  let I = new AnimationMixer(i.root),
-    U = { ...ANIM_CLIPS, ...(RACE_CLIPS[o.family] || {}), ...(GRIP_CLIPS[o.style] || {}) },
-    j = new Character({
-      id: o.id,
-      kind: o.kind || 'hero',
-      def: { id: o.id, scale: P, anim: 'idle', walk: 'walk' },
-      root: A,
-      model: r,
-      mixer: I,
-      clips: t,
-      anims: U,
-      head: i.byName.get('Head'),
-      height: 1.8 * P,
-      radius: 0.35 * P * (l.width ?? 1),
-      speeds: o.speeds || {},
+  let baseParts = parts.slice(),
+    gearParts = await buildGearParts(look, srcBones, palette, gearMat, headPos);
+  for (let part of gearParts) parts.push(part);
+  let baked = bakeSkinnedMeshes(skel, parts, scales, model, srcBones);
+  for (let mesh of baked.meshes) model.add(mesh);
+  let root = new Group();
+  root.name = look.id ? `pj_${look.id}` : 'humanoide';
+  let scale = (prop.scale ?? 1) * (prop.height ?? 1);
+  (model.scale.setScalar(scale), root.add(model));
+  let mixer = new AnimationMixer(skel.root),
+    anims = { ...ANIM_CLIPS, ...(RACE_CLIPS[look.family] || {}), ...(GRIP_CLIPS[look.style] || {}) },
+    character = new Character({
+      id: look.id,
+      kind: look.kind || 'hero',
+      def: { id: look.id, scale, anim: 'idle', walk: 'walk' },
+      root,
+      model,
+      mixer,
+      clips,
+      anims,
+      head: skel.byName.get('Head'),
+      height: 1.8 * scale,
+      radius: 0.35 * scale * (prop.width ?? 1),
+      speeds: look.speeds || {},
       gait: {
-        walk: (o.gait?.walk ?? 1.35) * P,
-        run: (o.gait?.run ?? 3.1) * P,
-        sprint: 5 * P,
-        crouch_walk: 1 * P,
+        walk: (look.gait?.walk ?? 1.35) * scale,
+        run: (look.gait?.run ?? 3.1) * scale,
+        sprint: 5 * scale,
+        crouch_walk: 1 * scale,
       },
     });
-  ((j.userData.look = o), (j.userData.rig = i));
-  let X = { Wnew: R.Wnew, skeleton: R.skeleton },
-    J = R.meshes;
-  ((j.userData.setWeapon = async (ie) => {
-    let we = j.userData.sheet;
-    if (!we || o.kind !== 'hero') return;
-    let { heroLook: ce } = await import('./look.js'),
-      ke = ce(we, { prefer: ie === 'ranged' ? 'ranged' : 'melee' });
-    ie === 'none' && ((ke.gear.main = null), (ke.gear.off = null));
-    let Qe = await oT(ke, s, gearPalette(ke), x, m),
-      N = bakeSkinnedMeshes(i, [...D, ...Qe], c, r, s, X);
-    for (let L of J) (r.remove(L), L.geometry.dispose());
-    J = N.meshes;
-    for (let L of J) r.add(L);
-    ((o.gear = ke.gear),
-      (o.style = ke.style),
-      Object.assign(j.anims, {
+  ((character.userData.look = look), (character.userData.rig = skel));
+  let prevBake = { Wnew: baked.Wnew, skeleton: baked.skeleton },
+    meshes = baked.meshes;
+  ((character.userData.setWeapon = async (mode) => {
+    let sheet = character.userData.sheet;
+    if (!sheet || look.kind !== 'hero') return;
+    let { heroLook } = await import('./look.js'),
+      newLook = heroLook(sheet, { prefer: mode === 'ranged' ? 'ranged' : 'melee' });
+    mode === 'none' && ((newLook.gear.main = null), (newLook.gear.off = null));
+    let gear = await buildGearParts(newLook, srcBones, gearPalette(newLook), gearMat, headPos),
+      rebaked = bakeSkinnedMeshes(skel, [...baseParts, ...gear], scales, model, srcBones, prevBake);
+    for (let mesh of meshes) (model.remove(mesh), mesh.geometry.dispose());
+    meshes = rebaked.meshes;
+    for (let mesh of meshes) model.add(mesh);
+    ((look.gear = newLook.gear),
+      (look.style = newLook.style),
+      Object.assign(character.anims, {
         ...ANIM_CLIPS,
-        ...(RACE_CLIPS[o.family] || {}),
-        ...(GRIP_CLIPS[ke.style] || {}),
+        ...(RACE_CLIPS[look.family] || {}),
+        ...(GRIP_CLIPS[newLook.style] || {}),
       }),
-      ue(ke.grips || []));
+      setGrips(newLook.grips || []));
   }),
-    (j.userData.materials = { atlas: f }));
-  let Z = p / ANIM_PELVIS_HEIGHT,
-    K = Fz(i, t, Z, h, J, A),
-    ve = new Vector3(NaN, 0, 0);
-  j.post.push(() => {
-    h.position.equals(ve) ||
-      (h.position.multiplyScalar(Z),
-      K && (h.position.z += K.dz * Math.min(1, Math.max(0, (K.restZ - h.position.z) / (K.restZ - K.lowZ)))),
-      ve.copy(h.position));
+    (character.userData.materials = { atlas: atlasMat }));
+  let pelvisScale = pelvisY / ANIM_PELVIS_HEIGHT,
+    lying = measureLyingOffset(skel, clips, pelvisScale, pelvis, meshes, root),
+    lastPelvis = new Vector3(NaN, 0, 0);
+  character.post.push(() => {
+    pelvis.position.equals(lastPelvis) ||
+      (pelvis.position.multiplyScalar(pelvisScale),
+      lying &&
+        (pelvis.position.z +=
+          lying.dz *
+          Math.min(1, Math.max(0, (lying.restZ - pelvis.position.z) / (lying.restZ - lying.lowZ)))),
+      lastPelvis.copy(pelvis.position));
   });
-  let ge = [],
-    ue = (ie) => {
-      let we = Nz(t);
-      ge = [];
-      for (let [ce, ke] of we) ie.some((Qe) => ce.endsWith(`_${Qe}`)) && ge.push([i.byName.get(ce), ke]);
+  let fingerPose = [],
+    setGrips = (sides) => {
+      let pose = fingerGripPose(clips);
+      fingerPose = [];
+      for (let [name, q] of pose)
+        sides.some((side) => name.endsWith(`_${side}`)) && fingerPose.push([skel.byName.get(name), q]);
     };
-  (ue(o.grips || []),
-    j.post.push(() => {
-      for (let [ie, we] of ge) ie && ie.quaternion.copy(we);
+  (setGrips(look.grips || []),
+    character.post.push(() => {
+      for (let [bone, q] of fingerPose) bone && bone.quaternion.copy(q);
     }));
-  for (let ie of o.missingFingers || []) {
-    let [we, ce] = ie.split('_'),
-      ke = i.byName.get(`${we}_01_${ce}`);
-    ke && ke.scale.setScalar(0.02);
+  for (let finger of look.missingFingers || []) {
+    let [name, side] = finger.split('_'),
+      bone = skel.byName.get(`${name}_01_${side}`);
+    bone && bone.scale.setScalar(0.02);
   }
-  let Q = o.posture?.hunch || 0;
-  if (Q) {
-    let we = [
-      [i.byName.get('spine_01'), new Quaternion().setFromAxisAngle(an(1, 0, 0), Q * 0.25)],
-      [i.byName.get('spine_02'), new Quaternion().setFromAxisAngle(an(1, 0, 0), Q * 0.3)],
-      [i.byName.get('spine_03'), new Quaternion().setFromAxisAngle(an(1, 0, 0), Q * 0.2)],
-      [i.byName.get('neck_01'), new Quaternion().setFromAxisAngle(an(1, 0, 0), -Q * 0.45)],
-      [i.byName.get('Head'), new Quaternion().setFromAxisAngle(an(1, 0, 0), -Q * 0.25)],
+  let hunch = look.posture?.hunch || 0;
+  if (hunch) {
+    let bends = [
+      [skel.byName.get('spine_01'), new Quaternion().setFromAxisAngle(vec3(1, 0, 0), hunch * 0.25)],
+      [skel.byName.get('spine_02'), new Quaternion().setFromAxisAngle(vec3(1, 0, 0), hunch * 0.3)],
+      [skel.byName.get('spine_03'), new Quaternion().setFromAxisAngle(vec3(1, 0, 0), hunch * 0.2)],
+      [skel.byName.get('neck_01'), new Quaternion().setFromAxisAngle(vec3(1, 0, 0), -hunch * 0.45)],
+      [skel.byName.get('Head'), new Quaternion().setFromAxisAngle(vec3(1, 0, 0), -hunch * 0.25)],
     ]
-      .filter(([ce]) => ce)
-      .map(([ce, ke]) => ({ b: ce, q: ke, base: ce.quaternion.clone(), last: new Quaternion(NaN, 0, 0, 1) }));
-    j.post.push(() => {
-      for (let ce of we)
-        (ce.b.quaternion.equals(ce.last) || ce.base.copy(ce.b.quaternion),
-          ce.b.quaternion.copy(ce.base).multiply(ce.q),
-          ce.last.copy(ce.b.quaternion));
+      .filter(([b]) => b)
+      .map(([b, q]) => ({ b, q, base: b.quaternion.clone(), last: new Quaternion(NaN, 0, 0, 1) }));
+    character.post.push(() => {
+      for (let bend of bends)
+        (bend.b.quaternion.equals(bend.last) || bend.base.copy(bend.b.quaternion),
+          bend.b.quaternion.copy(bend.base).multiply(bend.q),
+          bend.last.copy(bend.b.quaternion));
     });
   }
-  let oe = Uz(j, i, s, () => o);
+  let relaxedGrip = makeRelaxedGrip(character, skel, srcBones, () => look);
   return (
-    oe && j.post.push(oe),
-    j.play('idle', 0),
-    j.current && (j.current.time = Math.random() * j.current.getClip().duration),
-    j
+    relaxedGrip && character.post.push(relaxedGrip),
+    character.play('idle', 0),
+    character.current && (character.current.time = Math.random() * character.current.getClip().duration),
+    character
   );
 }
-function Fz(o, e, t, a, n, s) {
-  let i = e.get('Death01'),
-    r = e.get('Idle_Loop')?.tracks.find((w) => w.name === 'pelvis.position'),
-    l = n.find((w) => w.isSkinnedMesh);
-  if (!i || !r || !l) return null;
-  let c = [];
-  o.root.traverse((w) => c.push([w, w.position.clone(), w.quaternion.clone()]));
-  let d = new AnimationMixer(o.root),
-    u = d.clipAction(i);
-  (u.play(), d.setTime(i.duration - 0.001), a.position.multiplyScalar(t));
-  let h = a.position.z;
-  (s.updateMatrixWorld(!0), l.skeleton.update());
-  let p = l.geometry.attributes.gpar,
-    m = l.geometry.attributes.position.count,
-    _ = !1;
-  for (let w = 0; w < m && !_; w += 7) _ = p.getZ(w) < 0.5;
-  let b = new Vector3(),
-    f = 1 / 0;
-  for (let w = 0; w < m; w += 3)
-    (_ && p.getZ(w) >= 0.5) || (l.getVertexPosition(w, b).applyMatrix4(l.matrixWorld), b.y < f && (f = b.y));
-  let v = a.getWorldPosition(new Vector3()).y;
-  ((a.position.z += 0.1), s.updateMatrixWorld(!0));
-  let x = (a.getWorldPosition(new Vector3()).y - v) / 0.1;
-  (u.stop(), d.uncacheRoot(o.root));
-  for (let [w, k, T] of c) (w.position.copy(k), w.quaternion.copy(T));
-  s.updateMatrixWorld(!0);
-  let g = r.values[2] * t,
-    y = (-0.02 - f) / (x || 1);
-  return !Number.isFinite(y) || Math.abs(y) < 0.005 || g - h < 0.2 ? null : { restZ: g, lowZ: h, dz: y };
+/**
+ * Mide, con la última pose de Death01, cuánto hay que bajar la pelvis para que el cuerpo tumbado toque
+ * el suelo: {restZ, lowZ, dz} o null si no hace falta. Restaura después la pose del esqueleto.
+ */
+function measureLyingOffset(skel, clips, pelvisScale, pelvis, meshes, root) {
+  let death = clips.get('Death01'),
+    restTrack = clips.get('Idle_Loop')?.tracks.find((track) => track.name === 'pelvis.position'),
+    skinned = meshes.find((m) => m.isSkinnedMesh);
+  if (!death || !restTrack || !skinned) return null;
+  let saved = [];
+  skel.root.traverse((obj) => saved.push([obj, obj.position.clone(), obj.quaternion.clone()]));
+  let mixer = new AnimationMixer(skel.root),
+    action = mixer.clipAction(death);
+  (action.play(), mixer.setTime(death.duration - 0.001), pelvis.position.multiplyScalar(pelvisScale));
+  let lowZ = pelvis.position.z;
+  (root.updateMatrixWorld(!0), skinned.skeleton.update());
+  let gpar = skinned.geometry.attributes.gpar,
+    count = skinned.geometry.attributes.position.count,
+    hasSkin = !1;
+  for (let k = 0; k < count && !hasSkin; k += 7) hasSkin = gpar.getZ(k) < 0.5;
+  let v = new Vector3(),
+    minY = 1 / 0;
+  for (let k = 0; k < count; k += 3)
+    (hasSkin && gpar.getZ(k) >= 0.5) ||
+      (skinned.getVertexPosition(k, v).applyMatrix4(skinned.matrixWorld), v.y < minY && (minY = v.y));
+  let y0 = pelvis.getWorldPosition(new Vector3()).y;
+  ((pelvis.position.z += 0.1), root.updateMatrixWorld(!0));
+  let slope = (pelvis.getWorldPosition(new Vector3()).y - y0) / 0.1;
+  (action.stop(), mixer.uncacheRoot(skel.root));
+  for (let [obj, pos, quat] of saved) (obj.position.copy(pos), obj.quaternion.copy(quat));
+  root.updateMatrixWorld(!0);
+  let restZ = restTrack.values[2] * pelvisScale,
+    dz = (-0.02 - minY) / (slope || 1);
+  return !Number.isFinite(dz) || Math.abs(dz) < 0.005 || restZ - lowZ < 0.2 ? null : { restZ, lowZ, dz };
 }
-function Uz(o, e, t, a) {
-  let n = ['r', 'l']
-    .map((h) => {
-      let p = e.byName.get(`hand_${h}`);
-      if (!p) return null;
-      let m = new Quaternion().setFromRotationMatrix(new Matrix4().extractRotation(gripMatrix(t, h))),
-        _ = new Vector3(0, 1, 0).applyQuaternion(m);
-      e.root.updateMatrixWorld(!0);
-      let b = p.getWorldQuaternion(new Quaternion()),
-        f = _.applyQuaternion(b.invert()).normalize();
+/**
+ * Ajuste posterior a la animación que, en reposo o caminando, gira las manos para que las armas
+ * apunten hacia abajo (o hacia arriba las largas) en vez de seguir el ángulo del clip.
+ * Devuelve la función (dt) o null si no hay manos.
+ */
+function makeRelaxedGrip(character, skel, srcBones, getLook) {
+  let hands = ['r', 'l']
+    .map((side) => {
+      let hand = skel.byName.get(`hand_${side}`);
+      if (!hand) return null;
+      let gripQ = new Quaternion().setFromRotationMatrix(
+          new Matrix4().extractRotation(gripMatrix(srcBones, side)),
+        ),
+        axis = new Vector3(0, 1, 0).applyQuaternion(gripQ);
+      skel.root.updateMatrixWorld(!0);
+      let handWorldQ = hand.getWorldQuaternion(new Quaternion()),
+        dLocal = axis.applyQuaternion(handWorldQ.invert()).normalize();
       return {
-        side: h,
-        hand: p,
-        dLocal: f,
-        base: p.quaternion.clone(),
+        side,
+        hand,
+        dLocal,
+        base: hand.quaternion.clone(),
         last: new Quaternion(NaN, 0, 0, 1),
         w: 0,
       };
     })
     .filter(Boolean);
-  if (!n.length) return null;
-  let s = new Quaternion(),
-    i = new Quaternion(),
-    r = new Vector3(),
-    l = new Vector3(),
-    c = new Quaternion(),
-    d = new Quaternion(),
-    u = new Quaternion();
-  return (h) => {
-    let p = a(),
-      m = p.gear || {},
-      _ = Oz.has(o.currentName) && p.style !== 'crossbow';
-    for (let b of n) {
-      let f = b.side === 'r' ? m.main : m.off,
-        v = _ && f && !qz.test(f) ? 1 : 0;
+  if (!hands.length) return null;
+  let parentQ = new Quaternion(),
+    rootQ = new Quaternion(),
+    current = new Vector3(),
+    target = new Vector3(),
+    q = new Quaternion(),
+    full = new Quaternion(),
+    identity = new Quaternion();
+  return (dt) => {
+    let look = getLook(),
+      gear = look.gear || {},
+      relaxed = RELAXED_ANIMS.has(character.currentName) && look.style !== 'crossbow';
+    for (let hs of hands) {
+      let item = hs.side === 'r' ? gear.main : gear.off,
+        want = relaxed && item && !HELD_ITEMS.test(item) ? 1 : 0;
       if (
-        ((b.w += (v - b.w) * Math.min(1, (h || 0.016) * 7)),
-        b.hand.quaternion.equals(b.last) || b.base.copy(b.hand.quaternion),
-        b.w < 0.002)
+        ((hs.w += (want - hs.w) * Math.min(1, (dt || 0.016) * 7)),
+        hs.hand.quaternion.equals(hs.last) || hs.base.copy(hs.hand.quaternion),
+        hs.w < 0.002)
       ) {
-        (b.hand.quaternion.copy(b.base), b.last.copy(b.base));
+        (hs.hand.quaternion.copy(hs.base), hs.last.copy(hs.base));
         continue;
       }
-      let x = Bz.test(f || ''),
-        g = b.side === 'r' ? -1 : 1;
-      (x ? l.set(0.1 * g, 0.93, 0.35) : l.set(0.08 * g, -0.55, 0.83),
-        o.root.getWorldQuaternion(i),
-        l.normalize().applyQuaternion(i),
-        b.hand.parent.getWorldQuaternion(s),
-        r.copy(b.dLocal).applyQuaternion(b.base).applyQuaternion(s),
-        d.setFromUnitVectors(r, l),
-        c.slerpQuaternions(u, d, b.w));
-      let y = s.clone().invert().multiply(c).multiply(s).multiply(b.base);
-      (b.hand.quaternion.copy(y), b.last.copy(y));
+      let isLong = LONG_WEAPONS.test(item || ''),
+        sign = hs.side === 'r' ? -1 : 1;
+      (isLong ? target.set(0.1 * sign, 0.93, 0.35) : target.set(0.08 * sign, -0.55, 0.83),
+        character.root.getWorldQuaternion(rootQ),
+        target.normalize().applyQuaternion(rootQ),
+        hs.hand.parent.getWorldQuaternion(parentQ),
+        current.copy(hs.dLocal).applyQuaternion(hs.base).applyQuaternion(parentQ),
+        full.setFromUnitVectors(current, target),
+        q.slerpQuaternions(identity, full, hs.w));
+      let local = parentQ.clone().invert().multiply(q).multiply(parentQ).multiply(hs.base);
+      (hs.hand.quaternion.copy(local), hs.last.copy(local));
     }
   };
 }
-async function oT(o, e, t, a, n) {
-  let s = [],
-    i = (c, d, u = {}) => c && s.push({ geometry: c, material: a, bone: d, ...u }),
-    r = (c) => c && c.translate(n.x, n.y, n.z),
-    l = o.extras || {};
+/** Piezas de rasgos (cuernos, colmillos, cresta, cola), de no muerto (kk_*), harapos y equipo del look. */
+async function buildGearParts(look, srcBones, palette, material, headPos) {
+  let parts = [],
+    add = (geo, bone, extra = {}) => geo && parts.push({ geometry: geo, material, bone, ...extra }),
+    atHead = (geo) => geo && geo.translate(headPos.x, headPos.y, headPos.z),
+    extras = look.extras || {};
   if (
-    (l.horns && i(r(hornsGeometry(l.horns.kind, l.horns.color, l.horns.scale || 1)), 'Head'),
-    l.tusks && i(r(tusksGeometry(l.tusks)), 'Head'),
-    l.frill && i(r(frillGeometry(l.frill.kind, l.frill.color)), 'Head'),
-    l.tail)
+    (extras.horns &&
+      add(atHead(hornsGeometry(extras.horns.kind, extras.horns.color, extras.horns.scale || 1)), 'Head'),
+    extras.tusks && add(atHead(tusksGeometry(extras.tusks)), 'Head'),
+    extras.frill && add(atHead(frillGeometry(extras.frill.kind, extras.frill.color)), 'Head'),
+    extras.tail)
   ) {
-    let c = tn(e, 'pelvis');
-    s.push({ geometry: tailGeometry(c, l.tail.color, l.tail), material: a, weights: tailWeights(c.y) });
+    let pelvis = bonePos(srcBones, 'pelvis');
+    parts.push({
+      geometry: tailGeometry(pelvis, extras.tail.color, extras.tail),
+      material,
+      weights: tailWeights(pelvis.y),
+    });
   }
-  if (o.undead || o.gear?.kk) {
-    let c = await loadMonsterPieces();
-    if (o.undead)
-      for (let d of skeletonParts(e, { ...o.undead, pieces: c }))
-        s.push({ geometry: d.geometry, material: a, bone: d.bone });
-    for (let d of o.gear?.kk || []) {
-      let u;
-      if (d.bone === 'Head') {
-        let h = (c.headScale || 0.2) * (o.undead?.headScale ?? 1);
-        ((u = pieceGeometry(c, d.name, {
-          matrix: mat.mul(mat.T(n.x, n.y - 0.055, n.z + 0.005), mat.S(h)),
-          metal: d.name === 'kk_casco' ? 0.6 : 0,
+  if (look.undead || look.gear?.kk) {
+    let pieces = await loadMonsterPieces();
+    if (look.undead)
+      for (let piece of skeletonParts(srcBones, { ...look.undead, pieces }))
+        parts.push({ geometry: piece.geometry, material, bone: piece.bone });
+    for (let item of look.gear?.kk || []) {
+      let geo;
+      if (item.bone === 'Head') {
+        let scale = (pieces.headScale || 0.2) * (look.undead?.headScale ?? 1);
+        ((geo = pieceGeometry(pieces, item.name, {
+          matrix: mat.mul(mat.T(headPos.x, headPos.y - 0.055, headPos.z + 0.005), mat.S(scale)),
+          metal: item.name === 'kk_casco' ? 0.6 : 0,
         })),
-          u && i(u, 'Head'));
-      } else if (d.hand) {
-        if (((u = pieceGeometry(c, d.name, { metal: 0.5 })), !u)) continue;
-        u.computeBoundingBox();
-        let h = u.boundingBox,
-          p = d.name.includes('escudo'),
-          m = p ? h.max.x - h.min.x : h.max.y - h.min.y,
-          _ = p ? 0.48 : d.name === 'kk_baston' ? 1.6 : 0.75;
-        if ((u.scale(_ / m, _ / m, _ / m), p)) {
-          let f = tn(e, 'lowerarm_l').lerp(tn(e, 'hand_l'), 0.45);
-          (u.applyMatrix4(mat.mul(mat.T(f.x, f.y + 0.07, f.z), mat.R(-90, 0, 0), mat.R(0, 0, 90))),
-            i(u, 'lowerarm_l'));
-        } else (u.applyMatrix4(gripMatrix(e, d.hand)), i(u, `hand_${d.hand}`));
+          geo && add(geo, 'Head'));
+      } else if (item.hand) {
+        if (((geo = pieceGeometry(pieces, item.name, { metal: 0.5 })), !geo)) continue;
+        geo.computeBoundingBox();
+        let box = geo.boundingBox,
+          isShield = item.name.includes('escudo'),
+          size = isShield ? box.max.x - box.min.x : box.max.y - box.min.y,
+          target = isShield ? 0.48 : item.name === 'kk_baston' ? 1.6 : 0.75;
+        if ((geo.scale(target / size, target / size, target / size), isShield)) {
+          let pos = bonePos(srcBones, 'lowerarm_l').lerp(bonePos(srcBones, 'hand_l'), 0.45);
+          (geo.applyMatrix4(mat.mul(mat.T(pos.x, pos.y + 0.07, pos.z), mat.R(-90, 0, 0), mat.R(0, 0, 90))),
+            add(geo, 'lowerarm_l'));
+        } else (geo.applyMatrix4(gripMatrix(srcBones, item.hand)), add(geo, `hand_${item.hand}`));
       }
     }
   }
-  if (o.gear?.rags) {
-    let c = tn(e, 'pelvis');
-    s.push({
-      geometry: ragsGeometry(e, o.gear.rags, { y0: c.y + 0.06, y1: c.y - 0.32 }),
-      material: a,
-      weights: iT(c.y + 0.06),
+  if (look.gear?.rags) {
+    let pelvis = bonePos(srcBones, 'pelvis');
+    parts.push({
+      geometry: ragsGeometry(srcBones, look.gear.rags, { y0: pelvis.y + 0.06, y1: pelvis.y - 0.32 }),
+      material,
+      weights: skirtWeights(pelvis.y + 0.06),
     });
   }
-  return (Gz(o, e, t, i, s, a, n), s);
+  return (addEquipment(look, srcBones, palette, add, parts, material, headPos), parts);
 }
-function gripMatrix(o, e) {
-  let t = tn(o, `hand_${e}`),
-    a = e === 'r' ? -1 : 1;
-  return mat.mul(mat.T(t.x + a * 0.088, t.y - 0.028, t.z - 0.004), mat.R(90, 0, 0), mat.R(0, a * 90, 0));
+/** Matriz que coloca un objeto en la palma de la mano «r» o «l» (eje Y del objeto = hacia delante). */
+function gripMatrix(bones, side) {
+  let hand = bonePos(bones, `hand_${side}`),
+    sign = side === 'r' ? -1 : 1;
+  return mat.mul(
+    mat.T(hand.x + sign * 0.088, hand.y - 0.028, hand.z - 0.004),
+    mat.R(90, 0, 0),
+    mat.R(0, sign * 90, 0),
+  );
 }
-function jz(o, e) {
-  let t = sT(o),
-    a = o.geometry.index,
-    n = [],
-    s = (i, r, l) =>
-      (Math.sin(i * 37.1 + r * 11.7) * Math.cos(l * 29.3 - r * 23.9) + Math.sin(r * 61.3 + i * 7.1) * 0.5) *
+/** Quita triángulos de una prenda con ruido (más abajo, más agujeros) para que parezca hecha jirones. */
+function tatteredTriangles(mesh, amount) {
+  let positions = bindPositions(mesh),
+    index = mesh.geometry.index,
+    tris = [],
+    noise = (x, y, z) =>
+      (Math.sin(x * 37.1 + y * 11.7) * Math.cos(z * 29.3 - y * 23.9) + Math.sin(y * 61.3 + x * 7.1) * 0.5) *
         0.5 +
       0.5;
-  for (let i = 0; i < a.count; i += 3) {
-    let r = a.getX(i),
-      l = a.getX(i + 1),
-      c = a.getX(i + 2),
-      d = (t[r * 3] + t[l * 3] + t[c * 3]) / 3,
-      u = (t[r * 3 + 1] + t[l * 3 + 1] + t[c * 3 + 1]) / 3,
-      h = (t[r * 3 + 2] + t[l * 3 + 2] + t[c * 3 + 2]) / 3;
-    s(d, u, h) + (u < 0.6 ? 0.25 : 0) * (0.6 - u) * 3 < 1 - e && n.push(r, l, c);
+  for (let k = 0; k < index.count; k += 3) {
+    let a = index.getX(k),
+      b = index.getX(k + 1),
+      c = index.getX(k + 2),
+      x = (positions[a * 3] + positions[b * 3] + positions[c * 3]) / 3,
+      y = (positions[a * 3 + 1] + positions[b * 3 + 1] + positions[c * 3 + 1]) / 3,
+      z = (positions[a * 3 + 2] + positions[b * 3 + 2] + positions[c * 3 + 2]) / 3;
+    noise(x, y, z) + (y < 0.6 ? 0.25 : 0) * (0.6 - y) * 3 < 1 - amount && tris.push(a, b, c);
   }
-  return n;
+  return tris;
 }
-function Gz(o, e, t, a, n, s, i) {
-  let r = o.gear || {},
-    l = o.body === 'f',
-    c = (g) => tn(e, `hand_${g}`),
-    d = (g, y = new Matrix4()) => gripMatrix(e, g).multiply(y),
-    u = (g, y, w) => {
-      let k = weaponGeometry(g, t);
-      k && (k.applyMatrix4(d(y, w)), a(k, `hand_${y}`));
+/**
+ * Añade el equipo visible de `look.gear`: armas y escudo en mano, objetos a la espalda y al cinto,
+ * hombreras, peto, brazales, grebas, tocado, túnica, tabardo y emblema, capa, manto, delantal,
+ * cadena, anteojos, collar y faja.
+ */
+function addEquipment(look, srcBones, palette, add, parts, material, headPos) {
+  let gear = look.gear || {},
+    female = look.body === 'f',
+    handPos = (side) => bonePos(srcBones, `hand_${side}`),
+    handMatrix = (side, offset = new Matrix4()) => gripMatrix(srcBones, side).multiply(offset),
+    holdItem = (id, side, offset) => {
+      let geo = weaponGeometry(id, palette);
+      geo && (geo.applyMatrix4(handMatrix(side, offset)), add(geo, `hand_${side}`));
     };
-  if ((r.main && u(r.main, 'r'), r.off && u(r.off, 'l'), r.shield)) {
-    let g = shieldGeometry(r.shield, t),
-      y = tn(e, 'lowerarm_l'),
-      w = c('l'),
-      k = y.clone().lerp(w, 0.45);
-    (g.applyMatrix4(mat.mul(mat.T(k.x, k.y + 0.07, k.z), mat.R(-90, 0, 0), mat.R(0, 0, 90))),
-      a(g, 'lowerarm_l'));
+  if ((gear.main && holdItem(gear.main, 'r'), gear.off && holdItem(gear.off, 'l'), gear.shield)) {
+    let shield = shieldGeometry(gear.shield, palette),
+      forearm = bonePos(srcBones, 'lowerarm_l'),
+      hand = handPos('l'),
+      mount = forearm.clone().lerp(hand, 0.45);
+    (shield.applyMatrix4(mat.mul(mat.T(mount.x, mount.y + 0.07, mount.z), mat.R(-90, 0, 0), mat.R(0, 0, 90))),
+      add(shield, 'lowerarm_l'));
   }
-  let h = tn(e, 'spine_03'),
-    p = h.z - (l ? 0.15 : 0.17);
-  for (let g of r.back || []) {
-    let y = null;
-    (g === 'carcaj'
-      ? ((y = quiverGeometry(t)), y.applyMatrix4(mat.mul(mat.T(0.08, h.y - 0.3, p - 0.04), mat.R(0, 0, -25))))
-      : g === 'laud'
-        ? ((y = luteGeometry(t)),
-          y.applyMatrix4(mat.mul(mat.T(-0.04, h.y - 0.15, p - 0.07), mat.R(0, 180, 35))))
-        : g === 'mochila'
-          ? ((y = backpackGeometry(t)), y.applyMatrix4(mat.T(0, h.y - 0.12, p - 0.1)))
-          : g.startsWith('escudo:')
-            ? ((y = shieldGeometry(g.slice(7), t)),
-              y.applyMatrix4(mat.mul(mat.T(0, h.y - 0.05, p - 0.03), mat.R(0, 180, 0))))
-            : g.startsWith('arma:') &&
-              ((y = weaponGeometry(g.slice(5), t)),
-              y && y.applyMatrix4(mat.mul(mat.T(0.02, h.y - 0.05, p - 0.06), mat.R(0, 0, 155)))),
-      y && a(y, 'spine_03'));
+  let chest = bonePos(srcBones, 'spine_03'),
+    backZ = chest.z - (female ? 0.15 : 0.17);
+  for (let item of gear.back || []) {
+    let geo = null;
+    (item === 'carcaj'
+      ? ((geo = quiverGeometry(palette)),
+        geo.applyMatrix4(mat.mul(mat.T(0.08, chest.y - 0.3, backZ - 0.04), mat.R(0, 0, -25))))
+      : item === 'laud'
+        ? ((geo = luteGeometry(palette)),
+          geo.applyMatrix4(mat.mul(mat.T(-0.04, chest.y - 0.15, backZ - 0.07), mat.R(0, 180, 35))))
+        : item === 'mochila'
+          ? ((geo = backpackGeometry(palette)), geo.applyMatrix4(mat.T(0, chest.y - 0.12, backZ - 0.1)))
+          : item.startsWith('escudo:')
+            ? ((geo = shieldGeometry(item.slice(7), palette)),
+              geo.applyMatrix4(mat.mul(mat.T(0, chest.y - 0.05, backZ - 0.03), mat.R(0, 180, 0))))
+            : item.startsWith('arma:') &&
+              ((geo = weaponGeometry(item.slice(5), palette)),
+              geo && geo.applyMatrix4(mat.mul(mat.T(0.02, chest.y - 0.05, backZ - 0.06), mat.R(0, 0, 155)))),
+      geo && add(geo, 'spine_03'));
   }
-  let m = tn(e, 'pelvis'),
-    _ = m.y + (l ? 0.1 : 0.08);
-  if (r.book) {
-    let g = bookGeometry(t);
-    (g.applyMatrix4(mat.mul(mat.T(l ? 0.19 : 0.18, _ - 0.1, 0), mat.R(0, 90, 8))), a(g, 'pelvis'));
+  let pelvis = bonePos(srcBones, 'pelvis'),
+    beltY = pelvis.y + (female ? 0.1 : 0.08);
+  if (gear.book) {
+    let book = bookGeometry(palette);
+    (book.applyMatrix4(mat.mul(mat.T(female ? 0.19 : 0.18, beltY - 0.1, 0), mat.R(0, 90, 8))),
+      add(book, 'pelvis'));
   }
-  if (r.pouch) {
-    let g = pouchGeometry(t);
-    (g.applyMatrix4(mat.T(l ? -0.17 : -0.16, _ - 0.08, 0.05)), a(g, 'pelvis'));
+  if (gear.pouch) {
+    let pouch = pouchGeometry(palette);
+    (pouch.applyMatrix4(mat.T(female ? -0.17 : -0.16, beltY - 0.08, 0.05)), add(pouch, 'pelvis'));
   }
-  if (r.sheath) {
-    let g = weaponGeometry(r.sheath, t);
-    g &&
-      (g.applyMatrix4(mat.mul(mat.T(l ? 0.2 : 0.19, _ - 0.05, -0.04), mat.R(0, 0, 180), mat.R(-18, 0, 0))),
-      a(g, 'pelvis'));
+  if (gear.sheath) {
+    let sheath = weaponGeometry(gear.sheath, palette);
+    sheath &&
+      (sheath.applyMatrix4(
+        mat.mul(mat.T(female ? 0.2 : 0.19, beltY - 0.05, -0.04), mat.R(0, 0, 180), mat.R(-18, 0, 0)),
+      ),
+      add(sheath, 'pelvis'));
   }
-  let b = tn(e, 'upperarm_l'),
-    f = tn(e, 'upperarm_r');
-  if (r.pauldrons) {
-    let g = r.pauldrons === 'grandes' ? 1.25 : 1;
-    for (let [y, w] of [
-      [1, b],
-      [-1, f],
+  let shoulderL = bonePos(srcBones, 'upperarm_l'),
+    shoulderR = bonePos(srcBones, 'upperarm_r');
+  if (gear.pauldrons) {
+    let size = gear.pauldrons === 'grandes' ? 1.25 : 1;
+    for (let [side, shoulder] of [
+      [1, shoulderL],
+      [-1, shoulderR],
     ]) {
-      let k = pauldronGeometry(y, w.clone().add(an(-y * 0.02, 0.02, 0.01)), t, { size: g });
-      n.push({
-        geometry: k,
-        material: s,
+      let geo = pauldronGeometry(side, shoulder.clone().add(vec3(-side * 0.02, 0.02, 0.01)), palette, {
+        size,
+      });
+      parts.push({
+        geometry: geo,
+        material,
         weights: () => [
-          [y > 0 ? 'upperarm_l' : 'upperarm_r', 0.55],
-          [y > 0 ? 'clavicle_l' : 'clavicle_r', 0.45],
+          [side > 0 ? 'upperarm_l' : 'upperarm_r', 0.55],
+          [side > 0 ? 'clavicle_l' : 'clavicle_r', 0.45],
         ],
       });
     }
   }
-  if (r.breastplate) {
-    let g = l
-        ? { y: h.y - 0.02, w: 0.19, h: 0.25, front: 0.175, back: 0.155, cz: -0 }
-        : { y: h.y + 0.02, w: 0.215, h: 0.26, front: 0.155, back: 0.175, cz: -0.01 },
-      y = breastplateGeometry(g, t, { plate: r.breastplate !== 'coraza' });
-    n.push({
-      geometry: y,
-      material: s,
-      weights: (w) =>
-        w.y > h.y - 0.05
+  if (gear.breastplate) {
+    let dims = female
+        ? { y: chest.y - 0.02, w: 0.19, h: 0.25, front: 0.175, back: 0.155, cz: -0 }
+        : { y: chest.y + 0.02, w: 0.215, h: 0.26, front: 0.155, back: 0.175, cz: -0.01 },
+      geo = breastplateGeometry(dims, palette, { plate: gear.breastplate !== 'coraza' });
+    parts.push({
+      geometry: geo,
+      material,
+      weights: (v) =>
+        v.y > chest.y - 0.05
           ? [['spine_03', 1]]
-          : w.y > h.y - 0.2
+          : v.y > chest.y - 0.2
             ? [['spine_02', 1]]
             : [
                 ['spine_01', 0.6],
@@ -633,231 +728,259 @@ function Gz(o, e, t, a, n, s, i) {
               ],
     });
   }
-  if (r.bracers)
-    for (let g of ['l', 'r']) {
-      let y = tn(e, `lowerarm_${g}`),
-        w = c(g);
-      a(
-        cylinderBetween(y.clone().lerp(w, 0.25), y.clone().lerp(w, 0.92), 0.043, 0.037, t, {
-          color: r.bracers === 'cuero' ? t.leather : null,
-          metal: r.bracers === 'cuero' ? 0 : 1,
-        }),
-        `lowerarm_${g}`,
+  if (gear.bracers)
+    for (let side of ['l', 'r']) {
+      let elbow = bonePos(srcBones, `lowerarm_${side}`),
+        hand = handPos(side);
+      add(
+        cylinderBetween(
+          elbow.clone().lerp(hand, 0.25),
+          elbow.clone().lerp(hand, 0.92),
+          0.043,
+          0.037,
+          palette,
+          {
+            color: gear.bracers === 'cuero' ? palette.leather : null,
+            metal: gear.bracers === 'cuero' ? 0 : 1,
+          },
+        ),
+        `lowerarm_${side}`,
       );
     }
-  if (r.greaves)
-    for (let g of ['l', 'r']) {
-      let y = tn(e, `calf_${g}`),
-        w = tn(e, `foot_${g}`);
-      a(
+  if (gear.greaves)
+    for (let side of ['l', 'r']) {
+      let knee = bonePos(srcBones, `calf_${side}`),
+        ankle = bonePos(srcBones, `foot_${side}`);
+      add(
         cylinderBetween(
-          y
+          knee
             .clone()
-            .lerp(w, 0.05)
-            .add(an(0, 0, 0.02)),
-          y
+            .lerp(ankle, 0.05)
+            .add(vec3(0, 0, 0.02)),
+          knee
             .clone()
-            .lerp(w, 0.72)
-            .add(an(0, 0, 0.03)),
+            .lerp(ankle, 0.72)
+            .add(vec3(0, 0, 0.03)),
           0.068,
           0.058,
-          t,
+          palette,
         ),
-        `calf_${g}`,
+        `calf_${side}`,
       );
     }
-  let v = { x: i.x, y: i.y + 0.1, z: i.z + 0.005, r: l ? 0.098 : 0.104 },
-    x = r.helmet || r.hat;
-  if ((x && a(headwearGeometry(x, v, t), 'Head'), r.robe)) {
-    let g = m.y + 0.13,
-      y = robeGeometry({
-        yTop: g,
-        yBottom: r.robe === 'corta' ? 0.48 : 0.07,
-        rTop: l ? 0.215 : 0.205,
-        rBottom: r.robe === 'corta' ? 0.32 : 0.36,
-        cz: m.z - 0.005,
+  let headSphere = { x: headPos.x, y: headPos.y + 0.1, z: headPos.z + 0.005, r: female ? 0.098 : 0.104 },
+    headwear = gear.helmet || gear.hat;
+  if ((headwear && add(headwearGeometry(headwear, headSphere, palette), 'Head'), gear.robe)) {
+    let top = pelvis.y + 0.13,
+      geo = robeGeometry({
+        yTop: top,
+        yBottom: gear.robe === 'corta' ? 0.48 : 0.07,
+        rTop: female ? 0.215 : 0.205,
+        rBottom: gear.robe === 'corta' ? 0.32 : 0.36,
+        cz: pelvis.z - 0.005,
         depth: 0.88,
-        color: r.robeColor || t.cloth1,
-        open: r.robeOpen || 0,
+        color: gear.robeColor || palette.cloth1,
+        open: gear.robeOpen || 0,
       });
-    n.push({ geometry: y, material: s, weights: iT(g) });
+    parts.push({ geometry: geo, material, weights: skirtWeights(top) });
   }
-  if (r.tabard) {
-    let g = r.tabardColor || t.cloth1,
-      y = r.breastplate ? 0.075 : 0.022,
-      w = h.y + (l ? 0.1 : 0.12);
-    for (let k of tabardGeometry({
-      g: l ? 'f' : 'm',
-      top: w,
-      hip: m.y + 0.02,
-      bottom: r.tabard === 'corta' ? m.y - 0.22 : 0.48,
-      w0: l ? 0.24 : 0.27,
+  if (gear.tabard) {
+    let color = gear.tabardColor || palette.cloth1,
+      out = gear.breastplate ? 0.075 : 0.022,
+      top = chest.y + (female ? 0.1 : 0.12);
+    for (let panel of tabardGeometry({
+      g: female ? 'f' : 'm',
+      top,
+      hip: pelvis.y + 0.02,
+      bottom: gear.tabard === 'corta' ? pelvis.y - 0.22 : 0.48,
+      w0: female ? 0.24 : 0.27,
       w1: 0.3,
-      out: y,
-      color: g,
+      out,
+      color,
     }))
-      n.push({ geometry: k.geometry, material: s, weights: k.weights });
-    if (r.emblem) {
-      let k = (l ? 0.16 : 0.13) + y + 0.004,
-        T = paint(new CircleGeometry(0.055, 14), {
-          color: t.gold,
+      parts.push({ geometry: panel.geometry, material, weights: panel.weights });
+    if (gear.emblem) {
+      let z = (female ? 0.16 : 0.13) + out + 0.004,
+        disc = paint(new CircleGeometry(0.055, 14), {
+          color: palette.gold,
           metal: 0.8,
-          matrix: mat.T(0, h.y - (l ? 0.08 : 0.06), k),
+          matrix: mat.T(0, chest.y - (female ? 0.08 : 0.06), z),
         }),
-        E = [];
-      for (let S = 0; S < 8; S++)
-        E.push(
+        rays = [];
+      for (let k = 0; k < 8; k++)
+        rays.push(
           paint(new ConeGeometry(0.014, 0.05, 3), {
-            color: t.gold,
+            color: palette.gold,
             metal: 0.8,
             matrix: mat.mul(
-              mat.T(0, h.y - (l ? 0.08 : 0.06), k),
-              mat.R(0, 0, S * 45),
+              mat.T(0, chest.y - (female ? 0.08 : 0.06), z),
+              mat.R(0, 0, k * 45),
               mat.T(0, 0.075, 0),
               mat.S(1, 1, 0.2),
             ),
           }),
         );
-      n.push({ geometry: mergeParts([T, ...E]), material: s, bone: 'spine_03' });
+      parts.push({ geometry: mergeParts([disc, ...rays]), material, bone: 'spine_03' });
     }
   }
-  if (r.cape) {
-    let g = h.z - (l ? 0.18 : 0.2),
-      y = capeGeometry({
-        y0: h.y + 0.13,
-        y1: r.cape === 'corta' ? m.y - 0.1 : 0.2,
+  if (gear.cape) {
+    let z = chest.z - (female ? 0.18 : 0.2),
+      geo = capeGeometry({
+        y0: chest.y + 0.13,
+        y1: gear.cape === 'corta' ? pelvis.y - 0.1 : 0.2,
         w0: 0.36,
-        w1: r.cape === 'corta' ? 0.46 : 0.62,
-        z: g,
+        w1: gear.cape === 'corta' ? 0.46 : 0.62,
+        z,
         bulge: 0.05,
-        color: r.capeColor || t.cloth1,
+        color: gear.capeColor || palette.cloth1,
         back: !0,
       });
-    n.push({ geometry: y, material: s, weights: Vz(h.y, m.y) });
-    let w = paint(new TorusGeometry(0.2, 0.012, 4, 14, Math.PI), {
-      color: r.capeColor || t.cloth1,
-      matrix: mat.mul(mat.T(0, h.y + 0.13, h.z - 0.03), mat.R(90, 0, 0), mat.S(1.05, 0.9, 1)),
+    parts.push({ geometry: geo, material, weights: capeWeights(chest.y, pelvis.y) });
+    let clasp = paint(new TorusGeometry(0.2, 0.012, 4, 14, Math.PI), {
+      color: gear.capeColor || palette.cloth1,
+      matrix: mat.mul(mat.T(0, chest.y + 0.13, chest.z - 0.03), mat.R(90, 0, 0), mat.S(1.05, 0.9, 1)),
     });
-    n.push({ geometry: w, material: s, bone: 'spine_03' });
+    parts.push({ geometry: clasp, material, bone: 'spine_03' });
   }
-  if (r.mantle) {
-    let g = r.mantle === 'hojas',
-      y = mantleGeometry({
-        y: h.y + 0.12,
-        rx: l ? 0.17 : 0.19,
-        rz: l ? 0.13 : 0.14,
-        cz: h.z - 0.02,
-        color: g ? '#4f6a32' : r.mantleColor || '#6a5440',
+  if (gear.mantle) {
+    let leafy = gear.mantle === 'hojas',
+      geo = mantleGeometry({
+        y: chest.y + 0.12,
+        rx: female ? 0.17 : 0.19,
+        rz: female ? 0.13 : 0.14,
+        cz: chest.z - 0.02,
+        color: leafy ? '#4f6a32' : gear.mantleColor || '#6a5440',
         thick: 0.07,
-        leaves: g,
+        leaves: leafy,
       });
-    n.push({
-      geometry: y,
-      material: s,
-      weights: (w) => [
+    parts.push({
+      geometry: geo,
+      material,
+      weights: (v) => [
         ['spine_03', 0.7],
-        [w.x > 0 ? 'clavicle_l' : 'clavicle_r', 0.3],
+        [v.x > 0 ? 'clavicle_l' : 'clavicle_r', 0.3],
       ],
     });
   }
-  if (r.apron)
-    for (let g of tabardGeometry({
-      g: l ? 'f' : 'm',
-      top: h.y - 0.02,
-      hip: m.y + 0.02,
-      bottom: m.y - 0.42,
+  if (gear.apron)
+    for (let panel of tabardGeometry({
+      g: female ? 'f' : 'm',
+      top: chest.y - 0.02,
+      hip: pelvis.y + 0.02,
+      bottom: pelvis.y - 0.42,
       w0: 0.24,
       w1: 0.34,
       out: 0.018,
-      color: r.apron,
+      color: gear.apron,
       back: !1,
       split: !1,
     }))
-      n.push({ geometry: g.geometry, material: s, weights: g.weights });
-  if (r.chain) {
-    let g = paint(new TorusGeometry(l ? 0.1 : 0.115, 0.007, 4, 18, Math.PI), {
-      color: t.gold,
+      parts.push({ geometry: panel.geometry, material, weights: panel.weights });
+  if (gear.chain) {
+    let chain = paint(new TorusGeometry(female ? 0.1 : 0.115, 0.007, 4, 18, Math.PI), {
+      color: palette.gold,
       metal: 1,
-      matrix: mat.mul(mat.T(0, h.y + 0.08, h.z + (l ? 0.06 : 0.05)), mat.R(180, 0, 0), mat.R(-62, 0, 0)),
+      matrix: mat.mul(
+        mat.T(0, chest.y + 0.08, chest.z + (female ? 0.06 : 0.05)),
+        mat.R(180, 0, 0),
+        mat.R(-62, 0, 0),
+      ),
     });
-    a(
+    add(
       mergeParts([
-        g,
+        chain,
         paint(new CylinderGeometry(0.025, 0.025, 0.008, 10), {
-          color: t.gold,
+          color: palette.gold,
           metal: 1,
-          matrix: mat.mul(mat.T(0, h.y - 0.03, h.z + (l ? 0.17 : 0.155)), mat.R(90, 0, 0)),
+          matrix: mat.mul(mat.T(0, chest.y - 0.03, chest.z + (female ? 0.17 : 0.155)), mat.R(90, 0, 0)),
         }),
       ]),
       'spine_03',
     );
   }
   if (
-    (r.glasses && a(glassesGeometry({ x: i.x, y: i.y + 0.098, z: i.z + (l ? 0.1 : 0.112) }, t), 'Head'),
-    r.necklace)
+    (gear.glasses &&
+      add(
+        glassesGeometry(
+          { x: headPos.x, y: headPos.y + 0.098, z: headPos.z + (female ? 0.1 : 0.112) },
+          palette,
+        ),
+        'Head',
+      ),
+    gear.necklace)
   ) {
-    let g = tn(e, 'neck_01'),
-      y = [];
-    for (let w = 0; w < 9; w++) {
-      let k = (-0.75 + (w / 8) * 1.5) * Math.PI * 0.5,
-        T = Math.sin(k) * (l ? 0.075 : 0.085),
-        E = g.z + Math.cos(k) * (l ? 0.07 : 0.08) + 0.01,
-        S = g.y - 0.06 - Math.cos(k) * 0.03;
-      y.push(
+    let neck = bonePos(srcBones, 'neck_01'),
+      beads = [];
+    for (let k = 0; k < 9; k++) {
+      let ang = (-0.75 + (k / 8) * 1.5) * Math.PI * 0.5,
+        x = Math.sin(ang) * (female ? 0.075 : 0.085),
+        z = neck.z + Math.cos(ang) * (female ? 0.07 : 0.08) + 0.01,
+        y = neck.y - 0.06 - Math.cos(ang) * 0.03;
+      beads.push(
         paint(new ConeGeometry(0.008, 0.04, 5), {
           color: '#e8dcc0',
-          matrix: mat.mul(mat.T(T, S, E), mat.R(180, 0, 0), mat.T(0, 0.015, 0)),
+          matrix: mat.mul(mat.T(x, y, z), mat.R(180, 0, 0), mat.T(0, 0.015, 0)),
         }),
       );
     }
-    (y.push(
+    (beads.push(
       paint(new TorusGeometry(0.085, 0.004, 4, 16), {
         color: '#3a2a1c',
-        matrix: mat.mul(mat.T(0, g.y - 0.05, g.z + 0.01), mat.R(75, 0, 0)),
+        matrix: mat.mul(mat.T(0, neck.y - 0.05, neck.z + 0.01), mat.R(75, 0, 0)),
       }),
     ),
-      a(mergeParts(y), 'spine_03'));
+      add(mergeParts(beads), 'spine_03'));
   }
-  r.sash &&
-    a(
-      beltGeometry({ y: _, rx: l ? 0.15 : 0.16, rz: l ? 0.12 : 0.13, cz: m.z + 0, P: t, color: r.sash }),
+  gear.sash &&
+    add(
+      beltGeometry({
+        y: beltY,
+        rx: female ? 0.15 : 0.16,
+        rz: female ? 0.12 : 0.13,
+        cz: pelvis.z + 0,
+        P: palette,
+        color: gear.sash,
+      }),
       'pelvis',
     );
 }
-function iT(o) {
-  return (e) => {
-    let t = Math.min(1, Math.max(0, (o - e.y) / 0.55)),
-      a = Math.max(-1, Math.min(1, e.x / 0.12)),
-      n = (0.5 + a * 0.5) * t * 0.85,
-      s = (0.5 - a * 0.5) * t * 0.85;
+/** Pesos de hueso de faldas y túnicas: pelvis arriba y muslos (según el lado) hacia abajo. */
+function skirtWeights(topY) {
+  return (v) => {
+    let k = Math.min(1, Math.max(0, (topY - v.y) / 0.55)),
+      side = Math.max(-1, Math.min(1, v.x / 0.12)),
+      wl = (0.5 + side * 0.5) * k * 0.85,
+      wr = (0.5 - side * 0.5) * k * 0.85;
     return [
-      ['pelvis', 1 - n - s + 0.001],
-      ['thigh_l', n],
-      ['thigh_r', s],
+      ['pelvis', 1 - wl - wr + 0.001],
+      ['thigh_l', wl],
+      ['thigh_r', wr],
     ];
   };
 }
-function Vz(o, e) {
-  return (t) => {
-    if (t.y > o - 0.05) return [['spine_03', 1]];
-    if (t.y > e + 0.1) {
-      let n = (o - 0.05 - t.y) / (o - e - 0.15);
+/** Pesos de hueso de la capa: columna arriba, pelvis y muslos abajo. */
+function capeWeights(chestY, pelvisY) {
+  return (v) => {
+    if (v.y > chestY - 0.05) return [['spine_03', 1]];
+    if (v.y > pelvisY + 0.1) {
+      let k = (chestY - 0.05 - v.y) / (chestY - pelvisY - 0.15);
       return [
-        ['spine_03', 1 - n],
-        ['spine_01', n],
+        ['spine_03', 1 - k],
+        ['spine_01', k],
       ];
     }
-    let a = Math.min(1, (e + 0.1 - t.y) / 0.7);
+    let k = Math.min(1, (pelvisY + 0.1 - v.y) / 0.7);
     return [
-      ['spine_01', 0.3 * (1 - a)],
-      ['pelvis', 0.7 + 0.1 * a],
-      ['thigh_l', a * 0.15],
-      ['thigh_r', a * 0.15],
+      ['spine_01', 0.3 * (1 - k)],
+      ['pelvis', 0.7 + 0.1 * k],
+      ['thigh_l', k * 0.15],
+      ['thigh_r', k * 0.15],
     ];
   };
 }
-const an = (o, e, t) => new Vector3(o, e, t);
-const Dz = {
+const vec3 = (x, y, z) => new Vector3(x, y, z);
+/** Peinado → malla de pelo del glTF que lo sirve de base (null = calvo). */
+const HAIR_MESHES = {
   raya: 'raya',
   largo: 'largo',
   mono: 'mono',
@@ -867,7 +990,8 @@ const Dz = {
   cresta: 'rapado',
   calvo: null,
 };
-const Hz = [
+/** Huesos a los que se aplican las proporciones del cuerpo. */
+const SCALED_BONES = [
   'pelvis',
   'spine_01',
   'spine_02',
@@ -887,10 +1011,24 @@ const Hz = [
   'calf_l',
   'calf_r',
 ];
-const dv = new Map();
-let dc = null;
-const Oz = new Set(['idle', 'idle_alt', 'walk', 'run', 'sprint', 'walk_back', 'talk', 'sit', 'sit_talk']);
-const Bz = /great|maul|quarterstaff|staff|spear|glaive|halberd|javelin|bow|crook|pike|lance|trident/;
-const qz = /mug|holy_symbol|book|lute|torch/;
+const bindPosCache = new Map();
+let fingerPoseCache = null;
+/** Animaciones en las que makeRelaxedGrip recoloca las manos. */
+const RELAXED_ANIMS = new Set([
+  'idle',
+  'idle_alt',
+  'walk',
+  'run',
+  'sprint',
+  'walk_back',
+  'talk',
+  'sit',
+  'sit_talk',
+]);
+/** Armas largas, que en reposo se llevan apuntando hacia arriba. */
+const LONG_WEAPONS =
+  /great|maul|quarterstaff|staff|spear|glaive|halberd|javelin|bow|crook|pike|lance|trident/;
+/** Objetos de mano que no se recolocan. */
+const HELD_ITEMS = /mug|holy_symbol|book|lute|torch/;
 
 export { buildHumanoid, gripMatrix };
