@@ -1,0 +1,264 @@
+{
+  "_nota": "Compañeros escritos del Capítulo 1. Creados con las reglas del SRD 5.2.1: matriz estándar + trasfondo (+2/+1).",
+  "brenna": {
+    "name": "Brenna Halvard",
+    "title": "Veterana de la guardia de Valdrecht",
+    "pronoun": "f",
+    "class": "fighter",
+    "subclass": "champion",
+    "species": "human",
+    "background": "soldier",
+    "abilities": {
+      "str": 17,
+      "dex": 13,
+      "con": 15,
+      "int": 8,
+      "wis": 12,
+      "cha": 10
+    },
+    "skills": [
+      "athletics",
+      "intimidation",
+      "perception",
+      "survival",
+      "insight"
+    ],
+    "feats": [
+      "savage_attacker",
+      "alert"
+    ],
+    "fighting_style": "defense",
+    "masteries": [
+      "longsword",
+      "javelin",
+      "handaxe"
+    ],
+    "armor": "chain_mail",
+    "shield": true,
+    "weapons": [
+      "longsword",
+      "javelin"
+    ],
+    "ammo": {
+      "javelin": 4
+    },
+    "items": {
+      "potion_healing": 1
+    },
+    "visual": {
+      "model": "knight",
+      "weapon_r": "1H_Sword",
+      "shield_l": "Badge_Shield"
+    },
+    "ai": "frontline"
+  },
+  "pip": {
+    "name": "Pip Tallowmere",
+    "title": "Contrabandista de las Marcas",
+    "pronoun": "m",
+    "class": "rogue",
+    "subclass": "thief",
+    "species": "halfling",
+    "background": "criminal",
+    "abilities": {
+      "str": 8,
+      "dex": 17,
+      "con": 15,
+      "int": 12,
+      "wis": 13,
+      "cha": 10
+    },
+    "skills": [
+      "sleight_of_hand",
+      "stealth",
+      "acrobatics",
+      "perception",
+      "deception",
+      "investigation"
+    ],
+    "expertise": [
+      "stealth",
+      "sleight_of_hand"
+    ],
+    "feats": [
+      "alert"
+    ],
+    "masteries": [
+      "shortsword",
+      "light_crossbow"
+    ],
+    "armor": "leather",
+    "shield": false,
+    "weapons": [
+      "shortsword",
+      "dagger",
+      "light_crossbow"
+    ],
+    "ammo": {
+      "light_crossbow": 20,
+      "dagger": 2
+    },
+    "items": {
+      "potion_healing": 1
+    },
+    "visual": {
+      "model": "rogue_hooded",
+      "weapon_r": "Knife",
+      "weapon_l": "Knife_Offhand",
+      "ranged": "2H_Crossbow",
+      "scale": 0.86
+    },
+    "ai": "skirmisher_pc"
+  },
+  "ilyra": {
+    "name": "Ilyra Sorendel",
+    "title": "Novicia de la Orden del Alba",
+    "pronoun": "f",
+    "class": "cleric",
+    "subclass": "life",
+    "species": "elf",
+    "lineage": "wood_elf",
+    "background": "acolyte",
+    "abilities": {
+      "str": 13,
+      "dex": 12,
+      "con": 14,
+      "int": 8,
+      "wis": 17,
+      "cha": 11
+    },
+    "skills": [
+      "insight",
+      "religion",
+      "medicine",
+      "persuasion",
+      "perception"
+    ],
+    "feats": [
+      "magic_initiate_cleric"
+    ],
+    "magic_initiate": {
+      "list": "cleric",
+      "spell": "healing_word"
+    },
+    "divine_order": "protector",
+    "armor": "chain_mail",
+    "shield": true,
+    "weapons": [
+      "longsword"
+    ],
+    "cantrips": [
+      "sacred_flame",
+      "spare_the_dying"
+    ],
+    "prepared": {
+      "1": [
+        "bless",
+        "cure_wounds",
+        "guiding_bolt",
+        "shield_of_faith"
+      ],
+      "2": [
+        "bless",
+        "cure_wounds",
+        "guiding_bolt",
+        "shield_of_faith",
+        "command"
+      ],
+      "3": [
+        "guiding_bolt",
+        "shield_of_faith",
+        "command",
+        "sanctuary",
+        "spiritual_weapon",
+        "hold_person"
+      ]
+    },
+    "items": {
+      "potion_healing": 1
+    },
+    "visual": {
+      "model": "rogue",
+      "weapon_r": "sword_from_knight",
+      "shield_l": "shield_from_knight",
+      "recolor": "cleric"
+    },
+    "ai": "healer"
+  },
+  "odvar": {
+    "name": "Maese Odvar",
+    "title": "Erudito de las piedras durn",
+    "pronoun": "m",
+    "class": "wizard",
+    "subclass": "evoker",
+    "species": "dwarf",
+    "background": "sage",
+    "abilities": {
+      "str": 8,
+      "dex": 13,
+      "con": 15,
+      "int": 17,
+      "wis": 12,
+      "cha": 10
+    },
+    "skills": [
+      "arcana",
+      "history",
+      "investigation",
+      "medicine"
+    ],
+    "feats": [
+      "magic_initiate_wizard"
+    ],
+    "magic_initiate": {
+      "list": "wizard",
+      "spell": "mage_armor"
+    },
+    "precast": [
+      "mage_armor"
+    ],
+    "armor": "",
+    "shield": false,
+    "weapons": [
+      "quarterstaff",
+      "dagger"
+    ],
+    "cantrips": [
+      "fire_bolt",
+      "ray_of_frost",
+      "shocking_grasp"
+    ],
+    "prepared": {
+      "1": [
+        "magic_missile",
+        "shield",
+        "sleep",
+        "thunderwave"
+      ],
+      "2": [
+        "magic_missile",
+        "shield",
+        "sleep",
+        "thunderwave",
+        "burning_hands"
+      ],
+      "3": [
+        "magic_missile",
+        "shield",
+        "sleep",
+        "burning_hands",
+        "scorching_ray",
+        "shatter"
+      ]
+    },
+    "items": {
+      "potion_healing": 1
+    },
+    "visual": {
+      "model": "mage",
+      "weapon_r": "2H_Staff",
+      "scale": 0.9
+    },
+    "ai": "caster"
+  }
+}

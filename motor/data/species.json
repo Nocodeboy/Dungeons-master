@@ -1,0 +1,127 @@
+{
+  "_fuente": "Especies del SRD 5.2.1 y, semielfo y semiorco, del SRD 5.1 adaptados a las reglas de 2024 (ambos CC-BY-4.0). Textos en español propios.",
+  "human": {
+    "name": "Humano", "plural": "humanos",
+    "desc": "Versátiles y ambiciosos, los humanos están en todas partes de Eredhal. Ganan una habilidad y una dote de origen adicionales.",
+    "sizes": ["medium", "small"], "speed": 30, "darkvision": 0,
+    "traits": ["resourceful", "skillful", "versatile"],
+    "skill_choices": 1, "extra_origin_feat": true,
+    "visual": {"scale": 1.0, "skins": ["#f1c9a5", "#e0ac83", "#c68a5c", "#a0683f", "#7a4a2a", "#4f2f1c"]}
+  },
+  "elf": {
+    "name": "Elfo", "plural": "elfos",
+    "desc": "Longevos y ligados a la magia feérica. Ven en la oscuridad, no duermen y su linaje les concede magia propia.",
+    "sizes": ["medium"], "speed": 30, "darkvision": 60,
+    "traits": ["fey_ancestry", "keen_senses", "trance"],
+    "keen_senses": ["insight", "perception", "survival"],
+    "lineage_label": "Linaje élfico",
+    "lineages": {
+      "high_elf": {"name": "Alto elfo", "desc": "Conoces el truco Prestidigitación. A nivel 3, Detectar magia.", "cantrip": "prestidigitation", "spells": {"3": "detect_magic"}},
+      "wood_elf": {"name": "Elfo de los bosques", "desc": "Tu velocidad es de 10,5 m y conoces Druidismo. A nivel 3, Zancada prodigiosa.", "speed": 35, "cantrip": "druidcraft", "spells": {"3": "longstrider"}},
+      "drow": {"name": "Drow", "desc": "Visión en la oscuridad de 36 m y Luces danzantes. A nivel 3, Fuego feérico.", "darkvision": 120, "cantrip": "dancing_lights", "spells": {"3": "faerie_fire"}}
+    },
+    "lineage_ability": true,
+    "visual": {"scale": 1.0, "ears": true, "skins": ["#f4d8c0", "#e8c09a", "#c99a72", "#8d6a8f", "#5d4b6e", "#3b3550"]}
+  },
+  "half_elf": {
+    "name": "Semielfo", "plural": "semielfos", "srd": "5.1",
+    "desc": "Hijos de dos pueblos y de ninguno del todo. Ven en la oscuridad, la magia feérica les cuesta y aprenden de todo un poco.",
+    "sizes": ["medium"], "speed": 30, "darkvision": 60,
+    "traits": ["fey_ancestry", "skill_versatility"],
+    "skill_choices": 2,
+    "visual": {"scale": 1.0, "ears": "half", "skins": ["#f3d3b5", "#e6bc96", "#cf9c72", "#a8764f", "#7f5538", "#5a3c2a"]}
+  },
+  "dwarf": {
+    "name": "Enano", "plural": "enanos",
+    "desc": "Recios como la piedra que trabajan. Resisten el veneno, aguantan más golpes y ven muy lejos en la oscuridad.",
+    "sizes": ["medium"], "speed": 30, "darkvision": 120,
+    "traits": ["dwarven_resilience", "dwarven_toughness", "stonecunning"],
+    "resist": ["poison"],
+    "visual": {"scale": 0.86, "width": 1.12, "beard": true, "skins": ["#f0c8a0", "#d9a77d", "#b98157", "#8f5d3a", "#6b4227"]}
+  },
+  "halfling": {
+    "name": "Mediano", "plural": "medianos",
+    "desc": "Pequeños, valientes y con una suerte que roza lo absurdo: repiten los unos naturales y se esconden detrás de cualquiera.",
+    "sizes": ["small"], "speed": 30, "darkvision": 0,
+    "traits": ["brave", "halfling_nimbleness", "luck", "naturally_stealthy"],
+    "visual": {"scale": 0.78, "skins": ["#f2cfa8", "#e2b48a", "#c9925f", "#9c6b42", "#6e4728"]}
+  },
+  "gnome": {
+    "name": "Gnomo", "plural": "gnomos",
+    "desc": "Curiosos e ingeniosos. Tienen ventaja en las salvaciones de Inteligencia, Sabiduría y Carisma.",
+    "sizes": ["small"], "speed": 30, "darkvision": 60,
+    "traits": ["gnomish_cunning"],
+    "lineage_label": "Linaje gnomo",
+    "lineages": {
+      "forest_gnome": {"name": "Gnomo de los bosques", "desc": "Conoces Ilusión menor y siempre tienes preparado Hablar con los animales.", "cantrip": "minor_illusion", "spells": {"1": "speak_with_animals"}},
+      "rock_gnome": {"name": "Gnomo de las rocas", "desc": "Conoces Remendar y Prestidigitación, y fabricas pequeños artilugios.", "cantrips": ["mending", "prestidigitation"]}
+    },
+    "lineage_ability": true,
+    "visual": {"scale": 0.76, "ears": true, "skins": ["#f3d2b0", "#e3b58f", "#c48f66", "#9a6a46"]}
+  },
+  "dragonborn": {
+    "name": "Dracónido", "plural": "dracónidos",
+    "desc": "Descendientes de dragones. Escupen un aliento de energía y resisten el tipo de daño de su linaje.",
+    "sizes": ["medium"], "speed": 30, "darkvision": 60,
+    "traits": ["breath_weapon", "draconic_resistance"],
+    "ancestry_label": "Linaje dracónico",
+    "ancestries": {
+      "black": {"name": "Negro", "damage": "acid", "color": "#2b2b33"},
+      "blue": {"name": "Azul", "damage": "lightning", "color": "#2f5fb3"},
+      "brass": {"name": "Latón", "damage": "fire", "color": "#c79a3c"},
+      "bronze": {"name": "Bronce", "damage": "lightning", "color": "#9c6b2f"},
+      "copper": {"name": "Cobre", "damage": "acid", "color": "#b8693a"},
+      "gold": {"name": "Oro", "damage": "fire", "color": "#d9b13b"},
+      "green": {"name": "Verde", "damage": "poison", "color": "#3f8a4a"},
+      "red": {"name": "Rojo", "damage": "fire", "color": "#b33a2c"},
+      "silver": {"name": "Plata", "damage": "cold", "color": "#b9c2cc"},
+      "white": {"name": "Blanco", "damage": "cold", "color": "#e8eef2"}
+    },
+    "visual": {"scale": 1.05, "horns": "back", "scales": true}
+  },
+  "goliath": {
+    "name": "Goliat", "plural": "goliats",
+    "desc": "Gigantes entre los mortales, con la sangre de los titanes de las montañas. Corren más y su linaje les da un poder de gigante.",
+    "sizes": ["medium"], "speed": 35, "darkvision": 0,
+    "traits": ["powerful_build"],
+    "ancestry_label": "Linaje de gigante",
+    "ancestries": {
+      "cloud": {"name": "Gigante de las nubes", "feature": "clouds_jaunt", "desc": "Acción adicional: teletranspórtate hasta 9 m."},
+      "fire": {"name": "Gigante de fuego", "feature": "fires_burn", "desc": "Al impactar, 1d10 de fuego adicional."},
+      "frost": {"name": "Gigante de escarcha", "feature": "frosts_chill", "desc": "Al impactar, 1d6 de frío y le quitas 3 m de velocidad."},
+      "hill": {"name": "Gigante de las colinas", "feature": "hills_tumble", "desc": "Al impactar, derribas al objetivo."},
+      "stone": {"name": "Gigante de piedra", "feature": "stones_endurance", "desc": "Reacción: reduce el daño que recibes 1d12 + tu Constitución."},
+      "storm": {"name": "Gigante de las tormentas", "feature": "storms_thunder", "desc": "Reacción: 1d8 de trueno a quien te haga daño."}
+    },
+    "visual": {"scale": 1.16, "width": 1.08, "skins": ["#c9b8a6", "#a89a8c", "#8f8a86", "#b7a189", "#7d7468"]}
+  },
+  "orc": {
+    "name": "Orco", "plural": "orcos",
+    "desc": "Incansables y feroces. Arrancan a correr con un subidón de adrenalina y una vez al día se niegan a caer.",
+    "sizes": ["medium"], "speed": 30, "darkvision": 120,
+    "traits": ["adrenaline_rush", "relentless_endurance"],
+    "visual": {"scale": 1.08, "tusks": true, "skins": ["#7f9a6a", "#6b8a5c", "#8c9a7a", "#5d6e55", "#9aa58a"]}
+  },
+  "half_orc": {
+    "name": "Semiorco", "plural": "semiorcos", "srd": "5.1",
+    "desc": "Con sangre orca y humana. Imponen con la mirada, se niegan a caer y sus golpes críticos son brutales.",
+    "sizes": ["medium"], "speed": 30, "darkvision": 60,
+    "traits": ["menacing", "relentless_endurance", "savage_attacks"],
+    "skills": ["intimidation"],
+    "visual": {"scale": 1.04, "tusks": "small", "skins": ["#a9b18f", "#93a07c", "#c4a98a", "#8f8f7a", "#7c8a68", "#b59a7a"]}
+  },
+  "tiefling": {
+    "name": "Tiflin", "plural": "tiflins",
+    "desc": "Marcados por un legado de los Planos Inferiores. Resisten un tipo de daño y conocen magia infernal.",
+    "sizes": ["medium", "small"], "speed": 30, "darkvision": 60,
+    "traits": ["otherworldly_presence"],
+    "lineage_label": "Legado infernal",
+    "lineages": {
+      "abyssal": {"name": "Abisal", "desc": "Resistencia al veneno y Rociada venenosa. A nivel 3, Rayo de enfermedad.", "resist": "poison", "cantrip": "poison_spray", "spells": {"3": "ray_of_sickness"}},
+      "chthonic": {"name": "Ctónico", "desc": "Resistencia al daño necrótico y Toque helado. A nivel 3, Falsa vida.", "resist": "necrotic", "cantrip": "chill_touch", "spells": {"3": "false_life"}},
+      "infernal": {"name": "Infernal", "desc": "Resistencia al fuego y Descarga de fuego. A nivel 3, Reprensión infernal.", "resist": "fire", "cantrip": "fire_bolt", "spells": {"3": "hellish_rebuke"}}
+    },
+    "lineage_ability": true,
+    "visual": {"scale": 1.0, "horns": "curl", "tail": true, "skins": ["#b84a4a", "#9b3c55", "#7d4e8f", "#c9826b", "#5a3e6e", "#d8a0a0"]}
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "id": "elderhal",
+  "name": "Bosque de Elderhal",
+  "place": "Pinar viejo al este de Merrowick",
+  "ambient": "forest",
+  "music": "bosque",
+  "music_combat": "combate",
+  "ground": {".": "path"},
+  "width": 50,
+  "height": 36,
+  "rows": [
+    "T,T,TT,T,T,TTT,,,,TTT,,,TTTTT,TT,TT,TTT,,f,fff,Tb,",
+    "T,TT,TTTTT,TTTTTTT,,bTT,T,TT,T,T,,T,T,Tf......f,b,",
+    "TTTTTT,TTTT,TT,,,T,,TTTTTTTT,T,T,,,TTTTf.......,,T",
+    "TTT,T,Tb,T,,T,TT,,b,,T,,,,T,,,TT,,T,,Tf..oo.o.O,,,",
+    ",,,r,,,T,,T,,T,,,,,,,,T,,r,,,T,,,,,T,,f.O......of,",
+    "TTT,,,T,,,,,,,b,,,,TTT,T,,,,,b,,,,T,,f.......o..f,",
+    ",TT,,,,,,,,TT,,,,,,,,,,,,,,,,,,,,,,,Tf.....o...o.f",
+    "TTTb,,,T,,,T,,,,,,,,,b,TT,,,T,T,,,,,,f..o.......fT",
+    ",T,T,b,,,,,,T,,,~~~,,,,,TTT,,,,,,,,,,,fo.....o..f,",
+    ",,T,,T,,,,,,,,,www,,,,,,,,,,TTT,,,TT,,f.....o.OfTT",
+    ",,T,,,,,,,,,,,~wwww~,,,,T,,,,,,,,,,,,,,........,TT",
+    ",,T,b,,,,T,,,~wwwww,,,T,,,,,,,,,,,Tb,..,......f,,,",
+    "T,T,,,,r,T,,,,,wwwww,,,b,,b,T,T,,,,,..,,f,,ffffT,T",
+    ",T,Tb,T,,,TT,,,wwww,,T,T,,,,,TT,,,,.,,,,,,,,,,T,TT",
+    "TT,,,,,,,,,,,,,.~~~~,,,T,T,,,TT,,,..,T,,TT,,,T,,TT",
+    "T,T,T,,,T,rT,,.,,,,,,Tb,,Tb,,,T,,.,,,,,T,,T,Tr,TTT",
+    "TT,b,,,,,,,T,..,,,,,T,,,,Tb,,,,,..,bTT,,,,,T,T,T,,",
+    ",T,TTb,,T,T,.,,,,,,,TT,T,T,T,,,.bb,,,T,,,,,,,T,,T,",
+    "bT,,,,,T,,,,.,,,,,,r,,,T,,TT,,..,,,,T,,,T,,,,,,TTT",
+    "TTT,,T,,,T,,.,,,,,,,T,,,TT,,,.,,,T,bT,,T,,,T,,,,T,",
+    "TTT,,,,,,TT,,.,,,,TTT,TT,,,,..,,T,,,TTb,,,,,,,TTT,",
+    ",TTTT,T,,T,b,.T,T,,,,,,,....,,TT,,b,,,T,,,,,,,,,,,",
+    "TTT,,,T,,,,,,.,T,,,......bb,,b,,T,,TT,,,,T,,,,,,TT",
+    ",,T,,,,,,,,r,.,....,..,,,,,,,,,,,,,,b,,b,,TT,T,TTT",
+    "TrTT,,,,,,bT,,..,,,,T,.,,,,,,,,,,,,,T,TT,TT,T,,TTT",
+    ",TT,r,,o,,,,..,,bT,,,r..,,T,T,,,b,,,,,,,,,,,TT,TTT",
+    "TT,,,,,,,,,..Tb,,,,,,,,,...,T,Tr,,,,,bo,,,,T,,,,,T",
+    "TTT,T,,,,..,,T,,,,T,T,,T,T.....,,,,,b,,,TBBTT,,,,,",
+    "T,,,,,....,,,,,,T,,,,T,,,,,,,,,.........bBBBT,,,TT",
+    ".,....,b,b,,T,TTT,,TT,,TTT,,,,b,,T,,T,T,,BB,,,TT,T",
+    "...,,,,TT,,,,,,,,T,,,,T,,,,,,,,,TT,T,,,oo,,T,,,,TT",
+    ".,,,,TT,,,,,,,,,,,,,,,,,,,,b,,,,,b,,Tb,,,,b,o,T,TT",
+    ",TTTT,T,,,,,,,,,,,,T,TTT,bbTT,,,,T,,,,,,r,,,,b,T,,",
+    "TTT,TTTT,T,T,,T,,b,TT,TTbT,,,TTTTTT,T,,TTT,T,TT,TT",
+    ",TTbT,,TTTTTT,TT,T,TTT,TTTT,TTT,,,,,T,,TT,,TTTT,TT",
+    "T,TTb,,T,,,Tb,T,,T,T,,TT,T,T,,,TTb,,TTTTT,T,,,TTTT"
+  ],
+  "spawns": {"entry": [2, 30], "default": [4, 29]},
+  "exits": [
+    {"id": "back", "cells": [[0, 29], [0, 30], [0, 31]], "label": "Volver al camino", "to": "travel"}
+  ],
+  "props": [
+    {"key": "tent", "cell": [40, 4], "rot": 150, "scale": 1.0},
+    {"key": "tent", "cell": [46, 3], "rot": 200, "scale": 1.0},
+    {"key": "tent", "cell": [46, 9], "rot": 250, "scale": 1.0},
+    {"key": "stumps", "cell": [39, 8], "rot": 30, "scale": 1.0},
+    {"key": "crate_open", "cell": [44, 3], "rot": 10, "scale": 1.0},
+    {"key": "barrel", "cell": [41, 3], "rot": 0, "scale": 1.0},
+    {"key": "weaponrack", "cell": [47, 6], "rot": -90, "scale": 1.0},
+    {"key": "flag", "cell": [44, 9], "rot": 0, "scale": 1.0},
+    {"key": "q_cage", "cell": [45, 8], "rot": 20, "scale": 1.0},
+    {"key": "q_barrel", "cell": [47, 4], "rot": 0, "scale": 1.0},
+    {"key": "q_crate", "cell": [42, 3], "rot": 25, "scale": 1.0},
+    {"key": "q_banner2", "cell": [40, 7], "rot": -60, "scale": 1.0},
+    {"key": "ruin", "cell": [42, 28], "rot": 200, "scale": 1.2},
+    {"key": "shrine", "cell": [39, 30], "rot": 20, "scale": 1.0},
+    {"key": "rubble", "cell": [44, 31], "rot": 50, "scale": 1.0},
+    {"key": "rubble", "cell": [38, 26], "rot": 150, "scale": 1.0}
+  ],
+  "objects": [
+    {"id": "camp_fire", "type": "campfire", "cell": [43, 6], "name": "Hoguera de los trasgos", "requires": "camp_done"},
+    {"id": "camp_rest", "type": "campfire", "cell": [7, 25], "name": "Claro tranquilo"},
+    {"id": "pilgrim", "type": "loot", "cell": [29, 23], "name": "Restos de un peregrino", "loot": [["gold", 6], ["scroll_cure_wounds", 1], ["holy_symbol", 1]]},
+    {"id": "stash", "type": "cache", "cell": [9, 9], "name": "Hueco en un tronco", "hidden": {"dc": 14}, "loot": [["gold", 25], ["potion_healing", 1], ["bolts", 1], ["gloves_thievery", 1]], "found_text": "Un tronco hueco con la corteza marcada a navaja: dentro hay un hatillo bien atado. Alguien guarda aquí su contrabando."},
+    {"id": "shrine_box", "type": "chest", "cell": [40, 30], "name": "Cepillo de las ofrendas", "lock": {"dc": 12}, "loot": [["gold", 12], ["scroll_bless", 1], ["potion_healing", 1]]},
+    {"id": "shrine_rubble", "type": "cache", "cell": [45, 29], "name": "Entre los escombros", "hidden": {"dc": 15}, "loot": [["periapt_wound_closure", 1], ["gem_quartz", 1]], "found_text": "Bajo una viga caída brilla algo: un colgante que los saqueadores no vieron."},
+    {"id": "shrine_text", "type": "inspect", "cell": [39, 29], "name": "Santuario de Solenne", "text": ["Un santuario de piedra blanca, quemado y saqueado. Alguien ha pintado con barro una zarpa sobre el disco del alba.", "Entre las cenizas hay huellas pequeñas, de trasgo, y otras más grandes que no sabéis reconocer."]},
+    {"id": "boss_chest", "type": "chest", "cell": [45, 5], "name": "Arcón del cabecilla", "lock": {"dc": 15, "key": "key_cache"}, "loot": [["gold", 30], ["durn_tablet", 1], ["shortbow_p1", 1], ["gem_garnet", 1], ["scroll_web", 1]]},
+    {"id": "snare", "type": "trap", "cell": [33, 15], "name": "Cepo", "hidden": {"dc": 12}, "dc_disarm": 12, "damage": "2d4", "dtype": "piercing", "save": {"ab": "dex", "dc": 12}, "desc": "Un cepo de dientes de hierro, tapado con agujas de pino."},
+    {"id": "pit", "type": "trap", "cell": [37, 11], "name": "Foso con estacas", "hidden": {"dc": 13}, "dc_disarm": 13, "damage": "2d6", "dtype": "piercing", "save": {"ab": "dex", "dc": 13}, "desc": "Un foso cubierto con ramas. En el fondo, estacas afiladas."},
+    {"id": "tripwire", "type": "trap", "cell": [39, 10], "name": "Cuerda con latas", "hidden": {"dc": 12}, "dc_disarm": 10, "damage": "0", "alarm": "camp", "desc": "Una cuerda tensa a la altura del tobillo, atada a un manojo de latas."}
+  ],
+  "groups": [
+    {"id": "wolves", "enemies": [{"id": "wolf", "cell": [19, 8], "face": 200}, {"id": "wolf", "cell": [21, 10], "face": 220}, {"id": "wolf", "cell": [13, 8], "face": 160}], "name": "Lobos del estanque", "sight": 7, "loot": [], "flag": "wolves_done", "journal": "Unos lobos rondaban el estanque de Elderhal. Ya no rondarán más."},
+    {"id": "sentries", "enemies": [{"id": "goblin_minion", "cell": [31, 19], "face": 230}, {"id": "goblin_archer", "cell": [33, 18], "face": 230}], "name": "Centinelas trasgos", "sight": 8, "link": []},
+    {"id": "camp", "enemies": [{"id": "goblin_boss", "cell": [44, 6], "face": 220}, {"id": "goblin_warrior", "cell": [41, 7], "face": 230}, {"id": "goblin_warrior", "cell": [42, 9], "face": 250}, {"id": "goblin_archer", "cell": [46, 7], "face": 230}, {"id": "goblin_archer", "cell": [40, 5], "face": 200}], "name": "El campamento de los Zarpas Grises", "sight": 7, "flag": "camp_done", "level_after": 3, "loot": [["gold", 14], ["potion_healing", 1]], "after": ["El cabecilla de los Zarpas Grises cae de rodillas. Antes de que se le apague la mirada, sonríe con todos los dientes:", "«Llegáis tarde. El que duerme bajo el toro ya nos ha llamado… y nos ha prometido la piedra.»", "Lleva colgada del cuello una llave oxidada."], "journal": "Hemos acabado con el campamento de los Zarpas Grises. El cabecilla habló de «el que duerme bajo el toro». La alcaldesa Maren nos debe 50 po."}
+  ],
+  "triggers": [
+    {"id": "enter", "cells": [], "once": true, "on_load": true, "spawn": "entry", "text": ["El pinar de Elderhal huele a resina y a humo. Hay demasiado silencio para ser de día."], "hint": "Los trasgos ponen trampas: la Percepción pasiva del grupo puede descubrirlas al pasar cerca, y el botón Buscar revisa los alrededores con más calma. Con Sigilo os movéis despacio, pero podéis acercaros sin que os vean y pillarlos por sorpresa."}
+  ],
+  "lights": [
+    {"cell": [43, 6], "color": "#ff8a3a", "energy": 1.6, "range": 6.0, "height": 0.8}
+  ],
+  "decor": [
+    {"key": "q_chain", "cell": [46, 6], "rot": 0, "scale": 1.0},
+    {"key": "lumber", "cell": [43, 6], "rot": 0, "scale": 0.55, "offset": [-0.55, 0.0]},
+    {"key": "lumber", "cell": [43, 6], "rot": 153, "scale": 0.55, "offset": [0.5, 0.25]},
+    {"key": "lumber", "cell": [43, 6], "rot": 270, "scale": 0.55, "offset": [0.0, -0.55]},
+    {"key": "skull", "cell": [44, 8], "rot": 0, "scale": 1.0, "offset": [0.2, -0.1]},
+    {"key": "bones", "cell": [41, 6], "rot": 0, "scale": 1.0, "offset": [0.2, -0.1]},
+    {"key": "bones", "cell": [45, 4], "rot": 0, "scale": 1.0, "offset": [0.2, -0.1]},
+    {"key": "ribcage", "cell": [42, 9], "rot": 0, "scale": 1.0, "offset": [0.2, -0.1]}
+  ],
+  "animals": [
+    {"kind": "deer", "cell": [29, 24], "wander": 1.5},
+    {"kind": "deer", "cell": [32, 23], "wander": 1.5}
+  ],
+  "paint": [
+  ]
+}

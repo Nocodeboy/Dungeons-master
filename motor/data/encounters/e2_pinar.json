@@ -1,0 +1,113 @@
+{
+  "id": "e2_pinar",
+  "order": 2,
+  "level": 2,
+  "name": "Lobos en Elderhal",
+  "place": "Bosque de Elderhal, a media tarde",
+  "ambient": "forest",
+  "intro": [
+    "Las huellas de los trasgos se pierden en el Bosque de Elderhal, donde el viejo camino de los pastores cruza el arroyo. Hace años que nadie se atreve a pasar por aquí.",
+    "El bosque está demasiado callado. Entre los troncos se mueven sombras grises a ras de suelo, y desde la otra orilla llega una risa aguda que no es humana.",
+    "Los Zarpas Grises han traído lobos. Y a su cabecilla."
+  ],
+  "rows": [
+    "TT,,,T,,,,T,,,,,T,,,TT",
+    "T,,,,,,,b,,,,,,,,,,,,T",
+    ",,,T,,,,bb,,,T,,,,r,,,",
+    ",,,,,,,,,,,,,,,,,,,,T,",
+    ",r,,,,,T,,,~~,,,,,,,,,",
+    ",,,,,,,,,,~~~,,,T,,,,,",
+    "::::::::::~:~:::::::::",
+    ",,,,T,,,,,~~~,,,,,,b,,",
+    ",,,,,,,,,,,~~,,,,,,bb,",
+    ",,,,,,,r,,,~,,,T,,,,,,",
+    "T,,,,,,,,,,,,,,,,,r,,,",
+    "TT,,,T,,,,,,T,,,,,,,,T"
+  ],
+  "party_spawn": [
+    [
+      2,
+      5
+    ],
+    [
+      1,
+      7
+    ],
+    [
+      3,
+      7
+    ],
+    [
+      2,
+      8
+    ]
+  ],
+  "enemies": [
+    {
+      "id": "wolf",
+      "cell": [
+        14,
+        3
+      ]
+    },
+    {
+      "id": "wolf",
+      "cell": [
+        16,
+        10
+      ]
+    },
+    {
+      "id": "wolf",
+      "cell": [
+        15,
+        8
+      ]
+    },
+    {
+      "id": "wolf",
+      "cell": [
+        13,
+        9
+      ]
+    },
+    {
+      "id": "wolf",
+      "cell": [
+        16,
+        2
+      ]
+    },
+    {
+      "id": "goblin_archer",
+      "cell": [
+        19,
+        4
+      ]
+    },
+    {
+      "id": "goblin_archer",
+      "cell": [
+        20,
+        8
+      ]
+    },
+    {
+      "id": "goblin_boss",
+      "cell": [
+        18,
+        6
+      ]
+    }
+  ],
+  "tips": [
+    "Los lobos atacan con ventaja si otro lobo está junto a su presa, y su mordisco te tira al suelo.",
+    "Estar derribado da desventaja a tus ataques. Levantarse cuesta la mitad de tu movimiento.",
+    "El arroyo es terreno difícil: cuesta el doble atravesarlo."
+  ],
+  "outro": [
+    "El cabecilla trasgo llevaba al cuello un cordel con una piedra gris tallada con espirales: la misma marca que tiene el toro en la frente.",
+    "Cuando la acercas, la piedra se calienta en tu mano y la Marca de tu brazo responde con un pinchazo. Lo que llama a los trasgos no está en el bosque. Está debajo de Merrowick."
+  ],
+  "xp": 500
+}
