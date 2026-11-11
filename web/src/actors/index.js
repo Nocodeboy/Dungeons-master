@@ -7,7 +7,7 @@ import { allTexturesReady } from './materials.js';
 import { MONSTER_DEFS } from './monsters.js';
 import { cT } from './beasts.js';
 import { uu, gv } from './animals.js';
-import { Jf, pT, COMPANIONS } from './companions.js';
+import { companionLook, npcLook, COMPANIONS } from './companions.js';
 import { vT, yT } from './portraits.js';
 import './preview.js';
 import './character.js';
@@ -21,7 +21,7 @@ function texturesReady() {
 }
 async function makeHero(o = {}, e = {}) {
   let t = o.id,
-    a = t && COMPANIONS[t] && !o.appearance ? Jf(t, e) : heroLook(o, e);
+    a = t && COMPANIONS[t] && !o.appearance ? companionLook(t, e) : heroLook(o, e);
   t && (a.id = t);
   let n = await buildHumanoid(a);
   return (
@@ -34,14 +34,14 @@ async function makeHero(o = {}, e = {}) {
   );
 }
 async function makeCompanion(o, e = {}) {
-  let t = Jf(o, e);
+  let t = companionLook(o, e);
   if (!t) throw new Error(`compa\xF1ero desconocido: ${o}`);
   t.id = o;
   let a = await buildHumanoid(t);
   return ((a.kind = 'hero'), (a.id = o), a);
 }
 async function makeNpc(o) {
-  let e = pT(o || {}),
+  let e = npcLook(o || {}),
     t = await buildHumanoid(e);
   return ((t.kind = 'npc'), (t.id = e.id || t.id), t);
 }

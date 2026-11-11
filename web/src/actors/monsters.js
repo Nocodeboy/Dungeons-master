@@ -1,21 +1,27 @@
 // actors/monsters.js
-// Reconstruido de publicado/juego.js (módulo __esm «pv»). Nombres locales aún minificados.
+// Reconstruido de publicado/juego.js (módulo __esm «pv»).
+//
+// Catálogo visual de monstruos (MONSTER_DEFS, por id de reglas): trasgos (esbirro, guerrero,
+// arquero, cabecilla), esqueletos, zombis y Vorhan el tumulario son humanoides con un look propio,
+// variado con semilla por índice; la araña gigante y los animales se delegan a beasts.js y
+// animals.js. Lo usan index.js (makeMonster) y portraits.js.
 
 import { seededRandom } from './appearance.js';
 
-function Wz(o, e) {
-  let t = fi(o, $z);
+/** Look base de trasgo (piel, pelo, proporciones, cabeza) con el generador `rand`. */
+function goblinBase(rand, role) {
+  let skin = pick(rand, GOBLIN_SKINS);
   return {
     kind: 'monster',
     family: 'goblin',
     species: 'goblin',
     body: 'm',
-    hair: e === 'boss' ? 'cresta' : fi(o, ['calvo', 'calvo', 'cresta', 'rapado']),
+    hair: role === 'boss' ? 'cresta' : pick(rand, ['calvo', 'calvo', 'cresta', 'rapado']),
     beard: 'ninguna',
     brows: !0,
     colors: {
-      skin: t,
-      hair: fi(o, ['#1e1a16', '#2a2418', '#3a3024']),
+      skin,
+      hair: pick(rand, ['#1e1a16', '#2a2418', '#3a3024']),
       eyes: '#e8c030',
       cloth1: '#5a4632',
       cloth2: '#7a6a4a',
@@ -23,7 +29,7 @@ function Wz(o, e) {
     metalColor: '#7a7468',
     glowEyes: 0.3,
     prop: {
-      scale: 0.6 + o() * 0.04,
+      scale: 0.6 + rand() * 0.04,
       width: 0.9,
       head: 1.32,
       legs: 0.84,
@@ -33,30 +39,31 @@ function Wz(o, e) {
       thick: 0.82,
     },
     head: {
-      ears: { len: 0.12 + o() * 0.03, dir: [1, 0.32, -0.4], from: 0.05 },
-      nose: { len: 0.032 + o() * 0.012, drop: 0.012, wide: 0.12 },
+      ears: { len: 0.12 + rand() * 0.03, dir: [1, 0.32, -0.4], from: 0.05 },
+      nose: { len: 0.032 + rand() * 0.012, drop: 0.012, wide: 0.12 },
       jaw: { wide: 0.12, fwd: 0.008, brow: 0.016 },
       skullScale: [1.06, 0.9, 1.02],
-      face: Math.floor(o() * 4),
+      face: Math.floor(rand() * 4),
     },
     posture: { hunch: 0.55 },
     speeds: { walk: 1.15, run: 1.1 },
   };
 }
-function Xf(o, e = 0) {
-  let t = seededRandom(1e3 + e * 17 + o.length),
-    a = Wz(t, o);
+/** Look de trasgo por papel («minion», «warrior», «archer», «boss») y número de ejemplar. */
+function goblinLook(role, index = 0) {
+  let rand = seededRandom(1e3 + index * 17 + role.length),
+    look = goblinBase(rand, role);
   return (
-    o === 'minion'
-      ? ((a.outfit = { torso: 'piel', brazos: 'piel', piernas: 'ca', pies: 'piel' }),
-        (a.colors.cloth1 = fi(t, ['#5a4632', '#4a3a2a', '#62503a'])),
-        (a.colors.cloth2 = '#6a5a40'),
-        (a.gear = { main: 'dagger', sash: '#3a2a1c' }),
-        (a.grips = ['r']),
-        (a.style = '1h'),
-        (a.prop.width = 0.86))
-      : o === 'warrior'
-        ? ((a.outfit = {
+    role === 'minion'
+      ? ((look.outfit = { torso: 'piel', brazos: 'piel', piernas: 'ca', pies: 'piel' }),
+        (look.colors.cloth1 = pick(rand, ['#5a4632', '#4a3a2a', '#62503a'])),
+        (look.colors.cloth2 = '#6a5a40'),
+        (look.gear = { main: 'dagger', sash: '#3a2a1c' }),
+        (look.grips = ['r']),
+        (look.style = '1h'),
+        (look.prop.width = 0.86))
+      : role === 'warrior'
+        ? ((look.outfit = {
             torso: 'ex',
             brazos: 'piel',
             piernas: 'ca',
@@ -64,28 +71,42 @@ function Xf(o, e = 0) {
             cintos: !0,
             hombrera: !0,
           }),
-          (a.colors.cloth1 = '#7a3a26'),
-          (a.colors.cloth2 = '#5a4a36'),
-          (a.gear = { main: 'scimitar', shield: 'tosco', helmet: 'casco' }),
-          (a.grips = ['r']),
-          (a.style = 'shield'),
-          (a.prop.width = 0.96),
-          (a.prop.thick = 0.92))
-        : o === 'archer'
-          ? ((a.outfit = { torso: 'ex', brazos: 'ex', piernas: 'ca', pies: 'piel', capucha: !0, cintos: !0 }),
-            (a.colors.cloth1 = '#4f5e36'),
-            (a.colors.cloth2 = '#5a4a36'),
-            (a.gear = { off: 'shortbow', back: ['carcaj'], sheath: 'dagger' }),
-            (a.grips = ['l']),
-            (a.style = 'bow'))
-          : o === 'boss' &&
-            ((a.prop = { ...a.prop, scale: 0.74, width: 1.06, thick: 1, head: 1.24 }),
-            (a.outfit = { torso: 'ex', brazos: 'piel', piernas: 'ex', pies: 'ex', cintos: !0, hombrera: !0 }),
-            (a.colors.cloth1 = '#3a2a22'),
-            (a.colors.cloth2 = '#6a2a20'),
-            (a.colors.skin = '#6c7660'),
-            (a.skinFx = { pattern: 2, patternColor: '#8a2418' }),
-            (a.gear = {
+          (look.colors.cloth1 = '#7a3a26'),
+          (look.colors.cloth2 = '#5a4a36'),
+          (look.gear = { main: 'scimitar', shield: 'tosco', helmet: 'casco' }),
+          (look.grips = ['r']),
+          (look.style = 'shield'),
+          (look.prop.width = 0.96),
+          (look.prop.thick = 0.92))
+        : role === 'archer'
+          ? ((look.outfit = {
+              torso: 'ex',
+              brazos: 'ex',
+              piernas: 'ca',
+              pies: 'piel',
+              capucha: !0,
+              cintos: !0,
+            }),
+            (look.colors.cloth1 = '#4f5e36'),
+            (look.colors.cloth2 = '#5a4a36'),
+            (look.gear = { off: 'shortbow', back: ['carcaj'], sheath: 'dagger' }),
+            (look.grips = ['l']),
+            (look.style = 'bow'))
+          : role === 'boss' &&
+            ((look.prop = { ...look.prop, scale: 0.74, width: 1.06, thick: 1, head: 1.24 }),
+            (look.outfit = {
+              torso: 'ex',
+              brazos: 'piel',
+              piernas: 'ex',
+              pies: 'ex',
+              cintos: !0,
+              hombrera: !0,
+            }),
+            (look.colors.cloth1 = '#3a2a22'),
+            (look.colors.cloth2 = '#6a2a20'),
+            (look.colors.skin = '#6c7660'),
+            (look.skinFx = { pattern: 2, patternColor: '#8a2418' }),
+            (look.gear = {
               main: 'scimitar',
               shield: 'tosco',
               helmet: 'casco',
@@ -93,18 +114,19 @@ function Xf(o, e = 0) {
               mantleColor: '#26221e',
               necklace: 'colmillos',
             }),
-            (a.extras = { horns: { kind: 'carnero', color: '#cfc4a8', scale: 0.8 } }),
-            (a.missingFingers = ['ring_l', 'pinky_l']),
-            (a.grips = ['r']),
-            (a.style = 'shield'),
-            (a.posture = { hunch: 0.4 })),
-    a
+            (look.extras = { horns: { kind: 'carnero', color: '#cfc4a8', scale: 0.8 } }),
+            (look.missingFingers = ['ring_l', 'pinky_l']),
+            (look.grips = ['r']),
+            (look.style = 'shield'),
+            (look.posture = { hunch: 0.4 })),
+    look
   );
 }
-function hv(o, e = 0) {
-  let t = seededRandom(2e3 + e * 13 + o.length),
-    a = fi(t, ['#d8ccae', '#cfc2a0', '#ddd2b8', '#c8bc9c']),
-    n = {
+/** Look de esqueleto («warrior», «archer») o del tumulario («wight»). */
+function skeletonLook(role, index = 0) {
+  let rand = seededRandom(2e3 + index * 13 + role.length),
+    boneColor = pick(rand, ['#d8ccae', '#cfc2a0', '#ddd2b8', '#c8bc9c']),
+    base = {
       kind: 'monster',
       family: 'skeleton',
       body: 'm',
@@ -112,15 +134,15 @@ function hv(o, e = 0) {
       outfit: {},
       colors: { cloth1: '#4a3a30', cloth2: '#3a3028' },
       metalColor: '#6e6a62',
-      prop: { scale: 0.98 + t() * 0.05, width: 0.95 },
-      undead: { skull: 'guerrero', color: a },
+      prop: { scale: 0.98 + rand() * 0.05, width: 0.95 },
+      undead: { skull: 'guerrero', color: boneColor },
       posture: { hunch: 0.12 },
       speeds: { walk: 0.95 },
       gait: { walk: 1 },
     };
-  return o === 'archer'
+  return role === 'archer'
     ? {
-        ...n,
+        ...base,
         gear: {
           off: 'shortbow',
           back: ['carcaj'],
@@ -130,9 +152,9 @@ function hv(o, e = 0) {
         grips: ['l'],
         style: 'bow',
       }
-    : o === 'wight'
+    : role === 'wight'
       ? {
-          ...n,
+          ...base,
           id: 'vorhan',
           prop: { scale: 1.24, width: 1.12, thick: 1.1 },
           undead: { skull: 'guerrero', color: '#c4b898', eyes: '#70b0ff', headScale: 1.08 },
@@ -156,32 +178,33 @@ function hv(o, e = 0) {
           speeds: { walk: 0.9 },
         }
       : {
-          ...n,
+          ...base,
           gear: {
             kk: [
               { name: 'kk_hoja', hand: 'r' },
               { name: 'kk_escudo', hand: 'l' },
-              ...(t() < 0.5 ? [{ name: 'kk_casco', bone: 'Head' }] : []),
+              ...(rand() < 0.5 ? [{ name: 'kk_casco', bone: 'Head' }] : []),
             ],
-            rags: fi(t, ['#3a2e2a', '#4a3a2a', '#2e2a26']),
+            rags: pick(rand, ['#3a2e2a', '#4a3a2a', '#2e2a26']),
           },
           grips: ['r'],
           style: 'shield',
         };
 }
-function Xz(o = 0) {
-  let e = seededRandom(3e3 + o * 11);
+/** Look de zombi (ropa hecha jirones y piel en descomposición). */
+function zombieLook(index = 0) {
+  let rand = seededRandom(3e3 + index * 11);
   return {
     kind: 'monster',
     family: 'zombie',
-    body: e() < 0.3 ? 'f' : 'm',
-    hair: fi(e, ['largo', 'raya', 'calvo']),
+    body: rand() < 0.3 ? 'f' : 'm',
+    hair: pick(rand, ['largo', 'raya', 'calvo']),
     beard: 'ninguna',
     colors: {
-      skin: fi(e, ['#8a927c', '#7d8a74', '#94927e']),
+      skin: pick(rand, ['#8a927c', '#7d8a74', '#94927e']),
       hair: '#3a3630',
       eyes: '#d0e090',
-      cloth1: fi(e, ['#4a4236', '#3e3a30', '#52463a']),
+      cloth1: pick(rand, ['#4a4236', '#3e3a30', '#52463a']),
       cloth2: '#6a6250',
     },
     skinFx: { pattern: 5, patternColor: '#5a3a30' },
@@ -196,17 +219,27 @@ function Xz(o = 0) {
     speeds: { walk: 0.85, run: 0.9 },
   };
 }
-const fi = (o, e) => e[Math.floor(o() * e.length)];
-const $z = ['#7c8a6c', '#6e7e62', '#86907a', '#747c6c', '#6a7a5c', '#808878'];
+/** Elemento al azar de `list` con el generador `rand`. */
+const pick = (rand, list) => list[Math.floor(rand() * list.length)];
+const GOBLIN_SKINS = ['#7c8a6c', '#6e7e62', '#86907a', '#747c6c', '#6a7a5c', '#808878'];
+/** Monstruos por id: tipo (humanoid, spider, animal), look(índice) o especie animal, y nombre. */
 const MONSTER_DEFS = {
-  goblin_minion: { type: 'humanoid', look: (o) => Xf('minion', o), name: 'Trasgo esbirro' },
-  goblin_warrior: { type: 'humanoid', look: (o) => Xf('warrior', o), name: 'Trasgo guerrero' },
-  goblin_archer: { type: 'humanoid', look: (o) => Xf('archer', o), name: 'Trasgo arquero' },
-  goblin_boss: { type: 'humanoid', look: (o) => Xf('boss', o), name: 'Cabecilla trasgo' },
-  skeleton: { type: 'humanoid', look: (o) => hv('warrior', o), name: 'Esqueleto' },
-  skeleton_archer: { type: 'humanoid', look: (o) => hv('archer', o), name: 'Esqueleto arquero' },
-  zombie: { type: 'humanoid', look: (o) => Xz(o), name: 'Zombi' },
-  wight: { type: 'humanoid', look: (o) => hv('wight', o), name: 'Vorhan, el tumulario' },
+  goblin_minion: { type: 'humanoid', look: (index) => goblinLook('minion', index), name: 'Trasgo esbirro' },
+  goblin_warrior: {
+    type: 'humanoid',
+    look: (index) => goblinLook('warrior', index),
+    name: 'Trasgo guerrero',
+  },
+  goblin_archer: { type: 'humanoid', look: (index) => goblinLook('archer', index), name: 'Trasgo arquero' },
+  goblin_boss: { type: 'humanoid', look: (index) => goblinLook('boss', index), name: 'Cabecilla trasgo' },
+  skeleton: { type: 'humanoid', look: (index) => skeletonLook('warrior', index), name: 'Esqueleto' },
+  skeleton_archer: {
+    type: 'humanoid',
+    look: (index) => skeletonLook('archer', index),
+    name: 'Esqueleto arquero',
+  },
+  zombie: { type: 'humanoid', look: (index) => zombieLook(index), name: 'Zombi' },
+  wight: { type: 'humanoid', look: (index) => skeletonLook('wight', index), name: 'Vorhan, el tumulario' },
   giant_spider: { type: 'spider', name: 'Ara\xF1a gigante' },
   wolf: { type: 'animal', kind: 'lobo', name: 'Lobo' },
   mastiff: { type: 'animal', kind: 'mastin', name: 'Mast\xEDn' },

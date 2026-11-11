@@ -1,98 +1,114 @@
 // actors/companions.js
-// Reconstruido de publicado/juego.js (módulo __esm «vv»). Nombres locales aún minificados.
+// Reconstruido de publicado/juego.js (módulo __esm «vv»).
+//
+// Aspecto de los compañeros (Brenna, Pip, Ilyra, Odvar) y de los PNJ con nombre (COMPANIONS y
+// NPC_LOOKS: hojas de personaje con su aspecto y retoques de ropa y equipo), aldeanos al azar con
+// semilla y PNJ genéricos a partir de su campo `visual`. Devuelven looks para buildHumanoid.
+// Lo usan index.js (makeCompanion, makeNpc) y portraits.js.
 
 import { shade, heroLook } from './look.js';
 import { seededRandom } from './appearance.js';
 
-function Jf(o, e = {}) {
-  let t = COMPANIONS[o];
-  if (!t) return null;
-  let a = heroLook({ ...t, id: o }, e);
-  return tL(a, t.tweak);
+/** Look de un compañero por id (null si no existe), con sus retoques aplicados. */
+function companionLook(id, opts = {}) {
+  let def = COMPANIONS[id];
+  if (!def) return null;
+  let look = heroLook({ ...def, id }, opts);
+  return applyTweak(look, def.tweak);
 }
-function tL(o, e) {
-  if (!e) return o;
-  if ((e.outfit && Object.assign(o.outfit, e.outfit), e.gear))
-    for (let [t, a] of Object.entries(e.gear)) a === null ? delete o.gear[t] : (o.gear[t] = a);
-  return (e.posture && (o.posture = { ...(o.posture || {}), ...e.posture }), o);
+/** Aplica a un look los retoques {outfit, gear (null borra), posture}. */
+function applyTweak(look, tweak) {
+  if (!tweak) return look;
+  if ((tweak.outfit && Object.assign(look.outfit, tweak.outfit), tweak.gear))
+    for (let [key, value] of Object.entries(tweak.gear))
+      value === null ? delete look.gear[key] : (look.gear[key] = value);
+  return (tweak.posture && (look.posture = { ...(look.posture || {}), ...tweak.posture }), look);
 }
-function aL(o) {
-  let e = seededRandom(o),
-    t = (r) => r[Math.floor(e() * r.length)],
-    a = e() < 0.5 ? 'f' : 'm',
-    n = t(['human', 'human', 'human', 'human', 'halfling', 'dwarf', 'half_elf']),
-    s = {
-      id: `aldeano_${o}`,
-      species: n,
+/** Aldeano al azar pero determinista según `seed` (especie, cuerpo, pelo, ropa, delantal…). */
+function villagerLook(seed) {
+  let rand = seededRandom(seed),
+    pick = (list) => list[Math.floor(rand() * list.length)],
+    body = rand() < 0.5 ? 'f' : 'm',
+    species = pick(['human', 'human', 'human', 'human', 'halfling', 'dwarf', 'half_elf']),
+    sheet = {
+      id: `aldeano_${seed}`,
+      species,
       class: 'commoner',
-      pronoun: a,
+      pronoun: body,
       appearance: {
-        body: a,
-        face: Math.floor(e() * 4),
-        hair: t(a === 'f' ? ['largo', 'mono', 'trenza', 'coleta'] : ['raya', 'rapado', 'calvo', 'raya']),
-        hairColor: t(['#2a2018', '#4a3020', '#6b4a2b', '#8a5a2e', '#9a948c', '#c9b48a']),
-        beard: a === 'm' ? t(['ninguna', 'barba', 'bigote', 'perilla']) : 'ninguna',
-        cloth1: t(['#6a5a40', '#5a4a3a', '#4a5a6a', '#6a3a2e', '#5a6a4a', '#7a6a50']),
-        cloth2: t(['#d8ccb0', '#c9b48a', '#b8a888']),
-        height: 0.96 + e() * 0.08,
-        build: t(['delgada', 'media', 'robusta']),
+        body,
+        face: Math.floor(rand() * 4),
+        hair: pick(
+          body === 'f' ? ['largo', 'mono', 'trenza', 'coleta'] : ['raya', 'rapado', 'calvo', 'raya'],
+        ),
+        hairColor: pick(['#2a2018', '#4a3020', '#6b4a2b', '#8a5a2e', '#9a948c', '#c9b48a']),
+        beard: body === 'm' ? pick(['ninguna', 'barba', 'bigote', 'perilla']) : 'ninguna',
+        cloth1: pick(['#6a5a40', '#5a4a3a', '#4a5a6a', '#6a3a2e', '#5a6a4a', '#7a6a50']),
+        cloth2: pick(['#d8ccb0', '#c9b48a', '#b8a888']),
+        height: 0.96 + rand() * 0.08,
+        build: pick(['delgada', 'media', 'robusta']),
       },
     },
-    i = heroLook(s);
+    look = heroLook(sheet);
   return (
-    (i.outfit = { torso: 'ca', brazos: 'ca', piernas: 'ca', pies: 'ca' }),
-    (i.gear = e() < 0.3 ? { apron: '#c8bca0' } : {}),
-    a === 'f' && e() < 0.5 && (i.gear.robe = 'larga'),
-    (i.kind = 'npc'),
-    i
+    (look.outfit = { torso: 'ca', brazos: 'ca', piernas: 'ca', pies: 'ca' }),
+    (look.gear = rand() < 0.3 ? { apron: '#c8bca0' } : {}),
+    body === 'f' && rand() < 0.5 && (look.gear.robe = 'larga'),
+    (look.kind = 'npc'),
+    look
   );
 }
-function pT(o) {
-  typeof o == 'string' && (o = { id: o });
-  let e = o.visual ? { ...o.visual, id: o.id, pronoun: o.pronoun } : o,
-    t = e.id;
-  if (t && COMPANIONS[t]) return Jf(t);
-  if (t === 'aldeano' || e.villager) return aL(e.seed ?? 1);
-  let a = t && NPC_LOOKS[t];
-  if (a && !a.villager) {
-    let i = heroLook({ ...a, id: t, armor: '', weapons: [], shield: !1 });
+/**
+ * Look de un PNJ: compañero, aldeano (`id === 'aldeano'` o `villager`), PNJ con nombre de NPC_LOOKS o
+ * genérico a partir de {species, class, pronoun, skin, hair, cloth}. Acepta un id o una definición.
+ */
+function npcLook(def) {
+  typeof def == 'string' && (def = { id: def });
+  let visual = def.visual ? { ...def.visual, id: def.id, pronoun: def.pronoun } : def,
+    id = visual.id;
+  if (id && COMPANIONS[id]) return companionLook(id);
+  if (id === 'aldeano' || visual.villager) return villagerLook(visual.seed ?? 1);
+  let preset = id && NPC_LOOKS[id];
+  if (preset && !preset.villager) {
+    let look = heroLook({ ...preset, id, armor: '', weapons: [], shield: !1 });
     return (
-      (i.outfit = { ...a.outfit }),
-      (i.gear = { ...a.gear }),
-      (i.grips = i.gear.main ? ['r'] : []),
-      (i.style = 'unarmed'),
-      a.posture && (i.posture = a.posture),
-      (i.kind = 'npc'),
-      e.skin && (i.colors.skin = e.skin),
-      e.hair && (i.colors.hair = e.hair),
-      e.cloth && (i.colors.cloth1 = e.cloth),
-      i
+      (look.outfit = { ...preset.outfit }),
+      (look.gear = { ...preset.gear }),
+      (look.grips = look.gear.main ? ['r'] : []),
+      (look.style = 'unarmed'),
+      preset.posture && (look.posture = preset.posture),
+      (look.kind = 'npc'),
+      visual.skin && (look.colors.skin = visual.skin),
+      visual.hair && (look.colors.hair = visual.hair),
+      visual.cloth && (look.colors.cloth1 = visual.cloth),
+      look
     );
   }
-  let n = {
-      id: t,
-      species: e.species || 'human',
-      class: e.class || 'commoner',
-      pronoun: e.pronoun,
+  let sheet = {
+      id,
+      species: visual.species || 'human',
+      class: visual.class || 'commoner',
+      pronoun: visual.pronoun,
       armor: '',
       weapons: [],
       shield: !1,
       appearance: {
-        body: e.pronoun === 'f' ? 'f' : 'm',
-        skin: e.skin,
-        hairColor: e.hair,
-        cloth1: e.cloth,
-        cloth2: e.cloth ? shade(e.cloth, 1.6) : void 0,
+        body: visual.pronoun === 'f' ? 'f' : 'm',
+        skin: visual.skin,
+        hairColor: visual.hair,
+        cloth1: visual.cloth,
+        cloth2: visual.cloth ? shade(visual.cloth, 1.6) : void 0,
       },
     },
-    s = heroLook(n);
+    look = heroLook(sheet);
   return (
-    ['wizard', 'cleric', 'druid', 'paladin', 'fighter'].includes(n.class) ||
-      (s.outfit = { torso: 'ca', brazos: 'ca', piernas: 'ca', pies: 'ca' }),
-    (s.kind = 'npc'),
-    s
+    ['wizard', 'cleric', 'druid', 'paladin', 'fighter'].includes(sheet.class) ||
+      (look.outfit = { torso: 'ca', brazos: 'ca', piernas: 'ca', pies: 'ca' }),
+    (look.kind = 'npc'),
+    look
   );
 }
+/** Compañeros reclutables: hoja de personaje, aspecto y retoques (`tweak`). */
 const COMPANIONS = {
   brenna: {
     name: 'Brenna Halvard',
@@ -188,6 +204,7 @@ const COMPANIONS = {
     tweak: { gear: { hat: null, glasses: !0, mantle: null } },
   },
 };
+/** PNJ con nombre: aspecto, ropa (outfit), equipo (gear) y postura. */
 const NPC_LOOKS = {
   corwin: {
     name: 'Corwin',
@@ -351,4 +368,4 @@ const NPC_LOOKS = {
   aldeano: { villager: !0 },
 };
 
-export { COMPANIONS, Jf, NPC_LOOKS, pT };
+export { COMPANIONS, companionLook, NPC_LOOKS, npcLook };
