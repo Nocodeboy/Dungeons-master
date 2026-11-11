@@ -1,4 +1,8 @@
 {
+  "_nota": "Mapa de renombres del área actors (tools/renombrar.mjs). Las claves de cada archivo usan los nombres del código de partida (commit 58502c0); aplicar con: node tools/renombrar.mjs renombres/actores.json --area src/actors/",
+  "_archivos": {
+    "src/actors/outfits.js": "src/actors/hero-stage.js"
+  },
   "src/actors/anims.js": {
     "Hb": "LOOPING_ANIMS",
     "s2": "ANIM_FALLBACK",

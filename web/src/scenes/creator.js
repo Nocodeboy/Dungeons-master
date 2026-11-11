@@ -1,7 +1,7 @@
 // scenes/creator.js
 // Reconstruido de publicado/juego.js (módulo __esm «CM»). Nombres locales aún minificados.
 
-import { HeroStage as mu } from '../actors/outfits.js';
+import { HeroStage as mu } from '../actors/hero-stage.js';
 import { buildCreator } from '../ui/creator.js';
 
 async function crearEscenaCreator(o, e = {}) {

@@ -5,7 +5,7 @@
 // Gestiona el AnimationMixer (animaciones lógicas → clips, bucles y de una sola vez, posturas),
 // el movimiento por una ruta de puntos, el LOD de animación, destellos de impacto y la liberación.
 // makeCharacter crea un personaje a partir de una definición de nivel (explore/actors.js,
-// combat/units.js, ui/portraits.js, outfits.js).
+// combat/units.js, ui/portraits.js, hero-stage.js).
 
 import { Color, LoopOnce, LoopRepeat, MathUtils, Vector3 } from 'three';
 import { LOOPING_ANIMS, ANIM_FALLBACK, CLIP_ALIASES, ANIM_CLIPS } from './anims.js';

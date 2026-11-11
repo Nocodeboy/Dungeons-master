@@ -27,6 +27,8 @@
 // prettier (las mismas opciones que tools/05-partir-modulos.mjs). Con --seco no se escribe nada.
 // Con --solo se aplican solo las entradas de esos archivos (rutas relativas a web/, separadas por
 // comas): sirve para ir por tandas, porque las claves de cada archivo usan sus nombres de partida.
+// La clave especial «_archivos» ({viejo: nuevo}) mueve archivos después de renombrar y corrige las
+// rutas de los imports en src/ (las claves del mapa siguen usando la ruta vieja).
 import fs from 'node:fs';
 import path from 'node:path';
 import * as prettier from 'prettier';
@@ -316,6 +318,17 @@ function abreviar(codigo, ast) {
 
 async function aplicar(rutaMapa) {
   const mapa = JSON.parse(fs.readFileSync(path.resolve(WEB, rutaMapa), 'utf8'));
+  // Claves especiales: «_archivos» = {viejo: nuevo} (archivos que se mueven después de renombrar);
+  // cualquier otra clave que empiece por «_» es un comentario.
+  const archivosMovidos = mapa._archivos || {};
+  for (const k of Object.keys(mapa)) if (k.startsWith('_')) delete mapa[k];
+  // Si un archivo del mapa ya se movió, sus entradas se buscan en su ruta nueva.
+  for (const [viejo, nuevo] of Object.entries(archivosMovidos)) {
+    if (mapa[viejo] && !fs.existsSync(path.resolve(WEB, viejo)) && fs.existsSync(path.resolve(WEB, nuevo))) {
+      mapa[nuevo] = mapa[viejo];
+      delete mapa[viejo];
+    }
+  }
   const solo = valor('--solo')?.split(',').map((f) => path.resolve(WEB, f));
   if (solo) for (const k of Object.keys(mapa)) if (!solo.includes(path.resolve(WEB, k))) delete mapa[k];
   const area = valor('--area');
@@ -572,9 +585,48 @@ async function aplicar(rutaMapa) {
   }
   const nExports = [...exportsRenombrados.values()].reduce((s, m) => s + m.size, 0);
   if (!opcion('--seco')) for (const [abs] of empalmes) fs.writeFileSync(abs, info(abs).salida);
+  if (!opcion('--seco')) await moverArchivos(archivosMovidos, solo);
   const nEnlaces = [...locales.values()].reduce((s, m) => s + m.size, 0);
   console.log(`${opcion('--seco') ? '(seco) ' : ''}${nEnlaces} enlaces renombrados en ${cambiados} archivos; ${nExports} exports con nombre nuevo.`);
   for (const [abs, m] of exportsRenombrados) for (const [v, n] of m) console.log(`  export ${path.relative(WEB, abs)}: ${v} → ${n}`);
+}
+
+// Mueve archivos ({viejo: nuevo}, rutas relativas a web/) y reescribe las rutas de los imports,
+// reexports e import() literales de src/ que apuntaban al viejo.
+async function moverArchivos(movidos, solo) {
+  for (const [relViejo, relNuevo] of Object.entries(movidos)) {
+    const viejo = path.resolve(WEB, relViejo), nuevo = path.resolve(WEB, relNuevo);
+    if (solo && !solo.includes(viejo) && !solo.includes(nuevo)) continue;
+    if (!fs.existsSync(viejo) || fs.existsSync(nuevo)) continue;
+    if (path.basename(nuevo) === 'index.js') throw new Error(`no se crean index.js nuevos: ${relNuevo}`);
+    fs.renameSync(viejo, nuevo);
+    let tocados = 0;
+    for (const f of archivosSrc()) {
+      const codigo = fs.readFileSync(f, 'utf8');
+      const ast = analizar(codigo);
+      const cambios = [];
+      const revisar = (lit) => {
+        if (!t.isStringLiteral(lit) || resolverImport(f, lit.value) !== viejo) return;
+        let rel = path.relative(path.dirname(f), nuevo).split(path.sep).join('/');
+        if (!rel.startsWith('.')) rel = './' + rel;
+        const comilla = codigo[lit.start];
+        cambios.push([lit.start, lit.end, comilla + rel + comilla]);
+      };
+      traverse(ast, {
+        ImportDeclaration(p) { revisar(p.node.source); },
+        ExportNamedDeclaration(p) { if (p.node.source) revisar(p.node.source); },
+        ExportAllDeclaration(p) { revisar(p.node.source); },
+        CallExpression(p) { if (t.isImport(p.node.callee)) revisar(p.node.arguments[0]); },
+      });
+      if (!cambios.length) continue;
+      cambios.sort((a, b) => b[0] - a[0]);
+      let salida = codigo;
+      for (const [a, b, txt] of cambios) salida = salida.slice(0, a) + txt + salida.slice(b);
+      fs.writeFileSync(f, await prettier.format(salida, PRETTIER));
+      tocados++;
+    }
+    console.log(`  archivo ${relViejo} → ${relNuevo} (${tocados} archivos con imports actualizados)`);
+  }
 }
 
 if (valor('--listar')) listar(valor('--listar'));
