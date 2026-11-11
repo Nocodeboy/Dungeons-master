@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «Lv»). Nombres locales aún minificados.
 
 import datosMapaViaje from '../datos/mapa-viaje.json';
-import { wf, escapeHtml, elem } from './dom.js';
+import { iconSvg, escapeHtml, elem } from './dom.js';
 
 function JL(o) {
   let e = o?.R?.data?.('world');
@@ -148,7 +148,7 @@ function im(o, e, t, { from: a, selectable: n = !0, onSelect: s, onActivate: i }
     for (let D of r.places) {
       let [M, R] = b(D),
         A = lM(D, l),
-        P = wf(D.icon || 'map')
+        P = iconSvg(D.icon || 'map')
           .replace('<svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">', '')
           .replace(/<\/svg>$/, '');
       z += `<g class="pin${D.id === d ? ' sel' : ''}" data-id="${escapeHtml(D.id)}" tabindex="0" role="button" aria-label="${escapeHtml(D.name)}${A.open ? '' : ' (cerrado)'}">

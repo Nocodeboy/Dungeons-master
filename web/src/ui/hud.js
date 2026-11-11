@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «o2»). Nombres locales aún minificados.
 
 import { Vector3 } from 'three';
-import { iconHtml, escapeHtml, richText, elem, Cn } from './dom.js';
+import { iconHtml, escapeHtml, richText, elem, faceBadge } from './dom.js';
 import { ou, ns } from './labels.js';
 import { sa } from './tooltip.js';
 
@@ -127,7 +127,7 @@ function createHud(o, e) {
         X = elem('button.mg-hud-pj', { 'aria-pressed': String(j), 'data-id': I.id });
       (I.dead ? X.classList.add('muerto') : (I.hp <= 0 || I.down) && X.classList.add('caido'),
         I.leader && X.classList.add('lider'));
-      let J = Cn(I.portrait || o.portrait(I.id), {
+      let J = faceBadge(I.portrait || o.portrait(I.id), {
           name: I.name,
           ic: ns[I.class] || 'person',
           cls: 'mg-hud-face',

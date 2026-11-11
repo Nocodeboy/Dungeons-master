@@ -1,7 +1,7 @@
 // ui/creator.js
 // Reconstruido de publicado/juego.js (módulo __esm «sm»). Nombres locales aún minificados.
 
-import { iconHtml, escapeHtml, richText, elem, makeButton, Qd, en } from './dom.js';
+import { iconHtml, escapeHtml, richText, elem, makeButton, iconButton, signed } from './dom.js';
 import { sa } from './tooltip.js';
 import { Wi, Xi } from './dice.js';
 import { Zw, nu, Df, t2, a2 } from './labels.js';
@@ -32,9 +32,13 @@ function buildCreator(o, e, t) {
       'aria-label': s ? 'Subida de nivel' : 'Creador de personajes',
     }),
     m = elem('header.mg-cr-top'),
-    _ = Qd(s ? 'close' : 'return', s ? 'Cerrar' : n === 'mercenario' ? 'Cancelar' : 'Volver al men\xFA', {
-      onclick: () => t.onCancel?.(),
-    }),
+    _ = iconButton(
+      s ? 'close' : 'return',
+      s ? 'Cerrar' : n === 'mercenario' ? 'Cancelar' : 'Volver al men\xFA',
+      {
+        onclick: () => t.onCancel?.(),
+      },
+    ),
     b = elem(
       'h1.mg-h1',
       t.title || (s ? 'Subida de nivel' : n === 'mercenario' ? 'Nuevo mercenario' : 'Crea tu h\xE9roe'),
@@ -389,7 +393,7 @@ function buildCreator(o, e, t) {
               elem('span.mg-cr-base.mg-num', String(ee.base)),
               ze,
               elem(`span.mg-cr-bonus.c-bonus${ee.bonus ? '.si' : ''}`, ee.bonus ? `+${ee.bonus}` : '\u2014'),
-              elem('span.mg-cr-total.mg-num', String(ee.total), elem('small', ee.mod_text ?? en(ee.mod))),
+              elem('span.mg-cr-total.mg-num', String(ee.total), elem('small', ee.mod_text ?? signed(ee.mod))),
             ));
         }
         return (
@@ -414,7 +418,7 @@ function buildCreator(o, e, t) {
               noIcon: !0,
               sub: (O) => O.sub || O.ability_short,
               extra: (O) =>
-                `<span class="mg-card-v mg-num">${escapeHtml(O.bonus_text ?? en(O.bonus))}</span>`,
+                `<span class="mg-card-v mg-num">${escapeHtml(O.bonus_text ?? signed(O.bonus))}</span>`,
               tipFn: (O) => ({
                 title: O.name,
                 sub: `${O.ability_short}${O.class_skill ? ' \xB7 de tu clase' : ''}`,
@@ -570,7 +574,7 @@ function buildCreator(o, e, t) {
             }, 220)));
         }),
           ee.addEventListener('keydown', (W) => W.key === 'Enter' && ee.blur()),
-          $.append(ee, Qd('dice', 'Nombre al azar', { onclick: () => R('random_name', !0) })),
+          $.append(ee, iconButton('dice', 'Nombre al azar', { onclick: () => R('random_name', !0) })),
           O.append($),
           L.append(O),
           N.pronouns &&
@@ -779,7 +783,7 @@ function buildCreator(o, e, t) {
         'span.mg-ab',
         elem('span.mg-ab-n', rt.short),
         elem('span.mg-ab-v.mg-num', String(rt.score)),
-        elem('span.mg-ab-m', en(rt.mod)),
+        elem('span.mg-ab-m', signed(rt.mod)),
       );
       (sa(V, { title: rt.name, body: nu[De] || '' }), $.append(V));
     }

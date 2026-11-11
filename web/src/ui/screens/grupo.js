@@ -1,7 +1,7 @@
 // ui/screens/grupo.js
 // Reconstruido de publicado/juego.js (módulo __esm «qT»). Nombres locales aún minificados.
 
-import { iconHtml, escapeHtml, elem, makeButton, Cn, en } from '../dom.js';
+import { iconHtml, escapeHtml, elem, makeButton, faceBadge, signed } from '../dom.js';
 import { screenFrame, es } from '../modal.js';
 import { sa } from '../tooltip.js';
 import { Kw, Jw, nu, ou, Df, ns } from '../labels.js';
@@ -29,7 +29,7 @@ function pantallaGrupo(o, e, t, a) {
     d = es(
       r.map((p) => ({
         id: p.id,
-        html: `<span class="mg-memtab">${Cn(t.portrait(p.id), { id: p.id, name: p.name, ic: ns[p.class] || 'person' }).outerHTML}<span>${escapeHtml(p.short_name || String(p.name).split(' ')[0])}</span></span>`,
+        html: `<span class="mg-memtab">${faceBadge(t.portrait(p.id), { id: p.id, name: p.name, ic: ns[p.class] || 'person' }).outerHTML}<span>${escapeHtml(p.short_name || String(p.name).split(' ')[0])}</span></span>`,
       })),
       l,
       (p) => {
@@ -54,7 +54,12 @@ function pantallaGrupo(o, e, t, a) {
     let m = elem('div.mg-col'),
       _ = elem('div.mg-sheet-head');
     _.append(
-      Cn(t.portrait(p.id), { id: p.id, name: p.name, ic: ns[p.class] || 'person', cls: 'mg-sheet-face' }),
+      faceBadge(t.portrait(p.id), {
+        id: p.id,
+        name: p.name,
+        ic: ns[p.class] || 'person',
+        cls: 'mg-sheet-face',
+      }),
     );
     let b = [
       p.species_name,
@@ -117,7 +122,7 @@ function pantallaGrupo(o, e, t, a) {
         'Velocidad',
         'Lo que avanzas en un turno.',
       ),
-      g(en(p.initiative || 0), 'Iniciativa', 'Se suma a la tirada de iniciativa al empezar un combate.'),
+      g(signed(p.initiative || 0), 'Iniciativa', 'Se suma a la tirada de iniciativa al empezar un combate.'),
       m.append(x));
     let y = elem('div.mg-abs');
     for (let [D, M] of Object.entries(p.abilities || {})) {
@@ -125,8 +130,8 @@ function pantallaGrupo(o, e, t, a) {
         `span.mg-ab${M.save_prof ? '.prim' : ''}`,
         elem('span.mg-ab-n', Jw[D] || M.short || D.toUpperCase()),
         elem('span.mg-ab-v.mg-num', String(M.score)),
-        elem('span.mg-ab-m', en(M.mod)),
-        elem(`span.mg-ab-s${M.save_prof ? '.prof' : ''}`, `Salv. ${en(M.save)}`),
+        elem('span.mg-ab-m', signed(M.mod)),
+        elem(`span.mg-ab-s${M.save_prof ? '.prof' : ''}`, `Salv. ${signed(M.save)}`),
       );
       (sa(R, {
         title: Kw[D] || M.name || D,
@@ -141,7 +146,7 @@ function pantallaGrupo(o, e, t, a) {
       elem(
         'dl.mg-kv',
         elem('dt', 'Bonificador de competencia'),
-        elem('dd', en(p.prof || 2)),
+        elem('dd', signed(p.prof || 2)),
         elem('dt', 'Percepci\xF3n pasiva'),
         elem('dd', String(w.perception ?? '\u2014')),
         elem('dt', 'Investigaci\xF3n pasiva'),
@@ -168,7 +173,7 @@ function pantallaGrupo(o, e, t, a) {
         elem('i'),
         elem('span', D.name),
         elem('small', D.ability_short || ''),
-        elem('b.mg-num', en(D.mod)),
+        elem('b.mg-num', signed(D.mod)),
       );
       (sa(M, {
         title: D.name,
@@ -188,7 +193,7 @@ function pantallaGrupo(o, e, t, a) {
         let R = elem(
           'div',
           elem('b', M.name),
-          elem('span', `${M.to_hit_text ?? en(M.to_hit)} \xB7 ${M.damage}`),
+          elem('span', `${M.to_hit_text ?? signed(M.to_hit)} \xB7 ${M.damage}`),
         );
         (sa(R, {
           title: M.name,
@@ -217,7 +222,7 @@ function pantallaGrupo(o, e, t, a) {
           elem(
             'p.mg-small.mg-dim',
             { style: 'margin:0' },
-            `${S.ability_name || ''} \xB7 CD ${S.dc} \xB7 ataque ${en(S.attack)}`,
+            `${S.ability_name || ''} \xB7 CD ${S.dc} \xB7 ataque ${signed(S.attack)}`,
           ),
         ));
       for (let M of S.slots || []) {

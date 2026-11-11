@@ -1,7 +1,7 @@
 // ui/dialog.js
 // Reconstruido de publicado/juego.js (módulo __esm «Yw»). Nombres locales aún minificados.
 
-import { iconHtml, escapeHtml, richText, elem, Cn, en, sleep, reducedMotion } from './dom.js';
+import { iconHtml, escapeHtml, richText, elem, faceBadge, signed, sleep, reducedMotion } from './dom.js';
 import { Wi, Xi } from './dice.js';
 import { sa } from './tooltip.js';
 
@@ -38,7 +38,7 @@ function createDialog(o, e) {
     if ((t.classList.toggle('narrador', g), g)) return;
     let y = f.npc || f.who || null,
       w = f.portrait || (y && o.portrait(y)) || null;
-    x.append(Cn(w, { name: f.speaker, ic: f.icon || 'person', cls: 'mg-dlg-face', id: w ? null : y }));
+    x.append(faceBadge(w, { name: f.speaker, ic: f.icon || 'person', cls: 'mg-dlg-face', id: w ? null : y }));
   }
   function c(f, v) {
     f.innerHTML = v;
@@ -92,7 +92,7 @@ function createDialog(o, e) {
       k = f.dis || f.mode < 0,
       T = f.kept ?? (x.length > 1 ? (w && !k ? Math.max(...x) : k && !w ? Math.min(...x) : x[0]) : x[0]),
       E = elem('div.mg-roll-txt');
-    E.innerHTML = `<b>${escapeHtml(f.label || 'Tirada')}${v ? ` \xB7 ${escapeHtml(v)}` : ''}</b><span>${escapeHtml(T)} ${en(
+    E.innerHTML = `<b>${escapeHtml(f.label || 'Tirada')}${v ? ` \xB7 ${escapeHtml(v)}` : ''}</b><span>${escapeHtml(T)} ${signed(
       f.mod || 0,
     )
       .replace('+', '+ ')

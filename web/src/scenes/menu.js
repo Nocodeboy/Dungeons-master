@@ -31,7 +31,7 @@ import {
 } from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLTF, pbrMaterial } from '../assets.js';
-import { iconHtml, escapeHtml, elem, Yl, Kl } from '../ui/dom.js';
+import { iconHtml, escapeHtml, elem, formatDuration as Yl, formatDate as Kl } from '../ui/dom.js';
 
 function hD() {
   let o = 7,

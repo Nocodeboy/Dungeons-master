@@ -1,7 +1,7 @@
 // ui/screens/inventario.js
 // Reconstruido de publicado/juego.js (módulo __esm «zT»). Nombres locales aún minificados.
 
-import { iconHtml, escapeHtml, elem, makeButton, Cn, en } from '../dom.js';
+import { iconHtml, escapeHtml, elem, makeButton, faceBadge, signed } from '../dom.js';
 import { screenFrame, es } from '../modal.js';
 import { sa } from '../tooltip.js';
 import { mi, Zi, Gr } from '../items.js';
@@ -38,7 +38,7 @@ function pantallaInventario(o, e, t, a) {
       },
     );
   function m(A) {
-    return `<span class="mg-memtab">${Cn(t.portrait(A.id), { id: A.id, name: A.label, ic: ns[A.cls] || 'person' }).outerHTML}<span>${escapeHtml(A.label)}</span></span>`;
+    return `<span class="mg-memtab">${faceBadge(t.portrait(A.id), { id: A.id, name: A.label, ic: ns[A.cls] || 'person' }).outerHTML}<span>${escapeHtml(A.label)}</span></span>`;
   }
   ((u.tabs.hidden = !1), u.tabs.append(p));
   let _ = es(
@@ -124,7 +124,7 @@ function pantallaInventario(o, e, t, a) {
     let U = elem('div.mg-inv-atk');
     for (let j of A.attacks || [])
       U.append(
-        elem('div', elem('b', j.name), elem('span', `${j.to_hit_text ?? en(j.to_hit)} \xB7 ${j.damage}`)),
+        elem('div', elem('b', j.name), elem('span', `${j.to_hit_text ?? signed(j.to_hit)} \xB7 ${j.damage}`)),
       );
     ((A.attacks || []).length && P.append(elem('div.mg-label', { style: 'margin-top:.2rem' }, 'Ataques'), U),
       v.append(P, T()));
@@ -188,7 +188,7 @@ function pantallaInventario(o, e, t, a) {
           for (let Q of ge) {
             let oe = (ie) =>
               Q.what === 'attack'
-                ? en(ie)
+                ? signed(ie)
                 : Q.what === 'speed'
                   ? `${String(Math.round(ie * 3) / 10).replace('.', ',')} m`
                   : ie;

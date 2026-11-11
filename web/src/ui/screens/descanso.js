@@ -1,7 +1,7 @@
 // ui/screens/descanso.js
 // Reconstruido de publicado/juego.js (módulo __esm «FT»). Nombres locales aún minificados.
 
-import { iconHtml, escapeHtml, richText, elem, makeButton, Cn, fw } from '../dom.js';
+import { iconHtml, escapeHtml, richText, elem, makeButton, faceBadge, plural } from '../dom.js';
 import { screenFrame } from '../modal.js';
 import { Wi, Xi } from '../dice.js';
 import { ns } from '../labels.js';
@@ -45,7 +45,7 @@ function pantallaDescanso(o, e, t, a) {
         _ <= 0
           ? 'Ya no pod\xE9is hacer m\xE1s hasta un descanso largo'
           : b
-            ? `Quedan ${fw(_, 'descanso corto', 'descansos cortos')} hasta el siguiente largo`
+            ? `Quedan ${plural(_, 'descanso corto', 'descansos cortos')} hasta el siguiente largo`
             : `Ahora no: ${e.reason || 'no es un buen sitio'}`;
     ((x.innerHTML = `${iconHtml('campfire')}<b>Descanso corto</b><p>Una hora para vendar heridas y recobrar el aliento. Cada uno puede gastar sus dados de golpe para curarse; algunos rasgos se recuperan.</p><small>${escapeHtml(g)}</small>`),
       x.addEventListener('click', p));
@@ -91,7 +91,7 @@ function pantallaDescanso(o, e, t, a) {
       b[g.id] = Math.min(w.cur, Math.ceil(Math.max(0, k) / T));
       let E = elem('div.mg-rest-row', { 'data-id': g.id }),
         S = Math.max(0, g.hp) / Math.max(1, g.max_hp);
-      (E.append(Cn(t.portrait(g.id), { id: g.id, name: g.name, ic: ns[g.class] || 'person' })),
+      (E.append(faceBadge(t.portrait(g.id), { id: g.id, name: g.name, ic: ns[g.class] || 'person' })),
         E.append(
           elem(
             'div.who',

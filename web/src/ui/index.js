@@ -5,7 +5,16 @@ import themeCss from './theme.css';
 import menuCss from './menu.css';
 import hudCss from './hud.css';
 import creatorCss from './creator.css';
-import { loadIcons, iconHtml, escapeHtml, Xl, elem, makeButton, Jl, gw } from './dom.js';
+import {
+  loadIcons,
+  iconHtml,
+  escapeHtml,
+  paragraphsHtml,
+  elem,
+  makeButton,
+  injectStyle,
+  isTyping,
+} from './dom.js';
 import { screenFrame, Tf } from './modal.js';
 import { sa, bw } from './tooltip.js';
 import { yw, Wi, Xi } from './dice.js';
@@ -31,11 +40,11 @@ function bD() {
 }
 function createUI(o) {
   let e = document.getElementById('ui') || document.body.appendChild(elem('div#ui'));
-  (Jl('mg-tokens', bD()),
-    Jl('mg-theme', themeCss),
-    Jl('mg-screens', menuCss),
-    Jl('mg-hud', hudCss),
-    Jl('mg-creator', creatorCss),
+  (injectStyle('mg-tokens', bD()),
+    injectStyle('mg-theme', themeCss),
+    injectStyle('mg-screens', menuCss),
+    injectStyle('mg-hud', hudCss),
+    injectStyle('mg-creator', creatorCss),
     yw());
   let t = elem('div.mg-toasts', { role: 'status', 'aria-live': 'polite' });
   e.append(t);
@@ -132,7 +141,7 @@ function createUI(o) {
             'confirmar',
             (k) => {
               let T = screenFrame(k, { title: y || '\xBFSeguro?', noClose: !0 });
-              ((T.body.innerHTML = `<div>${Xl(v)}</div>`), (T.foot.hidden = !1));
+              ((T.body.innerHTML = `<div>${paragraphsHtml(v)}</div>`), (T.foot.hidden = !1));
               let E = makeButton(g, { onclick: () => k.close(!1) }),
                 S = makeButton(x, { variant: w ? 'danger' : 'primary', onclick: () => k.close(!0) });
               return (S.setAttribute('autofocus', ''), T.foot.append(E, S), { onEscape: () => k.close(!1) });
@@ -146,7 +155,7 @@ function createUI(o) {
           'elegir',
           (w) => {
             let k = screenFrame(w, { title: v });
-            g && k.body.append(elem('div', { html: Xl(g), style: 'margin-bottom:.7rem' }));
+            g && k.body.append(elem('div', { html: paragraphsHtml(g), style: 'margin-bottom:.7rem' }));
             let T = elem('div.mg-list');
             for (let E of x) {
               let S = elem('button.mg-row', { disabled: !!E.disabled, onclick: () => w.close(E.value ?? E) });
@@ -164,7 +173,7 @@ function createUI(o) {
           'aviso',
           (w) => {
             let k = screenFrame(w, { title: v, ic: y, noClose: !0 });
-            ((k.body.innerHTML = `<div>${Xl(x)}</div>`), (k.foot.hidden = !1));
+            ((k.body.innerHTML = `<div>${paragraphsHtml(x)}</div>`), (k.foot.hidden = !1));
             let T = makeButton(g, { variant: 'primary', onclick: () => w.close(!0) });
             (T.setAttribute('autofocus', ''), k.foot.append(T));
           },
@@ -285,7 +294,7 @@ function createUI(o) {
       v.preventDefault();
       return;
     }
-    if (gw() || v.ctrlKey || v.metaKey || v.altKey) return;
+    if (isTyping() || v.ctrlKey || v.metaKey || v.altKey) return;
     let x = (v.key.length === 1, v.key.toLowerCase());
     if (!u() || l.keys.disabled) return;
     x === 'f5' && v.preventDefault();

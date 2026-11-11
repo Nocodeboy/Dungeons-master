@@ -1,7 +1,7 @@
 // ui/screens/partidas.js
 // Reconstruido de publicado/juego.js (módulo __esm «kv»). Nombres locales aún minificados.
 
-import { iconHtml, escapeHtml, elem, makeButton, Yl, Kl } from '../dom.js';
+import { iconHtml, escapeHtml, elem, makeButton, formatDuration, formatDate } from '../dom.js';
 import { screenFrame, es } from '../modal.js';
 
 function opcionesPartidas() {
@@ -78,7 +78,7 @@ function pantallaPartidas(o, e, t, a) {
       let _ = d.get(m),
         b = elem(`div.mg-save${_ ? '' : '.vacia'}`);
       b.innerHTML = `<span class="mg-save-n">${iconHtml(m === 'auto' ? 'hourglass' : m === 'rapida' ? 'fast' : 'save')}${escapeHtml(am(m))}</span>
-        <span class="mg-save-t">${_ ? `<b>${escapeHtml(_.hero)} \xB7 nivel ${escapeHtml(_.level)}</b><span>${escapeHtml(_.place || '')}${_.day ? ` \xB7 d\xEDa ${escapeHtml(_.day)}` : ''} \xB7 ${escapeHtml(Yl(_.playtime))} de juego</span><span>${escapeHtml((_.party || []).join(', '))}${_.savedAt ? ` \xB7 ${escapeHtml(Kl(_.savedAt))}` : ''}</span>` : '<b class="mg-dim">Vac\xEDa</b>'}</span>`;
+        <span class="mg-save-t">${_ ? `<b>${escapeHtml(_.hero)} \xB7 nivel ${escapeHtml(_.level)}</b><span>${escapeHtml(_.place || '')}${_.day ? ` \xB7 d\xEDa ${escapeHtml(_.day)}` : ''} \xB7 ${escapeHtml(formatDuration(_.playtime))} de juego</span><span>${escapeHtml((_.party || []).join(', '))}${_.savedAt ? ` \xB7 ${escapeHtml(formatDate(_.savedAt))}` : ''}</span>` : '<b class="mg-dim">Vac\xEDa</b>'}</span>`;
       let f = elem('div.mg-save-acts');
       (s === 'guardar'
         ? f.append(

@@ -1,7 +1,7 @@
 // ui/modal.js
 // Reconstruido de publicado/juego.js (módulo __esm «Pn»). Nombres locales aún minificados.
 
-import { iconHtml, escapeHtml, elem, Qd } from './dom.js';
+import { iconHtml, escapeHtml, elem, iconButton } from './dom.js';
 
 function screenFrame(
   o,
@@ -19,7 +19,10 @@ function screenFrame(
   let h = elem('span.mg-grow');
   (c.append(h),
     n && c.append(n),
-    i || c.append(Qd('close', `${s} (Esc)`, { onclick: () => l(null), cls: 'mg-cerrar mg-ibtn--plain' })));
+    i ||
+      c.append(
+        iconButton('close', `${s} (Esc)`, { onclick: () => l(null), cls: 'mg-cerrar mg-ibtn--plain' }),
+      ));
   let p = elem('div.mg-screen-tabs'),
     m = elem('div.mg-screen-body'),
     _ = elem('footer.mg-screen-foot');

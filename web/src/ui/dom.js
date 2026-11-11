@@ -3,136 +3,136 @@
 
 function loadIcons() {
   return (
-    Pb ||
-      (Pb = fetch(new URL('icons.json', document.baseURI))
-        .then((o) => (o.ok ? o.json() : {}))
-        .then((o) => {
-          ((Zd = o || {}), (hw = !0));
-          for (let e of document.querySelectorAll('.mg-i[data-pend]'))
-            ((e.innerHTML = wf(e.dataset.pend)), e.removeAttribute('data-pend'));
-          return Zd;
+    iconsPromise ||
+      (iconsPromise = fetch(new URL('icons.json', document.baseURI))
+        .then((res) => (res.ok ? res.json() : {}))
+        .then((data) => {
+          ((iconPaths = data || {}), (iconsReady = !0));
+          for (let node of document.querySelectorAll('.mg-i[data-pend]'))
+            ((node.innerHTML = iconSvg(node.dataset.pend)), node.removeAttribute('data-pend'));
+          return iconPaths;
         })
-        .catch(() => (Zd = {}))),
-    Pb
+        .catch(() => (iconPaths = {}))),
+    iconsPromise
   );
 }
-function wf(o) {
-  return `<svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">${Zd[o] || Zd.magic || ''}</svg>`;
+function iconSvg(name) {
+  return `<svg viewBox="0 0 512 512" aria-hidden="true" focusable="false">${iconPaths[name] || iconPaths.magic || ''}</svg>`;
 }
-function iconHtml(o, e = '') {
-  return hw ? `<span class="mg-i ${e}">${wf(o)}</span>` : `<span class="mg-i ${e}" data-pend="${o}"></span>`;
+function iconHtml(name, cls = '') {
+  return iconsReady
+    ? `<span class="mg-i ${cls}">${iconSvg(name)}</span>`
+    : `<span class="mg-i ${cls}" data-pend="${name}"></span>`;
 }
-function escapeHtml(o) {
-  return String(o ?? '').replace(
+function escapeHtml(text) {
+  return String(text ?? '').replace(
     /[&<>"']/g,
-    (e) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[e],
+    (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch],
   );
 }
-function richText(o) {
-  return escapeHtml(o)
+function richText(text) {
+  return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/\n{2,}/g, '</p><p class="mg-p">')
     .replace(/\n/g, '<br>');
 }
-function Xl(o) {
-  return Array.isArray(o)
-    ? o.map((e) => `<p class="mg-p">${richText(e)}</p>`).join('')
-    : `<p class="mg-p">${richText(o)}</p>`;
+function paragraphsHtml(text) {
+  return Array.isArray(text)
+    ? text.map((para) => `<p class="mg-p">${richText(para)}</p>`).join('')
+    : `<p class="mg-p">${richText(text)}</p>`;
 }
-function elem(o, e, ...t) {
-  let a = /^([a-z0-9-]+)?((?:[.#][\w-]+)*)$/i.exec(o) || [],
-    n = document.createElement(a[1] || 'div');
-  for (let s of (a[2] || '').match(/[.#][\w-]+/g) || [])
-    s[0] === '.' ? n.classList.add(s.slice(1)) : (n.id = s.slice(1));
-  e && (typeof e != 'object' || e instanceof Node || Array.isArray(e)) && (t.unshift(e), (e = null));
-  for (let [s, i] of Object.entries(e || {}))
-    i == null ||
-      i === !1 ||
-      (s.startsWith('on') && typeof i == 'function'
-        ? n.addEventListener(s.slice(2), i)
-        : s === 'html'
-          ? (n.innerHTML = i)
-          : s === 'text'
-            ? (n.textContent = i)
-            : s === 'class' || s === 'className'
-              ? (n.className += (n.className ? ' ' : '') + i)
-              : s === 'dataset'
-                ? Object.assign(n.dataset, i)
-                : s === 'style' && typeof i == 'object'
-                  ? Object.assign(n.style, i)
-                  : i === !0
-                    ? n.setAttribute(s, '')
-                    : n.setAttribute(s, i));
-  n.tagName === 'BUTTON' && !n.hasAttribute('type') && (n.type = 'button');
-  for (let s of t.flat(1 / 0))
-    s == null || s === !1 || n.append(s instanceof Node ? s : document.createTextNode(String(s)));
-  return n;
+function elem(spec, attrs, ...children) {
+  let match = /^([a-z0-9-]+)?((?:[.#][\w-]+)*)$/i.exec(spec) || [],
+    node = document.createElement(match[1] || 'div');
+  for (let part of (match[2] || '').match(/[.#][\w-]+/g) || [])
+    part[0] === '.' ? node.classList.add(part.slice(1)) : (node.id = part.slice(1));
+  attrs &&
+    (typeof attrs != 'object' || attrs instanceof Node || Array.isArray(attrs)) &&
+    (children.unshift(attrs), (attrs = null));
+  for (let [attr, value] of Object.entries(attrs || {}))
+    value == null ||
+      value === !1 ||
+      (attr.startsWith('on') && typeof value == 'function'
+        ? node.addEventListener(attr.slice(2), value)
+        : attr === 'html'
+          ? (node.innerHTML = value)
+          : attr === 'text'
+            ? (node.textContent = value)
+            : attr === 'class' || attr === 'className'
+              ? (node.className += (node.className ? ' ' : '') + value)
+              : attr === 'dataset'
+                ? Object.assign(node.dataset, value)
+                : attr === 'style' && typeof value == 'object'
+                  ? Object.assign(node.style, value)
+                  : value === !0
+                    ? node.setAttribute(attr, '')
+                    : node.setAttribute(attr, value));
+  node.tagName === 'BUTTON' && !node.hasAttribute('type') && (node.type = 'button');
+  for (let child of children.flat(1 / 0))
+    child == null ||
+      child === !1 ||
+      node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  return node;
 }
 function makeButton(
-  o,
-  {
-    icon: e,
-    variant: t = '',
-    size: a = '',
-    onclick: n,
-    title: s,
-    disabled: i,
-    block: r,
-    key: l,
-    cls: c = '',
-  } = {},
+  label,
+  { icon, variant = '', size = '', onclick, title, disabled, block, key, cls = '' } = {},
 ) {
-  let d = elem(
-    `button.mg-btn${t ? `.mg-btn--${t}` : ''}${a ? `.mg-btn--${a}` : ''}${r ? '.mg-btn--block' : ''}`,
-    { onclick: n, title: s, disabled: !!i, class: c || null },
+  let button = elem(
+    `button.mg-btn${variant ? `.mg-btn--${variant}` : ''}${size ? `.mg-btn--${size}` : ''}${block ? '.mg-btn--block' : ''}`,
+    { onclick, title, disabled: !!disabled, class: cls || null },
   );
   return (
-    (d.innerHTML = `${e ? iconHtml(e) : ''}<span>${escapeHtml(o)}</span>${l ? ` <span class="mg-key">${escapeHtml(l)}</span>` : ''}`),
-    d
+    (button.innerHTML = `${icon ? iconHtml(icon) : ''}<span>${escapeHtml(label)}</span>${key ? ` <span class="mg-key">${escapeHtml(key)}</span>` : ''}`),
+    button
   );
 }
-function Qd(o, e, { onclick: t, pressed: a, plain: n, cls: s = '', title: i } = {}) {
-  let r = elem(`button.mg-ibtn${n ? '.mg-ibtn--plain' : ''}`, {
-    onclick: t,
-    'aria-label': e,
-    title: i ?? e,
-    class: s || null,
+function iconButton(icon, label, { onclick, pressed, plain, cls = '', title } = {}) {
+  let button = elem(`button.mg-ibtn${plain ? '.mg-ibtn--plain' : ''}`, {
+    onclick,
+    'aria-label': label,
+    title: title ?? label,
+    class: cls || null,
   });
-  return (a != null && r.setAttribute('aria-pressed', String(!!a)), (r.innerHTML = iconHtml(o)), r);
-}
-function Cn(o, { name: e = '', ic: t = 'person', cls: a = '', id: n = '' } = {}) {
-  let s = elem(`span.mg-face${a ? '.' + a.split(' ').join('.') : ''}`),
-    i = n ? ` data-retrato="${escapeHtml(n)}"` : '';
   return (
-    o
-      ? (s.innerHTML = `<img alt=""${i} src="${escapeHtml(o)}">`)
-      : (s.innerHTML = `${n ? `<img alt=""${i} hidden>` : ''}${iconHtml(t)}<span class="mg-ini">${escapeHtml(S6(e))}</span>`),
-    s
+    pressed != null && button.setAttribute('aria-pressed', String(!!pressed)),
+    (button.innerHTML = iconHtml(icon)),
+    button
   );
 }
-function S6(o) {
-  return String(o || '')
+function faceBadge(src, { name = '', ic: icon = 'person', cls = '', id = '' } = {}) {
+  let face = elem(`span.mg-face${cls ? '.' + cls.split(' ').join('.') : ''}`),
+    dataAttr = id ? ` data-retrato="${escapeHtml(id)}"` : '';
+  return (
+    src
+      ? (face.innerHTML = `<img alt=""${dataAttr} src="${escapeHtml(src)}">`)
+      : (face.innerHTML = `${id ? `<img alt=""${dataAttr} hidden>` : ''}${iconHtml(icon)}<span class="mg-ini">${escapeHtml(initials(name))}</span>`),
+    face
+  );
+}
+function initials(name) {
+  return String(name || '')
     .split(/\s+/)
-    .filter((e) => e && /^[A-ZÁÉÍÓÚÑ]/.test(e))
+    .filter((word) => word && /^[A-ZÁÉÍÓÚÑ]/.test(word))
     .slice(0, 2)
-    .map((e) => e[0])
+    .map((word) => word[0])
     .join('');
 }
-function en(o) {
-  return ((o = Number(o) || 0), o >= 0 ? `+${o}` : `\u2212${Math.abs(o)}`);
+function signed(value) {
+  return ((value = Number(value) || 0), value >= 0 ? `+${value}` : `\u2212${Math.abs(value)}`);
 }
-function fw(o, e, t) {
-  return `${o} ${o === 1 ? e : t}`;
+function plural(count, one, many) {
+  return `${count} ${count === 1 ? one : many}`;
 }
-function Yl(o) {
-  let e = Math.floor((Number(o) || 0) / 60),
-    t = Math.floor(e / 60);
-  return t ? `${t} h ${String(e % 60).padStart(2, '0')} min` : `${e} min`;
+function formatDuration(seconds) {
+  let minutes = Math.floor((Number(seconds) || 0) / 60),
+    hours = Math.floor(minutes / 60);
+  return hours ? `${hours} h ${String(minutes % 60).padStart(2, '0')} min` : `${minutes} min`;
 }
-function Kl(o) {
+function formatDate(date) {
   try {
-    return new Date(o).toLocaleString('es-ES', {
+    return new Date(date).toLocaleString('es-ES', {
       day: 'numeric',
       month: 'short',
       hour: '2-digit',
@@ -142,47 +142,47 @@ function Kl(o) {
     return '';
   }
 }
-function Jl(o, e) {
-  if (document.getElementById(o)) return;
-  let t = document.createElement('style');
-  ((t.id = o), (t.textContent = e), document.head.append(t));
+function injectStyle(id, css) {
+  if (document.getElementById(id)) return;
+  let style = document.createElement('style');
+  ((style.id = id), (style.textContent = css), document.head.append(style));
 }
-function gw() {
-  let o = document.activeElement;
+function isTyping() {
+  let active = document.activeElement;
   return (
-    !!o &&
-    (o.tagName === 'INPUT' || o.tagName === 'TEXTAREA' || o.isContentEditable) &&
-    o.type !== 'range' &&
-    o.type !== 'checkbox'
+    !!active &&
+    (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable) &&
+    active.type !== 'range' &&
+    active.type !== 'checkbox'
   );
 }
-let Zd = {};
-let hw = !1;
-let Pb = null;
-const sleep = (o) => new Promise((e) => setTimeout(e, o));
+let iconPaths = {};
+let iconsReady = !1;
+let iconsPromise = null;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const reducedMotion = () =>
   matchMedia('(prefers-reduced-motion: reduce)').matches ||
   document.documentElement.classList.contains('mg-sin-animaciones');
 const coarsePointer = () => matchMedia('(pointer: coarse)').matches;
 
 export {
-  Cn,
-  Jl,
-  Kl,
-  Qd,
-  Xl,
-  Yl,
+  faceBadge,
+  injectStyle,
+  formatDate,
+  iconButton,
+  paragraphsHtml,
+  formatDuration,
   coarsePointer,
   elem,
-  en,
+  signed,
   escapeHtml,
-  fw,
-  gw,
+  plural,
+  isTyping,
   iconHtml,
   loadIcons,
   makeButton,
   reducedMotion,
   richText,
   sleep,
-  wf,
+  iconSvg,
 };

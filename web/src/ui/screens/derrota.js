@@ -1,7 +1,7 @@
 // ui/screens/derrota.js
 // Reconstruido de publicado/juego.js (módulo __esm «AM»). Nombres locales aún minificados.
 
-import { iconHtml, richText, elem, makeButton, Kl } from '../dom.js';
+import { iconHtml, richText, elem, makeButton, formatDate } from '../dom.js';
 
 function opcionesDerrota() {
   return { full: !0, cls: 'mg-derrota' };
@@ -33,7 +33,7 @@ function pantallaDerrota(o, e, t, a) {
     .then((m) => {
       ((h = m.find((_) => _.slot === 'auto')?.meta || null),
         h
-          ? (u.textContent = `${h.hero || ''}${h.place ? ` \xB7 ${h.place}` : ''}${h.savedAt ? ` \xB7 ${Kl(h.savedAt)}` : ''}`)
+          ? (u.textContent = `${h.hero || ''}${h.place ? ` \xB7 ${h.place}` : ''}${h.savedAt ? ` \xB7 ${formatDate(h.savedAt)}` : ''}`)
           : ((l.disabled = !0), (u.textContent = 'No hay guardado autom\xE1tico.'), c.focus()));
     })
     .catch(() => null);

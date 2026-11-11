@@ -1,7 +1,7 @@
 // ui/screens/pausa.js
 // Reconstruido de publicado/juego.js (módulo __esm «fM»). Nombres locales aún minificados.
 
-import { elem, makeButton, Yl } from '../dom.js';
+import { elem, makeButton, formatDuration } from '../dom.js';
 import { screenFrame } from '../modal.js';
 
 function opcionesPausa() {
@@ -44,7 +44,11 @@ function pantallaPausa(o, e, t, a) {
     n.body.append(r),
     s?.playtime &&
       n.body.append(
-        elem('p.mg-help', { style: 'margin:.7rem 0 0;text-align:center' }, `${Yl(s.playtime)} de partida`),
+        elem(
+          'p.mg-help',
+          { style: 'margin:.7rem 0 0;text-align:center' },
+          `${formatDuration(s.playtime)} de partida`,
+        ),
       ),
     a.bus?.emit('game:pause', { on: !0 }),
     {

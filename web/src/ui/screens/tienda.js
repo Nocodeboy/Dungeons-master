@@ -1,7 +1,7 @@
 // ui/screens/tienda.js
 // Reconstruido de publicado/juego.js (módulo __esm «IT»). Nombres locales aún minificados.
 
-import { iconHtml, escapeHtml, elem, makeButton, Cn } from '../dom.js';
+import { iconHtml, escapeHtml, elem, makeButton, faceBadge } from '../dom.js';
 import { screenFrame, es } from '../modal.js';
 import { sa } from '../tooltip.js';
 import { mi, Zi, Gr } from '../items.js';
@@ -96,7 +96,7 @@ function pantallaTienda(o, e, t, a) {
     let M = elem('div.mg-merchant'),
       R = (r?.buys_kinds || []).some((K) => K === 'weapon' || K === 'armor'),
       A = r?.npc || e.npc || null;
-    (M.append(Cn(t.portrait(A), { name: '', ic: R ? 'hammer' : 'shop', id: A })),
+    (M.append(faceBadge(t.portrait(A), { name: '', ic: R ? 'hammer' : 'shop', id: A })),
       M.append(
         elem(
           'div',

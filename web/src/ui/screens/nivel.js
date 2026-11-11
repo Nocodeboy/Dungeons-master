@@ -1,7 +1,7 @@
 // ui/screens/nivel.js
 // Reconstruido de publicado/juego.js (módulo __esm «aM»). Nombres locales aún minificados.
 
-import { iconHtml, escapeHtml, elem, makeButton, Cn } from '../dom.js';
+import { iconHtml, escapeHtml, elem, makeButton, faceBadge } from '../dom.js';
 import { screenFrame } from '../modal.js';
 import { pc } from '../../actors/outfits.js';
 import { buildCreator } from '../creator.js';
@@ -69,7 +69,7 @@ function pantallaNivel(o, e, t, a) {
       let x = m.gained?.[v.id] || [],
         g = m.hp?.[v.id],
         y = elem('div.mg-rest-row', { style: 'grid-template-columns:3rem minmax(0,1fr)' });
-      y.append(Cn(t.portrait(v.id), { id: v.id, name: v.name, ic: ns[v.class] || 'person' }));
+      y.append(faceBadge(t.portrait(v.id), { id: v.id, name: v.name, ic: ns[v.class] || 'person' }));
       let w = elem('div');
       ((w.innerHTML = `<b class="mg-h3" style="font-size:1.05rem">${escapeHtml(v.name)}</b> <span class="mg-dim">\xB7 ${escapeHtml(v.class_name || '')} ${escapeHtml(r)}</span><div><span class="mg-bien">${g ? `+${escapeHtml(g)} PG` : ''}</span>${g ? ' \xB7 ' : ''}<span class="mg-dim">${escapeHtml(v.max_hp)} PG m\xE1ximos</span></div>${x.length ? `<div class="mg-small" style="margin-top:.2rem">${x.map((k) => `<b>${escapeHtml(k.name)}</b>`).join(' \xB7 ')}</div>` : ''}`),
         y.append(w),

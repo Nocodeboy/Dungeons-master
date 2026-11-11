@@ -3,7 +3,7 @@
 
 import { buildBackdrop } from './menu.js';
 import { CREDITS_HTML } from '../ui/screens/creditos.js';
-import { Xl, elem, makeButton, reducedMotion } from '../ui/dom.js';
+import { paragraphsHtml as Xl, elem, makeButton, reducedMotion } from '../ui/dom.js';
 
 function fD(o) {
   return {
