@@ -1,0 +1,46 @@
+{
+  "_nota": "Metadatos de la historia: nombres de lugares (para avisos), grupos enemigos que hablan antes del combate (talk: true) y objetos que, al cogerlos, ponen flags.",
+  "places": {
+    "merrowick": "Merrowick",
+    "elderhal": "Bosque de Elderhal",
+    "kesh": "Vado de Kesh",
+    "tumulo": "Túmulo de Durn-Kahl",
+    "valdrecht": "Valdrecht"
+  },
+  "groups": {
+    "camp": {
+      "dialog": "chief",
+      "if": "!camp_done"
+    },
+    "wolves": {
+      "dialog": "wolves",
+      "if": "!wolves_dead & !sedge_done"
+    },
+    "shrine_goblins": {
+      "dialog": "shrine_goblins",
+      "if": "!shrine_goblins_dead"
+    },
+    "guardians": {
+      "dialog": "vorhan",
+      "if": "!vorhan_dead"
+    }
+  },
+  "loot": {
+    "stone_horn": [
+      "set:seal_key",
+      "set:kesh_done"
+    ],
+    "odvar_notes": [
+      "set:notes_found"
+    ],
+    "holt_ledger": [
+      "set:ledger_stolen"
+    ],
+    "dawn_disc": [
+      "set:disc_found"
+    ],
+    "chief_map": [
+      "set:place_kesh"
+    ]
+  }
+}

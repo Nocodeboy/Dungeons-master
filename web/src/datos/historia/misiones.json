@@ -1,0 +1,337 @@
+{
+  "q_toro": {
+    "name": "El toro que sangra",
+    "main": true,
+    "start": "prologue_done | e1_done",
+    "desc": "El toro de granito de Merrowick se ha agrietado y sangra, y la Marca de tu piel arde desde que llegaste. Hay que averiguar de dónde vienen los trasgos y qué hay bajo el toro.",
+    "journal": "Hemos llegado a Merrowick al anochecer. La Marca me quema el brazo como nunca.",
+    "steps": [
+      {
+        "id": "defend",
+        "text": "Defender Merrowick del asalto de los trasgos.",
+        "done": "e1_done",
+        "journal": "Unos trasgos de los Zarpas Grises han asaltado Merrowick. El toro de granito del prado se ha agrietado y sangra; bajo la piedra se oye un latido. La alcaldesa quiere hablar con nosotros."
+      },
+      {
+        "id": "maren",
+        "show": "e1_done",
+        "text": "Hablar con la alcaldesa, Maren Ashford.",
+        "done": "quest_camp",
+        "journal": "El campamento de los Zarpas Grises está en el bosque de Elderhal, al este. La alcaldesa Maren pagará 50 po si acabamos con él."
+      },
+      {
+        "id": "camp",
+        "show": "quest_camp | camp_done",
+        "text": "Encontrar el campamento de los Zarpas Grises en el bosque de Elderhal y acabar con la amenaza, con la espada o con palabras.",
+        "done": "camp_done",
+        "journal": [
+          {
+            "if": "camp_done=assault",
+            "text": "Hemos arrasado el campamento de los Zarpas Grises. Su cabecilla, Krazzik Tres Dedos, habló de «la piedra-que-llama» antes de morir."
+          },
+          {
+            "if": "camp_done=stealth",
+            "text": "Entramos en el campamento de los Zarpas Grises sin que nos vieran y llegamos hasta su cabecilla. La tribu se ha dispersado."
+          },
+          {
+            "if": "camp_done=peace",
+            "text": "Los Zarpas Grises se marchan de Elderhal. Su cabecilla, Krazzik Tres Dedos, nos ha contado lo de la voz bajo la piedra."
+          }
+        ]
+      },
+      {
+        "id": "paid",
+        "show": "camp_done",
+        "optional": true,
+        "text": "Cobrar las 50 po que prometió la alcaldesa.",
+        "done": "camp_paid"
+      },
+      {
+        "id": "below",
+        "show": "camp_done",
+        "text": "La losa del pedestal del toro se ha movido. Bajar por la escalera que hay debajo.",
+        "done": "tumulo_entered",
+        "journal": "Bajo el pedestal del toro hay una escalera que nadie en Merrowick recordaba. Lleva al Túmulo de Durn-Kahl."
+      }
+    ],
+    "done": "camp_done & tumulo_entered",
+    "outcomes": [
+      {
+        "if": "camp_done=assault",
+        "text": "Los Zarpas Grises ya no bajarán a Merrowick: no queda nadie que pueda hacerlo. Lo que los llamaba sigue bajo el toro."
+      },
+      {
+        "if": "camp_done=stealth",
+        "text": "El cabecilla trasgo cayó sin que su tribu se enterase a tiempo. Lo que los llamaba sigue bajo el toro."
+      },
+      {
+        "if": "camp_done=peace",
+        "text": "Los Zarpas Grises se han ido de las Marcas con su cabecilla. Lo que los llamaba sigue bajo el toro."
+      }
+    ]
+  },
+  "q_pip": {
+    "name": "La deuda de Pip",
+    "start": "pip_met | holt_met",
+    "desc": "Pip Tallowmere, un contrabandista mediano, está retenido en la posada por Holt Varga, un prestamista de Valdrecht. Holt dice que Pip le debe 40 po por una carga que «se perdió en el río».",
+    "journal": "En la posada, un prestamista de Valdrecht llamado Holt Varga retiene a un mediano, Pip Tallowmere, por una deuda de 40 po.",
+    "steps": [
+      {
+        "id": "holt",
+        "text": "Hablar con Holt Varga, el prestamista.",
+        "done": "holt_met"
+      },
+      {
+        "id": "debt",
+        "text": "Saldar la deuda de Pip: pagar, convencer o asustar a Holt… o hacerse con su libro de cuentas.",
+        "done": "pip_debt",
+        "journal": [
+          {
+            "if": "pip_debt=paid",
+            "text": "Hemos pagado a Holt Varga la deuda de Pip."
+          },
+          {
+            "if": "pip_debt=persuaded",
+            "text": "Hemos convencido a Holt Varga de perdonar la deuda de Pip."
+          },
+          {
+            "if": "pip_debt=intimidated",
+            "text": "Holt Varga ha roto el pagaré de Pip con las manos temblando. Se irá de Merrowick al alba."
+          },
+          {
+            "if": "pip_debt=stolen",
+            "text": "Con el libro de cuentas de Holt Varga en nuestro poder, el prestamista ha tenido que olvidar la deuda de Pip."
+          }
+        ]
+      },
+      {
+        "id": "join",
+        "show": "pip_debt",
+        "text": "Hablar con Pip.",
+        "done": "pip_joined | pip_waiting"
+      },
+      {
+        "id": "ledger",
+        "show": "ledger_read & !holt_exposed & !holt_gone",
+        "optional": true,
+        "text": "El libro de Holt prueba que vende espadas a los trasgos. La alcaldesa debería verlo.",
+        "done": "holt_exposed",
+        "journal": "Las cuentas de Holt Varga: «Zarpa — hojas — cobrado en piedra». Holt arma a los trasgos a cambio de reliquias durn."
+      }
+    ],
+    "done": "pip_debt & (pip_joined | pip_waiting)",
+    "outcomes": [
+      {
+        "if": "pip_debt=paid",
+        "text": "Pagamos la deuda de Pip. Pip dice que nos debe una, y que él paga sus deudas. A veces.",
+        "journal": "Pip Tallowmere viaja con nosotros. Dice que le hemos comprado y que es la mejor inversión de nuestra vida."
+      },
+      {
+        "if": "pip_debt=persuaded",
+        "text": "Convencimos a Holt Varga de que retener a Pip era mal negocio.",
+        "journal": "Pip Tallowmere viaja con nosotros. Holt Varga ha perdonado la deuda, a regañadientes."
+      },
+      {
+        "if": "pip_debt=intimidated",
+        "text": "Holt Varga rompió el pagaré con las manos temblando y se fue de Merrowick al alba.",
+        "journal": "Pip Tallowmere viaja con nosotros. Holt Varga ha salido de Merrowick con más prisa que dignidad."
+      },
+      {
+        "if": "pip_debt=stolen",
+        "text": "Le quitamos a Holt su libro de cuentas y, con él, las ganas de cobrar.",
+        "journal": "Pip Tallowmere viaja con nosotros. Dice que por fin ha conocido a alguien con talento."
+      }
+    ]
+  },
+  "q_sedge": {
+    "name": "Las ovejas de la vieja Sedge",
+    "start": "sedge_quest",
+    "desc": "Desde que el toro se agrietó, los lobos bajan cada noche del bosque de Elderhal y se llevan una oveja de la vieja Sedge.",
+    "journal": "La vieja Sedge pierde una oveja cada noche. Los lobos bajan del estanque del bosque de Elderhal. Ella preferiría que no murieran: «el hambre no es maldad».",
+    "steps": [
+      {
+        "id": "wolves",
+        "text": "Ocuparse de los lobos del estanque de Elderhal (Sedge preferiría que no muriesen).",
+        "done": "sedge_done"
+      },
+      {
+        "id": "back",
+        "show": "sedge_done",
+        "text": "Volver con la vieja Sedge, en los pastos de Merrowick.",
+        "done": "sedge_rewarded"
+      }
+    ],
+    "done": "sedge_rewarded",
+    "outcomes": [
+      {
+        "if": "sedge_done=killed",
+        "text": "Matamos a los lobos del estanque. Sedge suspiró y nos dio las gracias de todos modos.",
+        "journal": "Los lobos del estanque de Elderhal están muertos. Sedge nos ha dado una piedra de la suerte."
+      },
+      {
+        "if": "sedge_done=scared",
+        "text": "Espantamos a los lobos hacia lo hondo del bosque. No volverán a los pastos.",
+        "journal": "Los lobos han huido monte adentro. Sedge nos ha dado una piedra de la suerte."
+      },
+      {
+        "if": "sedge_done=tamed",
+        "text": "Amansamos a los lobos y les quitamos los collares de los trasgos. Sedge dice que eso no es cosa de lobos.",
+        "journal": "Los lobos llevaban collares de los Zarpas Grises con piedras de espirales. Se los quitamos y se fueron en paz. Sedge nos ha dado una piedra de la suerte."
+      }
+    ]
+  },
+  "q_ilyra": {
+    "name": "El santuario arrasado",
+    "start": "aldwen_rumor | ilyra_met | ilyra_dead | shrine_goblins_dead",
+    "desc": "El santuario de Solenne del bosque de Elderhal no da señales de vida desde hace días.",
+    "steps": [
+      {
+        "id": "aldwen",
+        "show": "aldwen_rumor",
+        "text": "La Hermana Aldis lleva días sin noticias de Madre Aldwen, del santuario de Solenne de Elderhal.",
+        "done": "shrine_goblins_dead | ilyra_dead"
+      },
+      {
+        "id": "save",
+        "show": "shrine_goblins_dead | ilyra_met | seen:shrine_goblins.start",
+        "text": "Ayudar a quien resiste dentro del santuario.",
+        "done": "shrine_goblins_dead"
+      },
+      {
+        "id": "talk",
+        "show": "shrine_goblins_dead",
+        "text": "Hablar con Ilyra Sorendel, la novicia del santuario.",
+        "done": "ilyra_met",
+        "journal": "Ilyra Sorendel, novicia de Solenne, sobrevivió al ataque del santuario. Madre Aldwen murió protegiéndola. Los trasgos se llevaron el Disco del Alba."
+      },
+      {
+        "id": "disc",
+        "show": "ilyra_met",
+        "text": "Recuperar el Disco del Alba que los Zarpas Grises robaron del santuario.",
+        "done": "disc_found",
+        "journal": "Tenemos el Disco del Alba del santuario de Elderhal."
+      },
+      {
+        "id": "faith",
+        "show": "disc_found & ilyra_met",
+        "text": "Hablar con Ilyra cuando tenga el disco en sus manos.",
+        "done": "ilyra_faith"
+      }
+    ],
+    "done": "ilyra_faith",
+    "fail": "ilyra_dead",
+    "failJournal": "Huimos del santuario. Cuando volvimos, la voz que rezaba dentro se había callado.",
+    "outcomes": [
+      {
+        "if": "ilyra_faith=renewed",
+        "text": "Ilyra ha vuelto a encontrar a Solenne, aunque no donde la buscaba.",
+        "journal": "Ilyra ha recuperado la fe. Dice que la luz no estaba en el disco."
+      },
+      {
+        "if": "ilyra_faith=own_path",
+        "text": "Ilyra ya no espera milagros: ha decidido serlo ella.",
+        "journal": "Ilyra no sabe si Solenne la escucha, pero ha decidido seguir curando igual."
+      },
+      {
+        "if": "ilyra_faith=broken",
+        "text": "Ilyra dejó el Disco del Alba en nuestras manos y se fue. Algo se rompió que no era de latón.",
+        "journal": "Ilyra se ha marchado. Creo que mis palabras pesaron más que los trasgos."
+      },
+      {
+        "if": "ilyra_dead",
+        "text": "Huimos del santuario y la novicia que rezaba dentro murió."
+      }
+    ]
+  },
+  "q_kesh": {
+    "name": "Las piedras de Kesh",
+    "start": "place_kesh | odvar_met",
+    "desc": "Los Zarpas Grises excavaban en el Vado de Kesh, unas ruinas durn sobre el río, buscando un cuerno de piedra.",
+    "journal": "Los trasgos buscaban algo en el Vado de Kesh: un cuerno de piedra. Las ruinas están al sureste, sobre el río.",
+    "steps": [
+      {
+        "id": "go",
+        "text": "Viajar al Vado de Kesh, las ruinas durn del río.",
+        "done": "odvar_met",
+        "journal": "En el Vado de Kesh hemos conocido a Maese Odvar Stonebrow, un erudito enano obsesionado con las piedras durn. Lleva tres semanas intentando abrir una puerta."
+      },
+      {
+        "id": "satchel",
+        "show": "odvar_met",
+        "optional": true,
+        "text": "Recuperar la cartera de Maese Odvar del nido de arañas, al otro lado del vado.",
+        "done": "odvar_satchel"
+      },
+      {
+        "id": "runes",
+        "show": "odvar_met | kesh_read_1 | kesh_read_2 | kesh_read_3",
+        "text": "Hacer hablar a las tres piedras rúnicas para abrir la puerta durn.",
+        "done": "runes_solved",
+        "journal": "Las tres piedras de Kesh han respondido: agua que pasa, piedra que queda, toro que vela. La puerta durn está abierta."
+      },
+      {
+        "id": "horn",
+        "show": "runes_solved",
+        "text": "Coger el cuerno de piedra de la cámara.",
+        "done": "seal_key",
+        "journal": "Tenemos el cuerno de piedra. Late cuando lo acerco a la Marca."
+      }
+    ],
+    "done": "kesh_done",
+    "outcomes": [
+      {
+        "if": "odvar_joined",
+        "text": "Abrimos la cámara de Kesh y Maese Odvar viene con nosotros a Merrowick, con sus cuadernos y sus opiniones."
+      },
+      {
+        "if": "!odvar_joined",
+        "text": "Abrimos la cámara de Kesh y nos llevamos el cuerno de piedra."
+      }
+    ]
+  },
+  "q_sello": {
+    "name": "El primer sello",
+    "start": "seal_key | tumulo_entered",
+    "desc": "Bajo el toro de Merrowick está el Túmulo de Durn-Kahl, y en su fondo, el primer sello de lo que duerme bajo las Marcas.",
+    "steps": [
+      {
+        "id": "horn",
+        "text": "Conseguir el cuerno de piedra que abre la sala de los sellos.",
+        "done": "seal_key"
+      },
+      {
+        "id": "seals",
+        "show": "tumulo_entered",
+        "text": "Resolver el enigma de las tres losas: el toro, el río y la piedra.",
+        "done": "seals_solved",
+        "journal": "Las tres losas han bajado en el orden del verso: lo que corre, lo que queda, lo que vela. La cripta está abierta."
+      },
+      {
+        "id": "vorhan",
+        "show": "seals_solved",
+        "text": "Enfrentarse al guardián del sello.",
+        "done": "vorhan_dead",
+        "journal": "Vorhan, el último guardián durn, ha caído. El sello es nuestro… o nosotros suyos."
+      },
+      {
+        "id": "choice",
+        "show": "vorhan_dead",
+        "text": "Decidir qué hacer con el primer sello de Kharzul.",
+        "done": "seal_choice"
+      }
+    ],
+    "done": "seal_choice",
+    "outcomes": [
+      {
+        "if": "seal_choice=restored",
+        "text": "Vertimos la sangre de la Marca en las espirales y el primer sello volvió a cerrarse. La veta me sube ya por el cuello.",
+        "journal": "He renovado el primer sello con mi sangre. Ahora oigo latir los siete toros."
+      },
+      {
+        "if": "seal_choice=broken",
+        "text": "Rompimos el primer sello y el vínculo de la Marca se cortó. Muy lejos, otros seis toros empezaron a sangrar.",
+        "journal": "He roto el primer sello. La Marca ya no arde. Algo, muy abajo, ha dado un paso."
+      }
+    ]
+  }
+}

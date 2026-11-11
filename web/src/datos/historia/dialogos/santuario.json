@@ -1,0 +1,1223 @@
+{
+  "shrine_goblins": {
+    "speaker": "",
+    "title": "El santuario de Solenne",
+    "start": "start",
+    "nodes": {
+      "start": {
+        "text": [
+          {
+            "if": "!shrine_seen",
+            "text": "*Entre los pinos asoma un santuario de piedra blanca, ennegrecido por el fuego. Alguien ha tapiado la puerta desde dentro con bancos rotos.*"
+          },
+          "*Tres trasgos con las caras pintadas de ceniza se vuelven a la vez desde la puerta, con las hachas en alto. Por un momento nadie se mueve. Desde dentro, la voz que rezaba se ha callado para escuchar.*",
+          "*Uno de los trasgos te señala el brazo y chilla algo en su idioma. Luego, en el tuyo:* «¡La veta gris! ¡La piedra la quiere!»"
+        ],
+        "options": [
+          {
+            "text": "¡Atacad!",
+            "do": [
+              "battle:shrine_goblins"
+            ]
+          },
+          {
+            "text": "Caer sobre ellos antes de que reaccionen.",
+            "if": "stealth",
+            "special": "Sigilo",
+            "do": [
+              "battle:shrine_goblins!"
+            ]
+          },
+          {
+            "text": "¡Largaos ahora y viviréis!",
+            "check": {
+              "skill": "intimidation",
+              "dc": 15,
+              "easier": [
+                {
+                  "if": "wolves_dead | sentries_dead",
+                  "dc": 13
+                }
+              ]
+            },
+            "success": "fled",
+            "failure": "laugh"
+          },
+          {
+            "text": "¡Eh, vosotros! ¡Dejadla en paz!",
+            "tone": "amable",
+            "goto": "laugh"
+          }
+        ],
+        "then": [
+          "set:shrine_seen"
+        ]
+      },
+      "laugh": {
+        "text": "«¡Jijiji! ¡Más carne para la piedra!»",
+        "options": [
+          {
+            "text": "¡A por ellos!",
+            "do": [
+              "battle:shrine_goblins"
+            ]
+          }
+        ]
+      },
+      "fled": {
+        "text": "*Los trasgos se miran, miran vuestras armas… y echan a correr entre los pinos, dejando un hacha clavada en la puerta del santuario.*",
+        "do": [
+          "set:shrine_goblins_dead",
+          "leave:shrine_goblins"
+        ],
+        "next": "emerge"
+      },
+      "emerge": {
+        "text": "*Detrás de la puerta tapiada, alguien deja de rezar. Los bancos se apartan uno a uno y asoma una elfa joven, cubierta de hollín, con una maza en una mano y el símbolo del alba en la otra.*",
+        "next": "@ilyra.meet"
+      }
+    }
+  },
+  "ilyra": {
+    "speaker": "Ilyra Sorendel",
+    "title": "Novicia de la Orden del Alba",
+    "important": true,
+    "start": [
+      {
+        "if": "party:ilyra",
+        "goto": "c_hub"
+      },
+      {
+        "if": "ilyra_faith=broken",
+        "goto": "gone"
+      },
+      {
+        "if": "ilyra_temple | ilyra_waiting",
+        "goto": "waiting"
+      },
+      {
+        "if": "!shrine_goblins_dead",
+        "goto": "hiding"
+      },
+      {
+        "if": "!ilyra_met",
+        "goto": "meet"
+      },
+      {
+        "goto": "waiting"
+      }
+    ],
+    "nodes": {
+      "hiding": {
+        "speaker": "",
+        "text": "*Desde detrás de la puerta tapiada llega un susurro:* «¡Cuidado! ¡Siguen ahí fuera!»",
+        "end": true
+      },
+      "gone": {
+        "speaker": "",
+        "text": "*No hay nadie.*",
+        "end": true
+      },
+      "meet": {
+        "text": [
+          "*La elfa es muy joven para su pueblo, lo que quiere decir que podría tener tu edad o la de tu abuela. Lleva el pelo cobrizo recogido con un cordón quemado, los ojos rojos de humo y de no dormir, y la túnica blanca de la Orden del Alba negra hasta las rodillas.*",
+          "«Habéis… habéis venido.»",
+          "*Lo dice como si no se lo creyera.*",
+          "«Recé toda la noche. Toda. Y nadie vino. Y ahora…» *Se ríe, una risa rota.* «Perdón. Me llamo Ilyra. Ilyra Sorendel. Soy… era novicia de este santuario.»"
+        ],
+        "do": [
+          "set:ilyra_met"
+        ],
+        "options": [
+          {
+            "text": "Ya pasó. Estás a salvo.",
+            "tone": "amable",
+            "approve": {
+              "ilyra": 5
+            },
+            "goto": "safe"
+          },
+          {
+            "text": "¿Qué ha pasado aquí?",
+            "goto": "what"
+          },
+          {
+            "text": "¿Hay más trasgos dentro?",
+            "tone": "frio",
+            "goto": "inside"
+          },
+          {
+            "text": "Pues alguien sí vino: nosotros. Aunque sin trompetas.",
+            "tone": "sarcastico",
+            "goto": "trumpets"
+          }
+        ]
+      },
+      "safe": {
+        "text": "«A salvo.» *Repite la palabra como si probara a qué sabe.* «Gracias.»",
+        "next": "what"
+      },
+      "inside": {
+        "text": "«No. Solo yo. Y… y Madre Aldwen.»",
+        "next": "what"
+      },
+      "trumpets": {
+        "text": "«Sin trompetas.» *Por primera vez sonríe de verdad, un poco.* «A Solenne le habría gustado. Odia las trompetas.»",
+        "next": "what"
+      },
+      "what": {
+        "text": [
+          "«Llegaron hace dos noches, con antorchas. Madre Aldwen me metió detrás del altar y se puso delante de la puerta con el bastón.»",
+          "*Aprieta los labios.*",
+          "«No los dejó pasar de la puerta. Y se llevaron el Disco del Alba, el disco de latón que la Orden nos confió hace doscientos años. Lo arrancaron de la pared como quien arranca una cazuela.»"
+        ],
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«Lo siento, chica.»"
+          },
+          {
+            "who": "pip",
+            "text": "«Lo siento mucho. De verdad. A veces lo digo de verdad.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Lo siento mucho. ¿Quieres que la enterremos?",
+            "tone": "amable",
+            "approve": {
+              "ilyra": 5
+            },
+            "goto": "bury"
+          },
+          {
+            "text": "¿Para qué querrían unos trasgos un disco de latón?",
+            "goto": "why"
+          },
+          {
+            "text": "Vamos a por los Zarpas Grises. Ven con nosotros.",
+            "goto": "invite"
+          }
+        ]
+      },
+      "bury": {
+        "text": [
+          "*Cavar en la tierra de pinos es fácil. Lo difícil es todo lo demás. Ilyra canta en voz baja la oración del ocaso, se equivoca dos veces y vuelve a empezar.*",
+          "*Cuando termina, se queda mirando la tierra removida.*",
+          "«Ella decía que Solenne siempre responde. Que a veces la respuesta es “todavía no”.»",
+          "*Se seca la cara con la manga y se la mancha de hollín.*",
+          "«Llevo dos noches oyendo “todavía no”.»"
+        ],
+        "do": [
+          "set:aldwen_buried"
+        ],
+        "next": "invite"
+      },
+      "why": {
+        "text": [
+          "«No lo sé. Gritaban algo de la piedra, de que la piedra no quería luz.»",
+          "*Se estremece.*",
+          "«Uno hablaba nuestro idioma. Dijo: “la piedra-que-llama no quiere soles que la miren”. Y lo metió en un saco.»"
+        ],
+        "next": "invite"
+      },
+      "invite": {
+        "text": [
+          "«Vais a por ellos, ¿verdad? A por los Zarpas Grises.»",
+          "*Recoge la maza del suelo. Le tiembla la mano, pero la recoge.*",
+          "«Llevadme. Sé curar. Sé rezar, aunque últimamente no sé si alguien escucha. Y quiero recuperar el disco. Se lo debo a ella.»"
+        ],
+        "options": [
+          {
+            "text": "Bienvenida, Ilyra.",
+            "tone": "amable",
+            "do": [
+              "recruit:ilyra"
+            ],
+            "goto": "joined"
+          },
+          {
+            "text": "Es peligroso. Ve a Merrowick, al templo de la hermana Aldis.",
+            "goto": "temple"
+          },
+          {
+            "text": "No necesitamos a alguien que no sabe si su diosa la escucha.",
+            "tone": "frio",
+            "approve": {
+              "ilyra": -10
+            },
+            "goto": "cold"
+          }
+        ]
+      },
+      "joined": {
+        "text": "«Gracias. Haré lo que pueda. Y si no puedo, lo haré igual.»",
+        "end": true
+      },
+      "temple": {
+        "text": [
+          "«Aldis… Sí. Aldis sabrá qué hacer conmigo.»",
+          "*Asiente despacio.*",
+          "«Si cambias de opinión, estaré allí. Rezando. Por si acaso.»"
+        ],
+        "do": [
+          "set:ilyra_temple",
+          "npc:ilyra=hide"
+        ],
+        "end": true
+      },
+      "cold": {
+        "text": [
+          "«…No. Supongo que no.»",
+          "*Baja la maza.*",
+          "«Iré a Merrowick. Al templo.»"
+        ],
+        "do": [
+          "set:ilyra_temple",
+          "npc:ilyra=hide"
+        ],
+        "end": true
+      },
+      "waiting": {
+        "text": "«¿Has venido a buscarme?»",
+        "options": [
+          {
+            "text": "Ven con nosotros, Ilyra.",
+            "do": [
+              "recruit:ilyra",
+              "set:ilyra_temple=false"
+            ],
+            "goto": "rejoin"
+          },
+          {
+            "text": "Tengo el Disco del Alba.",
+            "if": "item:dawn_disc & !ilyra_faith",
+            "goto": "disc"
+          },
+          {
+            "text": "Todavía no.",
+            "end": true
+          }
+        ]
+      },
+      "rejoin": {
+        "text": "«Gracias. Sabía… bueno, esperaba que volvieras.»",
+        "end": true
+      },
+      "c_hub": {
+        "text": [
+          {
+            "if": "!ilyra_faith",
+            "text": "«¿Necesitas algo? ¿Una venda? ¿Una oración? Las vendas funcionan seguro.»"
+          },
+          {
+            "if": "ilyra_faith",
+            "text": "«¿Sí? Dime.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Tengo el Disco del Alba. Es tuyo.",
+            "if": "item:dawn_disc & !ilyra_faith",
+            "goto": "disc"
+          },
+          {
+            "text": "¿Cómo estás?",
+            "goto": "c_how"
+          },
+          {
+            "text": "Háblame de Solenne.",
+            "once": true,
+            "goto": "c_solenne"
+          },
+          {
+            "text": "Háblame de Madre Aldwen.",
+            "once": true,
+            "goto": "c_aldwen"
+          },
+          {
+            "text": "¿Qué piensas de la Marca?",
+            "once": true,
+            "goto": "c_marca"
+          },
+          {
+            "text": "Espéranos en la posada de Merrowick.",
+            "do": [
+              "wait:ilyra"
+            ],
+            "goto": "c_wait"
+          },
+          {
+            "text": "Nada. Sigamos.",
+            "end": true
+          }
+        ]
+      },
+      "c_wait": {
+        "text": "«Ayudaré a Corwin con los enfermos de la aldea, si tiene. Siempre hay alguno.»",
+        "end": true
+      },
+      "c_how": {
+        "text": [
+          {
+            "if": "!ilyra_faith",
+            "text": "«Cansada. Asustada. Viva. Las tres cosas a la vez, que no sabía que se podía.»"
+          },
+          {
+            "if": "ilyra_faith=renewed",
+            "text": "«Mejor. Mucho mejor. Esta mañana he rezado y no he esperado respuesta, y ha sido… tranquilo.»"
+          },
+          {
+            "if": "ilyra_faith=own_path",
+            "text": "«Haciendo cosas. Me sienta bien hacer cosas. Las cosas no te contestan “todavía no”.»"
+          }
+        ],
+        "optionsFrom": "c_hub"
+      },
+      "c_solenne": {
+        "text": [
+          "«Solenne es la luz que vuelve. No la que quema: la que vuelve, cada mañana, aunque no la merezcas.»",
+          "*Baja la vista.*",
+          "«Eso nos enseñaban. Yo lo repetía sin pensarlo. Ahora lo pienso mucho y lo repito menos.»"
+        ],
+        "optionsFrom": "c_hub"
+      },
+      "c_aldwen": {
+        "text": [
+          "«Era humana, y vieja, y la persona más terca de las Marcas. Me encontró con ocho años, perdida en el bosque, sin saber hablar vuestro idioma.»",
+          "*Sonríe.*",
+          "«Me enseñó a leer con el libro de oraciones y a maldecir con el libro de cuentas del santuario. Decía que las dos cosas eran necesarias para servir a Solenne.»"
+        ],
+        "optionsFrom": "c_hub"
+      },
+      "c_marca": {
+        "text": [
+          "«¿Puedo…?»",
+          "*Pone la mano sobre tu brazo, sin llegar a tocar la veta.*",
+          "«Está caliente. Como una piedra al sol. Pero no hay sol.»",
+          "*Retira la mano.*",
+          "«No sé qué es. Pero no creo que sea un castigo. Los castigos no te llevan a salvar novicias en santuarios quemados.»"
+        ],
+        "optionsFrom": "c_hub"
+      },
+      "disc": {
+        "text": [
+          "*Le das el disco. Es más pequeño de lo que imaginabas, del tamaño de una mano abierta, con el sol naciente de Solenne grabado y una abolladura nueva en el borde. Ilyra lo sostiene con las dos manos, como si pesara mucho.*",
+          "*Esperáis. Los dos esperáis algo. El disco no brilla. No pasa nada. Es latón.*",
+          "«Creía que…» *Se le quiebra la voz.* «Creía que si lo tenía en las manos volvería a sentirla. A Solenne. Como cuando era pequeña y entraba la luz por la ventana del santuario.»",
+          "*Lo baja despacio.*",
+          "«Pero es un plato. Un plato bonito.»"
+        ],
+        "do": [
+          "take:dawn_disc"
+        ],
+        "options": [
+          {
+            "text": "La luz no está en el disco, Ilyra. Está en lo que hiciste por Aldwen. Y por nosotros.",
+            "tone": "amable",
+            "check": {
+              "skill": "persuasion",
+              "dc": 13,
+              "easier": [
+                {
+                  "if": "aldis_words | approval:ilyra>=30",
+                  "dc": 10
+                }
+              ]
+            },
+            "success": "renewed",
+            "failure": "soft"
+          },
+          {
+            "text": "Solenne nunca prometió milagros: prometió el alba. Y el alba llega cada día, la mires o no.",
+            "check": {
+              "skill": "religion",
+              "dc": 12
+            },
+            "success": "renewed",
+            "failure": "soft"
+          },
+          {
+            "text": "Yo también rezo y no siempre me contestan. Sigo rezando. Eso también es fe.",
+            "if": "class:cleric | class:paladin",
+            "goto": "renewed"
+          },
+          {
+            "text": "En el templo nos enseñaron que el silencio también es una respuesta.",
+            "if": "bg:acolyte",
+            "check": {
+              "skill": "religion",
+              "dc": 10
+            },
+            "success": "renewed",
+            "failure": "soft"
+          },
+          {
+            "text": "Yo también me quedé atrás una vez, Ilyra. Alguien vino a buscarme. A ti te ha venido a buscar ella, a través de nosotros.",
+            "if": "species:elf | species:half_elf",
+            "check": {
+              "skill": "persuasion",
+              "dc": 11
+            },
+            "success": "renewed",
+            "failure": "soft"
+          },
+          {
+            "text": "Quizá Solenne no responde con milagros, sino con gente. Como nosotros. Como tú.",
+            "goto": "own_path"
+          },
+          {
+            "text": "Es un plato de latón, Ilyra. Los dioses no van a salvarte.",
+            "tone": "frio",
+            "approve": {
+              "ilyra": -10
+            },
+            "goto": "harsh"
+          }
+        ]
+      },
+      "renewed": {
+        "text": [
+          "*Ilyra se queda muy quieta. Luego levanta el disco hacia la luz que se cuela entre las ramas, y no pasa nada, y aun así sonríe.*",
+          "«“Todavía no”… y ahora sí.»",
+          "*Se ríe y llora a la vez.*",
+          "«Ella decía eso. Que a veces la respuesta llega con la voz de otra persona.»",
+          "*Se cuelga el disco del cinturón, junto al símbolo del alba.*",
+          "«Gracias, {nombre}. Ahora sé dónde buscar.»"
+        ],
+        "do": [
+          "decision:ilyra_faith=renewed"
+        ],
+        "end": true
+      },
+      "soft": {
+        "text": [
+          "*Ilyra te escucha y asiente, y aun así no se le ilumina la cara.*",
+          "«Ojalá fuera tan fácil.»",
+          "*Pasa el pulgar por la abolladura del borde.*"
+        ],
+        "next": "own_path"
+      },
+      "own_path": {
+        "text": [
+          "«Con gente.»",
+          "*Ilyra lo dice despacio, probando.*",
+          "«Quizá. No sé si Solenne me escucha. Pero sé que esta mañana he curado un corte, y que el corte se ha cerrado. Eso lo he hecho yo. O ella a través de mí. Ya no sé si importa la diferencia.»",
+          "*Se guarda el disco.*",
+          "«Seguiré curando. Si alguien me escucha, bien. Si no, las heridas se cierran igual.»"
+        ],
+        "do": [
+          "decision:ilyra_faith=own_path"
+        ],
+        "end": true
+      },
+      "harsh": {
+        "text": "*Ilyra se encoge como si le hubieras pegado.* «…»",
+        "options": [
+          {
+            "text": "Perdona. No quería decir eso. Lo siento.",
+            "tone": "amable",
+            "goto": "sorry"
+          },
+          {
+            "text": "Lo digo en serio. Deja de esperar milagros y madura.",
+            "tone": "frio",
+            "goto": "broken"
+          }
+        ]
+      },
+      "sorry": {
+        "text": [
+          "«Ya.»",
+          "*Respira hondo.*",
+          "«No, en algo tienes razón: nadie va a salvarme. Tendré que hacerlo yo. Con lo que tenga.»"
+        ],
+        "next": "own_path"
+      },
+      "broken": {
+        "text": [
+          "*Ilyra te mira un largo rato. No llora. Es peor que si llorara.*",
+          "«Tienes razón. Es latón.»",
+          "*Te pone el disco en las manos.*",
+          "«Llévaselo a Aldis, si quieres. Yo… yo no puedo seguir con esto. Con nada de esto.»",
+          "*Se da la vuelta y echa a andar hacia el oeste, hacia Valdrecht, sin mirar atrás.*"
+        ],
+        "do": [
+          "give:dawn_disc",
+          "decision:ilyra_faith=broken",
+          "dismiss:ilyra"
+        ],
+        "end": true
+      }
+    }
+  },
+  "chief": {
+    "speaker": "Krazzik Tres Dedos",
+    "title": "Cabecilla de los Zarpas Grises",
+    "important": true,
+    "start": [
+      {
+        "if": "stealth",
+        "goto": "sneak"
+      },
+      {
+        "goto": "parley"
+      }
+    ],
+    "nodes": {
+      "parley": {
+        "text": [
+          "*Los Zarpas Grises os rodean en un semicírculo de lanzas, escudos robados y dientes. En el centro, sobre un trono hecho con escudos de la guardia de Valdrecht, un trasgo grande con un collar de colmillos se rasca la barbilla con una mano a la que le faltan dos dedos.*",
+          "«¿Más carne del pueblo? ¿O carne que habla?»",
+          "*Husmea el aire. Se le dilatan las pupilas.*",
+          "«Ah. Huele a piedra. Veta gris.» *Se inclina hacia delante.* «Krazzik Tres Dedos, de los Zarpas Grises. Habla, veta gris, antes de que los míos se aburran.»"
+        ],
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«Tengo la espada fuera. Por si le interesa.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Venimos a hablar.",
+            "goto": "talk"
+          },
+          {
+            "text": "Venimos a acabar con vosotros. Rendíos o morid.",
+            "tone": "frio",
+            "check": {
+              "skill": "intimidation",
+              "dc": 15,
+              "easier": [
+                {
+                  "if": "wolves_dead | sentries_dead",
+                  "dc": 13
+                },
+                {
+                  "if": "wolves_dead & sentries_dead",
+                  "dc": 12
+                }
+              ]
+            },
+            "success": "yield",
+            "failure": "battle_line"
+          },
+          {
+            "text": "(Mostrar la Marca) ¿La reconoces?",
+            "goto": "marca"
+          },
+          {
+            "text": "(Mirarle desde arriba, en silencio, hasta que baje los ojos)",
+            "if": "species:orc | species:half_orc | species:goliath",
+            "check": {
+              "skill": "intimidation",
+              "dc": 11
+            },
+            "success": "yield",
+            "failure": "battle_line"
+          },
+          {
+            "text": "Brenna, enséñale lo que les pasó a sus guerreros en Merrowick.",
+            "check": {
+              "skill": "intimidation",
+              "dc": 13,
+              "who": "brenna",
+              "easier": [
+                {
+                  "if": "wolves_dead | sentries_dead",
+                  "dc": 12
+                }
+              ]
+            },
+            "success": "yield",
+            "failure": "battle_line"
+          },
+          {
+            "text": "¡Atacad!",
+            "do": [
+              "battle:camp"
+            ]
+          }
+        ]
+      },
+      "talk": {
+        "text": [
+          "«Hablar. Los de las casas no hablan con los Zarpas: les tiran piedras.»",
+          "*Se ríe, y sus guerreros se ríen con él, un poco tarde.*",
+          "«Habla.»"
+        ],
+        "optionsFrom": "deal"
+      },
+      "deal": {
+        "text": "«¿Y bien, veta gris?»",
+        "options": [
+          {
+            "text": "¿Por qué atacasteis Merrowick?",
+            "once": true,
+            "goto": "why"
+          },
+          {
+            "text": "¿Quién os vende las espadas?",
+            "once": true,
+            "goto": "blades"
+          },
+          {
+            "text": "Mirarle bien. ¿De qué tiene miedo?",
+            "check": {
+              "skill": "insight",
+              "dc": 12
+            },
+            "success": "fear",
+            "failure": "no_fear"
+          },
+          {
+            "text": "Marchaos de las Marcas y nadie más morirá.",
+            "tone": "amable",
+            "check": {
+              "skill": "persuasion",
+              "dc": 15,
+              "easier": [
+                {
+                  "if": "chief_fear",
+                  "dc": 12
+                },
+                {
+                  "if": "seen:chief.why | seen:chief.marca",
+                  "dc": 13
+                }
+              ]
+            },
+            "success": "peace",
+            "failure": "peace_no"
+          },
+          {
+            "text": "La piedra-que-llama me envía. Quiere que os vayáis.",
+            "if": "seen:chief.why | seen:chief.marca",
+            "check": {
+              "skill": "deception",
+              "dc": 14,
+              "easier": [
+                {
+                  "if": "seen:chief.marca",
+                  "dc": 12
+                }
+              ]
+            },
+            "success": "deceived",
+            "failure": "battle_line"
+          },
+          {
+            "text": "(Abrir la boca y dejar que asome un resplandor de tu aliento) Los Zarpas se van. Hoy.",
+            "if": "species:dragonborn",
+            "check": {
+              "skill": "intimidation",
+              "dc": 12
+            },
+            "success": "yield",
+            "failure": "battle_line"
+          },
+          {
+            "text": "Pip, cuéntale tú lo de la piedra. A ti te creerá.",
+            "if": "seen:chief.why | seen:chief.marca",
+            "check": {
+              "skill": "deception",
+              "dc": 13,
+              "who": "pip"
+            },
+            "success": "deceived",
+            "failure": "peace_no"
+          },
+          {
+            "text": "Os pagaré por iros.",
+            "cost": 30,
+            "goto": "tribute"
+          },
+          {
+            "text": "Basta de charla.",
+            "do": [
+              "battle:camp"
+            ]
+          }
+        ]
+      },
+      "why": {
+        "text": [
+          "«Porque la piedra-que-llama nos llama.»",
+          "*Se toca la sien con el muñón.*",
+          "«Desde el invierno, cada noche, en sueños. Dice: venid al toro. Dice: abrid. Dice: la piedra entera será vuestra. Las colinas, los pinos, las casas, todo.»",
+          "*Le brillan los ojos.*",
+          "«Los Zarpas tenían hambre. Ahora tienen promesas.»"
+        ],
+        "optionsFrom": "deal"
+      },
+      "blades": {
+        "text": [
+          "«Un hombre de las casas, con abrigo bueno y anillos. Nos da hojas; nosotros le damos piedrecitas verdes y cosas viejas de debajo del río.»",
+          "*Se encoge de hombros.*",
+          "«Hacemos negocios. Los Zarpas también saben hacer negocios.»"
+        ],
+        "do": [
+          "set:holt_named"
+        ],
+        "optionsFrom": "deal"
+      },
+      "fear": {
+        "text": [
+          "*Krazzik no te mira a ti cuando habla. Mira al suelo, a sus pies, como quien vigila un pozo. Cada vez que nombra a la piedra baja la voz, y sus guerreros se tocan los amuletos.*",
+          "*No es un cabecilla que lleva a su tribu a la guerra. Es un trasgo asustado que ha hecho un trato con algo que le asusta más que tú.*"
+        ],
+        "do": [
+          "set:chief_fear"
+        ],
+        "optionsFrom": "deal"
+      },
+      "no_fear": {
+        "text": "*Krazzik sonríe con todos los dientes. Si tiene miedo de algo, no te lo va a enseñar.*",
+        "optionsFrom": "deal"
+      },
+      "marca": {
+        "text": [
+          "*Te subes la manga. La veta gris brilla un instante a la luz de la hoguera.*",
+          "*Un murmullo recorre a los Zarpas. Alguien deja caer una lanza.*",
+          "«La veta gris.»",
+          "*Krazzik se levanta del trono despacio, sin quitarte ojo.*",
+          "«La piedra-que-llama habló de ti. Dijo: traedme al de la veta, entero, vivo. Dijo que tu sangre abre la puerta.» *Se relame.* «Los Zarpas podrían llevarte. Es lo que la piedra quiere.»"
+        ],
+        "options": [
+          {
+            "text": "Inténtalo y verás lo que abre mi sangre.",
+            "tone": "frio",
+            "check": {
+              "skill": "intimidation",
+              "dc": 12
+            },
+            "success": "yield",
+            "failure": "battle_line"
+          },
+          {
+            "text": "La piedra os miente. Os usa, y luego os tirará.",
+            "check": {
+              "skill": "persuasion",
+              "dc": 13,
+              "easier": [
+                {
+                  "if": "chief_fear",
+                  "dc": 11
+                }
+              ]
+            },
+            "success": "peace",
+            "failure": "peace_no"
+          },
+          {
+            "text": "Entonces ven a por ella.",
+            "do": [
+              "battle:camp"
+            ]
+          }
+        ]
+      },
+      "yield": {
+        "text": [
+          "*Krazzik mira a su alrededor. Ve a sus guerreros mirándole a él, esperando, y ve que ninguno quiere ser el primero.*",
+          "«…Los Zarpas no se arrodillan.»",
+          "*Se sienta otra vez en el trono, despacio.*",
+          "«Pero los Zarpas tampoco son tontos. Habla. ¿Qué quieres?»"
+        ],
+        "next": "terms"
+      },
+      "peace_no": {
+        "text": [
+          "«Palabras. Las casas siempre tienen palabras.»",
+          "*Krazzik escupe al fuego.*",
+          "«La piedra tiene promesas. Las promesas pesan más.»"
+        ],
+        "optionsFrom": "deal"
+      },
+      "battle_line": {
+        "text": "«¡Basta! ¡Zarpas! ¡A por la veta gris! ¡Viva! ¡La quiero viva!»",
+        "options": [
+          {
+            "text": "¡A las armas!",
+            "do": [
+              "battle:camp"
+            ]
+          }
+        ]
+      },
+      "peace": {
+        "text": [
+          "*Krazzik se queda callado mucho rato. Uno de sus guerreros le susurra algo y él lo aparta de un manotazo.*",
+          "«Si nos vamos, la piedra se enfada.» *Mira al suelo.* «Si nos quedamos, vosotros nos matáis. La piedra está lejos, abajo. Vosotros estáis aquí.»",
+          "*Suspira, un suspiro largo y apestoso.*",
+          "«Los Zarpas se van. Al norte, a las colinas peladas, donde no hay toros.»"
+        ],
+        "next": "terms"
+      },
+      "deceived": {
+        "text": [
+          "*Krazzik palidece bajo la pintura de ceniza.*",
+          "«¿La piedra… te envía a ti?»",
+          "*Mira tu brazo, mira el suelo, mira a sus guerreros.*",
+          "«Los Zarpas obedecen a la piedra. Los Zarpas se van.»"
+        ],
+        "next": "terms"
+      },
+      "tribute": {
+        "text": [
+          "*Dejas caer la bolsa a los pies del trono. Krazzik la abre con los dientes, cuenta con los dedos que le quedan y se ríe.*",
+          "«¡Las casas pagan! ¡Buen trato, veta gris!»"
+        ],
+        "do": [
+          "decision:camp_tribute"
+        ],
+        "next": "terms"
+      },
+      "terms": {
+        "text": "«¿Algo más, veta gris? Pídelo ya, antes de que me arrepienta.»",
+        "options": [
+          {
+            "text": "Lo que os llevasteis del santuario de Solenne. Lo quiero.",
+            "if": "!disc_found & !ilyra_dead & !item:dawn_disc",
+            "goto": "disc"
+          },
+          {
+            "text": "¿Qué buscabais en el río? ¿Qué es ese cuerno?",
+            "if": "!place_kesh",
+            "goto": "kesh"
+          },
+          {
+            "text": "Nada más. Marchaos.",
+            "goto": "farewell"
+          }
+        ]
+      },
+      "disc": {
+        "text": [
+          "«¿El plato de sol? Quema las manos. La piedra no lo quería ver.»",
+          "*Lo saca de un saco y te lo tira. Es un disco de latón con el sol naciente de Solenne grabado.*",
+          "«Tomadlo. Llevaos el sol bien lejos.»"
+        ],
+        "do": [
+          "give:dawn_disc"
+        ],
+        "optionsFrom": "terms"
+      },
+      "kesh": {
+        "text": [
+          "«La piedra quería el cuerno. Un cuerno de piedra, en el puente roto del río. Mis cavadores lo buscaron, pero allí hay arañas grandes como mulas y un enano que grita.»",
+          "*Te tira un trozo de piel curtida.*",
+          "«Toma. El mapa. Ya no lo quiero.»"
+        ],
+        "do": [
+          "give:chief_map"
+        ],
+        "optionsFrom": "terms"
+      },
+      "farewell": {
+        "text": [
+          "*Los Zarpas Grises recogen sus tiendas en un abrir y cerrar de ojos, como quien lo ha hecho muchas veces. Al caer la tarde, el campamento es solo un círculo de hierba pisada y una hoguera humeante.*",
+          "*Krazzik es el último en irse. Se vuelve una vez y te señala el brazo con el muñón.*",
+          "«La piedra no olvida, veta gris. Tú tampoco olvides.»",
+          {
+            "if": "!place_kesh",
+            "text": "*Al irse, deja caer a tus pies un trozo de piel curtida: un mapa pintado con hollín, con un puente roto y, junto al puente, un cuerno.*"
+          }
+        ],
+        "do": [
+          {
+            "if": "!place_kesh & !item:chief_map",
+            "do": [
+              "give:chief_map"
+            ]
+          },
+          "set:chief_alive",
+          "decision:camp_done=peace",
+          "leave:camp"
+        ],
+        "end": true
+      },
+      "sneak": {
+        "text": [
+          "*La tienda del cabecilla huele a grasa, a humo y a perro mojado. Krazzik Tres Dedos dormita sobre un montón de pieles, con un hueso a medio roer en la mano buena. Fuera, sus guerreros juegan a los dados junto a la hoguera y no han oído nada.*",
+          "*Tu sombra le cae encima. Abre un ojo. Luego los dos.*"
+        ],
+        "do": [
+          "set:camp_sneak"
+        ],
+        "options": [
+          {
+            "text": "Ni un ruido. Si gritas, mueres.",
+            "tone": "frio",
+            "goto": "knife"
+          },
+          {
+            "text": "Susurrarle que la piedra-que-llama te envía.",
+            "check": {
+              "skill": "deception",
+              "dc": 12
+            },
+            "success": "sneak_deceived",
+            "failure": "shout"
+          },
+          {
+            "text": "Acabar con él en silencio.",
+            "goto": "kill_sleep"
+          }
+        ]
+      },
+      "knife": {
+        "text": [
+          "*Krazzik traga saliva. Por primera vez parece lo que es: un trasgo viejo y asustado en una tienda que huele mal.*",
+          "«Los Zarpas no gritan», susurra. «¿Qué quieres, veta gris?»"
+        ],
+        "next": "sneak_terms"
+      },
+      "sneak_deceived": {
+        "text": [
+          "*A Krazzik se le salen los ojos de las órbitas.* «¿La piedra…? ¿Aquí? ¿En mi tienda?»",
+          "*Se incorpora a medias y se queda muy quieto, sin atreverse a mirarte el brazo.*",
+          "«Habla. Los Zarpas escuchan.»"
+        ],
+        "next": "sneak_terms"
+      },
+      "shout": {
+        "text": "*Krazzik no se lo traga. Se lanza a un lado y grita con toda la garganta:* «¡ZARPAS! ¡LA VETA GRIS ESTÁ AQUÍ!»",
+        "options": [
+          {
+            "text": "¡A las armas!",
+            "do": [
+              "battle:camp!"
+            ]
+          }
+        ]
+      },
+      "sneak_terms": {
+        "text": "«Tienes la piel de piedra y el cuchillo cerca de mi cuello. Hablo bien con cuchillos cerca del cuello.»",
+        "options": [
+          {
+            "text": "Dime qué es la piedra-que-llama.",
+            "once": true,
+            "goto": "sneak_why"
+          },
+          {
+            "text": "Llévate a tu tribu de las Marcas. Hoy.",
+            "goto": "sneak_peace"
+          },
+          {
+            "text": "Acabar con él.",
+            "tone": "frio",
+            "goto": "kill_sleep"
+          }
+        ]
+      },
+      "sneak_why": {
+        "text": [
+          "«La que llama desde abajo. Desde el invierno, cada noche, en sueños.»",
+          "*Se toca la sien con el muñón.*",
+          "«Dice: venid al toro, abrid. Dice: la piedra entera será vuestra. Y dice: traedme al de la veta gris.» *Te mira el brazo y se le escapa un gemido.* «Ya estás aquí. Ya no hace falta que te traigamos.»"
+        ],
+        "optionsFrom": "sneak_terms"
+      },
+      "sneak_peace": {
+        "text": [
+          "«Hoy. Sí. Hoy.»",
+          "*Sale de la tienda delante de ti, con tu sombra pegada a la espalda, y grita algo en su idioma. Los Zarpas dejan caer los dados.*",
+          "*En menos de una hora, el campamento está vacío.*",
+          "*Antes de irse, Krazzik te deja a los pies un mapa de piel y una caja.* «El cuerno del río. El sol del santuario. Ya no los quiero. Que la piedra se busque otro cuerno.»"
+        ],
+        "do": [
+          "set:chief_alive",
+          {
+            "if": "!item:chief_map & !place_kesh",
+            "do": [
+              "give:chief_map"
+            ]
+          },
+          {
+            "if": "!disc_found & !ilyra_dead & !item:dawn_disc",
+            "do": [
+              "give:dawn_disc"
+            ]
+          },
+          "decision:camp_done=stealth",
+          "leave:camp"
+        ],
+        "end": true
+      },
+      "kill_sleep": {
+        "text": [
+          "*Es rápido. Krazzik no llega a gritar.*",
+          "*Fuera, los dados siguen sonando. Cuando los Zarpas encuentren a su cabecilla, ya no estaréis aquí, y sin él no son más que una banda de trasgos con miedo.*",
+          "*Entre las pieles hay un mapa de piel curtida con un puente roto pintado con hollín.*",
+          {
+            "if": "!disc_found & !ilyra_dead",
+            "text": "*Y en una caja, envuelto en un trapo, un disco de latón con el sol naciente de Solenne.*"
+          }
+        ],
+        "do": [
+          "unset:chief_alive",
+          {
+            "if": "!item:chief_map & !place_kesh",
+            "do": [
+              "give:chief_map"
+            ]
+          },
+          {
+            "if": "!disc_found & !ilyra_dead & !item:dawn_disc",
+            "do": [
+              "give:dawn_disc"
+            ]
+          },
+          "decision:camp_done=stealth",
+          "leave:camp"
+        ],
+        "end": true
+      }
+    }
+  },
+  "stash": {
+    "speaker": "Pip Tallowmere",
+    "title": "Contrabandista de las Marcas",
+    "portrait": "pip",
+    "start": "pip",
+    "nodes": {
+      "pip": {
+        "who": "pip",
+        "text": [
+          "*Pip se adelanta antes de que puedas meter la mano en el tronco.*",
+          "«¡Eh, eh, eh! Ese tronco es mío.»",
+          "*Pasa el dedo por las marcas de navaja de la corteza: una P y una T entrelazadas.*",
+          "«¿Ves? Mi firma. Lo usaba de almacén cuando trabajaba para Holt. Dentro hay unos guantes que… bueno, que son míos. Más o menos. Ahora más que menos.»"
+        ],
+        "do": [
+          "set:pip_stash_talk"
+        ],
+        "options": [
+          {
+            "text": "Quédatelos, Pip. Son tuyos.",
+            "tone": "amable",
+            "do": [
+              "decision:pip_gloves",
+              "proceed"
+            ],
+            "goto": "keep"
+          },
+          {
+            "text": "Lo que hay en el bosque es del grupo, Pip.",
+            "tone": "frio",
+            "approve": {
+              "pip": -5
+            },
+            "do": [
+              "proceed"
+            ],
+            "goto": "share"
+          },
+          {
+            "text": "¿Tu almacén? ¿Dónde Holt dejaba las espadas para los trasgos?",
+            "if": "pip_secret",
+            "goto": "blades"
+          }
+        ]
+      },
+      "blades": {
+        "who": "pip",
+        "text": [
+          "*Pip se queda callado un momento.*",
+          "«Sí. Aquí. Doce cajas, una vez al mes.» *Se frota la nuca.* «Ahora entiendes por qué le tengo tanto cariño a este tronco. Y tanto asco.»"
+        ],
+        "optionsFrom": "pip"
+      },
+      "keep": {
+        "who": "pip",
+        "text": "«¡Sabía que tenías buen corazón! Y buen gusto. Sobre todo buen gusto.»",
+        "end": true
+      },
+      "share": {
+        "who": "pip",
+        "text": "«Del grupo. Claro. Y el grupo soy yo cuando nadie mira.» *Suspira.* «Vale, vale.»",
+        "end": true
+      }
+    }
+  },
+  "shrine_box": {
+    "speaker": "Ilyra Sorendel",
+    "title": "Novicia de la Orden del Alba",
+    "portrait": "ilyra",
+    "start": "ask",
+    "nodes": {
+      "ask": {
+        "who": "ilyra",
+        "text": [
+          "*Es el cepillo de las ofrendas del santuario: una caja de roble con una ranura y un candado de hierro. Los trasgos no han conseguido abrirlo.*",
+          "«Eso es de los pobres. Lo que la gente deja para los que tienen menos.»",
+          "*Ilyra no te lo impide. Solo te mira.*"
+        ],
+        "options": [
+          {
+            "text": "Tienes razón. Dejémoslo.",
+            "tone": "amable",
+            "approve": {
+              "ilyra": 3
+            },
+            "end": true
+          },
+          {
+            "text": "Los pobres de aquí ya no lo necesitan. Nosotros sí.",
+            "tone": "frio",
+            "do": [
+              "decision:loot_shrine_box",
+              "proceed"
+            ],
+            "end": true
+          }
+        ]
+      }
+    }
+  },
+  "pilgrim": {
+    "speaker": "",
+    "title": "Restos de un peregrino",
+    "start": "look",
+    "nodes": {
+      "look": {
+        "text": [
+          "*Un peregrino con el hábito de la Orden del Alba, muerto hace días al pie de un pino. Una flecha trasga le asoma de la espalda.*",
+          "*En la mano tiene una carta sin abrir: «Para Madre Aldwen, del santuario de Elderhal, de parte de su hermana Orla, de Valdrecht».*"
+        ],
+        "say": [
+          {
+            "who": "ilyra",
+            "text": "«Orla… Madre Aldwen hablaba de ella. Le escribía cada invierno, y Orla nunca contestaba.» *Coge la carta y la guarda sin abrirla.* «Ahora ya ha contestado.»"
+          }
+        ],
+        "do": [
+          "proceed"
+        ],
+        "end": true
+      }
+    }
+  },
+  "shrine_rubble": {
+    "speaker": "",
+    "title": "Entre los escombros",
+    "start": "look",
+    "nodes": {
+      "look": {
+        "text": "*Bajo una viga caída brilla algo: un colgante de plata con una piedra roja, de los que se llevan al cuello debajo de la ropa.*",
+        "say": [
+          {
+            "who": "ilyra",
+            "text": "«Es de Madre Aldwen. Decía que le cerraba las heridas antes que la oración, y que no se lo contáramos a la Orden.» *Se le escapa una risa mojada.* «Llévatelo tú. Ella habría querido que lo llevara alguien que fuera a sangrar.»"
+          }
+        ],
+        "do": [
+          "proceed"
+        ],
+        "end": true
+      }
+    }
+  }
+}

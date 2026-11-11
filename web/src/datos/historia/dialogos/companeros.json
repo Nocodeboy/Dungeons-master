@@ -1,0 +1,821 @@
+{
+  "brenna": {
+    "speaker": "Brenna Halvard",
+    "title": "Veterana de la guardia de Valdrecht",
+    "start": [
+      {
+        "if": "party:brenna",
+        "goto": "hub"
+      },
+      {
+        "if": "brenna_waiting",
+        "goto": "waiting"
+      },
+      {
+        "goto": "gone"
+      }
+    ],
+    "nodes": {
+      "gone": {
+        "speaker": "",
+        "text": "*No hay nadie.*",
+        "end": true
+      },
+      "hub": {
+        "text": [
+          {
+            "if": "approval:brenna>=30",
+            "text": "«Dime, Marcad{o/a}.»"
+          },
+          {
+            "if": "!approval:brenna>=30",
+            "text": "«¿Qué?»"
+          }
+        ],
+        "options": [
+          {
+            "text": "¿Qué opinas de todo esto?",
+            "goto": "opinion"
+          },
+          {
+            "text": "Háblame de Valdrecht.",
+            "once": true,
+            "goto": "valdrecht"
+          },
+          {
+            "text": "¿Por qué dejaste la guardia?",
+            "if": "!brenna_story",
+            "once": true,
+            "approve": {
+              "brenna": -2
+            },
+            "goto": "guard_no"
+          },
+          {
+            "text": "Sobre lo que me contaste del capitán Vell…",
+            "if": "brenna_story",
+            "once": true,
+            "goto": "vell"
+          },
+          {
+            "text": "Gracias por estar aquí, Brenna.",
+            "tone": "amable",
+            "once": true,
+            "approve": {
+              "brenna": 2
+            },
+            "goto": "thanks"
+          },
+          {
+            "text": "¿Qué piensas de la Marca?",
+            "once": true,
+            "goto": "marca"
+          },
+          {
+            "text": "Espéranos en la posada de Merrowick.",
+            "do": [
+              "wait:brenna"
+            ],
+            "goto": "wait"
+          },
+          {
+            "text": "Nada. Sigamos.",
+            "end": true
+          }
+        ]
+      },
+      "wait": {
+        "text": "«Me pido la mesa de la ventana. Y la cerveza la pagas tú.»",
+        "end": true
+      },
+      "opinion": {
+        "text": [
+          {
+            "if": "!e1_done",
+            "text": "«Que hay trasgos en la aldea y estamos aquí de charla.»"
+          },
+          {
+            "if": "e1_done & !camp_done",
+            "text": "«Que hay un campamento de trasgos a dos horas de aquí y que perdemos el tiempo hablando.»"
+          },
+          {
+            "if": "camp_done & !seal_key",
+            "text": "«Que lo de los trasgos era el síntoma. Lo de abajo es la enfermedad.»"
+          },
+          {
+            "if": "seal_key & !vorhan_dead",
+            "text": "«Que no me gusta ese cuerno, ni esa escalera, ni el ruido que hace tu brazo cuando nos acercamos al toro. Pero vamos a bajar igual.»"
+          },
+          {
+            "if": "vorhan_dead & !seal_choice",
+            "text": "«Que la decisión es tuya. Y que voy a estar a tu lado decidas lo que decidas. Aunque luego te lo discuta.»"
+          },
+          {
+            "if": "seal_choice",
+            "text": "«Que estamos vivos. Que ya es más de lo que esperaba cuando salimos de la Mula Coja.»"
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "valdrecht": {
+        "text": [
+          "«Una ciudad sobre un cerro, con murallas que se ven desde tres días de camino y un Gremio de Canteros que manda más que el rey.»",
+          "*Escupe a un lado.*",
+          "«Bonita de lejos. De cerca huele a polvo de piedra y a dinero.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "guard_no": {
+        "text": "«Ya te lo dije: con vino. Y el vino de por aquí es agua con ganas.»",
+        "optionsFrom": "hub"
+      },
+      "vell": {
+        "text": [
+          "«¿Vell?» *Brenna se ríe sin ganas.* «Vell sigue en Valdrecht, con la nariz torcida y un ascenso. Le dieron una medalla por “restablecer el orden”.»",
+          "*Te mira de reojo.*",
+          "«Si algún día vamos a Valdrecht, no me dejes acercarme a él. O sí. Ya veremos.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "thanks": {
+        "text": "«No me las des. Todavía.» *Pero se le escapa media sonrisa.*",
+        "optionsFrom": "hub"
+      },
+      "marca": {
+        "text": [
+          "«Mientras no te convierta en estatua, por mí como si te sale un cuerno.»",
+          "*Se queda callada un momento.*",
+          "«Lo que no me gusta es cómo te mira la gente cuando la ve. Como a un arma. Y yo sé mucho de cómo acaban las armas.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "waiting": {
+        "text": "«Ya era hora. ¿Nos vamos o qué?»",
+        "options": [
+          {
+            "text": "Nos vamos.",
+            "do": [
+              "recruit:brenna",
+              "set:brenna_waiting=false"
+            ],
+            "goto": "back"
+          },
+          {
+            "text": "Todavía no.",
+            "goto": "notyet"
+          }
+        ]
+      },
+      "back": {
+        "text": "«Bien. Me estaba oxidando.»",
+        "end": true
+      },
+      "notyet": {
+        "text": "«Pues que te cunda.»",
+        "end": true
+      }
+    }
+  },
+  "camp_brenna": {
+    "camp": {
+      "if": "party:brenna & approval:brenna>=10 & e1_done",
+      "order": 2
+    },
+    "speaker": "Brenna Halvard",
+    "title": "Veterana de la guardia de Valdrecht",
+    "portrait": "brenna",
+    "start": "b0",
+    "nodes": {
+      "b0": {
+        "who": "brenna",
+        "text": [
+          "*La hoguera ha bajado a brasas. Brenna está sentada con la espalda contra un tronco, sacándole brillo a un escudo que ya brilla, como quien reza.*",
+          "«¿No duermes, Marcad{o/a}?»"
+        ],
+        "options": [
+          {
+            "text": "No puedo. ¿Y tú?",
+            "goto": "b1"
+          },
+          {
+            "text": "Te toca guardia a ti, ¿no?",
+            "tone": "sarcastico",
+            "goto": "b1"
+          },
+          {
+            "text": "(Sentarte a su lado sin decir nada.)",
+            "approve": {
+              "brenna": 2
+            },
+            "goto": "b1"
+          }
+        ]
+      },
+      "b1": {
+        "who": "brenna",
+        "text": [
+          "«Yo no duermo bien desde hace un año.»",
+          "*Deja el escudo en el suelo.*",
+          "«Me preguntaste por la guardia, en el camino. Te dije que con vino.» *Saca una petaca, bebe y te la pasa.* «Esto es vino. Más o menos.»"
+        ],
+        "options": [
+          {
+            "text": "Te escucho.",
+            "goto": "b2"
+          },
+          {
+            "text": "No tienes por qué contármelo.",
+            "tone": "amable",
+            "approve": {
+              "brenna": 3
+            },
+            "goto": "b2"
+          }
+        ]
+      },
+      "b2": {
+        "who": "brenna",
+        "text": [
+          "«Hace un año, en Valdrecht, los canteros del Gremio se pusieron en huelga. Llevaban tres inviernos cobrando en vales que solo valían en las tiendas del Gremio. Se sentaron en la plaza de las Canteras, con sus mujeres y sus críos, y no se movieron.»",
+          "*Mira el fuego.*",
+          "«El capitán Orrin Vell nos mandó cargar. Con caballos. Contra críos.»",
+          "*Se encoge de hombros.*",
+          "«Yo no cargué. Le dije que no. Me lo volvió a mandar, y le rompí la nariz.» *Casi sonríe.* «Los demás cargaron igual. Murieron tres. Uno tenía doce años.»"
+        ],
+        "options": [
+          {
+            "text": "Hiciste lo correcto.",
+            "tone": "amable",
+            "approve": {
+              "brenna": 10
+            },
+            "goto": "b_ok"
+          },
+          {
+            "text": "Desobedeciste una orden. Eso tiene un precio.",
+            "tone": "frio",
+            "approve": {
+              "brenna": -10
+            },
+            "goto": "b_cold"
+          },
+          {
+            "text": "¿Y qué tal le quedó la nariz al capitán?",
+            "tone": "sarcastico",
+            "approve": {
+              "brenna": 5
+            },
+            "goto": "b_joke"
+          }
+        ]
+      },
+      "b_ok": {
+        "who": "brenna",
+        "text": [
+          "«Lo correcto no los salvó.»",
+          "*Pausa.*",
+          "«Pero gracias. Hace un año que nadie me lo dice.»"
+        ],
+        "next": "b3"
+      },
+      "b_cold": {
+        "who": "brenna",
+        "text": [
+          "«Sí. Lo tiene. Lo pagué con veinte años de servicio, y lo volvería a pagar.»",
+          "*Te mira, dura.*",
+          "«Si algún día me mandas cargar contra críos, te rompo la nariz a ti también.»"
+        ],
+        "next": "b3"
+      },
+      "b_joke": {
+        "who": "brenna",
+        "text": [
+          "*Brenna se ríe por primera vez en toda la noche: una risa corta, de sorpresa.*",
+          "«Torcida. Hacia la izquierda. Cada vez que se mira al espejo se acuerda de mí.»"
+        ],
+        "next": "b3"
+      },
+      "b3": {
+        "who": "brenna",
+        "text": [
+          "«No me ahorcaron porque tenía la hoja de servicios más larga de la muralla. Me quitaron el emblema del escudo y me echaron por la puerta del norte.»",
+          "*Pasa el pulgar por el hueco donde estuvo el emblema.*",
+          "«Y aquí estoy. Siguiendo a alguien con un brazo de piedra a ver un toro que sangra. Mi madre estaría orgullosa. O muerta de risa.»"
+        ],
+        "do": [
+          "set:brenna_story"
+        ],
+        "end": true
+      }
+    }
+  },
+  "camp_pip": {
+    "camp": {
+      "if": "party:pip",
+      "order": 3
+    },
+    "speaker": "Pip Tallowmere",
+    "title": "Contrabandista de las Marcas",
+    "portrait": "pip",
+    "start": "p0",
+    "nodes": {
+      "p0": {
+        "who": "pip",
+        "text": [
+          "*Pip no duerme. Está tumbado boca arriba, con las manos detrás de la cabeza, mirando las estrellas, y tararea algo desafinado.*",
+          "«¿Sabes contar estrellas, jef{e/a}? Yo tampoco. Siempre me salen más de las que debería.»"
+        ],
+        "options": [
+          {
+            "text": "¿Qué te preocupa, Pip?",
+            "tone": "amable",
+            "goto": "p1"
+          },
+          {
+            "text": "Duérmete, Pip.",
+            "tone": "frio",
+            "goto": "p_sleep"
+          }
+        ]
+      },
+      "p_sleep": {
+        "who": "pip",
+        "text": "«Imposible. Tengo una conciencia muy ruidosa. La heredé de mi madre, junto con las deudas.»",
+        "next": "p1"
+      },
+      "p1": {
+        "who": "pip",
+        "text": [
+          "«La noche del río.»",
+          "*Se incorpora sobre un codo.*",
+          "«Doce cajas de espadas de Valdrecht en una barca, en plena noche. Yo remando y cantando, como un idiota. Y en la orilla, esperando… trasgos. Con antorchas. Riéndose.»",
+          "*Se mira las manos.*",
+          "«Pensé en los críos de los pastores. En Tobin, que es tonto pero es mi primo. Así que hundí la barca. Con las espadas, con las cajas y casi conmigo, porque no sé nadar muy bien.»"
+        ],
+        "options": [
+          {
+            "text": "Fue lo más valiente que has hecho nunca.",
+            "tone": "amable",
+            "approve": {
+              "pip": 10
+            },
+            "goto": "p_brave"
+          },
+          {
+            "text": "¿Contrabandista de río y no sabes nadar?",
+            "tone": "sarcastico",
+            "approve": {
+              "pip": 5
+            },
+            "goto": "p_swim"
+          },
+          {
+            "text": "Podrías haber avisado a alguien antes.",
+            "tone": "frio",
+            "approve": {
+              "pip": -5
+            },
+            "goto": "p_cold"
+          }
+        ]
+      },
+      "p_brave": {
+        "who": "pip",
+        "text": "«¿Valiente? Fue un ataque de tontería. Pero gracias. Suena mejor como lo cuentas tú.»",
+        "next": "p2"
+      },
+      "p_swim": {
+        "who": "pip",
+        "text": "«¡Por eso soy tan bueno! El miedo a ahogarte afina muchísimo la técnica.»",
+        "next": "p2"
+      },
+      "p_cold": {
+        "who": "pip",
+        "text": [
+          "«¿A quién? Holt cena con el capitán de la guardia los jueves. Los martes, con el juez.»",
+          "*Se tumba otra vez.*",
+          "«En Valdrecht, jef{e/a}, la justicia lleva abrigo bueno.»"
+        ],
+        "next": "p2"
+      },
+      "p2": {
+        "who": "pip",
+        "text": [
+          "«Lo que me preocupa es otra cosa.»",
+          "*Baja la voz.*",
+          "«Holt no trabaja solo. Tiene socios en Valdrecht, en el Gremio de Canteros. Gente que compra reliquias durn a puñados, sin preguntar de dónde salen. ¿Para qué querrá un gremio de canteros piedras viejas con espirales?»",
+          "*Se encoge de hombros.*",
+          "«No lo sé. Pero cuando lleguemos a Valdrecht, quiero saberlo.»"
+        ],
+        "do": [
+          "set:pip_story"
+        ],
+        "end": true
+      }
+    }
+  },
+  "camp_ilyra": {
+    "camp": {
+      "if": "party:ilyra",
+      "order": 4
+    },
+    "speaker": "Ilyra Sorendel",
+    "title": "Novicia de la Orden del Alba",
+    "portrait": "ilyra",
+    "start": "i0",
+    "nodes": {
+      "i0": {
+        "who": "ilyra",
+        "text": [
+          "*Ilyra está arrodillada junto al fuego, con el símbolo del alba entre las manos, pero no reza. Solo lo mira.*",
+          "«¿Te molesto si hablo? Cuando no hablo, pienso, y cuando pienso…»",
+          "*No termina la frase.*"
+        ],
+        "options": [
+          {
+            "text": "Habla. Te escucho.",
+            "tone": "amable",
+            "goto": "i1"
+          },
+          {
+            "text": "¿En qué piensas?",
+            "goto": "i1"
+          }
+        ]
+      },
+      "i1": {
+        "who": "ilyra",
+        "text": [
+          "«En Madre Aldwen. Me encontró en el bosque cuando tenía ocho años. Los elfos de los bosques viajamos mucho, y a veces alguien se queda atrás.»",
+          "*Sonríe un poco.*",
+          "«Ella me dio de comer, me enseñó vuestro idioma y me dejó dormir en el santuario. Nunca me preguntó si creía en Solenne. Dijo que ya lo averiguaría yo sola.»"
+        ],
+        "next": "i2"
+      },
+      "i2": {
+        "who": "ilyra",
+        "text": [
+          "«Entré en la Orden por ella. No por Solenne: por ella.»",
+          "*Lo dice como quien confiesa un robo.*",
+          "«¿Eso me hace una mala clériga?»"
+        ],
+        "options": [
+          {
+            "text": "Te hace una buena persona. Lo otro viene después, o no viene, y da igual.",
+            "tone": "amable",
+            "approve": {
+              "ilyra": 10
+            },
+            "goto": "i3"
+          },
+          {
+            "text": "Todos empezamos por alguien.",
+            "approve": {
+              "ilyra": 5
+            },
+            "goto": "i3"
+          },
+          {
+            "text": "Quizá sí. Quizá deberías pensarte si este es tu sitio.",
+            "tone": "frio",
+            "approve": {
+              "ilyra": -10
+            },
+            "goto": "i_cold"
+          },
+          {
+            "text": "Yo empecé por miedo. Tú, por amor. No sé cuál de los dos es peor.",
+            "if": "class:cleric | class:paladin",
+            "approve": {
+              "ilyra": 10
+            },
+            "goto": "i3"
+          }
+        ]
+      },
+      "i_cold": {
+        "who": "ilyra",
+        "text": [
+          "«…Ya me lo pienso. Todas las noches.»",
+          "*Aprieta el símbolo hasta que se le ponen blancos los nudillos.*"
+        ],
+        "do": [
+          "set:ilyra_story"
+        ],
+        "end": true
+      },
+      "i3": {
+        "who": "ilyra",
+        "text": [
+          "«Gracias.»",
+          "*Se cuelga el símbolo del cuello otra vez.*",
+          "«Mañana rezaré. Y si nadie contesta, por lo menos habré hablado con alguien.» *Te mira.* «Contigo, digo.»"
+        ],
+        "do": [
+          "set:ilyra_story"
+        ],
+        "end": true
+      }
+    }
+  },
+  "camp_odvar": {
+    "camp": {
+      "if": "party:odvar",
+      "order": 5
+    },
+    "speaker": "Maese Odvar Stonebrow",
+    "title": "Erudito de las piedras durn",
+    "portrait": "odvar",
+    "start": "o0",
+    "nodes": {
+      "o0": {
+        "who": "odvar",
+        "text": [
+          "*Odvar se acerca a la hoguera con un cuaderno, una pluma, una lupa y la expresión de los perros que piden comida.*",
+          "«¿Me permites una pequeña, pequeñísima observación científica de tu Marca? No te tocaré. Bueno, un poco. Con la lupa.»"
+        ],
+        "options": [
+          {
+            "text": "Adelante, Maese.",
+            "tone": "amable",
+            "approve": {
+              "odvar": 5
+            },
+            "goto": "o1"
+          },
+          {
+            "text": "Solo si me contáis lo que sabéis de verdad.",
+            "goto": "o1"
+          },
+          {
+            "text": "No.",
+            "tone": "frio",
+            "goto": "o_no"
+          }
+        ]
+      },
+      "o_no": {
+        "who": "odvar",
+        "text": [
+          "«¿No? ¿Ni un poquito?»",
+          "*Suspira.*",
+          "«Entonces te contaré mi teoría sin pruebas, que es como más me gusta, porque nadie puede llevarme la contraria.»"
+        ],
+        "next": "o2"
+      },
+      "o1": {
+        "who": "odvar",
+        "text": [
+          "*Odvar te examina el brazo con la lupa durante un rato muy largo, murmurando números. Huele a té y a tinta.*",
+          "«Fascinante. La veta no está sobre la piel: está en la piel. Y debajo. Granito de Durn-Kahl, grano fino, con inclusiones rojas.»",
+          "*Levanta la vista.*",
+          "«Es la misma piedra que la del toro. Exactamente la misma.»"
+        ],
+        "next": "o2"
+      },
+      "o2": {
+        "who": "odvar",
+        "text": [
+          "«Mi teoría es esta: los Durn no tallaron los toros. Los Durn se convirtieron en los toros. Cada guardián, al morir, se hacía piedra sobre su sello. Y la sangre de los que quedaron… pasó a los niños. Muy diluida. Mil años de diluirse.»",
+          "*Te señala con la pluma.*",
+          "«Tú eres lo que queda de un guardián durn, {nombre}. O de varios. Por eso el sello te llama: no sabe que han pasado mil años. Cree que vuelve uno de los suyos.»"
+        ],
+        "options": [
+          {
+            "text": "Eso es… mucho.",
+            "goto": "o3"
+          },
+          {
+            "text": "¿Y si os equivocáis?",
+            "goto": "o_wrong"
+          },
+          {
+            "text": "Pero los Durn eran altos y grises, con cuernos en el casco.",
+            "check": {
+              "skill": "history",
+              "dc": 13
+            },
+            "success": "o_hist",
+            "failure": "o3"
+          }
+        ]
+      },
+      "o_wrong": {
+        "who": "odvar",
+        "text": "«Me equivoco a menudo. Pero nunca en lo importante. Bueno, una vez. Lo de la cabra.»",
+        "next": "o3"
+      },
+      "o_hist": {
+        "who": "odvar",
+        "text": "«¡Exacto! ¡Y los toros son grandes, grises y con cuernos! ¡Lo has visto!» *Odvar casi se pone a bailar.*",
+        "do": [
+          "approve:odvar+5"
+        ],
+        "next": "o3"
+      },
+      "o3": {
+        "who": "odvar",
+        "text": [
+          "«Lo que no sé —y odio no saber, es lo que más odio después de las arañas— es qué le pasa a un guardián que cierra un sello con su sangre.»",
+          "*Cierra el cuaderno.*",
+          "«Alguien borró esa parte de todas las inscripciones que he visto. A martillazos. Y los Durn no borraban nada: eran unos acumuladores tremendos.»"
+        ],
+        "do": [
+          "set:odvar_story",
+          "set:odvar_seals"
+        ],
+        "end": true
+      }
+    }
+  },
+  "camp_marca": {
+    "camp": {
+      "if": "party>=3",
+      "order": 6
+    },
+    "speaker": "",
+    "title": "Junto a la hoguera",
+    "start": "m0",
+    "nodes": {
+      "m0": {
+        "text": "*Esa noche, junto al fuego, alguien saca el tema. Siempre acaba saliendo.*",
+        "say": [
+          {
+            "who": "pip",
+            "text": "«Yo digo que es una maldición. Las maldiciones siempre pican.»"
+          },
+          {
+            "who": "brenna",
+            "if": "party:pip",
+            "text": "«Tú dices muchas cosas.»"
+          },
+          {
+            "who": "brenna",
+            "if": "!party:pip",
+            "text": "«Mientras no te convierta en estatua, a mí me da igual lo que sea.»"
+          },
+          {
+            "who": "ilyra",
+            "text": "«Yo creo que es una promesa. Algo que alguien prometió hace mucho y que todavía no se ha cumplido.»"
+          },
+          {
+            "who": "odvar",
+            "text": "«Es granito de Durn-Kahl con inclusiones rojas. Lo he medido. Las promesas no tienen inclusiones.»",
+            "if": "party:ilyra"
+          },
+          {
+            "who": "odvar",
+            "if": "!party:ilyra",
+            "text": "«Es granito de Durn-Kahl con inclusiones rojas. Lo he medido. Las maldiciones, que yo sepa, no tienen inclusiones.»"
+          },
+          {
+            "who": "pip",
+            "if": "party:odvar",
+            "text": "«Las mías sí. Muchas.»"
+          }
+        ],
+        "next": "m1"
+      },
+      "m1": {
+        "text": "*Todos te miran.*",
+        "options": [
+          {
+            "text": "Creo que es una herencia. De alguien que no conocí.",
+            "tone": "amable",
+            "goto": "m2"
+          },
+          {
+            "text": "Creo que es una cadena.",
+            "tone": "frio",
+            "goto": "m2"
+          },
+          {
+            "text": "Creo que es lo que pasa por no lavarse el brazo.",
+            "tone": "sarcastico",
+            "approve": {
+              "pip": 2,
+              "brenna": 2
+            },
+            "goto": "m2_joke"
+          }
+        ]
+      },
+      "m2_joke": {
+        "text": [
+          {
+            "if": "party:pip",
+            "text": "*Pip se ríe tanto que se cae del tronco.*"
+          },
+          {
+            "if": "party:brenna",
+            "text": "*Hasta Brenna sonríe, aunque lo disimula mirando al fuego.*"
+          },
+          {
+            "if": "!party:pip & !party:brenna",
+            "text": "*Alguien se ríe por lo bajo. El fuego también parece reírse.*"
+          }
+        ],
+        "next": "m2"
+      },
+      "m2": {
+        "text": "*El fuego cruje. Nadie dice nada durante un rato. Luego, uno a uno, os vais a dormir. Tú tardas más que los demás. La Marca está tibia, como si alguien la hubiera tenido entre las manos.*",
+        "do": [
+          "set:marca_talk"
+        ],
+        "end": true
+      }
+    }
+  },
+  "camp_vispera": {
+    "camp": {
+      "if": "seal_key & !vorhan_dead & party>=2",
+      "order": 1
+    },
+    "speaker": "",
+    "title": "La víspera",
+    "start": "v0",
+    "nodes": {
+      "v0": {
+        "text": "*La última noche antes de bajar al túmulo. Nadie tiene hambre, pero todos coméis igual.*",
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«Mañana, bajo el toro. Si hay algo ahí abajo con espada, déjamelo a mí.»"
+          },
+          {
+            "who": "pip",
+            "text": "«Yo he hecho testamento. Te lo dejo todo, jef{e/a}. Bueno, las deudas.»"
+          },
+          {
+            "who": "ilyra",
+            "text": "«He rezado por todos. Por si acaso.»"
+          },
+          {
+            "who": "odvar",
+            "text": "«He repasado mis notas catorce veces. Quince. No sirve de nada, pero me calma.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Mañana bajamos juntos. Y subimos juntos.",
+            "tone": "amable",
+            "do": [
+              "approve:all+3"
+            ],
+            "goto": "v1"
+          },
+          {
+            "text": "Si alguien quiere irse, ahora es el momento.",
+            "tone": "frio",
+            "goto": "v_cold"
+          },
+          {
+            "text": "Si morimos todos, que conste que fue idea de Pip.",
+            "tone": "sarcastico",
+            "if": "party:pip",
+            "do": [
+              "approve:all+1"
+            ],
+            "goto": "v_joke"
+          }
+        ]
+      },
+      "v_cold": {
+        "text": "*Nadie se levanta.*",
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«Ni lo sueñes.»"
+          },
+          {
+            "who": "pip",
+            "text": "«Lo pensé. Luego pensé que me aburriría.»"
+          },
+          {
+            "who": "ilyra",
+            "text": "«Me quedo.»"
+          },
+          {
+            "who": "odvar",
+            "text": "«¿Y perderme el sello? Antes muerto. Bueno, no tan literal.»"
+          }
+        ],
+        "next": "v1"
+      },
+      "v_joke": {
+        "text": "*Pip se lleva la mano al pecho, ofendidísimo.*",
+        "say": [
+          {
+            "who": "pip",
+            "text": "«¡Protesto! Mi idea era quedarnos en la posada.»"
+          }
+        ],
+        "next": "v1"
+      },
+      "v1": {
+        "text": "*Os quedáis mirando el fuego hasta que se apaga. Nadie habla del sello. Todos pensáis en él.*",
+        "end": true
+      }
+    }
+  }
+}

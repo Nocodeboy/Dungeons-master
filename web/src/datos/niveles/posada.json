@@ -1,0 +1,830 @@
+{
+  "id": "posada",
+  "name": "Posada del Toro Dormido",
+  "place": "Merrowick, en las Marcas de Vharen",
+  "ambient": "inn",
+  "music": "posada",
+  "music_combat": "combate",
+  "ambience": "inn",
+  "floor": "wood",
+  "interior": {
+    "height": 3.4
+  },
+  "width": 11,
+  "height": 9,
+  "rows": [
+    "###########",
+    "#.oo=O=oOO#",
+    "#co......O#",
+    "#.o....o.O#",
+    "#.o.oo....#",
+    "#.o......O#",
+    "#.......o.#",
+    "#c........#",
+    "######.####"
+  ],
+  "spawns": {
+    "door": [
+      6,
+      7
+    ],
+    "default": [
+      6,
+      6
+    ]
+  },
+  "exits": [
+    {
+      "id": "door",
+      "cells": [
+        [
+          6,
+          8
+        ]
+      ],
+      "label": "Salir a Merrowick",
+      "to": "level:merrowick:inn"
+    }
+  ],
+  "props": [],
+  "objects": [
+    {
+      "id": "corwin",
+      "cell": [
+        1,
+        3
+      ],
+      "face": 90,
+      "name": "Corwin",
+      "title": "Posadero",
+      "requires": "e1_done",
+      "inn": true,
+      "visual": {
+        "model": "barbarian",
+        "species": "human",
+        "class": "fighter",
+        "skin": "#e0b090",
+        "hair": "#4a3020",
+        "cloth": "#7a3b2e"
+      },
+      "pronoun": "m",
+      "greet": [
+        "«Cama, cena y chimenea, dos piezas de oro por cabeza. Esta noche invita la casa: nos habéis salvado el pellejo.»"
+      ],
+      "talk": [
+        "«Los trasgos bajaron por el camino del este, el del bosque de Elderhal. Allí tienen su campamento los Zarpas Grises.»"
+      ],
+      "type": "npc"
+    },
+    {
+      "id": "pip",
+      "type": "npc",
+      "cell": [
+        9,
+        6
+      ],
+      "face": 270,
+      "name": "Pip Tallowmere",
+      "title": "Contrabandista",
+      "requires": "e1_done",
+      "companion": "pip",
+      "visual": {
+        "model": "rogue_hooded",
+        "species": "halfling",
+        "class": "rogue",
+        "skin": "#e2b48c",
+        "hair": "#8a5a2c",
+        "cloth": "#56663a",
+        "scale": 0.86
+      },
+      "pronoun": "m"
+    },
+    {
+      "id": "holt",
+      "type": "npc",
+      "cell": [
+        8,
+        5
+      ],
+      "face": 330,
+      "name": "Holt Varga",
+      "title": "Prestamista",
+      "requires": "e1_done",
+      "visual": {
+        "model": "rogue",
+        "species": "human",
+        "class": "merchant",
+        "skin": "#e4c2a2",
+        "hair": "#77716a",
+        "cloth": "#2c3646"
+      },
+      "pronoun": "m",
+      "hide_if": "holt_gone"
+    },
+    {
+      "id": "board",
+      "type": "board",
+      "cell": [
+        9,
+        5
+      ],
+      "name": "Tablón de la posada",
+      "requires": "e1_done",
+      "text": [
+        "«Se busca quien espante a los lobos de los pastos. Preguntad por la vieja Sedge.»",
+        "«Se ha perdido una cabra con cencerro. Responde a «Tormenta». No muerde. Casi nunca.»",
+        "«Por orden de la alcaldesa: nadie se acerque al toro del prado hasta nuevo aviso.»"
+      ],
+      "rot": 270
+    },
+    {
+      "id": "brenna_waiting",
+      "type": "npc",
+      "cell": [
+        3,
+        2
+      ],
+      "face": 250,
+      "name": "Brenna Halvard",
+      "requires": "brenna_waiting",
+      "companion": "brenna",
+      "visual": {
+        "model": "knight",
+        "species": "human",
+        "class": "fighter"
+      },
+      "pronoun": "f"
+    },
+    {
+      "id": "pip_waiting",
+      "type": "npc",
+      "cell": [
+        3,
+        3
+      ],
+      "face": 270,
+      "name": "Pip Tallowmere",
+      "requires": "pip_waiting",
+      "companion": "pip",
+      "visual": {
+        "model": "rogue_hooded",
+        "species": "halfling",
+        "class": "rogue",
+        "skin": "#e2b48c",
+        "hair": "#8a5a2c",
+        "cloth": "#56663a",
+        "scale": 0.86
+      },
+      "pronoun": "m"
+    },
+    {
+      "id": "ilyra_waiting",
+      "type": "npc",
+      "cell": [
+        3,
+        4
+      ],
+      "face": 290,
+      "name": "Ilyra Sorendel",
+      "requires": "ilyra_waiting",
+      "companion": "ilyra",
+      "visual": {
+        "model": "rogue",
+        "species": "elf",
+        "class": "cleric",
+        "recolor": "cleric"
+      },
+      "pronoun": "f"
+    },
+    {
+      "id": "odvar_waiting",
+      "type": "npc",
+      "cell": [
+        3,
+        5
+      ],
+      "face": 300,
+      "name": "Maese Odvar Stonebrow",
+      "requires": "odvar_waiting",
+      "companion": "odvar",
+      "visual": {
+        "model": "mage",
+        "species": "dwarf",
+        "class": "wizard",
+        "scale": 0.9
+      },
+      "pronoun": "m"
+    },
+    {
+      "id": "holt_mozo_1",
+      "cell": [
+        7,
+        6
+      ],
+      "face": 90,
+      "type": "npc",
+      "name": "Mozo de Holt",
+      "title": "Matón a sueldo",
+      "requires": "e1_done",
+      "hide_if": "holt_gone",
+      "visual": {
+        "model": "barbarian",
+        "species": "human",
+        "class": "fighter",
+        "skin": "#d6a882",
+        "hair": "#2e2620",
+        "cloth": "#3a3a40",
+        "scale": 1.08
+      },
+      "pronoun": "m",
+      "greet": [
+        "El mozo te mira de arriba abajo, cruza unos brazos como jamones y no dice nada.",
+        "Un gruñido. Los ojos no se le despegan del mediano de la mesa.",
+        "«El señor Varga está ocupado.»"
+      ]
+    },
+    {
+      "id": "holt_mozo_2",
+      "cell": [
+        9,
+        7
+      ],
+      "face": 210,
+      "type": "npc",
+      "name": "Mozo de Holt",
+      "title": "Matón a sueldo",
+      "requires": "e1_done",
+      "hide_if": "holt_gone",
+      "visual": {
+        "model": "barbarian",
+        "species": "human",
+        "class": "fighter",
+        "skin": "#d6a882",
+        "hair": "#2e2620",
+        "cloth": "#3a3a40",
+        "scale": 1.08
+      },
+      "pronoun": "m",
+      "greet": [
+        "El mozo te mira de arriba abajo, cruza unos brazos como jamones y no dice nada.",
+        "Un gruñido. Los ojos no se le despegan del mediano de la mesa.",
+        "«El señor Varga está ocupado.»"
+      ]
+    },
+    {
+      "id": "rooms",
+      "type": "inn",
+      "cell": [
+        9,
+        3
+      ],
+      "name": "Escalera a las habitaciones",
+      "text": [
+        "Una escalera de madera que cruje en cada peldaño sube a las habitaciones. Corwin cobra la noche abajo, en la barra."
+      ]
+    }
+  ],
+  "groups": [],
+  "triggers": [],
+  "lights": [
+    {
+      "cell": [
+        4,
+        4
+      ],
+      "offset": [
+        0.5,
+        0
+      ],
+      "height": 0.75,
+      "color": "#ffb664",
+      "range": 3,
+      "energy": 0.9
+    },
+    {
+      "cell": [
+        7,
+        3
+      ],
+      "height": 0.6,
+      "color": "#ffb664",
+      "range": 2.5,
+      "energy": 0.7
+    },
+    {
+      "cell": [
+        8,
+        6
+      ],
+      "height": 0.6,
+      "color": "#ffb664",
+      "range": 2.5,
+      "energy": 0.8
+    }
+  ],
+  "decor": [
+    {
+      "key": "hearth",
+      "cell": [
+        5,
+        1
+      ]
+    },
+    {
+      "key": "window",
+      "cell": [
+        2,
+        1
+      ],
+      "side": "n"
+    },
+    {
+      "key": "window",
+      "cell": [
+        9,
+        7
+      ],
+      "side": "e"
+    },
+    {
+      "key": "bar",
+      "cell": [
+        2,
+        2
+      ],
+      "to": [
+        2,
+        5
+      ]
+    },
+    {
+      "key": "bar_shelves",
+      "cell": [
+        1,
+        3
+      ],
+      "to": [
+        1,
+        5
+      ]
+    },
+    {
+      "key": "stairs_up",
+      "cell": [
+        9,
+        3
+      ],
+      "to": [
+        9,
+        1
+      ]
+    },
+    {
+      "key": "chandelier",
+      "cell": [
+        4,
+        4
+      ],
+      "offset": [
+        0.5,
+        0
+      ]
+    },
+    {
+      "key": "wall_lantern",
+      "cell": [
+        1,
+        5
+      ],
+      "side": "w"
+    },
+    {
+      "key": "wall_lantern",
+      "cell": [
+        9,
+        4
+      ],
+      "side": "e"
+    },
+    {
+      "key": "rug",
+      "cell": [
+        5,
+        2
+      ],
+      "size": [
+        1.5,
+        2.7
+      ],
+      "rot": 90
+    },
+    {
+      "key": "rug",
+      "cell": [
+        6,
+        7
+      ],
+      "size": [
+        1,
+        2
+      ],
+      "rot": 0,
+      "colors": [
+        "#2c3a4f",
+        "#9a7b3e",
+        "#5b1a17"
+      ]
+    },
+    {
+      "key": "woodpile",
+      "cell": [
+        3,
+        1
+      ]
+    },
+    {
+      "key": "q_bench",
+      "cell": [
+        2,
+        1
+      ],
+      "offset": [
+        0,
+        -0.12
+      ],
+      "rot": 0
+    },
+    {
+      "key": "q_workbench",
+      "cell": [
+        7,
+        1
+      ],
+      "offset": [
+        0.1,
+        -0.25
+      ],
+      "rot": 0,
+      "scale": 0.75
+    },
+    {
+      "key": "q_barrel_apples",
+      "cell": [
+        8,
+        1
+      ],
+      "offset": [
+        -0.2,
+        -0.2
+      ]
+    },
+    {
+      "key": "q_farmcrate_apple",
+      "cell": [
+        8,
+        1
+      ],
+      "offset": [
+        0.3,
+        -0.15
+      ],
+      "rot": 10
+    },
+    {
+      "key": "q_shelf",
+      "cell": [
+        8,
+        1
+      ],
+      "offset": [
+        0,
+        -0.4
+      ],
+      "y": 1.6,
+      "rot": 0
+    },
+    {
+      "key": "q_book",
+      "cell": [
+        8,
+        1
+      ],
+      "offset": [
+        -0.25,
+        -0.4
+      ],
+      "y": 1.97,
+      "rot": 10
+    },
+    {
+      "key": "q_potion",
+      "cell": [
+        8,
+        1
+      ],
+      "offset": [
+        0.2,
+        -0.4
+      ],
+      "y": 1.97
+    },
+    {
+      "key": "q_table",
+      "cell": [
+        4,
+        4
+      ],
+      "offset": [
+        0.5,
+        0
+      ],
+      "rot": 0
+    },
+    {
+      "key": "q_bench",
+      "cell": [
+        4,
+        4
+      ],
+      "offset": [
+        0.5,
+        -0.42
+      ],
+      "rot": 0,
+      "scale": 0.95
+    },
+    {
+      "key": "q_bench",
+      "cell": [
+        4,
+        4
+      ],
+      "offset": [
+        0.5,
+        0.42
+      ],
+      "rot": 180,
+      "scale": 0.95
+    },
+    {
+      "key": "q_candles3",
+      "cell": [
+        4,
+        4
+      ],
+      "offset": [
+        0.5,
+        0
+      ],
+      "on": "q_table"
+    },
+    {
+      "key": "q_mug",
+      "cell": [
+        4,
+        4
+      ],
+      "offset": [
+        0.1,
+        0.1
+      ],
+      "on": "q_table",
+      "rot": 40
+    },
+    {
+      "key": "q_mug",
+      "cell": [
+        4,
+        4
+      ],
+      "offset": [
+        0.9,
+        -0.12
+      ],
+      "on": "q_table",
+      "rot": 200
+    },
+    {
+      "key": "q_pot",
+      "cell": [
+        4,
+        4
+      ],
+      "offset": [
+        0.75,
+        0.12
+      ],
+      "on": "q_table",
+      "scale": 0.8
+    },
+    {
+      "key": "q_table",
+      "cell": [
+        7,
+        3
+      ],
+      "rot": 90,
+      "scale": [
+        0.55,
+        1,
+        0.8
+      ]
+    },
+    {
+      "key": "q_stool",
+      "cell": [
+        7,
+        3
+      ],
+      "offset": [
+        -0.42,
+        0
+      ],
+      "rot": 0
+    },
+    {
+      "key": "q_stool",
+      "cell": [
+        7,
+        3
+      ],
+      "offset": [
+        0.42,
+        0.05
+      ],
+      "rot": 30
+    },
+    {
+      "key": "candle",
+      "cell": [
+        7,
+        3
+      ],
+      "offset": [
+        0.05,
+        -0.08
+      ],
+      "on": "q_table"
+    },
+    {
+      "key": "q_mug",
+      "cell": [
+        7,
+        3
+      ],
+      "offset": [
+        -0.1,
+        0.12
+      ],
+      "on": "q_table",
+      "rot": 120
+    },
+    {
+      "key": "q_table",
+      "cell": [
+        8,
+        6
+      ],
+      "rot": 0,
+      "scale": [
+        0.55,
+        1,
+        0.8
+      ]
+    },
+    {
+      "key": "q_chair",
+      "cell": [
+        8,
+        6
+      ],
+      "offset": [
+        0.45,
+        0
+      ],
+      "rot": 270
+    },
+    {
+      "key": "candle",
+      "cell": [
+        8,
+        6
+      ],
+      "offset": [
+        -0.12,
+        -0.1
+      ],
+      "on": "q_table"
+    },
+    {
+      "key": "q_coins",
+      "cell": [
+        8,
+        6
+      ],
+      "offset": [
+        -0.15,
+        0.1
+      ],
+      "on": "q_table"
+    },
+    {
+      "key": "q_mug",
+      "cell": [
+        8,
+        6
+      ],
+      "offset": [
+        0.2,
+        0.08
+      ],
+      "on": "q_table",
+      "rot": 300
+    },
+    {
+      "key": "q_barrel_holder",
+      "cell": [
+        1,
+        2
+      ],
+      "offset": [
+        -0.1,
+        0
+      ],
+      "rot": 90
+    },
+    {
+      "key": "q_barrel",
+      "cell": [
+        1,
+        7
+      ],
+      "offset": [
+        -0.15,
+        -0.1
+      ]
+    },
+    {
+      "key": "q_barrel",
+      "cell": [
+        1,
+        7
+      ],
+      "offset": [
+        0.25,
+        0.25
+      ],
+      "rot": 40
+    },
+    {
+      "key": "q_crate",
+      "cell": [
+        1,
+        7
+      ],
+      "offset": [
+        0.3,
+        -0.25
+      ],
+      "rot": 15
+    },
+    {
+      "key": "sack",
+      "cell": [
+        2,
+        7
+      ],
+      "offset": [
+        -0.3,
+        0.3
+      ],
+      "rot": 70
+    },
+    {
+      "key": "q_barrel",
+      "cell": [
+        9,
+        2
+      ],
+      "offset": [
+        0.6,
+        -0.1
+      ],
+      "scale": 0.9
+    },
+    {
+      "key": "q_crate",
+      "cell": [
+        9,
+        1
+      ],
+      "offset": [
+        0.1,
+        0
+      ],
+      "rot": 20,
+      "scale": 0.85
+    }
+  ],
+  "animals": []
+}

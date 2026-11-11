@@ -1,0 +1,678 @@
+{
+  "id": "tumulo",
+  "name": "Túmulo de Durn-Kahl",
+  "place": "Bajo el toro de Merrowick",
+  "ambient": "crypt",
+  "music": "tumulo",
+  "music_combat": "tumulo",
+  "wall_height": 0.85,
+  "width": 31,
+  "height": 34,
+  "rows": [
+    "###############################",
+    "########===============########",
+    "######=============x=====######",
+    "######===P===========P===######",
+    "######=g===============g=######",
+    "######=g===============g=######",
+    "######======P=====P======######",
+    "######===================######",
+    "######=g=P===========P=g=######",
+    "######=====x====x========######",
+    "#######=================#######",
+    "###############o###############",
+    "###############=###############",
+    "##===#####===========##########",
+    "#=====###==P===O===P==#########",
+    "#=g===###=============#########",
+    "#==============o======#########",
+    "#==x==================#########",
+    "#=====###==P=======P==#########",
+    "#===g=####===========##########",
+    "#=====########===##############",
+    "##====########x==######=====###",
+    "##############===#####====x==##",
+    "##############===#####==g====##",
+    "##############===============##",
+    "##############===============##",
+    "##############==x#####=====g=##",
+    "##############===#####=x=====##",
+    "#############=====#####=====###",
+    "############=======############",
+    "############=P===P=############",
+    "############=======############",
+    "#############=====#############",
+    "###############=###############"
+  ],
+  "spawns": {
+    "entry": [
+      15,
+      31
+    ],
+    "default": [
+      15,
+      31
+    ]
+  },
+  "exits": [],
+  "props": [],
+  "objects": [
+    {
+      "id": "up",
+      "type": "stairs",
+      "cell": [
+        15,
+        33
+      ],
+      "name": "Escalera al prado",
+      "to": "level:merrowick:tumulo",
+      "text": [
+        "La escalera sube hacia la luz gris del prado de Merrowick."
+      ]
+    },
+    {
+      "id": "trap_1",
+      "type": "trap",
+      "cell": [
+        15,
+        25
+      ],
+      "name": "Placa de presión",
+      "hidden": {
+        "dc": 13
+      },
+      "dc_disarm": 13,
+      "damage": "2d4",
+      "dtype": "piercing",
+      "save": {
+        "ab": "dex",
+        "dc": 12
+      },
+      "desc": "Una losa un dedo más alta que las demás. En las paredes, agujeros del tamaño de un dardo."
+    },
+    {
+      "id": "trap_2",
+      "type": "trap",
+      "cell": [
+        15,
+        22
+      ],
+      "name": "Placa de las cuchillas",
+      "hidden": {
+        "dc": 14
+      },
+      "dc_disarm": 14,
+      "damage": "2d6",
+      "dtype": "slashing",
+      "save": {
+        "ab": "dex",
+        "dc": 13
+      },
+      "desc": "Una losa partida en cruz. Por las juntas asoma el filo de unas cuchillas oxidadas."
+    },
+    {
+      "id": "tumulo_inscription",
+      "type": "inspect",
+      "cell": [
+        15,
+        14
+      ],
+      "name": "Inscripción durn",
+      "stele": true
+    },
+    {
+      "id": "horn_socket",
+      "type": "inspect",
+      "cell": [
+        15,
+        16
+      ],
+      "name": "Pedestal con un hueco en espiral",
+      "socket": true
+    },
+    {
+      "id": "seal_1",
+      "type": "rune",
+      "cell": [
+        12,
+        17
+      ],
+      "name": "Losa del toro",
+      "symbol": "toro"
+    },
+    {
+      "id": "seal_2",
+      "type": "rune",
+      "cell": [
+        15,
+        18
+      ],
+      "name": "Losa del río",
+      "symbol": "rio"
+    },
+    {
+      "id": "seal_3",
+      "type": "rune",
+      "cell": [
+        18,
+        17
+      ],
+      "name": "Losa de la piedra",
+      "symbol": "piedra"
+    },
+    {
+      "id": "crypt_door",
+      "type": "door",
+      "cell": [
+        15,
+        11
+      ],
+      "name": "Puerta de la cripta",
+      "requires": "seals_solved",
+      "style": "stone",
+      "closed": "Una losa de granito con tres espirales. No se mueve."
+    },
+    {
+      "id": "seal",
+      "type": "seal",
+      "cell": [
+        15,
+        3
+      ],
+      "name": "El sello de Durn-Kahl",
+      "requires": "vorhan_dead"
+    },
+    {
+      "id": "crypt_chest",
+      "type": "chest",
+      "cell": [
+        19,
+        4
+      ],
+      "name": "Arcón de los guardianes",
+      "big": true,
+      "lock": {
+        "dc": 15
+      },
+      "loot": [
+        [
+          "gold",
+          45
+        ],
+        [
+          "coin_durn",
+          8
+        ],
+        [
+          "potion_greater_healing",
+          1
+        ],
+        [
+          "scroll_lesser_restoration",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "sarcophagus",
+      "type": "chest",
+      "cell": [
+        8,
+        6
+      ],
+      "name": "Sarcófago de un guardián",
+      "lock": {
+        "dc": 14
+      },
+      "loot": [
+        [
+          "gold",
+          38
+        ],
+        [
+          "coin_durn",
+          5
+        ],
+        [
+          "shield_p1",
+          1
+        ],
+        [
+          "potion_greater_healing",
+          1
+        ]
+      ]
+    },
+    {
+      "id": "patrol_bones",
+      "type": "cache",
+      "cell": [
+        2,
+        19
+      ],
+      "name": "Entre los huesos",
+      "hidden": {
+        "dc": 13
+      },
+      "loot": [
+        [
+          "gold",
+          11
+        ],
+        [
+          "potion_healing",
+          1
+        ]
+      ],
+      "found_text": "Bajo un montón de huesos, una bolsa de cuero podrida con monedas."
+    }
+  ],
+  "groups": [
+    {
+      "id": "crypt_patrol",
+      "name": "La patrulla de huesos",
+      "sight": 6,
+      "flag": "crypt_patrol_dead",
+      "enemies": [
+        {
+          "id": "skeleton",
+          "cell": [
+            3,
+            15
+          ],
+          "face": 90
+        },
+        {
+          "id": "skeleton_archer",
+          "cell": [
+            4,
+            18
+          ],
+          "face": 60
+        }
+      ],
+      "loot": [
+        [
+          "gold",
+          8
+        ]
+      ]
+    },
+    {
+      "id": "zombies",
+      "name": "Los que no descansan",
+      "sight": 5,
+      "flag": "zombies_dead",
+      "enemies": [
+        {
+          "id": "zombie",
+          "cell": [
+            25,
+            24
+          ],
+          "face": 270
+        },
+        {
+          "id": "zombie",
+          "cell": [
+            26,
+            26
+          ],
+          "face": 250
+        }
+      ],
+      "loot": [
+        [
+          "gold",
+          6
+        ]
+      ]
+    },
+    {
+      "id": "guardians",
+      "talk": true,
+      "name": "Vorhan y los guardianes de Durn-Kahl",
+      "sight": 8,
+      "flag": "vorhan_dead",
+      "enemies": [
+        {
+          "id": "wight",
+          "cell": [
+            15,
+            5
+          ],
+          "face": 180
+        },
+        {
+          "id": "skeleton",
+          "cell": [
+            13,
+            7
+          ],
+          "face": 180
+        },
+        {
+          "id": "skeleton",
+          "cell": [
+            17,
+            7
+          ],
+          "face": 180
+        },
+        {
+          "id": "skeleton_archer",
+          "cell": [
+            20,
+            6
+          ],
+          "face": 210
+        },
+        {
+          "id": "zombie",
+          "cell": [
+            10,
+            6
+          ],
+          "face": 150
+        }
+      ],
+      "loot": [
+        [
+          "gold",
+          20
+        ]
+      ]
+    }
+  ],
+  "triggers": [
+    {
+      "id": "enter",
+      "cells": [],
+      "once": true,
+      "on_load": true,
+      "spawn": "entry",
+      "text": [
+        "Los peldaños bajan más de lo que parece posible. Huele a piedra mojada y a algo dulzón, viejo.",
+        "Un pasillo de losas lleva al norte. Al fondo late una luz rojiza."
+      ]
+    },
+    {
+      "id": "seals_room",
+      "cells": [
+        [
+          12,
+          18
+        ],
+        [
+          13,
+          18
+        ],
+        [
+          14,
+          18
+        ],
+        [
+          15,
+          18
+        ],
+        [
+          16,
+          18
+        ],
+        [
+          17,
+          18
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          12,
+          19
+        ],
+        [
+          13,
+          19
+        ],
+        [
+          14,
+          19
+        ],
+        [
+          15,
+          19
+        ],
+        [
+          16,
+          19
+        ],
+        [
+          17,
+          19
+        ],
+        [
+          18,
+          19
+        ]
+      ],
+      "once": true
+    }
+  ],
+  "lights": [
+    {
+      "cell": [
+        15,
+        3
+      ],
+      "color": "#ff4a28",
+      "energy": 1.3,
+      "range": 5,
+      "height": 0.5
+    },
+    {
+      "cell": [
+        10,
+        4
+      ],
+      "color": "#ffb050",
+      "energy": 0.9,
+      "range": 3,
+      "height": 0.9
+    },
+    {
+      "cell": [
+        20,
+        4
+      ],
+      "color": "#ffb050",
+      "energy": 0.9,
+      "range": 3,
+      "height": 0.9
+    },
+    {
+      "cell": [
+        15,
+        15
+      ],
+      "color": "#ffb050",
+      "energy": 0.8,
+      "range": 3.5,
+      "height": 0.9
+    },
+    {
+      "cell": [
+        15,
+        29
+      ],
+      "color": "#ffb050",
+      "energy": 0.8,
+      "range": 3,
+      "height": 0.9
+    }
+  ],
+  "decor": [
+    {
+      "key": "candles",
+      "cell": [
+        10,
+        4
+      ],
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "key": "candles",
+      "cell": [
+        20,
+        4
+      ],
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "key": "candles",
+      "cell": [
+        14,
+        15
+      ],
+      "rot": 0,
+      "scale": 1,
+      "offset": [
+        -0.2,
+        0
+      ]
+    },
+    {
+      "key": "candles",
+      "cell": [
+        16,
+        15
+      ],
+      "rot": 0,
+      "scale": 1,
+      "offset": [
+        0.2,
+        0
+      ]
+    },
+    {
+      "key": "q_coins",
+      "cell": [
+        19,
+        4
+      ],
+      "rot": 0,
+      "scale": 1,
+      "offset": [
+        0.35,
+        0.2
+      ]
+    },
+    {
+      "key": "q_coins2",
+      "cell": [
+        8,
+        6
+      ],
+      "rot": 0,
+      "scale": 1,
+      "offset": [
+        0.3,
+        0.3
+      ]
+    },
+    {
+      "key": "q_vase_rubble",
+      "cell": [
+        8,
+        2
+      ],
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "key": "q_chain",
+      "cell": [
+        22,
+        7
+      ],
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "key": "skull",
+      "cell": [
+        13,
+        9
+      ],
+      "rot": 40,
+      "scale": 1
+    },
+    {
+      "key": "bones",
+      "cell": [
+        18,
+        9
+      ],
+      "rot": 100,
+      "scale": 1
+    },
+    {
+      "key": "ribcage",
+      "cell": [
+        3,
+        20
+      ],
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "key": "bones",
+      "cell": [
+        2,
+        19
+      ],
+      "rot": 200,
+      "scale": 1
+    },
+    {
+      "key": "skull",
+      "cell": [
+        25,
+        27
+      ],
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "key": "q_vase_s",
+      "cell": [
+        10,
+        14
+      ],
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "key": "q_vase_s",
+      "cell": [
+        20,
+        14
+      ],
+      "rot": 0,
+      "scale": 1
+    },
+    {
+      "key": "q_vase_rubble",
+      "cell": [
+        16,
+        31
+      ],
+      "rot": 0,
+      "scale": 1
+    }
+  ],
+  "animals": [],
+  "paint": []
+}

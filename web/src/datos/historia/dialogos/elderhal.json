@@ -1,0 +1,485 @@
+{
+  "sedge": {
+    "speaker": "La vieja Sedge",
+    "title": "Pastora",
+    "start": [
+      {
+        "if": "sedge_done & !sedge_rewarded",
+        "goto": "reward"
+      },
+      {
+        "if": "sedge_rewarded",
+        "goto": "after"
+      },
+      {
+        "if": "!sedge_quest",
+        "goto": "first"
+      },
+      {
+        "goto": "waiting"
+      }
+    ],
+    "nodes": {
+      "first": {
+        "text": [
+          "*Una anciana menuda, envuelta en tres chales, sentada en una piedra con el cayado entre las rodillas. Un perro pastor viejo dormita a sus pies y abre un ojo al verte.*",
+          "«¿Vienes a mirar a la vieja o a ayudarla? Si es a mirar, mira rápido, que se me enfrían los huesos.»"
+        ],
+        "options": [
+          {
+            "text": "A ayudar, si puedo.",
+            "tone": "amable",
+            "goto": "ask"
+          },
+          {
+            "text": "Depende de lo que pagues.",
+            "tone": "frio",
+            "goto": "pay"
+          },
+          {
+            "text": "A mirar. Pareces muy interesante.",
+            "tone": "sarcastico",
+            "goto": "look"
+          }
+        ]
+      },
+      "pay": {
+        "text": "«Pagar, pago poco. Pero pago bien. Siéntate.»",
+        "next": "ask"
+      },
+      "look": {
+        "text": "«Lo soy. Y tú pareces de {los/las} que se meten donde no les llaman. Bien. Siéntate.»",
+        "next": "ask"
+      },
+      "ask": {
+        "text": [
+          "«Los lobos. Bajan del bosque cada noche desde que se agrietó el toro y se llevan una oveja. Ya van seis. A este paso, en primavera esquilo al perro.»",
+          "*El perro suspira.*",
+          "«Vienen del estanque de Elderhal, donde beben. No los matéis si podéis evitarlo. El hambre no es maldad, y esos lobos no bajarían si no les pasara algo.»"
+        ],
+        "do": [
+          "set:sedge_quest"
+        ],
+        "options": [
+          {
+            "text": "Me ocuparé de ellos.",
+            "goto": "marca"
+          },
+          {
+            "text": "¿Y si no hay más remedio que matarlos?",
+            "goto": "kill_ok"
+          },
+          {
+            "text": "¿Has hablado alguna vez con los lobos?",
+            "if": "class:druid | class:ranger | bg:warden",
+            "goto": "circle"
+          }
+        ],
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«Lobos que bajan a un pueblo con perros. Eso no es normal.»",
+            "reply": "«No. No lo es. Por eso te lo pido a ti y no al perro.»"
+          }
+        ]
+      },
+      "kill_ok": {
+        "text": [
+          "«Entonces no habrá más remedio. Yo no soy quién para pedirte que te dejes morder.»",
+          "*Escupe al suelo.*",
+          "«Pero mira primero. Siempre mira primero.»"
+        ],
+        "next": "marca"
+      },
+      "circle": {
+        "text": [
+          "«Hablar no. Pero antes de que tú nacieras yo hablaba con cosas que ahora no me contestan.»",
+          "*Te mira con un ojo blanco y otro muy negro.*",
+          "«Del Círculo, sí. Del Brezo. No se lo digas a nadie, que me pedirán milagros.»"
+        ],
+        "next": "marca"
+      },
+      "marca": {
+        "text": [
+          "«Y ahora acércate. No, más. Quiero ver ese brazo que escondes.»",
+          "*Sedge te coge la muñeca con una mano que parece una raíz, te sube la manga y mira la veta gris un buen rato.*",
+          "«Ya la había visto antes.»",
+          "*Lo dice como quien dice que ha visto llover.*",
+          "«Hace treinta inviernos pasó por aquí una mujer con esa misma veta en el cuello. Iba hacia el norte, hacia los otros toros. No volvió.»"
+        ],
+        "do": [
+          "set:marca_sedge"
+        ],
+        "options": [
+          {
+            "text": "¿Cómo se llamaba?",
+            "goto": "name"
+          },
+          {
+            "text": "¿Los otros toros? ¿Cuántos hay?",
+            "goto": "bulls"
+          },
+          {
+            "text": "No quiero hablar de esto.",
+            "tone": "frio",
+            "goto": "noway"
+          }
+        ],
+        "say": [
+          {
+            "who": "ilyra",
+            "text": "«Treinta inviernos… ¿Y nadie fue a buscarla?»",
+            "reply": "«¿Quién iba a ir, niña? ¿Tú? Ni habías salido del cascarón.»"
+          },
+          {
+            "who": "odvar",
+            "text": "«¡Otra Marcada! Señora, necesito todos los detalles: altura, color de la veta, dirección exacta…»",
+            "reply": "«Señora tu abuela. Y la dirección exacta es “al norte”, que es donde está el norte.»"
+          }
+        ]
+      },
+      "name": {
+        "text": "«No me lo dijo. Yo no se lo pregunté. Tenía los ojos del color del río en invierno y prisa. Mucha prisa.»",
+        "next": "go"
+      },
+      "bulls": {
+        "text": "«Siete. Siete toros, siete sellos, siete guardianes. Lo sabe cualquiera que haya sido algo antes de ser vieja.»",
+        "next": "go"
+      },
+      "noway": {
+        "text": "«Tampoco quería ella. Por eso se fue sin decir nada.»",
+        "next": "go"
+      },
+      "go": {
+        "text": "«Anda, ve. Los lobos no se espantan solos, y tú tienes cosas peores que hacer después.»",
+        "end": true
+      },
+      "waiting": {
+        "text": "«¿Los lobos?»",
+        "options": [
+          {
+            "text": "Todavía no.",
+            "goto": "notyet"
+          },
+          {
+            "text": "Háblame otra vez de la mujer de la veta.",
+            "if": "marca_sedge",
+            "goto": "name"
+          },
+          {
+            "text": "Adiós, Sedge.",
+            "end": true
+          }
+        ]
+      },
+      "notyet": {
+        "text": "«Pues ya sabes dónde beben. Y cuanto más tardes, más gordos estarán. Con mis ovejas.»",
+        "end": true
+      },
+      "reward": {
+        "text": [
+          {
+            "if": "sedge_done=killed",
+            "text": "«Los mataste.» *No es una pregunta. Sedge se queda callada un rato, acariciando al perro.* «Bueno. Es lo que hay. Las ovejas te lo agradecen, y yo también, aunque me cueste.»"
+          },
+          {
+            "if": "sedge_done=scared",
+            "text": "«Dicen los mozos que los lobos se han ido monte adentro, corriendo como si les persiguiera el mismo Vesk.» *Se ríe con una risa de bisagra.* «Volverán cuando tengan hambre, pero no a mis pastos. No si los asustaste bien.»"
+          },
+          {
+            "if": "sedge_done=tamed",
+            "text": "«Me han dicho que los lobos se fueron mansos, como perros de vuelta a casa.» *Le enseñas uno de los collares trenzados con su piedrecita de espirales. A Sedge se le borra la sonrisa.* «Esto no es cosa de lobos. Es cosa de trasgos… y de algo que les habla a los trasgos. Esta piedra tiene la misma espiral que el toro.»"
+          },
+          {
+            "if": "!sedge_done=tamed & wolves_collars",
+            "text": "*Le hablas de los collares de cuero trasgo y de la piedrecita con espirales.* «Entonces no era hambre», murmura. «O no solo hambre.»"
+          },
+          "«Toma.»",
+          "*Te pone en la palma una piedra pequeña, un ágata pulida atada a un cordón.*",
+          "«Era de mi madre, y de la suya, y dicen que la encontró un durn. Mentira, seguramente. Pero da suerte. A mí me ha durado noventa años.»"
+        ],
+        "do": [
+          "give:stone_good_luck",
+          "set:sedge_rewarded"
+        ],
+        "options": [
+          {
+            "text": "Gracias, Sedge.",
+            "tone": "amable",
+            "end": true
+          },
+          {
+            "text": "No hace falta. Guárdala tú.",
+            "tone": "amable",
+            "goto": "refuse"
+          }
+        ]
+      },
+      "refuse": {
+        "text": "«¿Y para qué la quiero yo? A mi edad, la suerte que me queda cabe en un dedal. Llévatela, que te va a hacer más falta que a mí.»",
+        "end": true
+      },
+      "after": {
+        "text": "«¿Otra vez tú? Las ovejas están bien. El perro, gordo. Yo, vieja.»",
+        "options": [
+          {
+            "text": "Háblame otra vez de la mujer de la veta.",
+            "if": "marca_sedge",
+            "goto": "after_name"
+          },
+          {
+            "text": "Adiós, Sedge.",
+            "end": true
+          }
+        ]
+      },
+      "after_name": {
+        "text": [
+          "«Pesado eres, como todos los de tu sangre.»",
+          "*Se queda pensando.*",
+          "«Llevaba un broche. Ahora me acuerdo. Un toro de plata, pequeño, con los cuernos hacia delante. Como los que llevan los del Gremio de Canteros de Valdrecht.»"
+        ],
+        "do": [
+          "set:sedge_brooch"
+        ],
+        "end": true
+      }
+    }
+  },
+  "wolves": {
+    "speaker": "",
+    "title": "Los lobos del estanque",
+    "start": "approach",
+    "nodes": {
+      "approach": {
+        "text": [
+          "*Junto al estanque, tres lobos grises levantan la cabeza a la vez. Están en los huesos: se les marcan las costillas bajo el pelo apelmazado. Gruñen, pero no atacan todavía. Uno de ellos cojea de una pata delantera.*",
+          "*Al cuello llevan algo que no es de lobo: tiras de cuero trenzado con una piedrecita gris.*"
+        ],
+        "do": [
+          "set:wolves_collars"
+        ],
+        "say": [
+          {
+            "who": "ilyra",
+            "text": "«Están hambrientos. Y ese cojea…»"
+          },
+          {
+            "who": "brenna",
+            "text": "«Tres. Yo me quedo con dos.»"
+          },
+          {
+            "who": "pip",
+            "text": "«Yo opino que los lobos hambrientos son un problema de los lobos.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Atacar.",
+            "do": [
+              "battle:wolves"
+            ]
+          },
+          {
+            "text": "Gritarles y plantarles cara para que huyan.",
+            "check": {
+              "skill": "intimidation",
+              "dc": 13,
+              "easier": [
+                {
+                  "if": "party>=3",
+                  "dc": 12
+                }
+              ]
+            },
+            "success": "scared",
+            "failure": "stand"
+          },
+          {
+            "text": "Encender una tea y ahuyentarlos con fuego, como un cazador.",
+            "check": {
+              "skill": "survival",
+              "dc": 13,
+              "easier": [
+                {
+                  "if": "bg:warden",
+                  "dc": 10
+                }
+              ]
+            },
+            "success": "scared",
+            "failure": "stand"
+          },
+          {
+            "text": "Acercarte despacio, de lado y sin mirarles a los ojos.",
+            "check": {
+              "skill": "animal_handling",
+              "dc": 14,
+              "easier": [
+                {
+                  "if": "ysolde_tip",
+                  "dc": 11
+                },
+                {
+                  "if": "lineage:wood_elf | species:halfling",
+                  "dc": 11
+                }
+              ]
+            },
+            "success": "tamed",
+            "failure": "lunge"
+          },
+          {
+            "text": "Ofrecerles tus raciones de viaje.",
+            "if": "item:rations",
+            "do": [
+              "take:rations"
+            ],
+            "check": {
+              "skill": "animal_handling",
+              "dc": 11,
+              "easier": [
+                {
+                  "if": "ysolde_tip",
+                  "dc": 9
+                },
+                {
+                  "if": "lineage:wood_elf | species:halfling",
+                  "dc": 11
+                }
+              ]
+            },
+            "success": "tamed",
+            "failure": "lunge"
+          },
+          {
+            "text": "Hablarles en su idioma. O casi.",
+            "if": "class:druid | class:ranger",
+            "goto": "tamed"
+          },
+          {
+            "text": "Lanzar una llamarada al aire.",
+            "if": "class:wizard | class:sorcerer | class:warlock",
+            "special": "Magia",
+            "goto": "flare"
+          },
+          {
+            "text": "Rugirles más fuerte que ellos.",
+            "if": "class:barbarian",
+            "check": {
+              "skill": "intimidation",
+              "dc": 10
+            },
+            "success": "scared",
+            "failure": "stand"
+          },
+          {
+            "text": "Retroceder despacio y dejarlos en paz, por ahora.",
+            "goto": "back"
+          }
+        ]
+      },
+      "back": {
+        "text": "*Retrocedéis paso a paso, sin darles la espalda. Los lobos os siguen con la mirada hasta que los pinos os tapan.*",
+        "end": true
+      },
+      "flare": {
+        "text": "*Alzas la mano y una llamarada sube hacia las ramas con un rugido. Los lobos se encogen, gimen… y salen corriendo hacia lo hondo del bosque.*",
+        "next": "scared_end"
+      },
+      "scared": {
+        "text": "*Los lobos dudan, se miran entre ellos… y salen corriendo hacia lo hondo del bosque, con el rabo entre las patas. Tardarán en acercarse a nada que huela a persona.*",
+        "next": "scared_end"
+      },
+      "scared_end": {
+        "text": "*En el barro de la orilla quedan sus huellas, y un trozo de collar de cuero trenzado enganchado en una zarza.*",
+        "do": [
+          "decision:sedge_done=scared",
+          "leave:wolves"
+        ],
+        "end": true
+      },
+      "stand": {
+        "text": "*El lobo más grande enseña los dientes y se agacha. No se va a ir. Los otros dos se abren a los lados.*",
+        "options": [
+          {
+            "text": "¡A las armas!",
+            "do": [
+              "battle:wolves"
+            ]
+          }
+        ]
+      },
+      "lunge": {
+        "text": "*Das un paso de más. El lobo grande se lanza contra tu brazo y lo esquivas por un pelo. Ya no hay vuelta atrás.*",
+        "options": [
+          {
+            "text": "¡A las armas!",
+            "do": [
+              "battle:wolves"
+            ]
+          }
+        ]
+      },
+      "tamed": {
+        "text": [
+          "*Te agachas despacio. El lobo más viejo te huele la mano, con las orejas gachas, y al final se tumba. Los otros dos lo imitan.*",
+          "*De cerca ves los collares: tiras de cuero trasgo con una piedrecita gris tallada con espirales, que vibra un poco contra tus dedos, como un insecto atrapado.*"
+        ],
+        "options": [
+          {
+            "text": "Quitarles los collares.",
+            "goto": "release"
+          },
+          {
+            "text": "Mirarle la pata al que cojea.",
+            "check": {
+              "skill": "medicine",
+              "dc": 12
+            },
+            "success": "paw",
+            "failure": "paw_no"
+          },
+          {
+            "text": "Ilyra, ¿puedes mirarle la pata?",
+            "check": {
+              "skill": "medicine",
+              "dc": 10,
+              "who": "ilyra"
+            },
+            "success": "paw",
+            "failure": "paw_no"
+          }
+        ]
+      },
+      "paw": {
+        "text": "*Tiene clavado un diente de cepo trasgo, negro de mugre. Se lo sacas de un tirón y el lobo gime, se sacude… y te lame la muñeca, justo encima de la Marca.*",
+        "do": [
+          "approve:ilyra+5"
+        ],
+        "next": "release"
+      },
+      "paw_no": {
+        "text": "*El lobo retira la pata con un gruñido. No te deja tocarla. Al menos, no te ha mordido.*",
+        "next": "release"
+      },
+      "release": {
+        "text": [
+          "*Les quitas los collares uno a uno. Libres de ellos, los lobos se sacuden como si salieran del agua.*",
+          "*Te miran un momento. Luego se adentran en el bosque, hacia el norte, sin prisa, y no vuelven la cabeza.*"
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Esas piedrecitas tienen espirales durn! ¡Guárdame una, por lo que más quieras!»"
+          }
+        ],
+        "do": [
+          "decision:sedge_done=tamed",
+          "leave:wolves"
+        ],
+        "end": true
+      }
+    }
+  }
+}

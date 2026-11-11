@@ -1,0 +1,354 @@
+[
+  {
+    "id": "bp_deudas",
+    "where": [
+      "merrowick",
+      "elderhal"
+    ],
+    "lines": [
+      {
+        "who": "brenna",
+        "text": "Pip, ¿a cuánta gente de este valle le debes dinero?"
+      },
+      {
+        "who": "pip",
+        "text": "Define «deber»."
+      },
+      {
+        "who": "brenna",
+        "text": "Olvídalo."
+      }
+    ]
+  },
+  {
+    "id": "bp_espada",
+    "where": [
+      "elderhal"
+    ],
+    "lines": [
+      {
+        "who": "pip",
+        "text": "Brenna, esa espada tuya… ¿cuánto darían por ella en Valdrecht? Es por curiosidad."
+      },
+      {
+        "who": "brenna",
+        "text": "Lo mismo que por tus dedos, si la tocas."
+      },
+      {
+        "who": "pip",
+        "text": "Curiosidad satisfecha."
+      }
+    ]
+  },
+  {
+    "id": "bp_sigilo",
+    "where": [
+      "elderhal",
+      "tumulo",
+      "kesh"
+    ],
+    "lines": [
+      {
+        "who": "brenna",
+        "text": "¿Puedes andar sin hacer ruido con esas botas, mediano?"
+      },
+      {
+        "who": "pip",
+        "text": "Puedo andar sin hacer ruido descalzo, con botas y con una gallina en cada mano. Lo he hecho."
+      },
+      {
+        "who": "brenna",
+        "text": "No quiero saber por qué."
+      }
+    ]
+  },
+  {
+    "id": "bi_fe",
+    "where": [
+      "elderhal",
+      "kesh"
+    ],
+    "lines": [
+      {
+        "who": "ilyra",
+        "text": "Brenna, ¿tú rezas?"
+      },
+      {
+        "who": "brenna",
+        "text": "Antes de las batallas. A quien esté escuchando."
+      },
+      {
+        "who": "ilyra",
+        "text": "¿Y te contestan?"
+      },
+      {
+        "who": "brenna",
+        "text": "Sigo viva. Lo tomo como un sí."
+      }
+    ]
+  },
+  {
+    "id": "bi_cuidar",
+    "if": "e1_done",
+    "lines": [
+      {
+        "who": "brenna",
+        "text": "Ilyra, ponte detrás de mí cuando empiece el jaleo."
+      },
+      {
+        "who": "ilyra",
+        "text": "Si me pongo detrás de ti, no podré curarte."
+      },
+      {
+        "who": "brenna",
+        "text": "…Vale. Pero un poco detrás."
+      }
+    ]
+  },
+  {
+    "id": "bo_armadura",
+    "where": [
+      "kesh",
+      "tumulo",
+      "merrowick"
+    ],
+    "lines": [
+      {
+        "who": "odvar",
+        "text": "Brenna, querida, ¿sabías que la cota de malla se inventó por imitación de las escamas de piedra durn?"
+      },
+      {
+        "who": "brenna",
+        "text": "No."
+      },
+      {
+        "who": "odvar",
+        "text": "¿Quieres saber cómo?"
+      },
+      {
+        "who": "brenna",
+        "text": "No."
+      }
+    ]
+  },
+  {
+    "id": "bo_ritmo",
+    "where": [
+      "merrowick",
+      "elderhal",
+      "kesh"
+    ],
+    "lines": [
+      {
+        "who": "brenna",
+        "text": "Maese, ¿siempre camináis tan despacio?"
+      },
+      {
+        "who": "odvar",
+        "text": "Camino a la velocidad del pensamiento."
+      },
+      {
+        "who": "brenna",
+        "text": "Eso explica muchas cosas."
+      }
+    ]
+  },
+  {
+    "id": "pi_suerte",
+    "lines": [
+      {
+        "who": "pip",
+        "text": "Ilyra, ¿Solenne bendice a los apostadores?"
+      },
+      {
+        "who": "ilyra",
+        "text": "Solenne bendice a todos los que viven a la luz."
+      },
+      {
+        "who": "pip",
+        "text": "Yo vivo de noche, sobre todo."
+      },
+      {
+        "who": "ilyra",
+        "text": "Entonces rezaré el doble por ti."
+      }
+    ]
+  },
+  {
+    "id": "pi_disco",
+    "if": "disc_found & ilyra_faith",
+    "lines": [
+      {
+        "who": "pip",
+        "text": "Ese disco tuyo… ¿es de latón macizo?"
+      },
+      {
+        "who": "ilyra",
+        "text": "Pip."
+      },
+      {
+        "who": "pip",
+        "text": "¡Pregunto por amor al arte! A la orfebrería. Al latón."
+      }
+    ]
+  },
+  {
+    "id": "po_libros",
+    "where": [
+      "kesh",
+      "merrowick"
+    ],
+    "lines": [
+      {
+        "who": "pip",
+        "text": "Maese, ¿cuánto pesan vuestros cuadernos?"
+      },
+      {
+        "who": "odvar",
+        "text": "Treinta años de sabiduría no se pesan, jovencito."
+      },
+      {
+        "who": "pip",
+        "text": "Lo digo porque los llevo yo cuando os cansáis."
+      }
+    ]
+  },
+  {
+    "id": "po_cabra",
+    "if": "runes_solved",
+    "lines": [
+      {
+        "who": "pip",
+        "text": "Maese, lo de la cabra…"
+      },
+      {
+        "who": "odvar",
+        "text": "No era una cabra."
+      },
+      {
+        "who": "pip",
+        "text": "Ya, ya. Era un toro con barba."
+      },
+      {
+        "who": "odvar",
+        "text": "Sigo pensando que hay una cabra en alguna parte de esta historia."
+      }
+    ]
+  },
+  {
+    "id": "po_tumulo",
+    "where": [
+      "tumulo"
+    ],
+    "lines": [
+      {
+        "who": "pip",
+        "text": "Maese, ¿estos muertos llevan algo de valor?"
+      },
+      {
+        "who": "odvar",
+        "text": "¡Llevan historia!"
+      },
+      {
+        "who": "pip",
+        "text": "¿Y eso dónde se vende?"
+      }
+    ]
+  },
+  {
+    "id": "io_estrellas",
+    "where": [
+      "elderhal",
+      "kesh"
+    ],
+    "lines": [
+      {
+        "who": "ilyra",
+        "text": "Maese Odvar, ¿los Durn tenían dioses?"
+      },
+      {
+        "who": "odvar",
+        "text": "Tenían toros. Y acertijos. Y una paciencia infinita para las dos cosas."
+      },
+      {
+        "who": "ilyra",
+        "text": "Quizá eso también sea una forma de fe."
+      }
+    ]
+  },
+  {
+    "id": "io_tumulo",
+    "where": [
+      "tumulo"
+    ],
+    "lines": [
+      {
+        "who": "odvar",
+        "text": "Fíjate en las columnas, Ilyra: espirales, toros, espirales…"
+      },
+      {
+        "who": "ilyra",
+        "text": "Y ni una sola ventana. Aquí abajo nunca amanece."
+      },
+      {
+        "who": "odvar",
+        "text": "…No lo había pensado así. Ahora me da pena."
+      }
+    ]
+  },
+  {
+    "id": "todos_marca",
+    "if": "party>=4",
+    "lines": [
+      {
+        "who": "brenna",
+        "text": "¿Habéis notado que la Marca brilla más cuando nos acercamos al toro?"
+      },
+      {
+        "who": "pip",
+        "text": "Y cuando hay comida."
+      },
+      {
+        "who": "brenna",
+        "text": "Eso eres tú, Pip."
+      }
+    ]
+  },
+  {
+    "id": "solo_brenna_bosque",
+    "where": [
+      "elderhal"
+    ],
+    "lines": [
+      {
+        "who": "brenna",
+        "text": "No me gustan los bosques. Demasiados sitios donde esconder una flecha."
+      }
+    ]
+  },
+  {
+    "id": "solo_pip_kesh",
+    "where": [
+      "kesh"
+    ],
+    "lines": [
+      {
+        "who": "pip",
+        "text": "Un río, un puente roto y arañas gigantes. Esto es justo lo que le prometí a mi madre que nunca haría."
+      }
+    ]
+  },
+  {
+    "id": "solo_ilyra_santuario",
+    "where": [
+      "elderhal"
+    ],
+    "if": "ilyra_met",
+    "lines": [
+      {
+        "who": "ilyra",
+        "text": "Desde aquí todavía huele a humo. Madre Aldwen odiaba el humo."
+      }
+    ]
+  }
+]

@@ -1,0 +1,119 @@
+{
+  "_nota": "Triggers del nivel (clave nivel.id) y vueltas a un lugar (returns, al entrar de nuevo). narrate = momento del narrador con IA; lines = texto escrito (respaldo y hechos que la IA respeta).",
+  "triggers": {
+    "merrowick.arrive": {
+      "narrate": "arrive_merrowick",
+      "lines": [
+        "Merrowick, al caer la tarde. Humo de chimeneas, olor a lana mojada y, al fondo, el toro de piedra del prado.",
+        "Algo va mal: los perros ladran hacia el este y no hay nadie en la calle."
+      ],
+      "do": [
+        {
+          "say": "brenna",
+          "text": "Demasiado silencio para ser la hora de cenar."
+        }
+      ],
+      "tip": "explore"
+    },
+    "elderhal.enter": {
+      "narrate": "arrive_elderhal",
+      "lines": [
+        "El pinar de Elderhal huele a resina y a humo. Hay demasiado silencio para ser de día.",
+        {
+          "if": "sedge_quest & !sedge_done",
+          "text": "Hacia el norte brilla el agua de un estanque. Ahí bajan a beber los lobos de los que hablaba Sedge."
+        }
+      ],
+      "tip": "traps_area"
+    },
+    "elderhal.shrine": {
+      "if": "!shrine_goblins_dead & !ilyra_dead",
+      "lines": [
+        "Entre los pinos asoma un santuario de piedra blanca, ennegrecido por el fuego. Alguien ha tapiado la puerta desde dentro con bancos rotos, y unos trasgos la aporrean a hachazos.",
+        "Desde dentro llega una voz joven que reza en voz alta, sin parar, como quien se agarra a una cuerda."
+      ],
+      "do": [
+        "set:shrine_seen"
+      ]
+    },
+    "kesh.enter": {
+      "narrate": "arrive_kesh",
+      "lines": [
+        "El río baja de las colinas frío y deprisa, verde como el cristal viejo. Sobre él, lo que queda de un puente durn: tres arcos rotos, pilares cubiertos de espirales y, en la otra orilla, un toro de piedra caído de costado que aún mira al este.",
+        "Junto a las ruinas humea una hoguera. Alguien discute a gritos con una piedra."
+      ]
+    },
+    "tumulo.enter": {
+      "narrate": "arrive_tumulo",
+      "lines": [
+        "Los peldaños bajan más de lo que parece posible. Huele a piedra mojada y a algo dulzón, viejo.",
+        "La Marca te late en el brazo como un segundo corazón. Muy abajo, otro corazón, uno enorme, le contesta."
+      ],
+      "do": [
+        "set:tumulo_entered"
+      ]
+    },
+    "kesh.nest": {
+      "if": "!spiders_dead",
+      "lines": [
+        "Los juncos están cubiertos de una seda gris y pegajosa que brilla con la humedad. Huesos de conejo, de oveja… y algo más grande, envuelto como un fardo, cuelga de un sauce.",
+        "Entre las telarañas, algo grande se mueve sin hacer ruido.",
+        {
+          "if": "!odvar_satchel",
+          "text": "Colgada de una rama, a la vista de cualquiera que tenga ganas de morir, hay una cartera de cuero."
+        }
+      ],
+      "do": [
+        {
+          "say": "pip",
+          "text": "No. No, no, no. Odio esto."
+        }
+      ]
+    },
+    "tumulo.seals_room": {
+      "lines": [
+        "Una sala cuadrada, de techo bajo, con tres losas grandes en el suelo: un toro, un río y un monte, cada uno dentro de su espiral. Entre las tres, un pedestal con un hueco extraño.",
+        "Sobre las losas, una franja de inscripciones recorre el muro de lado a lado. Al fondo, una puerta de piedra sin tirador.",
+        {
+          "if": "kesh_verse",
+          "text": "Agua que pasa, piedra que queda, toro que vela. Las palabras de Kesh te vuelven solas a la cabeza."
+        }
+      ]
+    }
+  },
+  "returns": [
+    {
+      "id": "merrowick_after_camp",
+      "level": "merrowick",
+      "if": "camp_done & !tumulo_entered",
+      "lines": [
+        "Cuando volvéis a Merrowick, la gente se arremolina en el prado alrededor del toro. Sigue sangrando, más despacio. Pero la losa de su pedestal se ha desplazado un palmo, como empujada desde abajo.",
+        "Entre la piedra y la hierba asoma el primer peldaño de una escalera que nadie recordaba."
+      ]
+    },
+    {
+      "id": "merrowick_horn",
+      "level": "merrowick",
+      "if": "seal_key & !vorhan_dead",
+      "lines": [
+        "El cuerno de piedra pesa en la mochila. Al cruzar el prado, la grieta del toro brilla un instante, roja, como un ojo que se abre. La Marca te arde como nunca."
+      ]
+    },
+    {
+      "id": "elderhal_peace",
+      "level": "elderhal",
+      "if": "camp_done=peace",
+      "lines": [
+        "El bosque está distinto. Los Zarpas Grises se han ido, y con ellos el humo. Por primera vez en días se oye cantar a un pájaro."
+      ]
+    },
+    {
+      "id": "elderhal_after_assault",
+      "level": "elderhal",
+      "if": "camp_done=assault | camp_done=stealth",
+      "lines": [
+        "Los cuervos ya han encontrado el campamento. El bosque, poco a poco, vuelve a hacer ruido."
+      ]
+    }
+  ]
+}

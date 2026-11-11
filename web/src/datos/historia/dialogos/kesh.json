@@ -1,0 +1,681 @@
+{
+  "rune_1": {
+    "speaker": "",
+    "title": "Piedra rúnica de Kesh (la orilla)",
+    "start": [
+      {
+        "if": "runes_solved",
+        "goto": "solved"
+      },
+      {
+        "goto": "look"
+      }
+    ],
+    "nodes": {
+      "look": {
+        "text": [
+          "*Una piedra de la altura de un hombre, clavada en la orilla, con el pie dentro del agua. Las espirales de su cara están gastadas por el río.*",
+          {
+            "if": "kesh_r1=agua",
+            "text": "*Ahora muestra el glifo de la ola.*"
+          },
+          {
+            "if": "kesh_r1=monte",
+            "text": "*Ahora muestra el glifo de el monte.*"
+          },
+          {
+            "if": "kesh_r1=cuernos",
+            "text": "*Ahora muestra el glifo de los cuernos.*"
+          },
+          {
+            "if": "kesh_r1=ojo",
+            "text": "*Ahora muestra el glifo de el ojo.*"
+          },
+          {
+            "if": "kesh_r1=llama",
+            "text": "*Ahora muestra el glifo de la llama.*"
+          },
+          {
+            "if": "!kesh_r1",
+            "text": "*En su cara hay cinco glifos tallados alrededor de un eje: una ola, un monte, unos cuernos, un ojo y una llama. La piedra gira, pesada, si empujas.*"
+          },
+          {
+            "if": "kesh_read_1",
+            "text": "*El acertijo de la piedra dice:* «Corro y no tengo pies; me bebes y no me acabo; todo lo que baja de las colinas es mío.»"
+          },
+          {
+            "if": "!kesh_read_1",
+            "text": "*Las espirales se mueven bajo la mirada como el agua. Si dicen algo, lo dicen en durn antiguo.*"
+          }
+        ],
+        "options": [
+          {
+            "text": "Descifrar las runas.",
+            "if": "!kesh_read_1",
+            "check": {
+              "skill": "history",
+              "dc": 13
+            },
+            "success": "read",
+            "failure": "read_no"
+          },
+          {
+            "text": "Escuchar la magia que queda en la piedra.",
+            "if": "!kesh_read_1",
+            "check": {
+              "skill": "arcana",
+              "dc": 13
+            },
+            "success": "read",
+            "failure": "read_no"
+          },
+          {
+            "text": "Leer el durn antiguo: lo estudiaste en el Archivo.",
+            "if": "!kesh_read_1 & bg:sage",
+            "goto": "read"
+          },
+          {
+            "text": "Odvar, ¿qué dice esta?",
+            "if": "!kesh_read_1 & party:odvar",
+            "goto": "odvar_reads"
+          },
+          {
+            "text": "Poner la mano en la piedra.",
+            "if": "species:dwarf | species:gnome",
+            "once": true,
+            "goto": "feel"
+          },
+          {
+            "text": "Girar la piedra hasta la ola.",
+            "if": "kesh_r1!=agua",
+            "do": [
+              "set:kesh_r1=agua"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta el monte.",
+            "if": "kesh_r1!=monte",
+            "do": [
+              "set:kesh_r1=monte"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta los cuernos.",
+            "if": "kesh_r1!=cuernos",
+            "do": [
+              "set:kesh_r1=cuernos"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta el ojo.",
+            "if": "kesh_r1!=ojo",
+            "do": [
+              "set:kesh_r1=ojo"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta la llama.",
+            "if": "kesh_r1!=llama",
+            "do": [
+              "set:kesh_r1=llama"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Dejarla como está.",
+            "end": true
+          }
+        ]
+      },
+      "read": {
+        "text": [
+          "*Las espirales se ordenan bajo tu mirada como si alguien te las dictara al oído.*",
+          "*El acertijo dice:* «Corro y no tengo pies; me bebes y no me acabo; todo lo que baja de las colinas es mío.»"
+        ],
+        "do": [
+          "set:kesh_read_1"
+        ],
+        "optionsFrom": "look"
+      },
+      "read_no": {
+        "text": "*Espirales dentro de espirales. Cuanto más miras, menos ves. Te duelen los ojos.*",
+        "optionsFrom": "look"
+      },
+      "odvar_reads": {
+        "who": "odvar",
+        "text": [
+          "*Odvar se acerca tanto a la piedra que le roza la nariz.*",
+          "«Esta dice: Corro y no tengo pies; me bebes y no me acabo; todo lo que baja de las colinas es mío.» *Se aparta, satisfecho.* «Evidente. Bueno, evidente para mí.»"
+        ],
+        "do": [
+          "set:kesh_read_1"
+        ],
+        "optionsFrom": "look"
+      },
+      "feel": {
+        "text": "*Pones la palma en la piedra y, dentro, notas el río: corriendo, frío, como si la piedra lo recordara.*",
+        "optionsFrom": "look"
+      },
+      "turned": {
+        "text": "*La piedra gira sobre su eje con un rechinar de molino viejo y se detiene con un golpe sordo.*",
+        "redirect": [
+          {
+            "if": "kesh_r1=agua & kesh_r2=monte & kesh_r3=cuernos",
+            "goto": "solve"
+          },
+          {
+            "if": "kesh_r1 & kesh_r2 & kesh_r3",
+            "goto": "wrong"
+          }
+        ],
+        "end": true
+      },
+      "wrong": {
+        "text": [
+          "*Las tres piedras zumban a la vez, un zumbido grave que se te mete en los dientes… y se apagan.*",
+          {
+            "if": "(kesh_r1=agua & kesh_r2=monte) | (kesh_r1=agua & kesh_r3=cuernos) | (kesh_r2=monte & kesh_r3=cuernos)",
+            "text": "*Dos de ellas se quedan tibias bajo la mano. La otra, fría como el río.*"
+          },
+          {
+            "if": "!((kesh_r1=agua & kesh_r2=monte) | (kesh_r1=agua & kesh_r3=cuernos) | (kesh_r2=monte & kesh_r3=cuernos)) & (kesh_r1=agua | kesh_r2=monte | kesh_r3=cuernos)",
+            "text": "*Solo una de ellas se queda tibia. Las otras dos, frías como el río.*"
+          },
+          {
+            "if": "!kesh_r1=agua & !kesh_r2=monte & !kesh_r3=cuernos",
+            "text": "*Las tres se quedan frías como el río.*"
+          }
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡No, no, no! ¡Así no! Bueno, así casi. Casi es mucho, en arqueología.»"
+          }
+        ],
+        "end": true
+      },
+      "solve": {
+        "text": [
+          "*Las tres piedras zumban a la vez, un zumbido grave que se te mete en los dientes. Las espirales se encienden con una luz gris, como de amanecer nublado, y corren de una piedra a otra por debajo del agua.*",
+          "*Al pie del puente, una losa del tamaño de una puerta se hunde en el suelo con un suspiro de mil años.*",
+          "*Agua que pasa, piedra que queda, toro que vela.*"
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Agua que pasa, piedra que queda, toro que vela! ¡LO SABÍA! Bueno, lo sabíais vosotros. ¡Pero yo lo sabía antes!»"
+          }
+        ],
+        "do": [
+          "set:runes_solved",
+          "set:kesh_verse",
+          "object:kesh_door=open",
+          "refresh"
+        ],
+        "end": true
+      },
+      "solved": {
+        "text": "*La piedra está quieta y tibia. La puerta del puente sigue abierta.*",
+        "end": true
+      }
+    }
+  },
+  "rune_2": {
+    "speaker": "",
+    "title": "Piedra rúnica de Kesh (el puente)",
+    "start": [
+      {
+        "if": "runes_solved",
+        "goto": "solved"
+      },
+      {
+        "goto": "look"
+      }
+    ],
+    "nodes": {
+      "look": {
+        "text": [
+          "*La piedra del puente, encajada en el arranque del primer arco. Una grieta la cruza de arriba abajo, y aun así aguanta el peso de todo lo que queda en pie.*",
+          {
+            "if": "kesh_r2=agua",
+            "text": "*Ahora muestra el glifo de la ola.*"
+          },
+          {
+            "if": "kesh_r2=monte",
+            "text": "*Ahora muestra el glifo de el monte.*"
+          },
+          {
+            "if": "kesh_r2=cuernos",
+            "text": "*Ahora muestra el glifo de los cuernos.*"
+          },
+          {
+            "if": "kesh_r2=ojo",
+            "text": "*Ahora muestra el glifo de el ojo.*"
+          },
+          {
+            "if": "kesh_r2=llama",
+            "text": "*Ahora muestra el glifo de la llama.*"
+          },
+          {
+            "if": "!kesh_r2",
+            "text": "*En su cara hay cinco glifos tallados alrededor de un eje: una ola, un monte, unos cuernos, un ojo y una llama. La piedra gira, pesada, si empujas.*"
+          },
+          {
+            "if": "kesh_read_2",
+            "text": "*El acertijo de la piedra dice:* «No duermo, no como, no muero. Os sostengo a todos y nadie me da las gracias.»"
+          },
+          {
+            "if": "!kesh_read_2",
+            "text": "*Las espirales se mueven bajo la mirada como el agua. Si dicen algo, lo dicen en durn antiguo.*"
+          }
+        ],
+        "options": [
+          {
+            "text": "Descifrar las runas.",
+            "if": "!kesh_read_2",
+            "check": {
+              "skill": "history",
+              "dc": 13
+            },
+            "success": "read",
+            "failure": "read_no"
+          },
+          {
+            "text": "Escuchar la magia que queda en la piedra.",
+            "if": "!kesh_read_2",
+            "check": {
+              "skill": "arcana",
+              "dc": 13
+            },
+            "success": "read",
+            "failure": "read_no"
+          },
+          {
+            "text": "Leer el durn antiguo: lo estudiaste en el Archivo.",
+            "if": "!kesh_read_2 & bg:sage",
+            "goto": "read"
+          },
+          {
+            "text": "Odvar, ¿qué dice esta?",
+            "if": "!kesh_read_2 & party:odvar",
+            "goto": "odvar_reads"
+          },
+          {
+            "text": "Poner la mano en la piedra.",
+            "if": "species:dwarf | species:gnome",
+            "once": true,
+            "goto": "feel"
+          },
+          {
+            "text": "Girar la piedra hasta la ola.",
+            "if": "kesh_r2!=agua",
+            "do": [
+              "set:kesh_r2=agua"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta el monte.",
+            "if": "kesh_r2!=monte",
+            "do": [
+              "set:kesh_r2=monte"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta los cuernos.",
+            "if": "kesh_r2!=cuernos",
+            "do": [
+              "set:kesh_r2=cuernos"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta el ojo.",
+            "if": "kesh_r2!=ojo",
+            "do": [
+              "set:kesh_r2=ojo"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta la llama.",
+            "if": "kesh_r2!=llama",
+            "do": [
+              "set:kesh_r2=llama"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Dejarla como está.",
+            "end": true
+          }
+        ]
+      },
+      "read": {
+        "text": [
+          "*Las espirales se ordenan bajo tu mirada como si alguien te las dictara al oído.*",
+          "*El acertijo dice:* «No duermo, no como, no muero. Os sostengo a todos y nadie me da las gracias.»"
+        ],
+        "do": [
+          "set:kesh_read_2"
+        ],
+        "optionsFrom": "look"
+      },
+      "read_no": {
+        "text": "*Espirales dentro de espirales. Cuanto más miras, menos ves. Te duelen los ojos.*",
+        "optionsFrom": "look"
+      },
+      "odvar_reads": {
+        "who": "odvar",
+        "text": [
+          "*Odvar se acerca tanto a la piedra que le roza la nariz.*",
+          "«Esta dice: No duermo, no como, no muero. Os sostengo a todos y nadie me da las gracias.» *Se aparta, satisfecho.* «Evidente. Bueno, evidente para mí.»"
+        ],
+        "do": [
+          "set:kesh_read_2"
+        ],
+        "optionsFrom": "look"
+      },
+      "feel": {
+        "text": "*La piedra no tiembla, no vibra, no recuerda nada: solo aguanta. Es la piedra más piedra que has tocado nunca.*",
+        "optionsFrom": "look"
+      },
+      "turned": {
+        "text": "*La piedra gira sobre su eje con un rechinar de molino viejo y se detiene con un golpe sordo.*",
+        "redirect": [
+          {
+            "if": "kesh_r1=agua & kesh_r2=monte & kesh_r3=cuernos",
+            "goto": "solve"
+          },
+          {
+            "if": "kesh_r1 & kesh_r2 & kesh_r3",
+            "goto": "wrong"
+          }
+        ],
+        "end": true
+      },
+      "wrong": {
+        "text": [
+          "*Las tres piedras zumban a la vez, un zumbido grave que se te mete en los dientes… y se apagan.*",
+          {
+            "if": "(kesh_r1=agua & kesh_r2=monte) | (kesh_r1=agua & kesh_r3=cuernos) | (kesh_r2=monte & kesh_r3=cuernos)",
+            "text": "*Dos de ellas se quedan tibias bajo la mano. La otra, fría como el río.*"
+          },
+          {
+            "if": "!((kesh_r1=agua & kesh_r2=monte) | (kesh_r1=agua & kesh_r3=cuernos) | (kesh_r2=monte & kesh_r3=cuernos)) & (kesh_r1=agua | kesh_r2=monte | kesh_r3=cuernos)",
+            "text": "*Solo una de ellas se queda tibia. Las otras dos, frías como el río.*"
+          },
+          {
+            "if": "!kesh_r1=agua & !kesh_r2=monte & !kesh_r3=cuernos",
+            "text": "*Las tres se quedan frías como el río.*"
+          }
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡No, no, no! ¡Así no! Bueno, así casi. Casi es mucho, en arqueología.»"
+          }
+        ],
+        "end": true
+      },
+      "solve": {
+        "text": [
+          "*Las tres piedras zumban a la vez, un zumbido grave que se te mete en los dientes. Las espirales se encienden con una luz gris, como de amanecer nublado, y corren de una piedra a otra por debajo del agua.*",
+          "*Al pie del puente, una losa del tamaño de una puerta se hunde en el suelo con un suspiro de mil años.*",
+          "*Agua que pasa, piedra que queda, toro que vela.*"
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Agua que pasa, piedra que queda, toro que vela! ¡LO SABÍA! Bueno, lo sabíais vosotros. ¡Pero yo lo sabía antes!»"
+          }
+        ],
+        "do": [
+          "set:runes_solved",
+          "set:kesh_verse",
+          "object:kesh_door=open",
+          "refresh"
+        ],
+        "end": true
+      },
+      "solved": {
+        "text": "*La piedra está quieta y tibia. La puerta del puente sigue abierta.*",
+        "end": true
+      }
+    }
+  },
+  "rune_3": {
+    "speaker": "",
+    "title": "Piedra rúnica de Kesh (la otra orilla)",
+    "start": [
+      {
+        "if": "runes_solved",
+        "goto": "solved"
+      },
+      {
+        "goto": "look"
+      }
+    ],
+    "nodes": {
+      "look": {
+        "text": [
+          "*La piedra de la otra orilla, junto al toro caído, cubierta de líquenes amarillos. La cabeza de piedra del toro, a un paso, mira al este con un ojo ciego.*",
+          {
+            "if": "kesh_r3=agua",
+            "text": "*Ahora muestra el glifo de la ola.*"
+          },
+          {
+            "if": "kesh_r3=monte",
+            "text": "*Ahora muestra el glifo de el monte.*"
+          },
+          {
+            "if": "kesh_r3=cuernos",
+            "text": "*Ahora muestra el glifo de los cuernos.*"
+          },
+          {
+            "if": "kesh_r3=ojo",
+            "text": "*Ahora muestra el glifo de el ojo.*"
+          },
+          {
+            "if": "kesh_r3=llama",
+            "text": "*Ahora muestra el glifo de la llama.*"
+          },
+          {
+            "if": "!kesh_r3",
+            "text": "*En su cara hay cinco glifos tallados alrededor de un eje: una ola, un monte, unos cuernos, un ojo y una llama. La piedra gira, pesada, si empujas.*"
+          },
+          {
+            "if": "kesh_read_3",
+            "text": "*El acertijo de la piedra dice:* «Tengo cuernos y no embisto; tengo ojos y no parpadeo; mil años miro a las colinas.»"
+          },
+          {
+            "if": "!kesh_read_3 & odvar_goat",
+            "text": "*Según Maese Odvar, dice algo así como:* «Tengo cuernos y no embisto; tengo barbas y no me afeito…» *Y él jura que es una cabra.*"
+          },
+          {
+            "if": "!kesh_read_3 & !odvar_goat",
+            "text": "*Las espirales se mueven bajo la mirada como el agua. Si dicen algo, lo dicen en durn antiguo.*"
+          }
+        ],
+        "options": [
+          {
+            "text": "Descifrar las runas.",
+            "if": "!kesh_read_3",
+            "check": {
+              "skill": "history",
+              "dc": 13
+            },
+            "success": "read",
+            "failure": "read_no"
+          },
+          {
+            "text": "Escuchar la magia que queda en la piedra.",
+            "if": "!kesh_read_3",
+            "check": {
+              "skill": "arcana",
+              "dc": 13
+            },
+            "success": "read",
+            "failure": "read_no"
+          },
+          {
+            "text": "Leer el durn antiguo: lo estudiaste en el Archivo.",
+            "if": "!kesh_read_3 & bg:sage",
+            "goto": "read"
+          },
+          {
+            "text": "Odvar, ¿qué dice esta?",
+            "if": "!kesh_read_3 & party:odvar",
+            "goto": "odvar_reads"
+          },
+          {
+            "text": "Poner la mano en la piedra.",
+            "if": "species:dwarf | species:gnome",
+            "once": true,
+            "goto": "feel"
+          },
+          {
+            "text": "Girar la piedra hasta la ola.",
+            "if": "kesh_r3!=agua",
+            "do": [
+              "set:kesh_r3=agua"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta el monte.",
+            "if": "kesh_r3!=monte",
+            "do": [
+              "set:kesh_r3=monte"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta los cuernos.",
+            "if": "kesh_r3!=cuernos",
+            "do": [
+              "set:kesh_r3=cuernos"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta el ojo.",
+            "if": "kesh_r3!=ojo",
+            "do": [
+              "set:kesh_r3=ojo"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Girar la piedra hasta la llama.",
+            "if": "kesh_r3!=llama",
+            "do": [
+              "set:kesh_r3=llama"
+            ],
+            "goto": "turned"
+          },
+          {
+            "text": "Dejarla como está.",
+            "end": true
+          }
+        ]
+      },
+      "read": {
+        "text": [
+          "*Las espirales se ordenan bajo tu mirada como si alguien te las dictara al oído.*",
+          "*El acertijo dice:* «Tengo cuernos y no embisto; tengo ojos y no parpadeo; mil años miro a las colinas.»"
+        ],
+        "do": [
+          "set:kesh_read_3"
+        ],
+        "optionsFrom": "look"
+      },
+      "read_no": {
+        "text": "*Espirales dentro de espirales. Cuanto más miras, menos ves. Te duelen los ojos.*",
+        "optionsFrom": "look"
+      },
+      "odvar_reads": {
+        "who": "odvar",
+        "text": [
+          "*Odvar se acerca tanto a la piedra que le roza la nariz.*",
+          "«Esta dice: Tengo cuernos y no embisto; tengo ojos y no parpadeo; mil años miro a las colinas.» *Se aparta, satisfecho.* «Sigo pensando que es una cabra. Pero es una cabra con mucha historia.»"
+        ],
+        "do": [
+          "set:kesh_read_3"
+        ],
+        "optionsFrom": "look"
+      },
+      "feel": {
+        "text": "*Bajo la mano, un latido lento y lejano. El mismo que oíste bajo el toro de Merrowick.*",
+        "optionsFrom": "look"
+      },
+      "turned": {
+        "text": "*La piedra gira sobre su eje con un rechinar de molino viejo y se detiene con un golpe sordo.*",
+        "redirect": [
+          {
+            "if": "kesh_r1=agua & kesh_r2=monte & kesh_r3=cuernos",
+            "goto": "solve"
+          },
+          {
+            "if": "kesh_r1 & kesh_r2 & kesh_r3",
+            "goto": "wrong"
+          }
+        ],
+        "end": true
+      },
+      "wrong": {
+        "text": [
+          "*Las tres piedras zumban a la vez, un zumbido grave que se te mete en los dientes… y se apagan.*",
+          {
+            "if": "(kesh_r1=agua & kesh_r2=monte) | (kesh_r1=agua & kesh_r3=cuernos) | (kesh_r2=monte & kesh_r3=cuernos)",
+            "text": "*Dos de ellas se quedan tibias bajo la mano. La otra, fría como el río.*"
+          },
+          {
+            "if": "!((kesh_r1=agua & kesh_r2=monte) | (kesh_r1=agua & kesh_r3=cuernos) | (kesh_r2=monte & kesh_r3=cuernos)) & (kesh_r1=agua | kesh_r2=monte | kesh_r3=cuernos)",
+            "text": "*Solo una de ellas se queda tibia. Las otras dos, frías como el río.*"
+          },
+          {
+            "if": "!kesh_r1=agua & !kesh_r2=monte & !kesh_r3=cuernos",
+            "text": "*Las tres se quedan frías como el río.*"
+          }
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡No, no, no! ¡Así no! Bueno, así casi. Casi es mucho, en arqueología.»"
+          }
+        ],
+        "end": true
+      },
+      "solve": {
+        "text": [
+          "*Las tres piedras zumban a la vez, un zumbido grave que se te mete en los dientes. Las espirales se encienden con una luz gris, como de amanecer nublado, y corren de una piedra a otra por debajo del agua.*",
+          "*Al pie del puente, una losa del tamaño de una puerta se hunde en el suelo con un suspiro de mil años.*",
+          "*Agua que pasa, piedra que queda, toro que vela.*"
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Agua que pasa, piedra que queda, toro que vela! ¡LO SABÍA! Bueno, lo sabíais vosotros. ¡Pero yo lo sabía antes!»"
+          }
+        ],
+        "do": [
+          "set:runes_solved",
+          "set:kesh_verse",
+          "object:kesh_door=open",
+          "refresh"
+        ],
+        "end": true
+      },
+      "solved": {
+        "text": "*La piedra está quieta y tibia. La puerta del puente sigue abierta.*",
+        "end": true
+      }
+    }
+  }
+}

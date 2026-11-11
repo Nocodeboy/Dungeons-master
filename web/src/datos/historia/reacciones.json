@@ -1,0 +1,368 @@
+{
+  "_nota": "Decisión (id=valor) -> reacciones de los compañeros. La aprobación se aplica siempre; la frase solo si está en el grupo. Tabla en docs/CAPITULO1.md §5.",
+  "pip_debt=paid": [
+    {
+      "who": "brenna",
+      "delta": -5,
+      "text": "«Cuarenta piezas de oro para un usurero. Qué noble. Qué caro.»"
+    },
+    {
+      "who": "pip",
+      "delta": 15
+    }
+  ],
+  "pip_debt=persuaded": [
+    {
+      "who": "brenna",
+      "delta": 5,
+      "text": "«Bien hablado. Ni un cobre ni una gota de sangre.»"
+    },
+    {
+      "who": "pip",
+      "delta": 10
+    }
+  ],
+  "pip_debt=intimidated": [
+    {
+      "who": "brenna",
+      "delta": 5,
+      "text": "«Ha sido un placer verle sudar.»"
+    },
+    {
+      "who": "pip",
+      "delta": 5
+    },
+    {
+      "who": "ilyra",
+      "delta": -5,
+      "text": "«No hacía falta asustarle tanto…»"
+    }
+  ],
+  "pip_debt=stolen": [
+    {
+      "who": "brenna",
+      "delta": -10,
+      "text": "«Robar es robar, aunque sea a una rata con abrigo bueno.»"
+    },
+    {
+      "who": "pip",
+      "delta": 20
+    },
+    {
+      "who": "ilyra",
+      "delta": -5,
+      "text": "«¿Le robamos? Supongo que… se lo había ganado. Aun así.»"
+    }
+  ],
+  "holt_exposed": [
+    {
+      "who": "brenna",
+      "delta": 10,
+      "text": "«Eso es justicia. De la buena, de la que no se ve en Valdrecht.»"
+    },
+    {
+      "who": "pip",
+      "delta": 5,
+      "text": "«¡Holt Varga en un calabozo! Me lo voy a pintar en un plato.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": 5,
+      "text": "«Que nadie más le dé espadas a quien quema santuarios.»"
+    },
+    {
+      "who": "odvar",
+      "delta": 5,
+      "text": "«¡Traficar con reliquias durn robadas! Barbarie con recibo.»"
+    }
+  ],
+  "sedge_done=killed": [
+    {
+      "who": "brenna",
+      "delta": 5,
+      "text": "«Problema resuelto. Las ovejas dormirán tranquilas.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": -5,
+      "text": "«Solo tenían hambre…»"
+    }
+  ],
+  "sedge_done=scared": [
+    {
+      "who": "pip",
+      "delta": 5,
+      "text": "«Sin sangre y sin trabajo extra. Así me gustan los problemas.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": 5,
+      "text": "«Gracias por no hacerles daño.»"
+    }
+  ],
+  "sedge_done=tamed": [
+    {
+      "who": "brenna",
+      "delta": 5,
+      "text": "«Vale. Eso ha sido impresionante. No te acostumbres a oírmelo.»"
+    },
+    {
+      "who": "pip",
+      "delta": 5,
+      "text": "«¿Eso funciona también con los acreedores? Pregunto por un amigo.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": 10,
+      "text": "«Solenne bendice a quien cura sin herir.»"
+    },
+    {
+      "who": "odvar",
+      "delta": 5,
+      "text": "«¡Fascinante! Doma por pura presencia. Lo anotaré… en cuanto tenga dónde.»"
+    }
+  ],
+  "ilyra_dead": [
+    {
+      "who": "brenna",
+      "delta": -15,
+      "text": "«La dejamos morir. Eso no se me va a olvidar, {nombre}.»"
+    },
+    {
+      "who": "pip",
+      "delta": -5,
+      "text": "«Mal día. Muy mal día.»"
+    }
+  ],
+  "ilyra_faith=renewed": [
+    {
+      "who": "brenna",
+      "delta": 5
+    },
+    {
+      "who": "ilyra",
+      "delta": 15
+    },
+    {
+      "who": "odvar",
+      "delta": 5
+    }
+  ],
+  "ilyra_faith=own_path": [
+    {
+      "who": "brenna",
+      "delta": 5,
+      "text": "«Eso me suena. Así empecé yo a dudar de los capitanes, y no me ha ido tan mal.»"
+    },
+    {
+      "who": "pip",
+      "delta": 5,
+      "text": "«A mí me parece la mejor fe que he visto: la que hace cosas.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": 10
+    }
+  ],
+  "ilyra_faith=broken": [
+    {
+      "who": "brenna",
+      "delta": -10,
+      "text": "«No hacía falta romperla así.»"
+    },
+    {
+      "who": "pip",
+      "delta": -5,
+      "text": "«Hasta yo sé cuándo callarme, jef{e/a}. Y eso es decir mucho.»"
+    },
+    {
+      "who": "odvar",
+      "delta": -5,
+      "text": "«Hay piedras que no se vuelven a pegar.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": -30
+    }
+  ],
+  "camp_done=assault": [
+    {
+      "who": "brenna",
+      "delta": 5,
+      "text": "«Así se hace. Ni uno volverá a bajar a Merrowick.»"
+    },
+    {
+      "who": "pip",
+      "delta": -5,
+      "text": "«Mucho riesgo para tan poco botín. Lo apunto en la lista de quejas.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": -5,
+      "text": "«Eran tantos… y algunos tan jóvenes.»"
+    }
+  ],
+  "camp_done=stealth": [
+    {
+      "who": "pip",
+      "delta": 15,
+      "if": "chief_alive",
+      "text": "«Entrar, salir y que nadie se entere. Arte puro, jef{e/a}.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": 5,
+      "if": "chief_alive",
+      "text": "«Sin una sola muerte. Gracias.»"
+    },
+    {
+      "who": "odvar",
+      "delta": 5,
+      "if": "chief_alive"
+    },
+    {
+      "who": "brenna",
+      "delta": -10,
+      "if": "!chief_alive",
+      "text": "«No me gusta degollar a nadie dormido. Aunque sea un trasgo.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": -15,
+      "if": "!chief_alive",
+      "text": "«Estaba indefenso…»"
+    },
+    {
+      "who": "odvar",
+      "delta": -5,
+      "if": "!chief_alive"
+    }
+  ],
+  "camp_done=peace": [
+    {
+      "who": "brenna",
+      "delta": -5,
+      "text": "«Los dejamos ir. Volverán. Esa gente siempre vuelve.»"
+    },
+    {
+      "who": "pip",
+      "delta": 5,
+      "text": "«Ni una flecha. Esto sí que es negociar.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": 10,
+      "text": "«Has salvado vidas que nadie habría llorado. Eso cuenta, {nombre}. Cuenta mucho.»"
+    },
+    {
+      "who": "odvar",
+      "delta": 5,
+      "text": "«Menos trasgos cerca de mis ruinas. Excelente resolución diplomática.»"
+    }
+  ],
+  "camp_tribute": [
+    {
+      "who": "brenna",
+      "delta": -10,
+      "text": "«¿Les pagamos? ¿A los que quemaron un santuario?»"
+    },
+    {
+      "who": "pip",
+      "delta": -5,
+      "text": "«Ese oro tenía mi nombre. Bueno, no lo tenía, pero podría haberlo tenido.»"
+    }
+  ],
+  "loot_shrine_box": [
+    {
+      "who": "ilyra",
+      "delta": -10,
+      "text": "«Eso era de los pobres.»"
+    },
+    {
+      "who": "pip",
+      "delta": 5,
+      "text": "«Los pobres no lo van a echar de menos: ya lo eran antes.»"
+    }
+  ],
+  "loot_crypt": [
+    {
+      "who": "ilyra",
+      "delta": -5,
+      "text": "«Son tumbas, {nombre}.»"
+    },
+    {
+      "who": "odvar",
+      "delta": -5,
+      "text": "«¡El contexto arqueológico! ¡Lo estáis desordenando todo!»"
+    },
+    {
+      "who": "pip",
+      "delta": 5,
+      "text": "«Los muertos no gastan.»"
+    }
+  ],
+  "pip_gloves": [
+    {
+      "who": "pip",
+      "delta": 10
+    }
+  ],
+  "seal_choice=restored": [
+    {
+      "who": "brenna",
+      "delta": 10,
+      "text": "«Has hecho lo que había que hacer. Ojalá no te hubiera tocado a ti.»"
+    },
+    {
+      "who": "pip",
+      "delta": -5,
+      "text": "«¿Te has atado a una piedra? Jef{e/a}, eso no se hace ni por una herencia.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": 10,
+      "if": "ilyra_faith=renewed",
+      "text": "«Solenne no te pidió esto… y aun así lo diste. Eso es fe, aunque no la llames así.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": 5,
+      "if": "ilyra_faith!=renewed",
+      "text": "«Has elegido cargar con ello por todos. No sé si es fe o terquedad. Quizá sean lo mismo.»"
+    },
+    {
+      "who": "odvar",
+      "delta": 15,
+      "text": "«¡No se rompe una obra maestra! Gracias. De verdad, gracias.»"
+    }
+  ],
+  "seal_choice=broken": [
+    {
+      "who": "brenna",
+      "delta": -5,
+      "text": "«Espero que sepas lo que has soltado.»"
+    },
+    {
+      "who": "pip",
+      "delta": 10,
+      "text": "«Libre. Eso sí que lo entiendo.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": -5,
+      "if": "ilyra_faith=renewed",
+      "text": "«Que Solenne nos guarde de lo que venga.»"
+    },
+    {
+      "who": "ilyra",
+      "delta": 5,
+      "if": "ilyra_faith!=renewed",
+      "text": "«Nadie debería pagar con su sangre las deudas de un pueblo muerto.»"
+    },
+    {
+      "who": "odvar",
+      "delta": -15,
+      "text": "«¡Mil años de ingeniería! ¡A pedazos! …Perdón. Es tu sangre, no la mía.»"
+    }
+  ]
+}

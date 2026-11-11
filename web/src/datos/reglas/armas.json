@@ -1,0 +1,488 @@
+{
+  "_fuente": "SRD 5.2.1 (CC-BY-4.0), tabla de armas. Rangos en pies.",
+  "club": {
+    "name": "Garrote",
+    "cat": "simple",
+    "kind": "melee",
+    "damage": "1d4",
+    "type": "bludgeoning",
+    "props": [
+      "light"
+    ],
+    "mastery": "slow",
+    "cost": 0.1,
+    "weight": 2
+  },
+  "dagger": {
+    "name": "Daga",
+    "cat": "simple",
+    "kind": "melee",
+    "damage": "1d4",
+    "type": "piercing",
+    "props": [
+      "finesse",
+      "light",
+      "thrown"
+    ],
+    "range": [
+      20,
+      60
+    ],
+    "mastery": "nick",
+    "cost": 2,
+    "weight": 1
+  },
+  "greatclub": {
+    "name": "Clava",
+    "cat": "simple",
+    "kind": "melee",
+    "damage": "1d8",
+    "type": "bludgeoning",
+    "props": [
+      "two_handed"
+    ],
+    "mastery": "push",
+    "cost": 0.2,
+    "weight": 10
+  },
+  "handaxe": {
+    "name": "Hacha de mano",
+    "cat": "simple",
+    "kind": "melee",
+    "damage": "1d6",
+    "type": "slashing",
+    "props": [
+      "light",
+      "thrown"
+    ],
+    "range": [
+      20,
+      60
+    ],
+    "mastery": "vex",
+    "cost": 5,
+    "weight": 2
+  },
+  "javelin": {
+    "name": "Jabalina",
+    "cat": "simple",
+    "kind": "melee",
+    "damage": "1d6",
+    "type": "piercing",
+    "props": [
+      "thrown"
+    ],
+    "range": [
+      30,
+      120
+    ],
+    "mastery": "slow",
+    "cost": 0.5,
+    "weight": 2
+  },
+  "light_hammer": {
+    "name": "Martillo ligero",
+    "cat": "simple",
+    "kind": "melee",
+    "damage": "1d4",
+    "type": "bludgeoning",
+    "props": [
+      "light",
+      "thrown"
+    ],
+    "range": [
+      20,
+      60
+    ],
+    "mastery": "nick",
+    "cost": 2,
+    "weight": 2
+  },
+  "mace": {
+    "name": "Maza",
+    "cat": "simple",
+    "kind": "melee",
+    "damage": "1d6",
+    "type": "bludgeoning",
+    "props": [],
+    "mastery": "sap",
+    "cost": 5,
+    "weight": 4
+  },
+  "quarterstaff": {
+    "name": "Bastón",
+    "cat": "simple",
+    "kind": "melee",
+    "damage": "1d6",
+    "type": "bludgeoning",
+    "props": [
+      "versatile"
+    ],
+    "versatile": "1d8",
+    "mastery": "topple",
+    "cost": 0.2,
+    "weight": 4
+  },
+  "sickle": {
+    "name": "Hoz",
+    "cat": "simple",
+    "kind": "melee",
+    "damage": "1d4",
+    "type": "slashing",
+    "props": [
+      "light"
+    ],
+    "mastery": "nick",
+    "cost": 1,
+    "weight": 2
+  },
+  "spear": {
+    "name": "Lanza",
+    "cat": "simple",
+    "kind": "melee",
+    "damage": "1d6",
+    "type": "piercing",
+    "props": [
+      "thrown",
+      "versatile"
+    ],
+    "range": [
+      20,
+      60
+    ],
+    "versatile": "1d8",
+    "mastery": "sap",
+    "cost": 1,
+    "weight": 3
+  },
+  "dart": {
+    "name": "Dardo",
+    "cat": "simple",
+    "kind": "ranged",
+    "damage": "1d4",
+    "type": "piercing",
+    "props": [
+      "finesse",
+      "thrown"
+    ],
+    "range": [
+      20,
+      60
+    ],
+    "mastery": "vex",
+    "cost": 0.05,
+    "weight": 0.25
+  },
+  "light_crossbow": {
+    "name": "Ballesta ligera",
+    "cat": "simple",
+    "kind": "ranged",
+    "damage": "1d8",
+    "type": "piercing",
+    "props": [
+      "ammunition",
+      "loading",
+      "two_handed"
+    ],
+    "range": [
+      80,
+      320
+    ],
+    "mastery": "slow",
+    "cost": 25,
+    "weight": 5
+  },
+  "shortbow": {
+    "name": "Arco corto",
+    "cat": "simple",
+    "kind": "ranged",
+    "damage": "1d6",
+    "type": "piercing",
+    "props": [
+      "ammunition",
+      "two_handed"
+    ],
+    "range": [
+      80,
+      320
+    ],
+    "mastery": "vex",
+    "cost": 25,
+    "weight": 2
+  },
+  "sling": {
+    "name": "Honda",
+    "cat": "simple",
+    "kind": "ranged",
+    "damage": "1d4",
+    "type": "bludgeoning",
+    "props": [
+      "ammunition"
+    ],
+    "range": [
+      30,
+      120
+    ],
+    "mastery": "slow",
+    "cost": 0.1,
+    "weight": 0
+  },
+  "battleaxe": {
+    "name": "Hacha de batalla",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d8",
+    "type": "slashing",
+    "props": [
+      "versatile"
+    ],
+    "versatile": "1d10",
+    "mastery": "topple",
+    "cost": 10,
+    "weight": 4
+  },
+  "flail": {
+    "name": "Mayal",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d8",
+    "type": "bludgeoning",
+    "props": [],
+    "mastery": "sap",
+    "cost": 10,
+    "weight": 2
+  },
+  "glaive": {
+    "name": "Guja",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d10",
+    "type": "slashing",
+    "props": [
+      "heavy",
+      "reach",
+      "two_handed"
+    ],
+    "mastery": "graze",
+    "cost": 20,
+    "weight": 6
+  },
+  "greataxe": {
+    "name": "Gran hacha",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d12",
+    "type": "slashing",
+    "props": [
+      "heavy",
+      "two_handed"
+    ],
+    "mastery": "cleave",
+    "cost": 30,
+    "weight": 7
+  },
+  "greatsword": {
+    "name": "Mandoble",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "2d6",
+    "type": "slashing",
+    "props": [
+      "heavy",
+      "two_handed"
+    ],
+    "mastery": "graze",
+    "cost": 50,
+    "weight": 6
+  },
+  "halberd": {
+    "name": "Alabarda",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d10",
+    "type": "slashing",
+    "props": [
+      "heavy",
+      "reach",
+      "two_handed"
+    ],
+    "mastery": "cleave",
+    "cost": 20,
+    "weight": 6
+  },
+  "longsword": {
+    "name": "Espada larga",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d8",
+    "type": "slashing",
+    "props": [
+      "versatile"
+    ],
+    "versatile": "1d10",
+    "mastery": "sap",
+    "cost": 15,
+    "weight": 3
+  },
+  "maul": {
+    "name": "Mazo",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "2d6",
+    "type": "bludgeoning",
+    "props": [
+      "heavy",
+      "two_handed"
+    ],
+    "mastery": "topple",
+    "cost": 10,
+    "weight": 10
+  },
+  "morningstar": {
+    "name": "Lucero del alba",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d8",
+    "type": "piercing",
+    "props": [],
+    "mastery": "sap",
+    "cost": 15,
+    "weight": 4
+  },
+  "rapier": {
+    "name": "Estoque",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d8",
+    "type": "piercing",
+    "props": [
+      "finesse"
+    ],
+    "mastery": "vex",
+    "cost": 25,
+    "weight": 2
+  },
+  "scimitar": {
+    "name": "Cimitarra",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d6",
+    "type": "slashing",
+    "props": [
+      "finesse",
+      "light"
+    ],
+    "mastery": "nick",
+    "cost": 25,
+    "weight": 3
+  },
+  "shortsword": {
+    "name": "Espada corta",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d6",
+    "type": "piercing",
+    "props": [
+      "finesse",
+      "light"
+    ],
+    "mastery": "vex",
+    "cost": 10,
+    "weight": 2
+  },
+  "warhammer": {
+    "name": "Martillo de guerra",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d8",
+    "type": "bludgeoning",
+    "props": [
+      "versatile"
+    ],
+    "versatile": "1d10",
+    "mastery": "push",
+    "cost": 15,
+    "weight": 5
+  },
+  "war_pick": {
+    "name": "Pico de guerra",
+    "cat": "martial",
+    "kind": "melee",
+    "damage": "1d8",
+    "type": "piercing",
+    "props": [
+      "versatile"
+    ],
+    "versatile": "1d10",
+    "mastery": "sap",
+    "cost": 5,
+    "weight": 5
+  },
+  "hand_crossbow": {
+    "name": "Ballesta de mano",
+    "cat": "martial",
+    "kind": "ranged",
+    "damage": "1d6",
+    "type": "piercing",
+    "props": [
+      "ammunition",
+      "light",
+      "loading"
+    ],
+    "range": [
+      30,
+      120
+    ],
+    "mastery": "vex",
+    "cost": 75,
+    "weight": 3
+  },
+  "heavy_crossbow": {
+    "name": "Ballesta pesada",
+    "cat": "martial",
+    "kind": "ranged",
+    "damage": "1d10",
+    "type": "piercing",
+    "props": [
+      "ammunition",
+      "heavy",
+      "loading",
+      "two_handed"
+    ],
+    "range": [
+      100,
+      400
+    ],
+    "mastery": "push",
+    "cost": 50,
+    "weight": 18
+  },
+  "longbow": {
+    "name": "Arco largo",
+    "cat": "martial",
+    "kind": "ranged",
+    "damage": "1d8",
+    "type": "piercing",
+    "props": [
+      "ammunition",
+      "heavy",
+      "two_handed"
+    ],
+    "range": [
+      150,
+      600
+    ],
+    "mastery": "slow",
+    "cost": 50,
+    "weight": 2
+  },
+  "unarmed": {
+    "name": "Golpe sin armas",
+    "cat": "unarmed",
+    "kind": "melee",
+    "damage": "0",
+    "type": "bludgeoning",
+    "props": [],
+    "mastery": ""
+  }
+}

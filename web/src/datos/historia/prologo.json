@@ -1,0 +1,43 @@
+{
+  "title": "Marca de Granito",
+  "place": "Capítulo 1 · El toro que sangra",
+  "lines": [
+    "Naciste con una veta de granito en la piel. Te sube desde la muñeca izquierda hasta el codo, gris y fría, como si la montaña te hubiera reclamado antes que tu madre.",
+    "Los curanderos la llamaron mancha; los sacerdotes, señal; los niños de tu calle, cosas peores. Tú la llamas la Marca. Durante años no hizo nada.",
+    "Este otoño empezó a arder. Primero en sueños: un toro de piedra que llora sangre bajo unas colinas que no conocías. Después, despiert{o/a}, cada vez que mirabas al norte.",
+    {
+      "if": "bg:acolyte",
+      "text": "En el templo del Alba te dieron su bendición, una carta de presentación que nadie te ha pedido y el consejo de no seguir a ciegas a una quemadura. No les hiciste caso."
+    },
+    {
+      "if": "bg:criminal",
+      "text": "Nadie en los callejones de Valdrecht echará de menos a {nombre}. Algunos, de hecho, lo celebrarán con vino del bueno."
+    },
+    {
+      "if": "bg:sage",
+      "text": "En el Archivo de Valdrecht encontraste tres libros sobre los Durn. Ninguno decía nada útil, y los tres llevan ahora tu letra en los márgenes."
+    },
+    {
+      "if": "bg:soldier",
+      "text": "Tu compañía de la muralla te dio permiso, la paga atrasada y una espada que ya era tuya."
+    },
+    {
+      "if": "bg:warden",
+      "text": "Conoces los pinares de la frontera mejor que los caminos. Los druidas de los túmulos te miraron el brazo una vez, se miraron entre ellos y no dijeron nada."
+    },
+    {
+      "if": "bg:minstrel",
+      "text": "Has cantado en muchas ferias la balada de los toros que miran a las colinas. Nunca pensaste que fuera verdad."
+    },
+    {
+      "if": "bg:noble",
+      "text": "Tu casa, en Valdrecht, tiene apellido, deudas y una opinión muy firme sobre que te marcharas. La dejaste atrás con las tres cosas."
+    },
+    {
+      "if": "bg:bounty_hunter",
+      "text": "Has perseguido a mucha gente por los caminos del norte. Es la primera vez que algo sin piernas te persigue a ti."
+    },
+    "Llevas seis días de camino hacia las Marcas de Vharen, la frontera de colinas y ríos fríos al norte de Caeldor, siguiendo esa quemazón como quien sigue un hilo.",
+    "En la venta de La Mula Coja conociste a Brenna Halvard: una mujer de la guardia de Valdrecht que ya no es de la guardia de Valdrecht. Iba al norte a buscarse la vida. Se vino contigo sin preguntar mucho. Tú tampoco preguntaste."
+  ]
+}

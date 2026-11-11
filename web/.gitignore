@@ -1,0 +1,4 @@
+# Salidas intermedias de las herramientas de reconstrucción (se regeneran)
+tools/salida/
+dist/
+node_modules/

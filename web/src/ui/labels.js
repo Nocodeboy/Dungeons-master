@@ -1,0 +1,166 @@
+// ui/labels.js
+// Reconstruido de publicado/juego.js (módulo __esm «os»). Nombres locales aún minificados.
+
+const Kw = {
+  str: 'Fuerza',
+  dex: 'Destreza',
+  con: 'Constituci\xF3n',
+  int: 'Inteligencia',
+  wis: 'Sabidur\xEDa',
+  cha: 'Carisma',
+};
+const Jw = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
+const Zw = { str: 'muscle', dex: 'agility', con: 'heart', int: 'brain', wis: 'owl', cha: 'charisma' };
+const nu = {
+  str: 'Potencia f\xEDsica: ataques con armas pesadas, Atletismo y cargar peso.',
+  dex: 'Agilidad y reflejos: armas sutiles y a distancia, Clase de Armadura, iniciativa y Sigilo.',
+  con: 'Aguante: puntos de golpe a cada nivel y mantener la concentraci\xF3n en los conjuros.',
+  int: 'Raz\xF3n y memoria: conjuros de mago, Arcanos, Historia e Investigaci\xF3n.',
+  wis: 'Percepci\xF3n e intuici\xF3n: conjuros de cl\xE9rigo, druida y explorador, Percepci\xF3n y Perspicacia.',
+  cha: 'Presencia y voluntad: conjuros de bardo, hechicero, brujo y palad\xEDn, y convencer a la gente.',
+};
+const rz = {
+  prone: 'Derribado',
+  incapacitated: 'Incapacitado',
+  unconscious: 'Inconsciente',
+  paralyzed: 'Paralizado',
+  frightened: 'Asustado',
+  restrained: 'Apresado',
+  poisoned: 'Envenenado',
+  invisible: 'Oculto',
+  grappled: 'Agarrado',
+  blinded: 'Cegado',
+  deafened: 'Ensordecido',
+  stunned: 'Aturdido',
+  charmed: 'Hechizado',
+  exhaustion: 'Agotado',
+};
+const ou = (o) => rz[o] || o;
+const Df = {
+  damage: ['Da\xF1o', 't-dano'],
+  control: ['Control', 't-control'],
+  heal: ['Curaci\xF3n', 't-cura'],
+  healing: ['Curaci\xF3n', 't-cura'],
+  buff: ['Apoyo', 't-apoyo'],
+  support: ['Apoyo', 't-apoyo'],
+  debuff: ['Control', 't-control'],
+  defense: ['Defensa', 't-defensa'],
+  utility: ['Exploraci\xF3n', 't-explora'],
+  exploration: ['Exploraci\xF3n', 't-explora'],
+  sure: ['No falla', 't-apoyo'],
+  area: ['\xC1rea', 't-dano'],
+  summon: ['Invocaci\xF3n', 't-apoyo'],
+  mobility: ['Movilidad', 't-explora'],
+  social: ['Social', 't-apoyo'],
+  ritual: ['Ritual', 't-explora'],
+};
+const Qw = [
+  ['main', 'Mano principal', 'sword'],
+  ['off', 'Mano secundaria', 'shield'],
+  ['armor', 'Armadura', 'armor'],
+  ['cloak', 'Capa', 'cloak'],
+  ['amulet', 'Amuleto', 'amulet'],
+  ['ring1', 'Anillo', 'ring'],
+  ['ring2', 'Anillo', 'ring'],
+  ['gloves', 'Guantes', 'gauntlets'],
+  ['boots', 'Botas', 'boots'],
+  ['ammo', 'Munici\xF3n', 'quiver'],
+];
+const Wq = Object.fromEntries(Qw.map(([o, e]) => [o, e]));
+const Xq = Object.fromEntries(Qw.map(([o, , e]) => [o, e]));
+const su = {
+  common: ['Com\xFAn', 'mg-r-comun'],
+  uncommon: ['Poco com\xFAn', 'mg-r-poco'],
+  rare: ['Raro', 'mg-r-raro'],
+  very_rare: ['Muy raro', 'mg-r-muy'],
+  legendary: ['Legendario', 'mg-r-leyenda'],
+};
+const as = {
+  weapon: 'Arma',
+  armor: 'Armadura',
+  shield: 'Escudo',
+  potion: 'Poci\xF3n',
+  scroll: 'Pergamino',
+  wand: 'Varita',
+  wondrous: 'Objeto maravilloso',
+  ring: 'Anillo',
+  gear: 'Equipo de aventurero',
+  tool: 'Herramienta',
+  treasure: 'Tesoro',
+  ammo: 'Munici\xF3n',
+  key: 'Llave',
+  quest: 'Objeto de misi\xF3n',
+};
+const e2 = {
+  weapon: 'sword',
+  armor: 'armor',
+  shield: 'shield',
+  potion: 'potion',
+  scroll: 'scroll',
+  wand: 'wand',
+  wondrous: 'gem',
+  ring: 'ring',
+  gear: 'backpack',
+  tool: 'lockpick',
+  treasure: 'gem',
+  ammo: 'quiver',
+  key: 'key',
+  quest: 'wax_seal',
+  amulet: 'amulet',
+  cloak: 'cloak',
+  boots: 'boots',
+  gloves: 'gauntlets',
+};
+const ns = {
+  barbarian: 'rage',
+  bard: 'lyre',
+  cleric: 'ankh',
+  druid: 'wild_shape',
+  fighter: 'melee',
+  monk: 'fist',
+  paladin: 'sacred_weapon',
+  ranger: 'ranged',
+  rogue: 'hide',
+  sorcerer: 'sorcery',
+  warlock: 'eldritch',
+  wizard: 'book',
+};
+const t2 = {
+  human: 'footsteps',
+  elf: 'elf_ear',
+  half_elf: 'faerie',
+  half_orc: 'fist',
+  dwarf: 'beard',
+  halfling: 'dodging',
+  gnome: 'arcane',
+  dragonborn: 'dragon',
+  goliath: 'growth',
+  orc: 'rage',
+  tiefling: 'horns',
+};
+const a2 = {
+  acolyte: 'ankh',
+  criminal: 'lockpick',
+  sage: 'open_book',
+  soldier: 'crossed_swords',
+  warden: 'pine',
+  minstrel: 'lute',
+  noble: 'crown',
+  bounty_hunter: 'target',
+  farmer: 'growth',
+  guard: 'tower',
+  merchant: 'scales',
+  sailor: 'compass',
+};
+const Ib = [
+  'Los compa\xF1eros opinan de lo que haces. Si su aprobaci\xF3n cae demasiado, se marchan.',
+  'Un descanso corto cura con los dados de golpe; el largo lo devuelve todo, pero pasa la noche.',
+  'Los objetos m\xE1gicos llegan sin identificar. Un descanso corto basta para saber qu\xE9 son.',
+  'Ir en sigilo puede daros la sorpresa\u2026 o ahorraros un combate entero.',
+  'Las opciones con una tirada entre corchetes dependen de la habilidad del grupo.',
+  'Pulsa I para el inventario, C para las fichas, J para el diario y M para el mapa.',
+  'F5 guarda la partida al momento. Tambi\xE9n se guarda sola al cambiar de zona y tras cada combate.',
+  'Al pasar el rat\xF3n (o mantener el dedo) sobre un conjuro, rasgo u objeto ver\xE1s qu\xE9 hace.',
+];
+
+export { Df, Ib, Jw, Kw, Zw, a2, as, e2, ns, nu, ou, su, t2 };

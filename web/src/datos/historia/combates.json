@@ -1,0 +1,133 @@
+{
+  "_nota": "Qué pasa tras cada combate. onWin/onFlee: estado (sin interfaz, idempotente). after/variants: narración (narrate = momento del narrador con IA). then: efectos con interfaz. dialog: conversación que empieza después.",
+  "e1": {
+    "flag": "e1_done",
+    "narrate": "after_e1",
+    "after": [
+      "El último trasgo cae junto al abrevadero. En el silencio que sigue, todos oís lo mismo: un latido lento y grave que viene de debajo del toro.",
+      "Apoyas la mano en la piedra agrietada y la retiras enseguida. Está caliente, como si tuviera fiebre. Y la Marca de tu brazo late al mismo ritmo.",
+      "Las puertas de Merrowick se abren poco a poco. La gente sale a mirar, a dar las gracias, a preguntar."
+    ],
+    "then": [
+      {
+        "say": "brenna",
+        "text": "Tres trasgos, dos guerreros y un arquero. Bonita bienvenida."
+      }
+    ]
+  },
+  "wolves": {
+    "flag": "wolves_dead",
+    "onWin": [
+      {
+        "if": "!sedge_done",
+        "do": [
+          "decision:sedge_done=killed"
+        ]
+      }
+    ],
+    "after": [
+      "El último lobo se queda quieto junto al agua. De cerca se les ven las costillas, y al cuello llevan algo que no es de lobo: tiras de cuero trenzado con una piedrecita gris tallada con espirales.",
+      {
+        "if": "sedge_quest",
+        "text": "Las ovejas de Sedge dormirán tranquilas esta noche."
+      }
+    ],
+    "then": [
+      "set:wolves_collars"
+    ]
+  },
+  "sentries": {
+    "flag": "sentries_dead",
+    "after": [
+      "Los centinelas caen sin dar la alarma. El sendero sigue hacia el este, hacia el humo de una hoguera grande."
+    ]
+  },
+  "shrine_goblins": {
+    "flag": "shrine_goblins_dead",
+    "after": [
+      "El último saqueador cae sobre las cenizas del santuario. Durante un momento solo se oye el crujido de las vigas.",
+      "Luego, detrás de la puerta tapiada, alguien deja de rezar. Los bancos se apartan uno a uno y asoma una elfa joven, cubierta de hollín, con una maza en una mano y el símbolo del alba en la otra."
+    ],
+    "dialog": "ilyra",
+    "dialogIf": "!ilyra_dead",
+    "onFlee": [
+      {
+        "if": "!shrine_goblins_dead & !ilyra_met",
+        "do": [
+          "decision:ilyra_dead"
+        ]
+      }
+    ],
+    "fled": [
+      "Corréis entre los pinos sin mirar atrás. Detrás de vosotros, la voz que rezaba dentro del santuario sube de tono… y se corta de golpe."
+    ]
+  },
+  "camp": {
+    "onWin": [
+      {
+        "if": "!camp_done",
+        "do": [
+          "decision:camp_done=assault",
+          "unset:chief_alive",
+          "give:chief_map",
+          {
+            "if": "!disc_found & !ilyra_dead",
+            "do": [
+              "give:dawn_disc"
+            ]
+          }
+        ]
+      }
+    ],
+    "narrate": "after_camp",
+    "after": [
+      "Krazzik Tres Dedos cae de rodillas entre sus escudos robados. Antes de que se le apague la mirada, sonríe con todos los dientes:",
+      "«Llegáis tarde. La piedra-que-llama ya nos ha llamado… y os está llamando a ti, veta gris.»",
+      "Entre sus cosas hay un mapa de piel con un puente roto pintado con hollín, y junto al puente, un cuerno.",
+      {
+        "if": "!ilyra_dead",
+        "text": "Y en una caja, envuelto en un trapo, un disco de latón con el sol naciente de Solenne."
+      }
+    ]
+  },
+  "spiders": {
+    "flag": "spiders_dead",
+    "after": [
+      "La segunda araña se encoge sobre sí misma con un chasquido de patas. El nido apesta a humedad y a cosas que se pudren despacio.",
+      "Entre las telarañas, colgada como una presa más, hay una cartera de cuero con las iniciales O. S. bordadas en hilo de oro."
+    ]
+  },
+  "crypt_patrol": {
+    "flag": "crypt_patrol_dead",
+    "after": [
+      "Los huesos se desmoronan y quedan quietos, por fin. En sus escudos hay un toro grabado, gastado por mil años de guardia."
+    ]
+  },
+  "zombies": {
+    "flag": "zombies_dead",
+    "after": [
+      "Los muertos se derrumban sobre las losas con un sonido húmedo. Uno de ellos lleva todavía, en la mano rígida, una antorcha que nunca se encendió."
+    ]
+  },
+  "guardians": {
+    "flag": "vorhan_dead",
+    "narrate": "after_vorhan",
+    "variants": [
+      {
+        "if": "vorhan_doubt",
+        "lines": [
+          "Vorhan hinca una rodilla en el suelo. La luz de sus ojos ya no es roja, sino gris, como la piedra al amanecer.",
+          "«Lo que corre, lo que queda, lo que vela», murmura. «Lo dijiste bien. Hacía mil años que nadie lo decía bien.»",
+          "«Ahora el sello es tuyo, sangre de piedra. Elige mejor que nosotros.» Y se deshace en polvo, despacio, como quien se sienta a descansar."
+        ]
+      },
+      {
+        "lines": [
+          "Vorhan se desploma sobre el estrado y su espada cae al suelo con un sonido limpio, de campana.",
+          "«Mil años…», dice, sin rencor, casi con alivio. «Ahora el sello es tuyo. Elige mejor que nosotros.»",
+          "El guardián se deshace en polvo. Detrás del estrado, la losa de las tres espirales late con una luz roja."
+        ]
+      }
+    ]
+  }
+}

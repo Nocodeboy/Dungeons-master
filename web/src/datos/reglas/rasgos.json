@@ -1,0 +1,552 @@
+{
+  "_fuente": "Rasgos de clase y especie del SRD 5.2.1 (CC-BY-4.0). Nombres y textos en español propios.",
+  "spellcasting": {
+    "name": "Lanzamiento de conjuros",
+    "desc": "Preparas y lanzas conjuros de tu clase con tus espacios de conjuro."
+  },
+  "pact_magic": {
+    "name": "Magia del pacto",
+    "desc": "Tus espacios de conjuro son pocos, siempre del nivel más alto que puedes usar, y se recuperan con un descanso corto."
+  },
+  "weapon_mastery": {
+    "name": "Maestría con armas",
+    "desc": "Usas la propiedad de maestría de algunas armas (derribar, ralentizar, hender…)."
+  },
+  "expertise": {
+    "name": "Pericia",
+    "desc": "Duplicas tu bonificador por competencia en dos habilidades."
+  },
+  "fighting_style": {
+    "name": "Estilo de combate",
+    "desc": "Eliges una especialidad de combate (dote de estilo)."
+  },
+  "subclass": {
+    "name": "Subclase",
+    "desc": "Eliges la especialización de tu clase."
+  },
+  "rage": {
+    "name": "Furia",
+    "desc": "Acción adicional: resistencia al daño contundente, cortante y perforante, +2 al daño con ataques de Fuerza y ventaja en pruebas y salvaciones de Fuerza. No puedes lanzar conjuros ni concentrarte. Se mantiene si atacas o usas una acción adicional cada turno."
+  },
+  "unarmored_defense_barbarian": {
+    "name": "Defensa sin armadura",
+    "desc": "Sin armadura, tu CA es 10 + Destreza + Constitución (puedes usar escudo)."
+  },
+  "danger_sense": {
+    "name": "Sentido del peligro",
+    "desc": "Ventaja en las salvaciones de Destreza mientras no estés incapacitado."
+  },
+  "reckless_attack": {
+    "name": "Ataque temerario",
+    "desc": "En tu primer ataque del turno: ventaja en tus ataques de Fuerza hasta tu siguiente turno, pero los ataques contra ti también tienen ventaja."
+  },
+  "primal_knowledge": {
+    "name": "Conocimiento primordial",
+    "desc": "Ganas competencia en otra habilidad de bárbaro."
+  },
+  "frenzy": {
+    "name": "Frenesí",
+    "desc": "Si usas Ataque temerario en furia, el primer impacto de cada turno con un ataque de Fuerza hace 2d6 de daño extra."
+  },
+  "bardic_inspiration": {
+    "name": "Inspiración bárdica",
+    "desc": "Acción adicional: un aliado a 18 m gana un d6 que puede sumar a una tirada de d20 fallida. Usos: tu modificador de Carisma."
+  },
+  "jack_of_all_trades": {
+    "name": "Polivalente",
+    "desc": "Sumas la mitad de tu bonificador por competencia a las pruebas sin competencia, iniciativa incluida."
+  },
+  "bonus_proficiencies": {
+    "name": "Competencias adicionales",
+    "desc": "Ganas competencia en tres habilidades a tu elección."
+  },
+  "cutting_words": {
+    "name": "Palabras cortantes",
+    "desc": "Reacción: cuando un enemigo a 18 m impacta, gastas Inspiración bárdica y restas el dado a su tirada, pudiendo convertir el golpe en fallo."
+  },
+  "divine_order": {
+    "name": "Orden divina",
+    "desc": "Protector: armas marciales y armadura pesada. Taumaturgo: un truco más y bonificador a Arcanos y Religión."
+  },
+  "channel_divinity": {
+    "name": "Canalizar divinidad",
+    "desc": "Dos usos de poder divino: Chispa divina (cura o daña 1d8 + Sabiduría) y Expulsar muertos vivientes."
+  },
+  "disciple_of_life": {
+    "name": "Discípulo de la vida",
+    "desc": "Tus conjuros de curación con espacio curan 2 + nivel del espacio adicionales."
+  },
+  "preserve_life": {
+    "name": "Preservar la vida",
+    "desc": "Canalizar divinidad: repartes 5 × tu nivel de PG entre aliados malheridos a 9 m (hasta la mitad de sus PG)."
+  },
+  "life_domain_spells": {
+    "name": "Conjuros del dominio",
+    "desc": "Siempre tienes preparados Auxilio, Bendecir, Curar heridas y Restablecimiento menor."
+  },
+  "druidic": {
+    "name": "Druídico",
+    "desc": "Conoces la lengua secreta de los druidas y siempre tienes preparado Hablar con los animales."
+  },
+  "primal_order": {
+    "name": "Orden primordial",
+    "desc": "Guardián: armas marciales y armadura intermedia. Místico: un truco más y bonificador a Arcanos y Naturaleza."
+  },
+  "wild_shape": {
+    "name": "Forma salvaje",
+    "desc": "Acción adicional: adoptas la forma de una bestia que conozcas (lobo, mastín, alce, caballo). Conservas tus PG y ganas PG temporales iguales a tu nivel. No puedes lanzar conjuros. Dos usos."
+  },
+  "wild_companion": {
+    "name": "Compañero salvaje",
+    "desc": "Puedes gastar un uso de Forma salvaje para invocar un espíritu animal (fuera de combate, por ahora)."
+  },
+  "circle_spells": {
+    "name": "Conjuros del círculo",
+    "desc": "Según la tierra que elijas (árida, polar, templada o tropical), tienes tres conjuros siempre preparados."
+  },
+  "lands_aid": {
+    "name": "Auxilio de la tierra",
+    "desc": "Acción, gasta Forma salvaje: esfera de 3 m a 18 m. Los enemigos que fallen Constitución reciben 2d6 necrótico (mitad si salvan) y un aliado del área recupera 2d6 PG."
+  },
+  "second_wind": {
+    "name": "Tomar aliento",
+    "desc": "Acción adicional: recuperas 1d10 + tu nivel de guerrero en PG. Dos usos."
+  },
+  "action_surge": {
+    "name": "Oleada de acción",
+    "desc": "Una vez por descanso, ganas una acción extra en tu turno (no para lanzar conjuros)."
+  },
+  "tactical_mind": {
+    "name": "Mente táctica",
+    "desc": "Si fallas una prueba de característica, puedes gastar Tomar aliento para sumarle 1d10."
+  },
+  "improved_critical": {
+    "name": "Crítico mejorado",
+    "desc": "Tus ataques con armas son críticos con 19 o 20."
+  },
+  "remarkable_athlete": {
+    "name": "Atleta excepcional",
+    "desc": "Ventaja en iniciativa y en Atletismo. Tras un crítico, puedes moverte la mitad de tu velocidad sin provocar ataques."
+  },
+  "martial_arts": {
+    "name": "Artes marciales",
+    "desc": "Sin armadura ni escudo: golpe sin armas como acción adicional, d6 de daño en golpes y armas de monje, y usas Destreza para ellos."
+  },
+  "unarmored_defense_monk": {
+    "name": "Defensa sin armadura",
+    "desc": "Sin armadura ni escudo, tu CA es 10 + Destreza + Sabiduría."
+  },
+  "monks_focus": {
+    "name": "Foco del monje",
+    "desc": "Puntos de foco (2, luego 3) para Ráfaga de golpes, Defensa paciente y Paso del viento. Se recuperan con un descanso corto."
+  },
+  "flurry_of_blows": {
+    "name": "Ráfaga de golpes",
+    "desc": "1 punto de foco: dos golpes sin armas como acción adicional."
+  },
+  "patient_defense": {
+    "name": "Defensa paciente",
+    "desc": "Acción adicional: Destrabarse. Con 1 punto de foco, también Esquivar."
+  },
+  "step_of_the_wind": {
+    "name": "Paso del viento",
+    "desc": "Acción adicional: Correr. Con 1 punto de foco, también Destrabarse."
+  },
+  "unarmored_movement": {
+    "name": "Movimiento sin armadura",
+    "desc": "+3 m de velocidad sin armadura ni escudo."
+  },
+  "uncanny_metabolism": {
+    "name": "Metabolismo asombroso",
+    "desc": "Al tirar iniciativa recuperas todo el foco y 1d6 + nivel de PG, una vez por descanso largo."
+  },
+  "deflect_attacks": {
+    "name": "Desviar ataques",
+    "desc": "Reacción al recibir un golpe contundente, cortante o perforante: reduces el daño 1d10 + Destreza + nivel. Si lo anulas, puedes devolverlo con 1 punto de foco."
+  },
+  "open_hand_technique": {
+    "name": "Técnica de la mano abierta",
+    "desc": "Cada golpe de la Ráfaga puede desequilibrar (sin ataques de oportunidad), empujar 4,5 m o derribar."
+  },
+  "lay_on_hands": {
+    "name": "Imposición de manos",
+    "desc": "Acción adicional: curas de una reserva de 5 × tu nivel de PG, o gastas 5 para eliminar el envenenamiento."
+  },
+  "paladins_smite": {
+    "name": "Castigo del paladín",
+    "desc": "Siempre tienes preparado Castigo divino y puedes lanzarlo una vez al día sin gastar espacio."
+  },
+  "divine_sense": {
+    "name": "Sentido divino",
+    "desc": "Canalizar divinidad: percibes celestiales, infernales y muertos vivientes cercanos."
+  },
+  "sacred_weapon": {
+    "name": "Arma sagrada",
+    "desc": "Canalizar divinidad al atacar: sumas tu Carisma a los ataques con tu arma y puede hacer daño radiante durante 10 minutos."
+  },
+  "oath_spells": {
+    "name": "Conjuros de juramento",
+    "desc": "Siempre tienes preparados Protección contra el bien y el mal y Escudo de fe."
+  },
+  "favored_enemy": {
+    "name": "Enemigo predilecto",
+    "desc": "Siempre tienes preparada Marca del cazador y la lanzas dos veces al día sin gastar espacio."
+  },
+  "deft_explorer": {
+    "name": "Explorador hábil",
+    "desc": "Pericia en una habilidad y dos idiomas más."
+  },
+  "hunters_lore": {
+    "name": "Saber del cazador",
+    "desc": "Conoces las resistencias e inmunidades de quien lleve tu Marca del cazador."
+  },
+  "colossus_slayer": {
+    "name": "Asesino de colosos",
+    "desc": "Una vez por turno, cuando impactas a una criatura que ya no tiene todos sus puntos de golpe, le haces 1d8 de daño adicional."
+  },
+  "horde_breaker": {
+    "name": "Rompehordas",
+    "desc": "Una vez por turno, al atacar con un arma, puedes hacer otro ataque contra una criatura distinta a 1,5 m del primer objetivo."
+  },
+  "hunters_prey": {
+    "name": "Presa del cazador",
+    "desc": "Asesino de colosos (+1d8 una vez por turno a heridos) o Rompehordas (un ataque extra contra otro enemigo junto al primero)."
+  },
+  "sneak_attack": {
+    "name": "Ataque furtivo",
+    "desc": "Una vez por turno, daño extra con un arma sutil o a distancia si tienes ventaja o un aliado junto al objetivo."
+  },
+  "thieves_cant": {
+    "name": "Jerga de ladrones",
+    "desc": "Hablas la jerga secreta de los bajos fondos."
+  },
+  "cunning_action": {
+    "name": "Acción astuta",
+    "desc": "Acción adicional: Correr, Destrabarse o Esconderse."
+  },
+  "steady_aim": {
+    "name": "Puntería firme",
+    "desc": "Acción adicional si no te has movido: ventaja en tu siguiente ataque, pero no te moverás este turno."
+  },
+  "fast_hands": {
+    "name": "Manos rápidas",
+    "desc": "Usas objetos y herramientas de ladrón como acción adicional."
+  },
+  "second_story_work": {
+    "name": "Trepador nato",
+    "desc": "Trepas a tu velocidad y saltas con Destreza."
+  },
+  "innate_sorcery": {
+    "name": "Hechicería innata",
+    "desc": "Acción adicional, dos usos: durante 1 minuto, +1 a la CD de tus conjuros y ventaja en sus tiradas de ataque."
+  },
+  "font_of_magic": {
+    "name": "Fuente de magia",
+    "desc": "Puntos de hechicería: conviertes espacios en puntos y puntos en espacios (acción adicional)."
+  },
+  "metamagic": {
+    "name": "Metamagia",
+    "desc": "Dos opciones para alterar tus conjuros gastando puntos de hechicería."
+  },
+  "draconic_resilience": {
+    "name": "Resistencia dracónica",
+    "desc": "+3 PG (y +1 por nivel). Sin armadura, tu CA es 10 + Destreza + Carisma."
+  },
+  "draconic_spells": {
+    "name": "Conjuros dracónicos",
+    "desc": "Siempre tienes preparados Alterar el propio aspecto, Orbe cromático, Orden imperiosa y Aliento de dragón."
+  },
+  "eldritch_invocations": {
+    "name": "Invocaciones sobrenaturales",
+    "desc": "Secretos prohibidos que te dan poderes permanentes (1 a nivel 1, 3 a nivel 2)."
+  },
+  "magical_cunning": {
+    "name": "Astucia mágica",
+    "desc": "Un rito de un minuto te devuelve la mitad de tus espacios de pacto, una vez por descanso largo."
+  },
+  "dark_ones_blessing": {
+    "name": "Bendición del Oscuro",
+    "desc": "Cuando tú o un aliado a 3 m de ti dejáis a un enemigo a 0 PG, ganas Carisma + nivel de PG temporales."
+  },
+  "fiend_spells": {
+    "name": "Conjuros del infernal",
+    "desc": "Siempre tienes preparados Manos ardientes, Orden imperiosa, Rayo abrasador y Sugestión."
+  },
+  "ritual_adept": {
+    "name": "Adepto ritual",
+    "desc": "Lanzas como ritual cualquier conjuro ritual de tu libro."
+  },
+  "arcane_recovery": {
+    "name": "Recuperación arcana",
+    "desc": "Tras un descanso corto recuperas espacios de conjuro (fuera de combate)."
+  },
+  "scholar": {
+    "name": "Erudito",
+    "desc": "Pericia en una habilidad de conocimiento."
+  },
+  "evocation_savant": {
+    "name": "Sabio de la evocación",
+    "desc": "Añades conjuros de evocación a tu libro gratis."
+  },
+  "potent_cantrip": {
+    "name": "Truco potente",
+    "desc": "Si fallas el ataque de un truco o el objetivo salva, recibe igualmente la mitad del daño."
+  },
+  "resourceful": {
+    "name": "Ingenioso",
+    "desc": "Empiezas cada día con Inspiración heroica: repites una salvación fallida."
+  },
+  "skillful": {
+    "name": "Habilidoso",
+    "desc": "Competencia en una habilidad a tu elección."
+  },
+  "versatile": {
+    "name": "Versátil",
+    "desc": "Una dote de origen adicional."
+  },
+  "skill_versatility": {
+    "name": "Versatilidad",
+    "desc": "Competencia en dos habilidades a tu elección."
+  },
+  "menacing": {
+    "name": "Amenazador",
+    "desc": "Competencia en Intimidación."
+  },
+  "savage_attacks": {
+    "name": "Ataques salvajes",
+    "desc": "Cuando haces un crítico cuerpo a cuerpo con un arma, tiras un dado de daño del arma más."
+  },
+  "fey_ancestry": {
+    "name": "Linaje feérico",
+    "desc": "Ventaja en las salvaciones contra quedar hechizado."
+  },
+  "keen_senses": {
+    "name": "Sentidos agudos",
+    "desc": "Competencia en Perspicacia, Percepción o Supervivencia."
+  },
+  "trance": {
+    "name": "Trance",
+    "desc": "No duermes y la magia no puede dormirte."
+  },
+  "dwarven_resilience": {
+    "name": "Resistencia enana",
+    "desc": "Resistencia al veneno y ventaja contra quedar envenenado."
+  },
+  "dwarven_toughness": {
+    "name": "Dureza enana",
+    "desc": "+1 PG por nivel."
+  },
+  "stonecunning": {
+    "name": "Afinidad con la piedra",
+    "desc": "Percibes lo que se mueve a través de la piedra (fuera de combate)."
+  },
+  "brave": {
+    "name": "Valiente",
+    "desc": "Ventaja en las salvaciones contra el miedo."
+  },
+  "halfling_nimbleness": {
+    "name": "Agilidad mediana",
+    "desc": "Puedes atravesar el espacio de criaturas más grandes que tú."
+  },
+  "luck": {
+    "name": "Suerte",
+    "desc": "Repites los 1 naturales en las tiradas de d20."
+  },
+  "naturally_stealthy": {
+    "name": "Sigiloso por naturaleza",
+    "desc": "Puedes esconderte detrás de criaturas más grandes que tú."
+  },
+  "gnomish_cunning": {
+    "name": "Astucia gnoma",
+    "desc": "Ventaja en las salvaciones de Inteligencia, Sabiduría y Carisma."
+  },
+  "breath_weapon": {
+    "name": "Arma de aliento",
+    "desc": "En vez de un ataque, exhalas un cono de 4,5 m o una línea de 9 m: 1d10 del daño de tu linaje (Destreza para la mitad). Usos: tu bonificador por competencia."
+  },
+  "draconic_resistance": {
+    "name": "Resistencia dracónica",
+    "desc": "Resistencia al tipo de daño de tu linaje."
+  },
+  "powerful_build": {
+    "name": "Constitución poderosa",
+    "desc": "Ventaja para liberarte de agarres; cargas como alguien más grande."
+  },
+  "clouds_jaunt": {
+    "name": "Salto de las nubes",
+    "desc": "Acción adicional: te teletransportas hasta 9 m. Usos: tu bonificador por competencia."
+  },
+  "fires_burn": {
+    "name": "Ardor del fuego",
+    "desc": "Al impactar, 1d10 de fuego adicional. Usos: tu bonificador por competencia."
+  },
+  "frosts_chill": {
+    "name": "Gélido aliento",
+    "desc": "Al impactar, 1d6 de frío y el objetivo pierde 3 m de velocidad. Usos: tu bonificador por competencia."
+  },
+  "hills_tumble": {
+    "name": "Embestida de la colina",
+    "desc": "Al impactar a una criatura Grande o menor, la derribas. Usos: tu bonificador por competencia."
+  },
+  "stones_endurance": {
+    "name": "Aguante de la piedra",
+    "desc": "Reacción al recibir daño: lo reduces 1d12 + Constitución. Usos: tu bonificador por competencia."
+  },
+  "storms_thunder": {
+    "name": "Trueno de la tormenta",
+    "desc": "Reacción cuando alguien a 18 m te daña: le haces 1d8 de trueno. Usos: tu bonificador por competencia."
+  },
+  "adrenaline_rush": {
+    "name": "Subidón de adrenalina",
+    "desc": "Acción adicional: Correr y ganas PG temporales iguales a tu bonificador por competencia."
+  },
+  "relentless_endurance": {
+    "name": "Aguante incansable",
+    "desc": "Una vez por día, si caes a 0 PG sin morir, te quedas a 1."
+  },
+  "otherworldly_presence": {
+    "name": "Presencia de otro mundo",
+    "desc": "Conoces Taumaturgia."
+  },
+  "invocations": {
+    "armor_of_shadows": {
+      "name": "Armadura de sombras",
+      "level": 1,
+      "desc": "Lanzas Armadura de mago sobre ti a voluntad, sin gastar espacios."
+    },
+    "eldritch_mind": {
+      "name": "Mente sobrenatural",
+      "level": 1,
+      "desc": "Ventaja en las salvaciones para mantener la concentración."
+    },
+    "pact_of_the_blade": {
+      "name": "Pacto del filo",
+      "level": 1,
+      "desc": "Tu arma de pacto: eres competente, atacas y dañas con Carisma y puede hacer daño necrótico, psíquico o radiante."
+    },
+    "pact_of_the_tome": {
+      "name": "Pacto del tomo",
+      "level": 1,
+      "desc": "Tu Libro de las Sombras te da tres trucos de cualquier lista. Usas Carisma para lanzarlos."
+    },
+    "agonizing_blast": {
+      "name": "Descarga agónica",
+      "level": 2,
+      "requires": "eldritch_blast",
+      "desc": "Sumas tu Carisma al daño de Descarga sobrenatural."
+    },
+    "devils_sight": {
+      "name": "Vista del diablo",
+      "level": 2,
+      "desc": "Ves con normalidad en la oscuridad, también la mágica, hasta 36 m."
+    },
+    "eldritch_spear": {
+      "name": "Lanza sobrenatural",
+      "level": 2,
+      "requires": "eldritch_blast",
+      "desc": "Descarga sobrenatural alcanza 90 m."
+    },
+    "fiendish_vigor": {
+      "name": "Vigor infernal",
+      "level": 2,
+      "desc": "Lanzas Falsa vida sobre ti a voluntad y siempre obtienes el máximo (12 PG temporales)."
+    },
+    "repelling_blast": {
+      "name": "Descarga repulsora",
+      "level": 2,
+      "requires": "eldritch_blast",
+      "desc": "Cada impacto de Descarga sobrenatural empuja 3 m al objetivo."
+    },
+    "lessons_of_the_first_ones": {
+      "name": "Lecciones de los Primeros",
+      "level": 2,
+      "desc": "Ganas una dote de origen."
+    }
+  },
+  "metamagic_options": {
+    "careful": {
+      "name": "Conjuro cuidadoso",
+      "cost": 1,
+      "desc": "Hasta tu Carisma en aliados superan automáticamente la salvación de tu conjuro de área."
+    },
+    "distant": {
+      "name": "Conjuro distante",
+      "cost": 1,
+      "desc": "Duplicas el alcance (los de toque llegan a 9 m)."
+    },
+    "empowered": {
+      "name": "Conjuro potenciado",
+      "cost": 1,
+      "desc": "Repites hasta tu Carisma en dados de daño bajos."
+    },
+    "extended": {
+      "name": "Conjuro prolongado",
+      "cost": 1,
+      "desc": "Duplicas la duración y tienes ventaja para mantener la concentración."
+    },
+    "heightened": {
+      "name": "Conjuro intensificado",
+      "cost": 2,
+      "desc": "Un objetivo tiene desventaja en su salvación."
+    },
+    "quickened": {
+      "name": "Conjuro acelerado",
+      "cost": 2,
+      "desc": "Lanzas como acción adicional un conjuro que tarda una acción."
+    },
+    "seeking": {
+      "name": "Conjuro certero",
+      "cost": 1,
+      "desc": "Si fallas el ataque de conjuro, lo repites."
+    },
+    "subtle": {
+      "name": "Conjuro sutil",
+      "cost": 1,
+      "desc": "Lanzas sin gestos ni palabras: nadie sabe que fuiste tú (útil fuera de combate)."
+    },
+    "transmuted": {
+      "name": "Conjuro transmutado",
+      "cost": 1,
+      "desc": "Cambias el tipo de daño (ácido, frío, fuego, rayo, veneno o trueno)."
+    },
+    "twinned": {
+      "name": "Conjuro gemelo",
+      "cost": 1,
+      "desc": "Un conjuro que admite más objetivos al subir de nivel gana uno extra."
+    }
+  },
+  "lands": {
+    "arid": {
+      "name": "Tierra árida",
+      "spells": [
+        "blur",
+        "burning_hands",
+        "fire_bolt"
+      ]
+    },
+    "polar": {
+      "name": "Tierra polar",
+      "spells": [
+        "fog_cloud",
+        "hold_person",
+        "ray_of_frost"
+      ]
+    },
+    "temperate": {
+      "name": "Tierra templada",
+      "spells": [
+        "misty_step",
+        "shocking_grasp",
+        "sleep"
+      ]
+    },
+    "tropical": {
+      "name": "Tierra tropical",
+      "spells": [
+        "acid_splash",
+        "ray_of_sickness",
+        "web"
+      ]
+    }
+  }
+}

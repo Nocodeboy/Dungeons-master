@@ -1,0 +1,1414 @@
+{
+  "corwin": {
+    "speaker": "Corwin",
+    "title": "Posadero del Toro Dormido",
+    "start": [
+      {
+        "if": "!seen:corwin.hello",
+        "goto": "hello"
+      },
+      {
+        "goto": "hub"
+      }
+    ],
+    "nodes": {
+      "hello": {
+        "text": [
+          "«¡Por Solenne y por todos sus primos! Pasad, pasad. Nos habéis salvado el pellejo.»",
+          "*Corwin es un hombre grande con un delantal que algún día fue blanco. Todavía le tiemblan las manos.*",
+          "«Cama, cena y chimenea, dos piezas de oro por cabeza. Esta noche invita la casa: no pienso cobraros ni la sal.»"
+        ],
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«Esa es la mejor oferta que me han hecho en un mes.»"
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "hub": {
+        "text": [
+          {
+            "if": "!camp_done",
+            "text": "«¿Qué os pongo? ¿Cama, cena o chismes? Los chismes son gratis; la cena, casi.»"
+          },
+          {
+            "if": "camp_done",
+            "text": "«¡Los héroes de Elderhal! Sentaos donde queráis. Hoy la sala entera brinda por vosotros, aunque la mitad no sepa por qué.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Pasar la noche.",
+            "if": "!inn_first_night",
+            "free": "invita la casa",
+            "do": [
+              "set:inn_first_night",
+              "rest:inn"
+            ]
+          },
+          {
+            "text": "Pasar la noche.",
+            "if": "inn_first_night",
+            "cost": "party*2",
+            "do": [
+              "rest:inn"
+            ]
+          },
+          {
+            "text": "¿De dónde han salido esos trasgos?",
+            "goto": "trasgos"
+          },
+          {
+            "text": "Háblame del toro del prado.",
+            "goto": "toro"
+          },
+          {
+            "text": "¿Quién es el mediano de la mesa del rincón?",
+            "if": "!pip_debt",
+            "goto": "pip"
+          },
+          {
+            "text": "¿Qué se cuenta por el pueblo?",
+            "goto": "rumores"
+          },
+          {
+            "text": "Pip dice que te debe algo.",
+            "if": "party:pip & !corwin_tab",
+            "goto": "tab"
+          },
+          {
+            "text": "¿Está por aquí alguno de los míos?",
+            "if": "brenna_waiting | pip_waiting | ilyra_waiting | odvar_waiting",
+            "goto": "waiting"
+          },
+          {
+            "text": "¿Hay quien se alquile para el camino?",
+            "goto": "@board.mercs"
+          },
+          {
+            "text": "Adiós.",
+            "end": true
+          }
+        ]
+      },
+      "trasgos": {
+        "text": [
+          "«Bajaron por el camino del este, el del bosque de Elderhal. Allí tienen su campamento los Zarpas Grises desde la primavera. Antes robaban gallinas. Ahora…»",
+          "*Mira hacia la ventana, hacia el prado.*",
+          "«Ahora vienen a por el toro. Eso dicen. Corrían hacia el prado, no hacia las casas.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "toro": {
+        "text": [
+          "«Los Durn lo tallaron, dicen. Mil años mirando a las colinas sin moverse, y anoche, ¡crac!, se le abrió el lomo como una hogaza.»",
+          "*Baja la voz.*",
+          "«Y sangra. No es agua ni barro: huele a hierro. La hermana Aldis no deja que nadie lo toque.»"
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Granito con inclusiones férricas, sin duda! O sangre. Más probablemente sangre.»"
+          },
+          {
+            "who": "pip",
+            "text": "«Un toro que sangra en un pueblo llamado Merrowick. Si fuera un cuento, a estas alturas yo ya estaría corriendo.»"
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "pip": {
+        "text": [
+          "«¿Ese? Pip Tallowmere. Mediano, simpático, contrabandista, y me debe tres piezas de sidra.»",
+          "*Señala con la barbilla hacia un hombre de abrigo bueno que no se separa de la mesa.*",
+          "«El del abrigo es Holt Varga, prestamista de Valdrecht. Viene dos veces al año a cobrar a medio valle. Tiene a Pip ahí sentado desde ayer, como quien tiene un perro atado, y sus dos mozos no le dejan ni ir a mear. Dice que Pip le debe cuarenta piezas.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "rumores": {
+        "text": [
+          {
+            "if": "!camp_done",
+            "text": "«Que el molinero se fue a Valdrecht la misma noche que se agrietó el toro, con la mujer y la cabra. Que la vieja Sedge pierde una oveja cada noche y anda buscando a alguien que se ocupe de los lobos.»"
+          },
+          {
+            "if": "!camp_done & !shrine_goblins_dead & !ilyra_dead",
+            "text": "«Y que en el santuario del bosque no se ve humo desde hace tres días, y eso que Madre Aldwen enciende el fuego al alba desde que yo era crío.»"
+          },
+          {
+            "if": "camp_done=peace",
+            "text": "«Que los trasgos se van cantando por el camino del norte. ¡Cantando! Nell, mi hija, dice que cantaban muy mal.»"
+          },
+          {
+            "if": "camp_done & !camp_done=peace",
+            "text": "«Que habéis dado una lección a los trasgos. Lo dicen hasta los que no saben qué es una lección.»"
+          },
+          {
+            "if": "camp_done & !vorhan_dead",
+            "text": "«Y que debajo del toro hay escalones. Los niños se retan a bajar uno. Nadie ha bajado dos.»"
+          },
+          {
+            "if": "holt_exposed",
+            "text": "«Y que Holt Varga duerme en la cantera vieja, con candado. Media aldea ha ido a verle. La otra media, a llevarle fruta podrida.»"
+          }
+        ],
+        "do": [
+          {
+            "if": "!camp_done & !shrine_goblins_dead & !ilyra_dead",
+            "do": [
+              "set:aldwen_rumor"
+            ]
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "tab": {
+        "text": "«¡Ah, Pip! Ya que viaja con vosotros… ¿no os habrá dejado algo para mí? Tres piezas. Sidra. Dos inviernos.»",
+        "say": [
+          {
+            "who": "pip",
+            "text": "«Corwin, corazón, ¡cómo puedes sacar eso delante de mis amigos!»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Yo pago la cuenta de Pip.",
+            "tone": "amable",
+            "cost": 3,
+            "approve": {
+              "pip": 3
+            },
+            "do": [
+              "set:corwin_tab"
+            ],
+            "goto": "tab_paid"
+          },
+          {
+            "text": "Que la pague él.",
+            "tone": "frio",
+            "do": [
+              "set:corwin_tab"
+            ],
+            "goto": "tab_no"
+          }
+        ]
+      },
+      "tab_paid": {
+        "text": "«¡Que Solenne te lo pague con hijos sanos!»",
+        "say": [
+          {
+            "who": "pip",
+            "text": "«Jef{e/a}, eso es lo más romántico que han hecho nunca por mí.»"
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "tab_no": {
+        "text": "«Con el corazón no se paga la sidra, Tallowmere.»",
+        "say": [
+          {
+            "who": "pip",
+            "at": "before",
+            "text": "«Te la pagaré, Corwin. Con intereses. De corazón.»"
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "waiting": {
+        "text": [
+          "«Ahí los tienes, en la mesa de la chimenea, gastándose tu dinero.» *Señala con el trapo.*",
+          {
+            "if": "brenna_waiting",
+            "text": "*Brenna afila la espada y no levanta la vista.*"
+          },
+          {
+            "if": "pip_waiting",
+            "text": "*Pip juega a los dados con dos pastores y va ganando, lo cual es sospechoso.*"
+          },
+          {
+            "if": "ilyra_waiting",
+            "text": "*Ilyra venda la mano a un cantero que no deja de darle las gracias.*"
+          },
+          {
+            "if": "odvar_waiting",
+            "text": "*Odvar dibuja el toro del prado en una servilleta, muy concentrado, con la lengua fuera.*"
+          }
+        ],
+        "options": [
+          {
+            "text": "Brenna, nos vamos.",
+            "if": "brenna_waiting",
+            "do": [
+              "recruit:brenna"
+            ],
+            "goto": "hub"
+          },
+          {
+            "text": "Pip, deja los dados. Nos vamos.",
+            "if": "pip_waiting",
+            "do": [
+              "recruit:pip"
+            ],
+            "goto": "hub"
+          },
+          {
+            "text": "Ilyra, te necesitamos.",
+            "if": "ilyra_waiting",
+            "do": [
+              "recruit:ilyra"
+            ],
+            "goto": "hub"
+          },
+          {
+            "text": "Maese Odvar, en marcha.",
+            "if": "odvar_waiting",
+            "do": [
+              "recruit:odvar"
+            ],
+            "goto": "hub"
+          },
+          {
+            "text": "Que sigan descansando.",
+            "goto": "hub"
+          }
+        ]
+      }
+    }
+  },
+  "aldis": {
+    "speaker": "Hermana Aldis",
+    "title": "Sacerdotisa de Solenne",
+    "start": [
+      {
+        "if": "!seen:aldis.hello",
+        "goto": "hello"
+      },
+      {
+        "goto": "hub"
+      }
+    ],
+    "nodes": {
+      "hello": {
+        "text": [
+          "«Que el alba te encuentre en pie.»",
+          "*Es una mujer mayor, de pelo blanco recogido y ojos que no se pierden nada. Te mira el brazo antes que la cara.*",
+          "«Vienes por heridas del cuerpo o del alma. O por esa veta que llevas bajo la manga y que te tiene la cara gris de dolor.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "hub": {
+        "text": "«Dime, hij{o/a}.»",
+        "options": [
+          {
+            "text": "Curad las heridas del grupo.",
+            "cost": 10,
+            "do": [
+              "heal:party"
+            ],
+            "goto": "healed"
+          },
+          {
+            "text": "¿Podéis identificar unos objetos?",
+            "cost": 20,
+            "do": [
+              "identify"
+            ],
+            "goto": "identified"
+          },
+          {
+            "text": "Devolved la vida a Brenna.",
+            "if": "dead:brenna",
+            "cost": 150,
+            "do": [
+              "raise:brenna"
+            ],
+            "goto": "raised"
+          },
+          {
+            "text": "Devolved la vida a Pip.",
+            "if": "dead:pip",
+            "cost": 150,
+            "do": [
+              "raise:pip"
+            ],
+            "goto": "raised"
+          },
+          {
+            "text": "Devolved la vida a Ilyra.",
+            "if": "dead:ilyra",
+            "cost": 150,
+            "do": [
+              "raise:ilyra"
+            ],
+            "goto": "raised"
+          },
+          {
+            "text": "Devolved la vida a Odvar.",
+            "if": "dead:odvar",
+            "cost": 150,
+            "do": [
+              "raise:odvar"
+            ],
+            "goto": "raised"
+          },
+          {
+            "text": "¿Qué sabéis de la Marca?",
+            "goto": "marca"
+          },
+          {
+            "text": "Habladme de los toros de piedra.",
+            "goto": "toros"
+          },
+          {
+            "text": "¿No os molesta, hermana, que alguien con cuernos entre en vuestro templo?",
+            "if": "species:tiefling",
+            "once": true,
+            "goto": "tiefling"
+          },
+          {
+            "text": "¿Sabéis algo del santuario del bosque?",
+            "if": "!shrine_goblins_dead & !ilyra_dead & !ilyra_met",
+            "goto": "aldwen"
+          },
+          {
+            "text": "Encontramos a Ilyra en el santuario.",
+            "if": "ilyra_met & !seen:aldis.ilyra_news",
+            "goto": "ilyra_news"
+          },
+          {
+            "text": "Hermana… Madre Aldwen ha muerto. Y su novicia también.",
+            "if": "ilyra_dead & !seen:aldis.aldwen_dead",
+            "goto": "aldwen_dead"
+          },
+          {
+            "text": "Hermana, ¿Solenne os ha hablado alguna vez?",
+            "if": "class:cleric | class:paladin | bg:acolyte",
+            "special": "Fe",
+            "once": true,
+            "goto": "faith"
+          },
+          {
+            "text": "Traigo el Disco del Alba del santuario.",
+            "if": "item:dawn_disc & ilyra_faith=broken",
+            "goto": "disc"
+          },
+          {
+            "text": "¿Cómo está Ilyra?",
+            "if": "ilyra_temple & !party:ilyra",
+            "goto": "@ilyra.waiting"
+          },
+          {
+            "text": "Adiós.",
+            "end": true
+          }
+        ]
+      },
+      "healed": {
+        "text": [
+          "*La hermana Aldis os unge las heridas con aceite tibio y murmura la oración del alba. El dolor se retira como la marea.*",
+          "«Solenne cura. Yo solo le sostengo la lámpara.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "identified": {
+        "text": "*La hermana pasa las manos sobre vuestras cosas, una a una, con los ojos cerrados.* «Lo que está escondido quiere que lo vean. Solo hay que preguntarle con educación.»",
+        "optionsFrom": "hub"
+      },
+      "raised": {
+        "text": [
+          "*La oración dura toda la tarde. Cuando la hermana Aldis termina, tiene la frente perlada de sudor y las manos frías como la piedra.*",
+          "«Ha vuelto. No le preguntéis de dónde: nunca lo cuentan, y no conviene insistir.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "marca": {
+        "text": [
+          "«Déjame verla.»",
+          "*Le enseñas el brazo. La hermana pasa un dedo sobre la veta sin llegar a tocarla.*",
+          "«Mi abuela me contaba un cuento: que los Durn, cuando encerraron lo que encerraron, mezclaron su sangre con la piedra para que el cierre aguantara. Y que, de vez en cuando, la piedra se acuerda y nace un niño con la sangre hecha granito.»",
+          "*Retira la mano.*",
+          "«Es solo un cuento, claro. Como el del toro que sangra.»"
+        ],
+        "options": [
+          {
+            "text": "¿Y qué hacía ese niño?",
+            "goto": "marca2"
+          },
+          {
+            "text": "¿Creéis que lo he despertado yo?",
+            "goto": "marca3"
+          },
+          {
+            "text": "Gracias, hermana.",
+            "goto": "hub"
+          }
+        ]
+      },
+      "marca2": {
+        "text": [
+          "«Eso no lo contaba. Mi abuela se dormía siempre en la mejor parte.»",
+          "*Sonríe sin ganas.*",
+          "«Pero sí decía que la Marca arde cuando un sello está enfermo, igual que duele una muela antes de la tormenta.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "marca3": {
+        "text": [
+          "«El toro lleva mil años mirando a las colinas y se agrieta justo la noche antes de que llegues tú.»",
+          "*No lo dice como una acusación.*",
+          "«No creo que lo hayas despertado. Creo que algo llevaba mucho tiempo despierto y te ha oído venir.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "toros": {
+        "text": [
+          "«Los Durn tallaron siete toros, todos mirando a las colinas. Mi abuela decía que, mientras miren, lo que duerme debajo no despierta.»",
+          "*Junta las manos.*",
+          "«El nuestro ya no mira. Tiene la cabeza un poco ladeada desde anoche. Nadie más lo ha notado, o nadie más lo quiere notar.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "aldwen": {
+        "text": [
+          "«Madre Aldwen lleva el santuario de Solenne del bosque desde antes de que yo tomara los hábitos. Tiene una novicia, una elfa jovencita, Ilyra.»",
+          "*Se le tensa la boca.*",
+          "«Hace tres días que no baja nadie del bosque, y con los trasgos tan cerca… Si vais a Elderhal, pasad por el santuario. Os lo ruego.»"
+        ],
+        "do": [
+          "set:aldwen_rumor"
+        ],
+        "optionsFrom": "hub"
+      },
+      "ilyra_news": {
+        "text": [
+          {
+            "if": "party:ilyra | ilyra_temple | ilyra_waiting",
+            "text": "«Ilyra está viva. Gracias a ti y a Solenne, en ese orden o en el otro.»"
+          },
+          {
+            "if": "!party:ilyra & !ilyra_temple & !ilyra_waiting",
+            "text": "«Ilyra… ¿viva? Gracias a Solenne.»"
+          },
+          "*A la hermana se le humedecen los ojos un instante.*",
+          "«Y Aldwen… Aldwen murió como vivió: delante de alguien. Cuidad de esa niña. Está más rota de lo que parece.»"
+        ],
+        "say": [
+          {
+            "who": "ilyra",
+            "text": "«Hermana… Recé toda la noche. Nadie contestó.»",
+            "reply": "«Lo sé, pequeña. Yo también recé por ti toda la noche. Y aquí estás.»"
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "aldwen_dead": {
+        "text": [
+          "*La hermana Aldis cierra los ojos y no dice nada durante mucho rato.*",
+          "«Gracias por decírmelo. Encenderé una vela por las dos.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "faith": {
+        "text": [
+          "«¿Hablarme? No con palabras.»",
+          "*Se ríe bajito.*",
+          "«De novicia esperaba una voz. Llevo cuarenta años esperándola. Lo que he tenido, en cambio, son manos que curan cuando no deberían y gente que llega justo cuando hace falta.»",
+          "*Te mira.*",
+          "«Si eso no es Solenne, es alguien con muy buenos modales.»"
+        ],
+        "do": [
+          "set:aldis_words"
+        ],
+        "optionsFrom": "hub"
+      },
+      "disc": {
+        "text": [
+          "*La hermana Aldis coge el Disco del Alba con las dos manos y lo mira mucho rato.*",
+          "«Lo colgaré sobre el altar. Y cada mañana lo limpiaré, por si ella vuelve a buscarlo.»"
+        ],
+        "do": [
+          "take:dawn_disc"
+        ],
+        "optionsFrom": "hub"
+      },
+      "tiefling": {
+        "text": [
+          "«¿Molestarme?» *Se ríe con los ojos.* «Solenne no mira los cuernos: mira lo que haces cuando sale el sol.»",
+          "*Te pone una mano en el hombro, sin miedo.*",
+          "«Además, en este pueblo hay un toro que sangra. Unos cuernos más no van a escandalizar a nadie.»"
+        ],
+        "optionsFrom": "hub"
+      }
+    }
+  },
+  "dagna": {
+    "speaker": "Dagna Emberforge",
+    "title": "Herrera",
+    "start": [
+      {
+        "if": "!seen:dagna.hello",
+        "goto": "hello"
+      },
+      {
+        "goto": "hub"
+      }
+    ],
+    "nodes": {
+      "hello": {
+        "text": [
+          "«Si es de acero, lo arreglo. Si es de trasgo, lo fundo. ¿Qué te hace falta?»",
+          "*Una enana de brazos como troncos y una trenza roja chamuscada en la punta. No levanta la vista del yunque.*"
+        ],
+        "optionsFrom": "hub"
+      },
+      "hub": {
+        "text": "«¿Algo más?»",
+        "options": [
+          {
+            "text": "Quiero ver lo que tienes.",
+            "do": [
+              "shop:smith"
+            ]
+          },
+          {
+            "text": "¿Qué sabes de los trasgos que han atacado?",
+            "goto": "blades"
+          },
+          {
+            "text": "Háblame de ti.",
+            "goto": "self"
+          },
+          {
+            "text": "¿Qué clan, Dagna? Yo también vengo de la piedra.",
+            "if": "species:dwarf",
+            "once": true,
+            "approve": {},
+            "goto": "dwarf"
+          },
+          {
+            "text": "Las espadas de los trasgos: ya sé de dónde salen.",
+            "if": "dagna_blades & (ledger_read | pip_secret | holt_named) & !seen:dagna.holt",
+            "goto": "holt"
+          },
+          {
+            "text": "Pip te debe un cuchillo, ¿no?",
+            "if": "party:pip & !seen:dagna.pip",
+            "goto": "pip"
+          },
+          {
+            "text": "Adiós.",
+            "end": true
+          }
+        ]
+      },
+      "blades": {
+        "text": [
+          "«Que llevaban hojas buenas. Demasiado buenas.»",
+          "*Coge una espada trasga de un montón y te la pasa por la empuñadura.*",
+          "«Mira el recazo. Acero de Valdrecht, templado en aceite, del bueno. Y aquí había un sello de forjador que alguien ha limado a conciencia. Eso no se hace en una cueva: se hace en una ciudad. Alguien les está vendiendo armas.»"
+        ],
+        "do": [
+          "set:dagna_blades"
+        ],
+        "options": [
+          {
+            "text": "¿Quién podría venderles armas?",
+            "goto": "who"
+          },
+          {
+            "text": "Gracias, Dagna.",
+            "goto": "hub"
+          }
+        ]
+      },
+      "who": {
+        "text": [
+          "«Aquí, nadie. Yo no, y los canteros no saben ni afilar un pico.»",
+          "*Escupe al carbón.*",
+          "«Pero hay uno que viene de Valdrecht dos veces al año con un carro que cruje más de lo que debería. Yo no digo nada. Yo forjo.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "self": {
+        "text": [
+          "«Dagna Emberforge, hija de Durgan, de la forja de los Emberforge de las Montañas de Hierro. Llegué aquí hace veinte años de paso y me quedé, porque los canteros rompen picos como quien rompe nueces.»",
+          "*Por primera vez, te mira.*",
+          "«Y porque el toro me gusta. Es buena piedra. La mejor que he visto trabajada. Los Durn sabían lo que hacían.»"
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "text": "«¡Los Durn eran primos lejanos de nuestro pueblo, colega!»",
+            "reply": "«Los Durn no eran enanos, Maese. Tenían cuernos en los cascos y dos palmos más que tú. Y bastante más sentido común.»"
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "holt": {
+        "text": [
+          "«¿Holt Varga?»",
+          "*Dagna deja el martillo en el yunque, muy despacio.*",
+          "«Lo sabía. Lo sabía y me callé, porque yo forjo y no pregunto.»",
+          "*Coge la espada trasga y la dobla sobre la rodilla hasta que el acero bueno de Valdrecht chilla.*",
+          "«Ya no me callo. Si la alcaldesa necesita que alguien jure lo del sello limado, que me llame.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "pip": {
+        "text": "«Tallowmere. Me debes un cuchillo de desollar con el mango de asta.»",
+        "say": [
+          {
+            "who": "pip",
+            "text": "«Dagna, luz de mis ojos, el cuchillo está en buenas manos. En las mías.»",
+            "reply": "«Pues tráemelo afilado o tráeme cuatro piezas. Y no me llames luz.»"
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "dwarf": {
+        "text": [
+          "*Dagna levanta la vista del yunque por primera vez y te mira de arriba abajo, deteniéndose en la veta gris de tu brazo.*",
+          "«Emberforge. Y tú vienes de la piedra, sí, pero de una piedra que no conozco.» *Gruñe.* «Te haré precio de clan. Pero no se lo digas a nadie, que luego todos son primos.»"
+        ],
+        "optionsFrom": "hub"
+      }
+    }
+  },
+  "ysolde": {
+    "speaker": "Ysolde",
+    "title": "Herbolaria",
+    "start": [
+      {
+        "if": "!seen:ysolde.hello",
+        "goto": "hello"
+      },
+      {
+        "goto": "hub"
+      }
+    ],
+    "nodes": {
+      "hello": {
+        "text": [
+          "«Raíz de sangre para las heridas, cardo para el veneno. Y paciencia, que no se vende.»",
+          "*Una mujer de edad incierta, con el pelo color paja seca y las uñas verdes de tierra. Huele a menta y a humo de enebro.*"
+        ],
+        "optionsFrom": "hub"
+      },
+      "hub": {
+        "text": "«¿Qué buscas? Y no me digas que nada: nadie se para aquí por nada.»",
+        "options": [
+          {
+            "text": "Enséñame tus hierbas.",
+            "do": [
+              "shop:herbalist"
+            ]
+          },
+          {
+            "text": "¿Qué le pasa al bosque?",
+            "goto": "bosque"
+          },
+          {
+            "text": "Los lobos de Sedge: ¿qué sabes de ellos?",
+            "if": "sedge_quest & !sedge_done & !ysolde_tip",
+            "goto": "lobos"
+          },
+          {
+            "text": "¿Conoces a la vieja Sedge?",
+            "if": "!sedge_quest",
+            "once": true,
+            "goto": "sedge"
+          },
+          {
+            "text": "Háblame del Círculo del Brezo.",
+            "once": true,
+            "goto": "circulo"
+          },
+          {
+            "text": "El bosque te habla, ¿verdad?",
+            "if": "class:druid | class:ranger | bg:warden",
+            "once": true,
+            "goto": "speak"
+          },
+          {
+            "text": "Adiós.",
+            "end": true
+          }
+        ]
+      },
+      "bosque": {
+        "text": [
+          "«Está raro desde que se agrietó el toro. Los lobos bajan a los pastos, los ciervos se van al norte y los pájaros no cantan.»",
+          "*Arranca una hoja de una mata y la huele.*",
+          "«Hasta la menta sabe a hierro. Algo se mueve debajo de las raíces, y las raíces lo notan antes que nosotros.»"
+        ],
+        "optionsFrom": "hub",
+        "say": [
+          {
+            "who": "ilyra",
+            "text": "«Yo también lo noto. Como si el bosque contuviera la respiración.»"
+          },
+          {
+            "who": "odvar",
+            "text": "«¡Raíces como anclas sobre un sello! Fascinante. Aterrador, pero fascinante.»"
+          }
+        ]
+      },
+      "lobos": {
+        "text": [
+          "«Un lobo no baja a un pueblo con perros porque sí. Baja porque tiene hambre, o miedo, o las dos cosas.»",
+          "*Te pone en la mano un manojo de hierba seca que huele fuerte.*",
+          "«Si quieres acercarte sin que te muerdan, ve despacio, de lado, sin mirarles a los ojos. Y lleva carne, o lo que tengas de comer. Un lobo con la boca llena no muerde.»"
+        ],
+        "do": [
+          "set:ysolde_tip"
+        ],
+        "optionsFrom": "hub"
+      },
+      "sedge": {
+        "text": "«¿La vieja Sedge? Más vieja que el molino y más terca que el toro. Está en los pastos con sus ovejas y su perro. Si le caes bien, te contará cosas. Si le caes mal, también, pero peores.»",
+        "optionsFrom": "hub"
+      },
+      "circulo": {
+        "text": [
+          "«El Círculo del Brezo cuidaba de los túmulos de las Marcas antes de que yo naciera. Druidas. Mi maestra era una de ellos.»",
+          "*Se encoge de hombros.*",
+          "«Ya no quedan muchos. Sedge fue una, aunque no le gusta que se sepa.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "speak": {
+        "text": [
+          "«Hablar, no. Se queja.»",
+          "*Ysolde te mira con otros ojos.*",
+          "«Las raíces de este valle tiran todas hacia el prado, como si quisieran sujetar algo. Llevan mil años haciéndolo. Están cansadas.»"
+        ],
+        "optionsFrom": "hub"
+      }
+    }
+  },
+  "tobin": {
+    "speaker": "Tobin Hilltopple",
+    "title": "Buhonero",
+    "start": [
+      {
+        "if": "!seen:tobin.hello",
+        "goto": "hello"
+      },
+      {
+        "goto": "hub"
+      }
+    ],
+    "nodes": {
+      "hello": {
+        "text": [
+          "«¡Género de todas las Marcas! Cuerdas, pergaminos, cosas raras… Todo honrado. Casi todo.»",
+          "*Un mediano redondo con un chaleco de botones desparejados y una sonrisa de oreja a oreja.*"
+        ],
+        "optionsFrom": "hub"
+      },
+      "hub": {
+        "text": "«¿Qué va a ser, amig{o/a}?»",
+        "options": [
+          {
+            "text": "A ver ese género.",
+            "do": [
+              "shop:peddler"
+            ]
+          },
+          {
+            "text": "¿Algún consejo para el bosque?",
+            "goto": "bosque"
+          },
+          {
+            "text": "¿Conoces a Pip Tallowmere?",
+            "once": true,
+            "goto": "pip"
+          },
+          {
+            "text": "¿Qué sabes de Holt Varga?",
+            "if": "!holt_gone",
+            "once": true,
+            "goto": "holt"
+          },
+          {
+            "text": "¿Primo de Pip? Entonces seguro que somos parientes. Todos los medianos lo somos, ¿no?",
+            "if": "species:halfling",
+            "once": true,
+            "goto": "halfling"
+          },
+          {
+            "text": "¿Cosas raras, dices?",
+            "once": true,
+            "goto": "raras"
+          },
+          {
+            "text": "Adiós.",
+            "end": true
+          }
+        ]
+      },
+      "bosque": {
+        "text": [
+          "«Yo de vosotros, al bosque iría de día y mirando dónde piso. Los Zarpas Grises ponen cepos, fosos con estacas y cuerdas con latas para dar la alarma.»",
+          "*Se da un golpecito en la nariz.*",
+          "«Si veis agujas de pino demasiado bien puestas, no las piséis. La naturaleza no es tan ordenada.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "pip": {
+        "text": [
+          "«¿Pip? ¡Mi primo tercero, por parte de una tía que no reconoce a nadie! Me debe una mula.»",
+          "*Suspira.*",
+          "«Se la llevó a Valdrecht con un encargo y volvió sin mula, sin encargo y con una historia muy larga sobre un río. Pip siempre vuelve con una historia muy larga.»"
+        ],
+        "say": [
+          {
+            "who": "pip",
+            "text": "«La mula está bien, Tobin. Vive feliz en una granja. Muy lejos.»",
+            "reply": "«¡Eso mismo dijiste de mi gallina!»"
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "holt": {
+        "text": [
+          "«Holt Varga. Presta a los pastores en primavera y les quita el rebaño en otoño. Legal, todo legal.»",
+          "*Mira a ambos lados.*",
+          "«Lo que no es tan legal es lo que lleva en el carro. Cruje como si fuera cargado de piedras, a la ida y a la vuelta. Y tiene un libro negro que no suelta ni para comer. Cuando duerme, eso sí, lo deja en el carro. Bajo el pescante.»"
+        ],
+        "do": [
+          "set:ledger_hint"
+        ],
+        "optionsFrom": "hub"
+      },
+      "raras": {
+        "text": [
+          "«¡Monedas durn! Verdes, con un toro grabado. Los coleccionistas de Valdrecht pagan por ellas como si fueran de oro.»",
+          "*Te guiña un ojo.*",
+          "«Si encontráis alguna, ya sabéis quién os la compra a buen precio. A un precio muy razonable. Para mí.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "halfling": {
+        "text": "«¡Por supuesto! Por parte de una tía. Siempre es por parte de una tía.» *Te guiña un ojo.* «Y a los parientes les hago descuento. Un descuento pequeñito, pero con mucho cariño.»",
+        "optionsFrom": "hub"
+      }
+    }
+  },
+  "maren": {
+    "speaker": "Maren Ashford",
+    "title": "Alcaldesa de Merrowick",
+    "start": [
+      {
+        "if": "camp_done & !camp_paid",
+        "goto": "paid"
+      },
+      {
+        "if": "!quest_camp & !camp_done",
+        "goto": "first"
+      },
+      {
+        "goto": "hub"
+      }
+    ],
+    "nodes": {
+      "first": {
+        "text": [
+          "«Merrowick os debe una. Y me temo que voy a pediros otra.»",
+          "*Maren Ashford tiene las manos de cantera y la voz de quien ha gritado en muchas asambleas. Lleva tres noches sin dormir y se le nota.*",
+          "«Los trasgos vinieron del bosque de Elderhal, de su campamento. Si sigue allí, volverán, y la próxima vez no estaréis vosotros. Acabad con él y la aldea os pagará cincuenta piezas de oro. Es todo lo que hay en la caja.»"
+        ],
+        "options": [
+          {
+            "text": "Contad conmigo. Nadie más va a sufrir por esto.",
+            "tone": "amable",
+            "approve": {
+              "brenna": 3
+            },
+            "goto": "accept"
+          },
+          {
+            "text": "Cincuenta piezas por una tribu entera de trasgos es poco.",
+            "tone": "frio",
+            "check": {
+              "skill": "persuasion",
+              "dc": 13,
+              "easier": [
+                {
+                  "if": "bg:noble",
+                  "dc": 10
+                },
+                {
+                  "if": "bg:bounty_hunter",
+                  "dc": 9
+                }
+              ]
+            },
+            "success": "haggle_ok",
+            "failure": "haggle_no"
+          },
+          {
+            "text": "¿Y si son ochenta trasgos? ¿Pagáis por cabeza?",
+            "tone": "sarcastico",
+            "goto": "joke"
+          },
+          {
+            "text": "Cobro por cabeza, alcaldesa. Es mi oficio. Pero por esta aldea haré precio.",
+            "if": "bg:bounty_hunter",
+            "goto": "haggle_ok"
+          },
+          {
+            "text": "¿Por qué atacan ahora?",
+            "goto": "why"
+          },
+          {
+            "text": "(Mostrar la Marca) Creo que esto tiene que ver conmigo.",
+            "once": true,
+            "goto": "marca"
+          },
+          {
+            "text": "No es asunto mío.",
+            "tone": "frio",
+            "goto": "refuse"
+          }
+        ],
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«Cincuenta piezas y una aldea a salvo. He trabajado por menos. Mucho menos.»"
+          },
+          {
+            "who": "pip",
+            "text": "«¿Cincuenta? ¿Para todos o por cabeza? Lo pregunto por las cabezas.»"
+          }
+        ]
+      },
+      "joke": {
+        "text": "«Pago por resultados, no por cabezas. Las cabezas me las podéis traer igual, si os hace ilusión, pero no las pienso colgar en el ayuntamiento.»",
+        "optionsFrom": "first"
+      },
+      "why": {
+        "text": [
+          "«Antes robaban gallinas. Este año han venido más, con armas mejores, y desde anoche…»",
+          "*Mira hacia el prado, hacia el toro.*",
+          "«Desde anoche parece que vienen a por él. Corrían hacia el toro, no hacia las casas. Como si algo los llamara.»"
+        ],
+        "optionsFrom": "first"
+      },
+      "marca": {
+        "text": [
+          "*Te subes la manga. A la luz del farol, la veta gris parece moverse.*",
+          "«Por todos los…»",
+          "*Maren da un paso atrás sin querer, y luego se avergüenza de haberlo dado.*",
+          "«La hermana Aldis querrá ver eso. Yo no entiendo de piedras que sangran ni de brazos de granito. Yo entiendo de cuarenta familias y de un bosque lleno de trasgos.»"
+        ],
+        "optionsFrom": "first"
+      },
+      "haggle_ok": {
+        "text": "«…Setenta y cinco. Sacaré lo que falte del arreglo del tejado de la iglesia, que total, gotea igual.»",
+        "do": [
+          "var:camp_reward=75"
+        ],
+        "next": "accept"
+      },
+      "haggle_no": {
+        "text": "«Cincuenta. No hay más. Si queréis, os doy además mi gratitud y la de cuarenta familias, que no se come pero abriga.»",
+        "next": "accept"
+      },
+      "accept": {
+        "text": [
+          "«Gracias.»",
+          "*Lo dice como quien suelta un saco muy pesado.*",
+          "«El camino del este lleva al bosque. Tobin dice que los Zarpas ponen trampas, y Corwin, que acampan pasado el estanque. Volved enteros.»"
+        ],
+        "do": [
+          "set:quest_camp"
+        ],
+        "end": true
+      },
+      "refuse": {
+        "text": "«Entonces no os detendré.» *Maren se cruza de brazos.* «Pero el camino hacia lo que sea que buscáis también pasa por Elderhal. Volved cuando cambiéis de opinión.»",
+        "end": true
+      },
+      "paid": {
+        "text": [
+          {
+            "if": "camp_done=assault",
+            "text": "«Me han dicho lo del campamento. Merrowick cumple su palabra: aquí tenéis vuestras piezas.»"
+          },
+          {
+            "if": "camp_done=peace",
+            "text": "«Dicen los pastores que los trasgos se van por el camino del norte con sus mulas y sus lobos, cantando. ¿Cantando? No sé si daros las gracias o pediros que me lo expliquéis.» *Cuenta las monedas.* «Las dos cosas. Aquí está vuestro dinero.»"
+          },
+          {
+            "if": "camp_done=stealth",
+            "text": "«Los trasgos se han desperdigado por el bosque sin su cabecilla. No pregunto cómo. Aquí tenéis lo prometido.»"
+          },
+          "«Y una cosa más…» *Baja la voz.* «El toro sigue sangrando, pero la losa de su pedestal se ha movido. La hermana Aldis dice que debajo hay escalones.»"
+        ],
+        "do": [
+          {
+            "if": "var:camp_reward=75",
+            "do": [
+              "gold:+75"
+            ],
+            "else": [
+              "gold:+50"
+            ]
+          },
+          "set:camp_paid"
+        ],
+        "options": [
+          {
+            "text": "Bajaremos a ver qué hay.",
+            "end": true
+          },
+          {
+            "text": "¿Qué más sabéis de esa escalera?",
+            "goto": "stairs"
+          }
+        ],
+        "say": [
+          {
+            "who": "pip",
+            "text": "«¿Y una propina? Por lo de salvar el pueblo dos veces.»",
+            "reply": "«La propina es que no os cobro la cerveza de Corwin. Que es mía, por cierto: le presté para el tejado.»"
+          }
+        ]
+      },
+      "stairs": {
+        "text": "«Nada. Nadie en Merrowick sabía que existía. Ni los abuelos de los abuelos. Hay quien dice que no estaba ayer.»",
+        "end": true
+      },
+      "hub": {
+        "text": [
+          {
+            "if": "!camp_done",
+            "text": "«¿Alguna novedad del bosque?»"
+          },
+          {
+            "if": "camp_done",
+            "text": "«Merrowick duerme mejor gracias a vosotros. Yo, todavía no.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Todavía no hemos acabado con el campamento.",
+            "if": "!camp_done",
+            "goto": "notyet"
+          },
+          {
+            "text": "Tenéis que ver esto: el libro de cuentas de Holt Varga.",
+            "if": "item:holt_ledger & !holt_exposed",
+            "goto": "ledger"
+          },
+          {
+            "text": "¿Qué sabéis del Vado de Kesh?",
+            "if": "place_kesh",
+            "once": true,
+            "goto": "kesh"
+          },
+          {
+            "text": "Habladme de Merrowick.",
+            "once": true,
+            "goto": "town"
+          },
+          {
+            "text": "Adiós.",
+            "end": true
+          }
+        ]
+      },
+      "notyet": {
+        "text": "«Cuanto antes, mejor. Cada noche que pasa, la gente duerme menos y yo también.»",
+        "optionsFrom": "hub"
+      },
+      "ledger": {
+        "text": [
+          "«¿Qué es esto?»",
+          "*Maren pasa las páginas. Se le endurece la cara línea a línea.*",
+          "«“Zarpa: doce hojas, cobrado en piedra”… Cada mes, desde la primavera. ¡Les vendía espadas! ¡Las espadas con las que han entrado en mi pueblo!»",
+          {
+            "if": "!holt_gone",
+            "text": "*Llama a gritos a dos mozos de la cantera.* «Que encierren a Holt Varga en la cantera vieja hasta que llegue la guardia de Valdrecht. Y que confisquen su carro.»"
+          },
+          {
+            "if": "holt_gone",
+            "text": "«Se fue al alba, el muy… Mandaré el libro a Valdrecht con el primer correo. Que lo busquen allí.»"
+          },
+          "*Te devuelve la mirada, más tranquila.* «Su bolsa queda confiscada. Una parte es vuestra: os la habéis ganado.»"
+        ],
+        "optionsFrom": "hub",
+        "then": [
+          "take:holt_ledger",
+          "decision:holt_exposed",
+          "set:holt_gone",
+          "gold:+20"
+        ]
+      },
+      "kesh": {
+        "text": "«Ruinas viejas sobre el río, a media jornada al sureste. Los pastores no llevan allí los rebaños: dicen que el agua habla, y que a veces dice nombres.»",
+        "optionsFrom": "hub"
+      },
+      "town": {
+        "text": [
+          "«Pastores y canteros. Los pastores bajan la lana a Valdrecht en primavera y los canteros suben la piedra todo el año, para el Gremio.»",
+          "*Mira por la ventana, hacia el prado.*",
+          "«Y en medio, el toro. Mi padre decía que Merrowick existe porque alguien tenía que cuidarlo. Nunca supe si lo decía en broma.»"
+        ],
+        "optionsFrom": "hub"
+      }
+    }
+  },
+  "board": {
+    "speaker": "",
+    "title": "Tablón de la posada",
+    "start": "read",
+    "nodes": {
+      "read": {
+        "text": [
+          "*Avisos clavados con clavos de herradura, unos sobre otros:*",
+          "*«Se busca quien espante a los lobos de los pastos. Preguntad por la vieja Sedge.»*",
+          "*«Se ha perdido una cabra con cencerro. Responde a “Tormenta”. No muerde. Casi nunca.»*",
+          "*«Por orden de la alcaldesa: nadie se acerque al toro del prado hasta nuevo aviso.»*",
+          {
+            "if": "!holt_exposed",
+            "text": "*«HOLT VARGA, de Valdrecht. Préstamos honrados, compraventa discreta. Se compran monedas antiguas.»*"
+          },
+          {
+            "if": "holt_exposed",
+            "text": "*El aviso de Holt Varga está arrancado. En su lugar, uno nuevo, con letra de niño: «Préstamos deshonrados. Pregunten en la cantera.»*"
+          },
+          {
+            "if": "!corwin_tab",
+            "text": "*«Corwin busca a P. T. para hablar de cierta cuenta de sidra. Sin rencor. Con un poco de rencor.»*"
+          },
+          {
+            "if": "camp_done",
+            "text": "*Encima de todos, alguien ha clavado un dibujo a carboncillo: un trasgo huyendo con el rabo entre las piernas.*"
+          },
+          "*Abajo, en una esquina: «Aventureros a sueldo: hablad con Corwin».*"
+        ],
+        "options": [
+          {
+            "text": "Leer los avisos de los aventureros a sueldo.",
+            "goto": "mercs"
+          },
+          {
+            "text": "Dejar el tablón.",
+            "end": true
+          }
+        ]
+      },
+      "mercs": {
+        "text": [
+          "*Debajo del aviso de los aventureros a sueldo hay media docena de papeles, con letras de todas las calidades: «Espada, escudo y pocas preguntas». «Arquera. Buena vista, mala suerte». «Sé un poco de magia y mucho de cocina». «Enano con hacha. Se me ha muerto el socio».*",
+          "*Corwin asoma por la puerta secándose las manos.* «Veinte piezas de oro por cabeza y por cada nivel de oficio, por adelantado. Para vosotros, ahora mismo, {precio}. No es caro: es lo que cuesta volver vivo.»"
+        ],
+        "say": [
+          {
+            "who": "brenna",
+            "if": "party:brenna & seen:board.mercs=1",
+            "text": "«Gente que pelea por dinero. Como yo, pero sin excusas.»"
+          },
+          {
+            "who": "pip",
+            "if": "party:pip & seen:board.mercs=1",
+            "text": "«Yo os salgo más barato, jef{e/a}. Bueno, gratis. Bueno, con deudas, pero gratis.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Contratar a alguien.",
+            "if": "party<4",
+            "price": "hire",
+            "do": [
+              "hire"
+            ]
+          },
+          {
+            "text": "No nos llega para pagar a nadie.",
+            "if": "party<4 & gold<precio",
+            "goto": "poor"
+          },
+          {
+            "text": "Ya no cabe nadie más en el grupo.",
+            "if": "party>=4",
+            "goto": "full"
+          },
+          {
+            "each": "merc",
+            "text": "Despedir a {each:name}.",
+            "do": [
+              "var:fired={each:name}",
+              "fire:{each:id}"
+            ],
+            "goto": "fired"
+          },
+          {
+            "text": "Dejar el tablón.",
+            "end": true
+          }
+        ]
+      },
+      "poor": {
+        "text": "«Los mercenarios no fían.» *Corwin se encoge de hombros.* «Yo tampoco, ya puestos. Volved cuando la bolsa suene.»",
+        "optionsFrom": "mercs"
+      },
+      "full": {
+        "text": "*Corwin cuenta cabezas con el dedo.* «Cuatro. En el camino, más de cuatro ya es una procesión. Si alguien se queda aquí conmigo, junto al fuego, os busco a quien queráis.»",
+        "options": [
+          {
+            "each": "companion",
+            "text": "Que {each:name} espere aquí, en la posada.",
+            "do": [
+              "wait:{each:id}"
+            ],
+            "goto": "mercs"
+          },
+          {
+            "each": "merc",
+            "text": "Despedir a {each:name}.",
+            "do": [
+              "var:fired={each:name}",
+              "fire:{each:id}"
+            ],
+            "goto": "fired"
+          },
+          {
+            "text": "Mejor seguimos como estamos.",
+            "goto": "mercs"
+          }
+        ]
+      },
+      "fired": {
+        "text": "*{var:fired} cuenta lo que le queda del adelanto, se lo guarda en la bota y se despide con un gesto. Al día siguiente, en el tablón, hay un papel nuevo con su letra.*",
+        "optionsFrom": "mercs"
+      }
+    }
+  },
+  "bull": {
+    "speaker": "",
+    "title": "El toro de granito",
+    "start": [
+      {
+        "if": "seal_choice=restored",
+        "goto": "healed"
+      },
+      {
+        "if": "seal_choice=broken",
+        "goto": "fallen"
+      },
+      {
+        "goto": "look"
+      }
+    ],
+    "nodes": {
+      "look": {
+        "text": [
+          "*El toro de los Durn mira a las colinas, como hace mil años. O casi: tiene la cabeza un poco ladeada, como quien escucha. Una grieta le cruza el lomo y de ella mana algo oscuro y espeso que huele a hierro.*",
+          {
+            "if": "camp_done",
+            "text": "*La losa del pedestal se ha desplazado un palmo, como empujada desde abajo. Entre la piedra y la hierba asoman unos peldaños gastados.*"
+          },
+          {
+            "if": "e1_done & !camp_done",
+            "text": "*La gente da un rodeo para no pasar cerca.*"
+          },
+          "*Cuando te acercas, la Marca de tu piel se calienta.*"
+        ],
+        "options": [
+          {
+            "text": "Tocar la grieta.",
+            "once": true,
+            "goto": "touch"
+          },
+          {
+            "text": "Estudiar las tallas del toro.",
+            "check": {
+              "skill": "history",
+              "dc": 12,
+              "easier": [
+                {
+                  "if": "bg:sage",
+                  "dc": 8
+                }
+              ]
+            },
+            "success": "carvings",
+            "failure": "carvings_no"
+          },
+          {
+            "text": "Rezar ante el toro.",
+            "if": "class:cleric | class:paladin | bg:acolyte",
+            "special": "Fe",
+            "once": true,
+            "goto": "pray"
+          },
+          {
+            "text": "Dejarlo.",
+            "end": true
+          }
+        ]
+      },
+      "touch": {
+        "text": [
+          "*Pones la mano en la piedra. Está caliente, como un animal dormido.*",
+          "*Por un instante oyes algo, y no con los oídos: una voz muy lejana, muy grande, que pronuncia tu nombre despacio, como quien prueba una fruta.*",
+          "*Retiras la mano. Tienes la palma manchada de rojo oscuro.*"
+        ],
+        "do": [
+          "set:bull_touched"
+        ],
+        "say": [
+          {
+            "who": "brenna",
+            "text": "«Aparta la mano de ahí. Ahora.»"
+          },
+          {
+            "who": "ilyra",
+            "text": "«Te has puesto blanc{o/a}. ¿Qué has oído?»"
+          },
+          {
+            "who": "odvar",
+            "text": "«¿Ha hablado? ¿Ha HABLADO? ¿En qué declinación?»"
+          }
+        ],
+        "optionsFrom": "look"
+      },
+      "carvings": {
+        "text": "*En la frente del toro hay tres espirales entrelazadas, gastadas por los siglos: las mismas que se repiten en las piedras durn de toda la frontera. En el saber del Archivo de Valdrecht las llaman «el nudo»: el signo de algo que se cerró y no debe abrirse.*",
+        "do": [
+          "set:bull_knot"
+        ],
+        "optionsFrom": "look"
+      },
+      "carvings_no": {
+        "text": "*Espirales, muescas, cuernos. Muy bonito y nada claro. Los Durn tallaban como quien escribe una carta a alguien que todavía no ha nacido.*",
+        "optionsFrom": "look"
+      },
+      "pray": {
+        "text": [
+          "*Te arrodillas en la hierba húmeda y rezas. No esperas respuesta.*",
+          "*La grieta del toro deja de manar, solo un momento, como quien contiene la respiración para escuchar. Luego vuelve a sangrar.*"
+        ],
+        "optionsFrom": "look"
+      },
+      "healed": {
+        "text": [
+          "*El toro ya no sangra. La grieta de su lomo se ha cerrado en una costura gris, como una cicatriz vieja.*",
+          "*Y vuelve a mirar a las colinas, con la cabeza recta. Cuando te acercas, la veta de tu cuello late una vez, tranquila, como un saludo.*"
+        ],
+        "end": true
+      },
+      "fallen": {
+        "text": [
+          "*Del toro de los Durn queda un montón de granito sobre el pedestal. Un cuerno entero apunta todavía al cielo.*",
+          "*Los niños de Merrowick ya han empezado a llevarse trozos. Nadie se lo impide.*"
+        ],
+        "end": true
+      }
+    }
+  }
+}

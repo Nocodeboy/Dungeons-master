@@ -1,0 +1,166 @@
+{
+  "prologue": {
+    "speaker": "Brenna Halvard",
+    "title": "Veterana de la guardia de Valdrecht",
+    "important": true,
+    "portrait": "brenna",
+    "start": "road",
+    "nodes": {
+      "road": {
+        "speaker": "",
+        "text": "*El sol se pone a vuestra espalda. Al fondo del valle humean las chimeneas de una aldea de tejados de pizarra y, en mitad de un prado, se distingue una mancha gris: un toro de piedra, echado, con la cabeza vuelta hacia las colinas.*",
+        "next": "b1"
+      },
+      "b1": {
+        "text": [
+          "«Ahí abajo está Merrowick. Pastores, canteros y un toro de piedra que, según el ventero, tiene mil años. Muy emocionante.»",
+          "*Te rascas el antebrazo sin darte cuenta. La Marca quema como una brasa bajo la manga.*",
+          "«Otra vez el brazo. Llevas así desde el vado. ¿Me vas a contar qué te pasa o tengo que adivinarlo?»"
+        ],
+        "options": [
+          {
+            "text": "Es la Marca. Nunca había dolido así. Creo que lo que busco está ahí abajo.",
+            "tone": "amable",
+            "approve": {
+              "brenna": 5
+            },
+            "goto": "trust"
+          },
+          {
+            "text": "Una maldición de familia. Viene con el apellido, como las deudas.",
+            "tone": "sarcastico",
+            "approve": {
+              "brenna": 3
+            },
+            "goto": "joke"
+          },
+          {
+            "text": "No es asunto tuyo.",
+            "tone": "frio",
+            "goto": "cold"
+          },
+          {
+            "text": "Brenna, con estos cuernos, una mancha más en la piel no impresiona a nadie.",
+            "if": "species:tiefling",
+            "goto": "horns"
+          },
+          {
+            "text": "Los enanos decimos que la piedra llama a la piedra. Esta me llama a gritos.",
+            "if": "species:dwarf",
+            "approve": {
+              "brenna": 3
+            },
+            "goto": "trust"
+          },
+          {
+            "text": "Creo que es una señal. Lo que no sé es de quién.",
+            "if": "class:cleric | class:paladin",
+            "special": "Fe",
+            "goto": "sign"
+          },
+          {
+            "text": "Yo también serví en una muralla, Brenna. Sé lo que es tener frío por dentro antes de una batalla. Esto es lo mismo, pero en el brazo.",
+            "if": "bg:soldier",
+            "approve": {
+              "brenna": 5
+            },
+            "goto": "trust"
+          },
+          {
+            "text": "Mi abuela decía que a los medianos nos pica la piel cuando va a pasar algo gordo. Nunca le hice caso. Error.",
+            "if": "species:halfling",
+            "goto": "joke"
+          }
+        ]
+      },
+      "trust": {
+        "text": [
+          "«Vale. Eso es más de lo que me ha contado nadie en un mes.»",
+          "*Te mira la manga y luego el valle.*",
+          "«Si lo que buscas está ahí abajo, bajaremos a buscarlo. Y si muerde, le muerdo yo primero.»"
+        ],
+        "next": "ask"
+      },
+      "joke": {
+        "text": [
+          "«Ja. Las mías también vienen con el apellido. Halvard: tres generaciones de guardias y ni uno rico.»",
+          "*Se ríe por la nariz.*",
+          "«Algún día me lo cuentas en serio.»"
+        ],
+        "next": "ask"
+      },
+      "cold": {
+        "text": [
+          "«Justo. Pero si te caes redond{o/a} en mitad del camino, sí será asunto mío, porque me tocará cargar contigo.»",
+          "*Se encoge de hombros.*",
+          "«Tú sabrás.»"
+        ],
+        "next": "ask"
+      },
+      "horns": {
+        "text": "«Te sorprendería lo que impresiona en Valdrecht. Pero vale: los cuernos no se te ponen rojos cuando miras al norte. Eso sí.»",
+        "next": "ask"
+      },
+      "sign": {
+        "text": [
+          "«Pues que la próxima señal venga con instrucciones.»",
+          "*Se ajusta la correa del escudo.*",
+          "«Yo solo creo en lo que puedo golpear. Lo demás te lo dejo a ti.»"
+        ],
+        "next": "ask"
+      },
+      "ask": {
+        "text": "«Bueno. ¿Bajamos o nos quedamos a ver cómo se hace de noche?»",
+        "options": [
+          {
+            "text": "¿Por qué viniste conmigo, Brenna?",
+            "once": true,
+            "goto": "why"
+          },
+          {
+            "text": "¿Por qué dejaste la guardia de Valdrecht?",
+            "once": true,
+            "approve": {
+              "brenna": -3
+            },
+            "goto": "guard"
+          },
+          {
+            "text": "Bajemos.",
+            "goto": "dogs"
+          }
+        ]
+      },
+      "why": {
+        "text": [
+          "«Porque el camino es largo y tú pareces de {los/las} que se meten en líos. A mí los líos me pagan la cena.»",
+          "*Una pausa.*",
+          "«Y porque en la Mula Coja fuiste la única persona que no me preguntó por qué llevo un escudo de la guardia sin el emblema.»"
+        ],
+        "optionsFrom": "ask"
+      },
+      "guard": {
+        "text": [
+          "«¿Quién dice que la dejé?»",
+          "*No sonríe.*",
+          "«Algún día, con vino. Hoy no.»"
+        ],
+        "do": [
+          "set:brenna_asked"
+        ],
+        "optionsFrom": "ask"
+      },
+      "dogs": {
+        "speaker": "",
+        "text": "*Bajáis por el camino viejo entre muros de piedra seca. Cuando ya se distinguen los tejados, el viento cambia y trae un sonido que no te gusta: perros. Muchos perros, ladrando todos hacia el mismo sitio.*",
+        "next": "end1"
+      },
+      "end1": {
+        "text": "«Eso no es un zorro.»",
+        "say": [],
+        "end": true,
+        "endText": "Apretar el paso."
+      }
+    }
+  }
+}

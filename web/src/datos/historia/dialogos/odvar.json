@@ -1,0 +1,493 @@
+{
+  "odvar": {
+    "speaker": "Maese Odvar Stonebrow",
+    "title": "Erudito de las piedras durn",
+    "start": [
+      {
+        "if": "party:odvar",
+        "goto": "c_hub"
+      },
+      {
+        "if": "odvar_waiting",
+        "goto": "waiting"
+      },
+      {
+        "if": "!odvar_met",
+        "goto": "meet"
+      },
+      {
+        "goto": "hub"
+      }
+    ],
+    "nodes": {
+      "meet": {
+        "text": [
+          "*Junto a la hoguera, un enano de barba gris trenzada en tres partes —una de ellas con un lápiz de carbón metido dentro— está de rodillas ante una piedra con espirales, golpeándola suavemente con un martillito y hablándole.*",
+          "«…y si eres un genitivo, ¿por qué te comportas como un ablativo? ¿Eh? ¿EH?»",
+          "*Se da cuenta de que no está solo. Se levanta, se sacude las rodillas y se ajusta unas gafas de cristal verde.*",
+          "«¡Ah! Gente. Gente de verdad, no arañas ni trasgos. Maese Odvar Stonebrow, doctor en piedras por la Academia de Valdrecht, autor del *Tratado sobre la piedra que canta*, en tres tomos.»",
+          "*Pausa.*",
+          "«Nadie ha leído el tercero. Ni siquiera mi editor.»"
+        ],
+        "do": [
+          "set:odvar_met"
+        ],
+        "options": [
+          {
+            "text": "Un placer, Maese. ¿Qué hacéis aquí?",
+            "tone": "amable",
+            "goto": "what"
+          },
+          {
+            "text": "¿Le estabais hablando a una piedra?",
+            "tone": "sarcastico",
+            "goto": "talkstone"
+          },
+          {
+            "text": "Buscamos un cuerno de piedra.",
+            "tone": "frio",
+            "goto": "horn"
+          },
+          {
+            "text": "¿Stonebrow? He leído vuestro Tratado. Los dos primeros tomos.",
+            "if": "bg:sage",
+            "approve": {
+              "odvar": 10
+            },
+            "goto": "sage"
+          },
+          {
+            "text": "Un paisano. ¿De qué clan sois, Maese?",
+            "if": "species:dwarf",
+            "approve": {
+              "odvar": 5
+            },
+            "goto": "clan"
+          },
+          {
+            "text": "Un erudito enano en unas ruinas durn. Mi abuelo gnomo diría que esto es un chiste que empieza bien.",
+            "if": "species:gnome",
+            "approve": {
+              "odvar": 5
+            },
+            "goto": "gnome"
+          }
+        ]
+      },
+      "talkstone": {
+        "text": "«A la piedra no: a su gramática. Es muy distinto. La piedra no contesta; la gramática, a veces, sí. Normalmente para llevarte la contraria.»",
+        "next": "what"
+      },
+      "sage": {
+        "text": [
+          "«¡¿Los dos primeros?!»",
+          "*Se le empañan las gafas.*",
+          "«¡Por fin alguien con criterio! Bueno, con medio criterio. El tercero es el bueno.»"
+        ],
+        "next": "what"
+      },
+      "clan": {
+        "text": "«Stonebrow, de los Stonebrow de la Colina Gris. Que no son los de la Colina Parda, por mucho que digan esos sinvergüenzas.»",
+        "next": "what"
+      },
+      "what": {
+        "text": [
+          "«¿Que qué hago? ¡Lo que llevo cuarenta años queriendo hacer! Esto, amig{o/a} mí{o/a}, no es un puente.»",
+          "*Abre los brazos hacia las ruinas.*",
+          "«Es una PUERTA. Los Durn construían sus puentes sobre las cámaras de los guardianes, para que el río las vigilara. Detrás de esas tres piedras parlantes hay una cámara sellada, y dentro…»",
+          "*Baja la voz, teatral.*",
+          "«…dentro, si mis cálculos son correctos, y lo son, está uno de los siete cuernos.»"
+        ],
+        "next": "horn_info"
+      },
+      "horn": {
+        "text": [
+          "«¡El cuerno! ¿Sabéis lo del cuerno?»",
+          "*Te mira por encima de las gafas, con sospecha.*",
+          "«¿No seréis de los que lo quieren vender en Valdrecht? Últimamente todo el mundo quiere vender piedras durn en Valdrecht.»"
+        ],
+        "next": "horn_info"
+      },
+      "horn_info": {
+        "text": [
+          "«Los Durn encerraron algo bajo las Marcas con siete sellos. Cada sello tiene su cámara, y cada cámara se abre con un cuerno de piedra. Siete toros, siete sellos, siete cuernos.»",
+          "*Le brillan los ojos detrás del cristal verde.*",
+          "«Llevo tres semanas intentando abrir esa puerta. Las piedras hablan: cada una dice un acertijo en durn antiguo, y hay que girarlas hasta el glifo que lo responde. Las tres a la vez.»"
+        ],
+        "say": [
+          {
+            "who": "pip",
+            "text": "«¿Y en tres semanas no los habéis resuelto?»",
+            "reply": "«¡Las arañas me robaron la cartera! ¡Con mis cuadernos! ¡Treinta años de notas! Sin ellos trabajo de memoria, y mi memoria, a mis ciento ochenta y tres años, tiene… lagunas. Muy pequeñas. Del tamaño de un lago.»"
+          }
+        ],
+        "optionsFrom": "hub"
+      },
+      "hub": {
+        "text": "«¿Sí? ¿Más preguntas? Las preguntas son el principio de la sabiduría. Las respuestas, el principio del aburrimiento.»",
+        "options": [
+          {
+            "text": "Aquí tenéis vuestra cartera.",
+            "if": "item:odvar_notes & !odvar_satchel",
+            "goto": "satchel"
+          },
+          {
+            "text": "Mirad esta tablilla: la tenía el cabecilla trasgo.",
+            "if": "item:durn_tablet & !odvar_tablet",
+            "goto": "tablet"
+          },
+          {
+            "text": "¿Dónde están esas arañas?",
+            "if": "!odvar_satchel & !spiders_dead",
+            "once": true,
+            "goto": "spiders"
+          },
+          {
+            "text": "¿Podéis traducirme los acertijos de las piedras?",
+            "if": "!runes_solved",
+            "goto": "riddles"
+          },
+          {
+            "text": "(Mostrar la Marca) ¿Sabéis qué es esto?",
+            "if": "!odvar_marca",
+            "goto": "marca"
+          },
+          {
+            "text": "En Merrowick hay un toro durn que sangra.",
+            "if": "!seen:odvar.bull",
+            "goto": "bull"
+          },
+          {
+            "text": "Habladme de los Durn.",
+            "once": true,
+            "goto": "durn"
+          },
+          {
+            "text": "¿Venís con nosotros?",
+            "if": "runes_solved | odvar_marca | seen:odvar.bull",
+            "goto": "join"
+          },
+          {
+            "text": "Adiós, Maese.",
+            "end": true
+          }
+        ]
+      },
+      "spiders": {
+        "text": [
+          "«Al otro lado del vado, entre los juncos, hay un nido. Dos arañas grandes como mulas. Me robaron la cartera hace diez días, junto con una salchicha, que no lamento tanto.»",
+          "*Se estremece de la barba a las botas.*",
+          "«Si recuperáis mis cuadernos, os ayudaré con las piedras como no os ha ayudado nadie en la vida.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "satchel": {
+        "text": [
+          "«¡MIS CUADERNOS!»",
+          "*Odvar se abalanza sobre la cartera, la abre, saca un cuaderno, lo huele y lo abraza.*",
+          "«Treinta años. Treinta años de mi vida, y una salchicha.» *Saca la salchicha, la mira y la tira al río.* «Gracias. De verdad, gracias.»",
+          "*Hojea a toda velocidad.*",
+          "«¡Aquí está! El verso de Kesh: “Agua que pasa, piedra que queda, toro que vela”. Así se cerró, y así se abre. Y aquí, los tres acertijos, copiados de las piedras cuando aún se leían enteros.»"
+        ],
+        "do": [
+          "take:odvar_notes",
+          "decision:odvar_satchel",
+          "set:kesh_verse",
+          "set:kesh_read_1",
+          "set:kesh_read_2",
+          "set:kesh_read_3"
+        ],
+        "optionsFrom": "hub"
+      },
+      "tablet": {
+        "text": [
+          "*Odvar coge la tablilla con dos dedos, como quien coge un pájaro herido.*",
+          "«¡Una tablilla de paso! Los guardianes las llevaban para no olvidar las palabras.»",
+          "*Lee moviendo los labios.*",
+          "«“Corro y no tengo pies; me bebes y no me acabo…” y “No duermo, no como, no muero…” ¡Son dos de los acertijos! Falta un trozo: los trasgos la partieron. Bárbaros.»"
+        ],
+        "do": [
+          "set:odvar_tablet",
+          "set:kesh_read_1",
+          "set:kesh_read_2"
+        ],
+        "optionsFrom": "hub"
+      },
+      "riddles": {
+        "text": [
+          {
+            "if": "kesh_read_1 & kesh_read_2 & kesh_read_3",
+            "text": "«Ya los tienes todos, mi querid{o/a} amig{o/a}. Ahora solo hay que pensar, que es lo más difícil.»"
+          },
+          {
+            "if": "!(kesh_read_1 & kesh_read_2 & kesh_read_3)",
+            "text": "«De memoria, y con mis lagunas…» *Cierra los ojos.* «La de la orilla dice: “Corro y no tengo pies; me bebes y no me acabo; todo lo que baja de las colinas es mío.” La del puente: “No duermo, no como, no muero; os sostengo a todos y nadie me da las gracias.” Y la tercera, la de la otra orilla…»"
+          },
+          {
+            "if": "!kesh_read_3",
+            "text": "*Frunce el ceño.* «“Tengo cuernos y no embisto; tengo barbas y no me afeito…” ¡Una cabra! Es evidente que es una cabra. Aunque no recuerdo ningún glifo de cabra, lo cual es preocupante.»"
+          }
+        ],
+        "optionsFrom": "hub",
+        "then": [
+          "set:kesh_read_1",
+          "set:kesh_read_2",
+          {
+            "if": "!kesh_read_3",
+            "do": [
+              "set:odvar_goat"
+            ]
+          }
+        ]
+      },
+      "marca": {
+        "text": [
+          "*Te subes la manga. Odvar se queda con la boca abierta, se quita las gafas, se las vuelve a poner, se las quita otra vez.*",
+          "«Por las barbas de Thorun. Una veta. Una veta viva.»",
+          "*Saca el lápiz de la barba.*",
+          "«¿Me permites…? No, no te toco. Solo miro. Solo miro mucho.» *Se acerca tanto que le notas el aliento a té.* «Los Durn escribieron sobre esto. “La sangre que se hizo piedra.” ¡Un Marcado! ¡Creía que erais un mito! ¿Sabes lo que significa?»"
+        ],
+        "options": [
+          {
+            "text": "No. Decídmelo vos.",
+            "goto": "marca2"
+          },
+          {
+            "text": "Significa que me duele.",
+            "tone": "sarcastico",
+            "goto": "marca2"
+          }
+        ]
+      },
+      "marca2": {
+        "text": [
+          "«¡Significa que eres la llave! Bueno, una llave. Los cuernos abren las cámaras, pero los sellos… los sellos solo los toca la sangre de la veta. Para cerrar… o para abrir.»",
+          "*Se calla de golpe, como si hubiera dicho demasiado.*",
+          "«Necesito mis cuadernos. Y necesito abrir esa puerta. Y necesito, urgentemente, una taza de té.»"
+        ],
+        "do": [
+          "set:odvar_marca"
+        ],
+        "optionsFrom": "hub"
+      },
+      "bull": {
+        "text": [
+          "«¿El toro de Merrowick sangra?»",
+          "*Odvar se sienta en una piedra, de golpe.*",
+          "«Entonces el primer sello se está rompiendo. Durn-Kahl. Merrowick está encima de Durn-Kahl.»",
+          "*Se levanta, también de golpe.*",
+          "«¡Tenéis que bajar! ¡Con el cuerno! ¡Y yo tengo que ir con vosotros, porque si no lo veo con mis propios ojos me muero, y a mi edad eso no es una forma de hablar!»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "durn": {
+        "text": [
+          "«Los Durn. Altos, de piel gris, con cascos de cuernos. Nada que ver con los enanos, por mucho que lo diga mi primo Borin, que es tonto.»",
+          "*Se le escapa una sonrisa.*",
+          "«No dejaron escritura que se pueda leer de corrido: solo acertijos, espirales y toros. Eran un pueblo que hablaba en adivinanzas. Imagínate pedirles el pan.»"
+        ],
+        "optionsFrom": "hub"
+      },
+      "join": {
+        "text": [
+          "«¿Ir con vosotros? ¿Al túmulo? ¿A ver un sello durn con mis propios ojos?»",
+          "*Se quita las gafas para limpiarlas y se le caen dos veces.*",
+          "«Dejadme pensarlo.»",
+          "*Pausa de medio latido.*",
+          "«Ya está. Sí.»"
+        ],
+        "options": [
+          {
+            "text": "Bienvenido, Maese.",
+            "tone": "amable",
+            "do": [
+              "recruit:odvar"
+            ],
+            "goto": "joined"
+          },
+          {
+            "text": "Mejor esperadnos en la posada de Merrowick.",
+            "do": [
+              "set:odvar_waiting"
+            ],
+            "goto": "inn"
+          },
+          {
+            "text": "Todavía no. Primero, la puerta.",
+            "if": "!runes_solved",
+            "goto": "hub"
+          }
+        ]
+      },
+      "joined": {
+        "text": "«¡Excelente! Llevo los cuadernos, el martillito y dos mudas. Bueno, una y media.»",
+        "end": true
+      },
+      "inn": {
+        "text": "«¡En la posada! Bien. Estudiaré el toro de cerca. Muy de cerca. Con permiso de la sacerdotisa, o sin él.»",
+        "end": true
+      },
+      "waiting": {
+        "text": "«¿Ya? ¿Nos vamos? ¿Abajo?»",
+        "options": [
+          {
+            "text": "Nos vamos, Maese.",
+            "do": [
+              "recruit:odvar",
+              "set:odvar_waiting=false"
+            ],
+            "goto": "joined"
+          },
+          {
+            "text": "Todavía no.",
+            "end": true
+          }
+        ]
+      },
+      "c_hub": {
+        "text": "«¿Sí? Pregunta, pregunta. Para eso estoy. Bueno, estoy para muchas cosas, pero esa es mi favorita.»",
+        "options": [
+          {
+            "text": "¿Qué opináis de lo que está pasando?",
+            "goto": "c_opinion"
+          },
+          {
+            "text": "Habladme de los sellos.",
+            "goto": "c_seals"
+          },
+          {
+            "text": "Habladme de vuestro Tratado.",
+            "once": true,
+            "goto": "c_tratado"
+          },
+          {
+            "text": "Esperadnos en la posada de Merrowick.",
+            "do": [
+              "wait:odvar"
+            ],
+            "goto": "c_wait"
+          },
+          {
+            "text": "Nada, Maese. Sigamos.",
+            "end": true
+          }
+        ]
+      },
+      "c_wait": {
+        "text": "«Me llevaré el cuaderno y miraré el toro. Si me ve la hermana Aldis, decidle que estoy rezando. En durn.»",
+        "end": true
+      },
+      "c_opinion": {
+        "text": [
+          {
+            "if": "!seal_key",
+            "text": "«Que tenemos que bajar. ¡Un sello durn intacto! Bueno, agrietado. Pero un sello.»"
+          },
+          {
+            "if": "seal_key & !vorhan_dead",
+            "text": "«Que el cuerno pesa tres libras y cuarto, y que cada vez que lo acerco a tu brazo pesa un poco más. Lo he medido.»"
+          },
+          {
+            "if": "vorhan_dead & !seal_choice",
+            "text": "«Que yo restauraría el sello. Por supuesto. Es una obra maestra. Pero no es mi sangre. Y eso, por una vez, me hace callar.»"
+          },
+          {
+            "if": "seal_choice",
+            "text": "«Que acabamos de ver algo que nadie había visto en mil años. Y que me tiemblan las manos, y no es por el frío.»"
+          }
+        ],
+        "optionsFrom": "c_hub"
+      },
+      "c_seals": {
+        "text": [
+          "«Siete sellos, cada uno con su túmulo, su guardián y su toro. El sello no es una cerradura: es una herida cosida. Los Durn cosieron a Kharzul… sí, así se llama, no lo digas muy alto… con su propia sangre.»",
+          "*Se rasca la barba.*",
+          "«Si la sangre de la veta toca el sello, el sello la reconoce. Puede beberla y cerrarse otra vez, más fuerte. O puede partirse, si se lo pide quien sangra. Y si se parte, el vínculo de la sangre se corta también. Eso dicen los textos.»",
+          "*Te mira.*",
+          "«Lo que no dicen es qué le pasa a quien cierra. Esa parte la borró alguien. A martillazos.»"
+        ],
+        "do": [
+          "set:odvar_seals"
+        ],
+        "optionsFrom": "c_hub"
+      },
+      "c_tratado": {
+        "text": [
+          "«¡El Tratado! Tomo primero: “De la piedra que canta”. Tomo segundo: “De la piedra que calla”. Tomo tercero: “De la piedra que, francamente, debería callarse”.»",
+          "*Se ríe solo un buen rato.*",
+          "«Era una broma académica. Nadie la entendió. Por eso no lo ha leído nadie.»"
+        ],
+        "optionsFrom": "c_hub"
+      },
+      "gnome": {
+        "text": "«¡Un gnomo! ¡Por fin alguien que no se duerme cuando hablo de engranajes de piedra!» *Te estrecha la mano con las dos suyas.* «Tu abuelo era un hombre sabio. ¿Cómo acaba el chiste?» *No espera respuesta.*",
+        "next": "what"
+      }
+    }
+  },
+  "kesh_statue": {
+    "speaker": "",
+    "title": "El toro caído de Kesh",
+    "start": "look",
+    "nodes": {
+      "look": {
+        "text": [
+          "*El toro de Kesh yace de costado entre los juncos, con un cuerno partido y el otro apuntando al este. El musgo le ha crecido en el lomo como una manta.*",
+          "*En la base, medio enterrada en el barro, hay una inscripción en espirales.*",
+          {
+            "if": "kesh_read_3",
+            "text": "*Reconoces los mismos signos que en la tercera piedra: «mil años miro a las colinas».*"
+          }
+        ],
+        "say": [
+          {
+            "who": "odvar",
+            "if": "!kesh_read_3",
+            "text": "«“Mil años miro a las colinas.” ¡Es el mismo verbo del tercer acertijo! ¡Mirar! ¡Los toros MIRAN! ¿Y las cabras? Las cabras no miran nada, solo comen.»"
+          }
+        ],
+        "options": [
+          {
+            "text": "Descifrar la inscripción.",
+            "if": "!kesh_read_3",
+            "check": {
+              "skill": "history",
+              "dc": 11,
+              "easier": [
+                {
+                  "if": "bg:sage",
+                  "dc": 6
+                }
+              ]
+            },
+            "success": "read",
+            "failure": "read_no"
+          },
+          {
+            "text": "Dejarlo.",
+            "end": true
+          }
+        ],
+        "then": [
+          {
+            "if": "party:odvar",
+            "do": [
+              "set:kesh_read_3"
+            ]
+          }
+        ]
+      },
+      "read": {
+        "text": "*Las espirales dicen: «Mil años miro a las colinas». La misma frase, palabra por palabra, que se repite en la tercera piedra: «Tengo cuernos y no embisto; tengo ojos y no parpadeo; mil años miro a las colinas».*",
+        "do": [
+          "set:kesh_read_3"
+        ],
+        "end": true
+      },
+      "read_no": {
+        "text": "*El barro se ha comido la mitad de las espirales, y la otra mitad no te dice nada.*",
+        "end": true
+      }
+    }
+  }
+}
