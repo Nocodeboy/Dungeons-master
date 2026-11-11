@@ -1,5 +1,9 @@
-// combat/creatures.js
-// Reconstruido de publicado/juego.js (módulo __esm «b1»). Nombres locales aún minificados.
+// combat/creatures.js — Figuras de criaturas para el combate.
+// Bestias procedurales (lobo, mastín, alce, caballo y araña gigante) hechas con primitivas de three y una
+// animación propia (paso de patas, ataque, golpe, caída) con la misma interfaz que Character (play,
+// playOnce, walkTo, update, headWorld…). También el aspecto de los no muertos y bandidos que se montan sobre
+// el humanoide de actors/ (equipo, recoloreado, ojos brillantes). Lo usan combat/units.js y
+// combat/controller.js (formas cambiadas, p. ej. Forma salvaje).
 
 import {
   CapsuleGeometry,
@@ -18,34 +22,37 @@ import {
   Vector3,
 } from 'three';
 
-function uH() {
-  let o = new Group(),
-    e = new MeshStandardMaterial({ color: 3811870, roughness: 0.85 }),
-    t = new QuadraticBezierCurve3(new Vector3(0, -0.46, 0), new Vector3(0, 0, 0.18), new Vector3(0, 0.46, 0));
-  return (o.add(new Mesh(new TubeGeometry(t, 16, 0.013, 5), e)), o);
+/** Arco sencillo (curva tubular) para el esqueleto arquero. */
+function makeBow() {
+  let bow = new Group(),
+    mat = new MeshStandardMaterial({ color: 3811870, roughness: 0.85 }),
+    curve = new QuadraticBezierCurve3(new Vector3(0, -0.46, 0), new Vector3(0, 0, 0.18), new Vector3(0, 0.46, 0));
+  return (bow.add(new Mesh(new TubeGeometry(curve, 16, 0.013, 5), mat)), bow);
 }
-function m1(o) {
-  return (e) => {
-    let t = e.getObjectByName('Head');
-    if (!t) return;
-    let a = new MeshBasicMaterial({ color: new Color(o).multiplyScalar(3) }),
-      n = new Matrix4().copy(t.matrixWorld).invert(),
-      s = t.getWorldPosition(new Vector3());
-    for (let i of [-1, 1]) {
-      let r = new Mesh(new SphereGeometry(0.018, 6, 4), a);
-      (r.position.copy(
-        s
+/** Extra que añade dos ojos brillantes al hueso «Head» de la figura. */
+function glowingEyes(color) {
+  return (root) => {
+    let head = root.getObjectByName('Head');
+    if (!head) return;
+    let mat = new MeshBasicMaterial({ color: new Color(color).multiplyScalar(3) }),
+      inverse = new Matrix4().copy(head.matrixWorld).invert(),
+      headPos = head.getWorldPosition(new Vector3());
+    for (let side of [-1, 1]) {
+      let eye = new Mesh(new SphereGeometry(0.018, 6, 4), mat);
+      (eye.position.copy(
+        headPos
           .clone()
-          .add(new Vector3(i * 0.04, 0.07, 0.1))
-          .applyMatrix4(n),
+          .add(new Vector3(side * 0.04, 0.07, 0.1))
+          .applyMatrix4(inverse),
       ),
-        t.add(r));
+        head.add(eye));
     }
   };
 }
-function t3(o) {
-  let e = o.template || '';
-  return e === 'skeleton' || e === 'skeleton_archer'
+/** Aspecto humanoide de un monstruo por plantilla: esqueleto (y arquero), zombi, tumulario o bandido. */
+function humanoidMonsterLook(creature) {
+  let template = creature.template || '';
+  return template === 'skeleton' || template === 'skeleton_archer'
     ? {
         outfit: 'Male_Peasant',
         variant: 'T_Peasant_2_BaseColor',
@@ -53,10 +60,10 @@ function t3(o) {
         skin: 15656658,
         skinLum: !0,
         scale: 0.95,
-        anim: e === 'skeleton' ? 'Sword_Idle' : 'Idle_Loop',
+        anim: template === 'skeleton' ? 'Sword_Idle' : 'Idle_Loop',
         walk: 'Walk_Loop',
         attach:
-          e === 'skeleton'
+          template === 'skeleton'
             ? [
                 {
                   prop: 'q_Sword_Bronze',
@@ -73,10 +80,10 @@ function t3(o) {
                   rot: [0, 90, 0],
                 },
               ]
-            : [{ make: uH, bone: 'hand_l', scale: 1, pos: [0, 0.08, 0], rot: [0, 0, 90] }],
-        extras: m1(10289072),
+            : [{ make: makeBow, bone: 'hand_l', scale: 1, pos: [0, 0.08, 0], rot: [0, 0, 90] }],
+        extras: glowingEyes(10289072),
       }
-    : e === 'zombie'
+    : template === 'zombie'
       ? {
           outfit: 'Male_Peasant',
           recolor: { from: 0.08, width: 0.5, shift: 0.15, sat: 0.4, val: 0.5 },
@@ -85,9 +92,9 @@ function t3(o) {
           scale: 1.02,
           anim: 'Idle_Loop',
           walk: 'Walk_Loop',
-          extras: m1(14221178),
+          extras: glowingEyes(14221178),
         }
-      : e === 'wight'
+      : template === 'wight'
         ? {
             outfit: 'Male_Ranger',
             variant: 'T_Ranger_3_BaseColor',
@@ -100,7 +107,7 @@ function t3(o) {
             attach: [
               { prop: 'antique_estoc', bone: 'hand_r', scale: 0.66, pos: [0, 0.07, 0.03], rot: [0, 0, -90] },
             ],
-            extras: m1(10475775),
+            extras: glowingEyes(10475775),
           }
         : {
             outfit: 'Male_Peasant',
@@ -113,66 +120,72 @@ function t3(o) {
             ],
           };
 }
-function a3(o) {
-  return !!g1[o] || o === 'giant_spider';
+/** ¿Se dibuja como bestia procedural? */
+function isBeast(template) {
+  return !!BEASTS[template] || template === 'giant_spider';
 }
-function hH(o) {
-  let e = new MeshStandardMaterial({ color: 2761760, roughness: 0.55, metalness: 0.1 }),
-    t = new MeshStandardMaterial({ color: 4864554, roughness: 0.95 }),
-    a = new MeshBasicMaterial({ color: new Color(16724e3).multiplyScalar(2.2) }),
-    n = new Group();
-  n.name = `pj_${o}`;
-  let s = new Group();
-  n.add(s);
-  let i = new Mesh(new SphereGeometry(0.62, 16, 12), t);
-  (i.scale.set(1, 0.8, 1.25), i.position.set(0, 0.95, -0.75));
-  let r = new Mesh(new SphereGeometry(0.42, 14, 10), e);
-  (r.scale.set(1, 0.7, 1.1), r.position.set(0, 0.8, 0.15), s.add(i, r));
-  let l = new Object3D();
-  ((l.name = 'Head'), l.position.set(0, 0.95, 0.55), s.add(l));
-  for (let u = 0; u < 8; u++) {
-    let h = new Mesh(new SphereGeometry(u < 2 ? 0.07 : 0.04, 6, 4), a);
-    (h.position.set(
-      (u % 2 ? 1 : -1) * (0.08 + Math.floor(u / 2) * 0.06),
-      0.95 + (u < 4 ? 0.06 : 0),
-      0.55 - Math.floor(u / 2) * 0.03,
+/** Araña gigante procedural con ocho patas animadas. */
+function makeGiantSpider(id) {
+  let shellMat = new MeshStandardMaterial({ color: 2761760, roughness: 0.55, metalness: 0.1 }),
+    furMat = new MeshStandardMaterial({ color: 4864554, roughness: 0.95 }),
+    eyeMat = new MeshBasicMaterial({ color: new Color(16724e3).multiplyScalar(2.2) }),
+    root = new Group();
+  root.name = `pj_${id}`;
+  let body = new Group();
+  root.add(body);
+  let abdomen = new Mesh(new SphereGeometry(0.62, 16, 12), furMat);
+  (abdomen.scale.set(1, 0.8, 1.25), abdomen.position.set(0, 0.95, -0.75));
+  let thorax = new Mesh(new SphereGeometry(0.42, 14, 10), shellMat);
+  (thorax.scale.set(1, 0.7, 1.1), thorax.position.set(0, 0.8, 0.15), body.add(abdomen, thorax));
+  let head = new Object3D();
+  ((head.name = 'Head'), head.position.set(0, 0.95, 0.55), body.add(head));
+  for (let j = 0; j < 8; j++) {
+    let eye = new Mesh(new SphereGeometry(j < 2 ? 0.07 : 0.04, 6, 4), eyeMat);
+    (eye.position.set(
+      (j % 2 ? 1 : -1) * (0.08 + Math.floor(j / 2) * 0.06),
+      0.95 + (j < 4 ? 0.06 : 0),
+      0.55 - Math.floor(j / 2) * 0.03,
     ),
-      s.add(h));
+      body.add(eye));
   }
-  for (let u of [-1, 1]) {
-    let h = new Mesh(new ConeGeometry(0.05, 0.25, 5), e);
-    (h.position.set(u * 0.1, 0.62, 0.55), (h.rotation.x = Math.PI), s.add(h));
+  for (let side of [-1, 1]) {
+    let fang = new Mesh(new ConeGeometry(0.05, 0.25, 5), shellMat);
+    (fang.position.set(side * 0.1, 0.62, 0.55), (fang.rotation.x = Math.PI), body.add(fang));
   }
-  let c = [];
-  for (let u = 0; u < 8; u++) {
-    let h = u < 4 ? -1 : 1,
-      p = u % 4,
-      m = new Group();
-    (m.position.set(h * 0.3, 0.82, 0.35 - p * 0.22),
-      (m.rotation.y = h * (Math.PI / 2) + (p - 1.5) * 0.45 * -h));
-    let _ = new Mesh(new CylinderGeometry(0.045, 0.06, 0.95, 5), e);
-    ((_.rotation.z = Math.PI / 2 - 0.9), _.position.set(0, 0.3, 0.38), _.rotation.set(-0.9, 0, 0), m.add(_));
-    let b = new Group();
-    (b.position.set(0, 0.6, 0.72), m.add(b));
-    let f = new Mesh(new CylinderGeometry(0.035, 0.02, 1.2, 5), t);
-    (f.position.set(0, -0.5, 0.25),
-      (f.rotation.x = 0.45),
-      b.add(f),
-      n.add(m),
-      c.push({ hip: m, phase: u * 0.8 + (h > 0 ? Math.PI : 0) }));
+  let legs = [];
+  for (let j = 0; j < 8; j++) {
+    let side = j < 4 ? -1 : 1,
+      k = j % 4,
+      hip = new Group();
+    (hip.position.set(side * 0.3, 0.82, 0.35 - k * 0.22),
+      (hip.rotation.y = side * (Math.PI / 2) + (k - 1.5) * 0.45 * -side));
+    let femur = new Mesh(new CylinderGeometry(0.045, 0.06, 0.95, 5), shellMat);
+    ((femur.rotation.z = Math.PI / 2 - 0.9), femur.position.set(0, 0.3, 0.38), femur.rotation.set(-0.9, 0, 0), hip.add(femur));
+    let knee = new Group();
+    (knee.position.set(0, 0.6, 0.72), hip.add(knee));
+    let shin = new Mesh(new CylinderGeometry(0.035, 0.02, 1.2, 5), furMat);
+    (shin.position.set(0, -0.5, 0.25),
+      (shin.rotation.x = 0.45),
+      knee.add(shin),
+      root.add(hip),
+      legs.push({ hip, phase: j * 0.8 + (side > 0 ? Math.PI : 0) }));
   }
-  n.traverse((u) => {
-    u.isMesh && ((u.castShadow = !0), (u.receiveShadow = !0));
+  root.traverse((obj) => {
+    obj.isMesh && ((obj.castShadow = !0), (obj.receiveShadow = !0));
   });
-  let d = pH(n, s, l, c, (u, h, p) => {
-    u.hip.rotation.x = p ? Math.sin(h * 1.4 + u.phase) * 0.35 : Math.sin(h * 0.2 + u.phase) * 0.03;
+  let actor = makeBeastActor(root, body, head, legs, (leg, t, moving) => {
+    leg.hip.rotation.x = moving ? Math.sin(t * 1.4 + leg.phase) * 0.35 : Math.sin(t * 0.2 + leg.phase) * 0.03;
   });
-  return ((d.def.id = o), d);
+  return ((actor.def.id = id), actor);
 }
-function pH(o, e, t, a, n) {
+/**
+ * Actor mínimo compatible con Character para una figura procedural.
+ * @param {Function} animateLeg (pata, fase, ¿se mueve?) → anima una pata
+ */
+function makeBeastActor(root, body, head, legs, animateLeg) {
   return {
     def: { scale: 1, anim: 'idle', walk: 'walk' },
-    root: o,
+    root,
     path: [],
     speed: 3.2,
     idle: 'idle',
@@ -193,139 +206,140 @@ function pH(o, e, t, a, n) {
         'cheer',
         'taunt',
         'prone',
-      ].map((s) => [s, !0]),
+      ].map((name) => [name, !0]),
     ),
-    has(s) {
-      return this.actions.has(s);
+    has(name) {
+      return this.actions.has(name);
     },
-    play(s) {
-      (!this.once || this.once.name !== 'die') && (this.current = s);
+    play(name) {
+      (!this.once || this.once.name !== 'die') && (this.current = name);
     },
-    playOnce(s, { hold: i = !1 } = {}) {
-      return new Promise((r) => {
-        this.once = { name: s, t: 0, dur: s === 'die' ? 0.9 : 0.5, hold: i, res: r };
+    playOnce(name, { hold = !1 } = {}) {
+      return new Promise((resolve) => {
+        this.once = { name, t: 0, dur: name === 'die' ? 0.9 : 0.5, hold, res: resolve };
       });
     },
-    clipLength(s) {
-      return s === 'die' ? 0.9 : 1.2;
+    clipLength(name) {
+      return name === 'die' ? 0.9 : 1.2;
     },
-    headWorld(s = new Vector3()) {
-      return t.getWorldPosition(s);
+    headWorld(out = new Vector3()) {
+      return head.getWorldPosition(out);
     },
-    walkTo(s, i) {
-      ((this.path = s.slice()), (this.onArrive = i), (this.current = 'walk'));
+    walkTo(path, onArrive) {
+      ((this.path = path.slice()), (this.onArrive = onArrive), (this.current = 'walk'));
     },
-    update(s) {
-      this.t += s;
-      let i = this.current === 'walk' || this.current === 'run' || this.current === 'jog';
+    update(dt) {
+      this.t += dt;
+      let moving = this.current === 'walk' || this.current === 'run' || this.current === 'jog';
       if (this.path.length) {
-        i = !0;
-        let c = this.path[0],
-          d = o.position,
-          u = c.x - d.x,
-          h = c.z - d.z,
-          p = Math.hypot(u, h),
-          m = this.speed * s,
-          _ = Math.atan2(u, h) - o.rotation.y;
-        ((_ = Math.atan2(Math.sin(_), Math.cos(_))),
-          (o.rotation.y += _ * Math.min(1, s * 10)),
-          p <= m
-            ? ((d.x = c.x),
-              (d.z = c.z),
+        moving = !0;
+        let target = this.path[0],
+          pos = root.position,
+          dx = target.x - pos.x,
+          dz = target.z - pos.z,
+          dist = Math.hypot(dx, dz),
+          step = this.speed * dt,
+          turn = Math.atan2(dx, dz) - root.rotation.y;
+        ((turn = Math.atan2(Math.sin(turn), Math.cos(turn))),
+          (root.rotation.y += turn * Math.min(1, dt * 10)),
+          dist <= step
+            ? ((pos.x = target.x),
+              (pos.z = target.z),
               this.path.shift(),
               this.path.length || ((this.current = 'idle'), this.onArrive?.()))
-            : ((d.x += (u / p) * m), (d.z += (h / p) * m)));
+            : ((pos.x += (dx / dist) * step), (pos.z += (dz / dist) * step)));
       }
-      let r = this.t * 9;
-      for (let c of a) n(c, r, i);
-      e.position.y = i ? Math.abs(Math.sin(r)) * 0.03 : Math.sin(this.t * 1.5) * 0.015;
-      let l = this.once;
-      if (l) {
-        l.t += s;
-        let c = Math.min(1, l.t / l.dur),
-          d = Math.sin(c * Math.PI);
-        (l.name === 'attack_melee' || l.name === 'cast'
-          ? ((e.position.z = d * 0.4), (e.rotation.x = -d * 0.25))
-          : l.name === 'hit' || l.name === 'hit_head'
-            ? (e.position.z = -d * 0.15)
-            : (l.name === 'die' || l.name === 'prone') &&
-              ((e.rotation.z = c * 2.6), (e.position.y = 0.4 * c)),
-          c >= 1 &&
-            (l.hold ? (l.t = l.dur) : ((this.once = null), (e.position.z = 0), (e.rotation.x = 0)),
-            l.done || ((l.done = !0), l.res())));
+      let phase = this.t * 9;
+      for (let leg of legs) animateLeg(leg, phase, moving);
+      body.position.y = moving ? Math.abs(Math.sin(phase)) * 0.03 : Math.sin(this.t * 1.5) * 0.015;
+      let once = this.once;
+      if (once) {
+        once.t += dt;
+        let k = Math.min(1, once.t / once.dur),
+          swing = Math.sin(k * Math.PI);
+        (once.name === 'attack_melee' || once.name === 'cast'
+          ? ((body.position.z = swing * 0.4), (body.rotation.x = -swing * 0.25))
+          : once.name === 'hit' || once.name === 'hit_head'
+            ? (body.position.z = -swing * 0.15)
+            : (once.name === 'die' || once.name === 'prone') &&
+              ((body.rotation.z = k * 2.6), (body.position.y = 0.4 * k)),
+          k >= 1 &&
+            (once.hold ? (once.t = once.dur) : ((this.once = null), (body.position.z = 0), (body.rotation.x = 0)),
+            once.done || ((once.done = !0), once.res())));
       }
     },
   };
 }
-function jm(o, e) {
-  if (o === 'giant_spider') return hH(e);
-  let t = g1[o] || g1.wolf,
-    a = new MeshStandardMaterial({ color: t.fur, roughness: 0.95 }),
-    n = new MeshStandardMaterial({ color: t.belly, roughness: 0.95 }),
-    s = new MeshStandardMaterial({ color: 1709586, roughness: 0.6 }),
-    i = new MeshBasicMaterial({ color: new Color(16764992).multiplyScalar(2) }),
-    r = new Group();
-  r.name = `pj_${e}`;
-  let l = new Group();
-  r.add(l);
-  let c = t.len,
-    d = t.h,
-    u = new Mesh(new CapsuleGeometry(d * 0.32, c * 0.62, 6, 12), a);
-  ((u.rotation.x = Math.PI / 2), (u.position.y = d), u.scale.set(1, 1, 0.9), l.add(u));
-  let h = new Mesh(new SphereGeometry(d * 0.36, 12, 10), n);
-  (h.position.set(0, d * 0.95, c * 0.32), h.scale.set(0.85, 0.9, 1), l.add(h));
-  let p = new Group();
-  (p.position.set(0, d * 1.12, c * 0.45), l.add(p));
-  let m = new Mesh(new SphereGeometry(t.head, 12, 10), a);
-  (m.scale.set(0.85, 0.85, 1.05), m.position.set(0, t.head * 0.4, t.head * 0.5), p.add(m));
-  let _ = new Mesh(new ConeGeometry(t.head * 0.5, t.head * 1.5, 8), a);
-  ((_.rotation.x = Math.PI / 2), _.position.set(0, t.head * 0.2, t.head * 1.45), p.add(_));
-  let b = new Mesh(new SphereGeometry(t.head * 0.14, 6, 5), s);
-  (b.position.set(0, t.head * 0.22, t.head * 2.15), p.add(b));
-  for (let w of [-1, 1]) {
-    let k = new Mesh(new ConeGeometry(t.head * 0.28, t.head * 0.7, 5), a);
-    (k.position.set(w * t.head * 0.45, t.head * 1.1, t.head * 0.3), (k.rotation.z = -w * 0.25), p.add(k));
-    let T = new Mesh(new SphereGeometry(t.head * 0.09, 6, 4), i);
-    if ((T.position.set(w * t.head * 0.38, t.head * 0.55, t.head * 1.05), p.add(T), t.antlers)) {
-      let E = new Mesh(
+/** Bestia cuadrúpeda procedural según BEASTS (o la araña gigante). */
+function makeBeast(template, id) {
+  if (template === 'giant_spider') return makeGiantSpider(id);
+  let def = BEASTS[template] || BEASTS.wolf,
+    furMat = new MeshStandardMaterial({ color: def.fur, roughness: 0.95 }),
+    bellyMat = new MeshStandardMaterial({ color: def.belly, roughness: 0.95 }),
+    darkMat = new MeshStandardMaterial({ color: 1709586, roughness: 0.6 }),
+    eyeMat = new MeshBasicMaterial({ color: new Color(16764992).multiplyScalar(2) }),
+    root = new Group();
+  root.name = `pj_${id}`;
+  let body = new Group();
+  root.add(body);
+  let len = def.len,
+    height = def.h,
+    torso = new Mesh(new CapsuleGeometry(height * 0.32, len * 0.62, 6, 12), furMat);
+  ((torso.rotation.x = Math.PI / 2), (torso.position.y = height), torso.scale.set(1, 1, 0.9), body.add(torso));
+  let chest = new Mesh(new SphereGeometry(height * 0.36, 12, 10), bellyMat);
+  (chest.position.set(0, height * 0.95, len * 0.32), chest.scale.set(0.85, 0.9, 1), body.add(chest));
+  let head = new Group();
+  (head.position.set(0, height * 1.12, len * 0.45), body.add(head));
+  let skull = new Mesh(new SphereGeometry(def.head, 12, 10), furMat);
+  (skull.scale.set(0.85, 0.85, 1.05), skull.position.set(0, def.head * 0.4, def.head * 0.5), head.add(skull));
+  let snout = new Mesh(new ConeGeometry(def.head * 0.5, def.head * 1.5, 8), furMat);
+  ((snout.rotation.x = Math.PI / 2), snout.position.set(0, def.head * 0.2, def.head * 1.45), head.add(snout));
+  let nose = new Mesh(new SphereGeometry(def.head * 0.14, 6, 5), darkMat);
+  (nose.position.set(0, def.head * 0.22, def.head * 2.15), head.add(nose));
+  for (let side of [-1, 1]) {
+    let ear = new Mesh(new ConeGeometry(def.head * 0.28, def.head * 0.7, 5), furMat);
+    (ear.position.set(side * def.head * 0.45, def.head * 1.1, def.head * 0.3), (ear.rotation.z = -side * 0.25), head.add(ear));
+    let eye = new Mesh(new SphereGeometry(def.head * 0.09, 6, 4), eyeMat);
+    if ((eye.position.set(side * def.head * 0.38, def.head * 0.55, def.head * 1.05), head.add(eye), def.antlers)) {
+      let antler = new Mesh(
         new CylinderGeometry(0.02, 0.03, 0.6, 5),
         new MeshStandardMaterial({ color: 14207144, roughness: 0.8 }),
       );
-      (E.position.set(w * 0.15, t.head * 1.6, 0), (E.rotation.z = -w * 0.6), p.add(E));
+      (antler.position.set(side * 0.15, def.head * 1.6, 0), (antler.rotation.z = -side * 0.6), head.add(antler));
     }
   }
-  let f = new Object3D();
-  ((f.name = 'Head'), f.position.set(0, t.head * 0.6, t.head * 0.8), p.add(f));
-  let v = new Group();
-  (v.position.set(0, d * 1.1, -c * 0.5), l.add(v));
-  let x = new Mesh(new ConeGeometry(d * 0.12, t.tail, 6), a);
-  ((x.rotation.x = -Math.PI / 2 - 0.5), x.position.set(0, -t.tail * 0.2, -t.tail * 0.45), v.add(x));
-  let g = [];
-  for (let [w, k] of [
+  let headAnchor = new Object3D();
+  ((headAnchor.name = 'Head'), headAnchor.position.set(0, def.head * 0.6, def.head * 0.8), head.add(headAnchor));
+  let tail = new Group();
+  (tail.position.set(0, height * 1.1, -len * 0.5), body.add(tail));
+  let tailMesh = new Mesh(new ConeGeometry(height * 0.12, def.tail, 6), furMat);
+  ((tailMesh.rotation.x = -Math.PI / 2 - 0.5), tailMesh.position.set(0, -def.tail * 0.2, -def.tail * 0.45), tail.add(tailMesh));
+  let legs = [];
+  for (let [sx, sz] of [
     [-1, 1],
     [1, 1],
     [-1, -1],
     [1, -1],
   ]) {
-    let T = new Group();
-    T.position.set(w * d * 0.22, d * 0.82, k * c * 0.36);
-    let E = new Mesh(new CylinderGeometry(d * 0.075, d * 0.06, d * 0.85, 6), a);
-    ((E.position.y = -d * 0.42), T.add(E));
-    let S = new Mesh(new SphereGeometry(d * 0.08, 6, 4), s);
-    ((S.position.y = -d * 0.84),
-      S.scale.set(1, 0.6, 1.3),
-      T.add(S),
-      r.add(T),
-      g.push({ hip: T, phase: (w > 0 ? 0 : Math.PI) + (k > 0 ? 0 : Math.PI * 0.5) }));
+    let hip = new Group();
+    hip.position.set(sx * height * 0.22, height * 0.82, sz * len * 0.36);
+    let leg = new Mesh(new CylinderGeometry(height * 0.075, height * 0.06, height * 0.85, 6), furMat);
+    ((leg.position.y = -height * 0.42), hip.add(leg));
+    let paw = new Mesh(new SphereGeometry(height * 0.08, 6, 4), darkMat);
+    ((paw.position.y = -height * 0.84),
+      paw.scale.set(1, 0.6, 1.3),
+      hip.add(paw),
+      root.add(hip),
+      legs.push({ hip, phase: (sx > 0 ? 0 : Math.PI) + (sz > 0 ? 0 : Math.PI * 0.5) }));
   }
   return (
-    r.traverse((w) => {
-      w.isMesh && ((w.castShadow = !0), (w.receiveShadow = !0));
+    root.traverse((obj) => {
+      obj.isMesh && ((obj.castShadow = !0), (obj.receiveShadow = !0));
     }),
-    r.scale.setScalar(t.scale),
+    root.scale.setScalar(def.scale),
     {
-      def: { id: e, scale: t.scale, anim: 'idle', walk: 'walk' },
-      root: r,
+      def: { id, scale: def.scale, anim: 'idle', walk: 'walk' },
+      root,
       path: [],
       speed: 3.2,
       idle: 'idle',
@@ -345,87 +359,88 @@ function jm(o, e) {
           'cheer',
           'taunt',
           'prone',
-        ].map((w) => [w, !0]),
+        ].map((name) => [name, !0]),
       ),
-      has(w) {
-        return this.actions.has(w);
+      has(name) {
+        return this.actions.has(name);
       },
-      play(w) {
-        (!this.once || this.once.name !== 'die') && (this.current = w);
+      play(name) {
+        (!this.once || this.once.name !== 'die') && (this.current = name);
       },
-      playOnce(w, { hold: k = !1 } = {}) {
-        return new Promise((T) => {
+      playOnce(name, { hold = !1 } = {}) {
+        return new Promise((resolve) => {
           this.once = {
-            name: w,
+            name,
             t: 0,
-            dur: w === 'die' ? 0.8 : w === 'attack_melee' ? 0.55 : 0.35,
-            hold: k,
-            res: T,
+            dur: name === 'die' ? 0.8 : name === 'attack_melee' ? 0.55 : 0.35,
+            hold,
+            res: resolve,
           };
         });
       },
-      clipLength(w) {
-        return w === 'attack_melee' ? ((0.55 * 1.2) / 0.42) * 0.42 : w === 'die' ? 0.8 : 0.4;
+      clipLength(name) {
+        return name === 'attack_melee' ? ((0.55 * 1.2) / 0.42) * 0.42 : name === 'die' ? 0.8 : 0.4;
       },
-      headWorld(w = new Vector3()) {
-        return f.getWorldPosition(w);
+      headWorld(out = new Vector3()) {
+        return headAnchor.getWorldPosition(out);
       },
-      walkTo(w, k) {
-        ((this.path = w.slice()), (this.onArrive = k), (this.current = 'walk'));
+      walkTo(path, onArrive) {
+        ((this.path = path.slice()), (this.onArrive = onArrive), (this.current = 'walk'));
       },
-      update(w) {
-        this.t += w;
-        let k = this.current === 'walk' || this.current === 'run' || this.current === 'jog' ? 1 : 0;
+      update(dt) {
+        this.t += dt;
+        let moving = this.current === 'walk' || this.current === 'run' || this.current === 'jog' ? 1 : 0;
         if (this.path.length) {
-          k = 1;
-          let S = this.path[0],
-            z = r.position,
-            D = S.x - z.x,
-            M = S.z - z.z,
-            R = Math.hypot(D, M),
-            A = this.speed * w,
-            P = Math.atan2(D, M) - r.rotation.y;
-          ((P = Math.atan2(Math.sin(P), Math.cos(P))),
-            (r.rotation.y += P * Math.min(1, w * 10)),
-            R <= A
-              ? ((z.x = S.x),
-                (z.z = S.z),
+          moving = 1;
+          let target = this.path[0],
+            pos = root.position,
+            dx = target.x - pos.x,
+            dz = target.z - pos.z,
+            dist = Math.hypot(dx, dz),
+            step = this.speed * dt,
+            turn = Math.atan2(dx, dz) - root.rotation.y;
+          ((turn = Math.atan2(Math.sin(turn), Math.cos(turn))),
+            (root.rotation.y += turn * Math.min(1, dt * 10)),
+            dist <= step
+              ? ((pos.x = target.x),
+                (pos.z = target.z),
                 this.path.shift(),
                 this.path.length || ((this.current = 'idle'), this.onArrive?.()))
-              : ((z.x += (D / R) * A), (z.z += (M / R) * A)));
+              : ((pos.x += (dx / dist) * step), (pos.z += (dz / dist) * step)));
         }
-        let T = this.t * (k ? 11 : 0);
-        for (let S of g) S.hip.rotation.x = k ? Math.sin(T + S.phase) * 0.6 : 0;
-        ((l.position.y = k ? Math.abs(Math.sin(T)) * 0.04 : Math.sin(this.t * 2) * 0.01),
-          (v.rotation.y = Math.sin(this.t * (k ? 9 : 2)) * 0.3),
-          (p.rotation.x = k ? 0.12 : Math.sin(this.t * 0.8) * 0.05),
-          (l.rotation.z = 0));
-        let E = this.once;
-        if (E) {
-          E.t += w;
-          let S = Math.min(1, E.t / E.dur);
-          if (E.name === 'attack_melee') {
-            let z = Math.sin(S * Math.PI);
-            ((l.position.z = z * 0.45), (p.rotation.x = -z * 0.5), (l.rotation.x = -z * 0.15));
-          } else if (E.name === 'hit' || E.name === 'hit_head')
-            ((l.position.z = -Math.sin(S * Math.PI) * 0.15), (p.rotation.x = Math.sin(S * Math.PI) * 0.4));
-          else if (E.name === 'die' || E.name === 'prone') {
-            ((l.rotation.z = S * 1.45), (l.position.y = -S * d * 0.35));
-            for (let z of g) z.hip.rotation.z = S * 1.2;
-          } else (E.name === 'cheer' || E.name === 'taunt') && (p.rotation.x = -Math.sin(S * Math.PI) * 0.7);
-          S >= 1 &&
-            (E.hold ? (E.t = E.dur) : ((this.once = null), (l.position.z = 0), (l.rotation.x = 0)),
-            E.done || ((E.done = !0), E.res()));
+        let phase = this.t * (moving ? 11 : 0);
+        for (let leg of legs) leg.hip.rotation.x = moving ? Math.sin(phase + leg.phase) * 0.6 : 0;
+        ((body.position.y = moving ? Math.abs(Math.sin(phase)) * 0.04 : Math.sin(this.t * 2) * 0.01),
+          (tail.rotation.y = Math.sin(this.t * (moving ? 9 : 2)) * 0.3),
+          (head.rotation.x = moving ? 0.12 : Math.sin(this.t * 0.8) * 0.05),
+          (body.rotation.z = 0));
+        let once = this.once;
+        if (once) {
+          once.t += dt;
+          let j = Math.min(1, once.t / once.dur);
+          if (once.name === 'attack_melee') {
+            let swing = Math.sin(j * Math.PI);
+            ((body.position.z = swing * 0.45), (head.rotation.x = -swing * 0.5), (body.rotation.x = -swing * 0.15));
+          } else if (once.name === 'hit' || once.name === 'hit_head')
+            ((body.position.z = -Math.sin(j * Math.PI) * 0.15), (head.rotation.x = Math.sin(j * Math.PI) * 0.4));
+          else if (once.name === 'die' || once.name === 'prone') {
+            ((body.rotation.z = j * 1.45), (body.position.y = -j * height * 0.35));
+            for (let leg of legs) leg.hip.rotation.z = j * 1.2;
+          } else (once.name === 'cheer' || once.name === 'taunt') && (head.rotation.x = -Math.sin(j * Math.PI) * 0.7);
+          j >= 1 &&
+            (once.hold ? (once.t = once.dur) : ((this.once = null), (body.position.z = 0), (body.rotation.x = 0)),
+            once.done || ((once.done = !0), once.res()));
         }
       },
     }
   );
 }
-const g1 = {
+/** Colores y proporciones de las bestias cuadrúpedas. */
+const BEASTS = {
   wolf: { fur: 6972508, belly: 11051152, len: 1, h: 0.52, head: 0.24, scale: 1, tail: 0.45 },
   mastiff: { fur: 9071176, belly: 12624e3, len: 0.95, h: 0.55, head: 0.27, scale: 1, tail: 0.3 },
   elk: { fur: 8018490, belly: 12624e3, len: 1.5, h: 1.1, head: 0.3, scale: 1, tail: 0.12, antlers: !0 },
   riding_horse: { fur: 5913124, belly: 5913124, len: 1.7, h: 1.1, head: 0.34, scale: 1, tail: 0.6 },
 };
 
-export { a3, jm, t3 };
+export { isBeast, makeBeast, humanoidMonsterLook };

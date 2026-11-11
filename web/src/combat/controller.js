@@ -9,7 +9,7 @@ import efectosConjuros from '../datos/efectos/conjuros.json';
 import { o1 } from '../vfx/spells.js';
 import { DAMAGE_STYLE } from '../vfx/styles.js';
 import { FRAME } from '../vfx/atlas.js';
-import { jm } from './creatures.js';
+import { makeBeast } from './creatures.js';
 import { Bm, cr, Ec } from './hud.js';
 
 const v1 = (o) => new Promise((e) => setTimeout(e, o));
@@ -2161,7 +2161,7 @@ const Controller = class {
       } catch (l) {
         console.warn('[combate] forma salvaje: sin modelo de', t, l);
       }
-      if ((i || (i = jm(t, e.id)), !i)) return;
+      if ((i || (i = makeBeast(t, e.id)), !i)) return;
       let r = s ? s.orig : { ch: e.ch, root: e.root, owns: e.owns };
       (s && this.scene.remove(s.beast.root),
         i.root.position.copy(e.root.position),

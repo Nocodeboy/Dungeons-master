@@ -22,7 +22,7 @@ import {
 import { Fs } from '../actors/character.js';
 import { hc } from '../actors/roster.js';
 import { cellToWorld } from '../explore/hex.js';
-import { t3, a3, jm } from './creatures.js';
+import { humanoidMonsterLook, isBeast, makeBeast } from './creatures.js';
 
 function u3() {
   let o = new Group(),
@@ -206,10 +206,10 @@ function EH(o) {
   };
 }
 async function SH(o, e = 0) {
-  if (a3(o.template)) return jm(o.template, o.id);
+  if (isBeast(o.template)) return makeBeast(o.template, o.id);
   let t;
   return (
-    o.team === 0 ? (t = TH(o, e)) : (o.template || '').startsWith('goblin') ? (t = _H(o)) : (t = t3(o)),
+    o.team === 0 ? (t = TH(o, e)) : (o.template || '').startsWith('goblin') ? (t = _H(o)) : (t = humanoidMonsterLook(o)),
     Fs({ ...t, id: o.id })
   );
 }

@@ -333,7 +333,29 @@ function modulosProtegidos(archivos) {
 // ---------------------------------------------------------------------------------------------
 // Aplicación del mapa.
 
+// Cadenas en el mapa: dos claves del mismo dueño (mismo prefijo de ruta) donde el nombre nuevo de una
+// es el nombre viejo de la otra («f/b → i» y «f/i → n»). Aunque la primera aplicación salga bien, al
+// reaplicar el mapa la clave «f/i» encontraría el enlace que ya se llama «i» (el antiguo «b»).
+function cadenasDelMapa(rel, mapa) {
+  const grupos = new Map();
+  for (const [clave, nuevo] of Object.entries(mapa)) {
+    const i = clave.lastIndexOf('/');
+    const prefijo = i < 0 ? '' : clave.slice(0, i);
+    const viejo = partirSeg(clave.slice(i + 1))[0];
+    if (!grupos.has(prefijo)) grupos.set(prefijo, { viejos: new Map(), nuevos: [] });
+    const g = grupos.get(prefijo);
+    g.viejos.set(viejo, clave);
+    g.nuevos.push([clave, nuevo]);
+  }
+  const errores = [];
+  for (const g of grupos.values())
+    for (const [clave, nuevo] of g.nuevos)
+      if (g.viejos.has(nuevo) && g.viejos.get(nuevo) !== clave) errores.push(`«${clave}» → «${nuevo}» y «${g.viejos.get(nuevo)}» → «${mapa[g.viejos.get(nuevo)]}»`);
+  if (errores.length) throw new Error(`${rel}: cadenas de renombres en el mapa:\n  ${errores.join('\n  ')}`);
+}
+
 function aplicarMapa(mapaTotal, { enSeco, solo, abreviarTodo }) {
+  for (const [rel, mapa] of Object.entries(mapaTotal)) cadenasDelMapa(rel, mapa);
   const archivos = listarJs(SRC);
   const protegidos = modulosProtegidos(archivos);
   const propios = new Set(Object.keys(mapaTotal).map((r) => path.join(WEB, r)));

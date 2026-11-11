@@ -174,18 +174,18 @@ const Overlay = class {
       dists = this.pathMesh.geometry.attributes.aD.array,
       length = 0,
       halfWidth = 0.13;
-    for (let i = 0; i < spaced.length; i++) {
-      i > 0 && (length += spaced[i].distanceTo(spaced[i - 1]));
-      let prev = spaced[Math.max(0, i - 1)],
-        next = spaced[Math.min(spaced.length - 1, i + 1)],
+    for (let j = 0; j < spaced.length; j++) {
+      j > 0 && (length += spaced[j].distanceTo(spaced[j - 1]));
+      let prev = spaced[Math.max(0, j - 1)],
+        next = spaced[Math.min(spaced.length - 1, j + 1)],
         dx = next.x - prev.x,
         dz = next.z - prev.z,
         len = Math.hypot(dx, dz) || 1,
         ox = (-dz / len) * halfWidth,
         oz = (dx / len) * halfWidth;
-      (positions.set([spaced[i].x + ox, spaced[i].y, spaced[i].z + oz, spaced[i].x - ox, spaced[i].y, spaced[i].z - oz], i * 6),
-        uvs.set([0, 0, 0, 1], i * 4),
-        (dists[i * 2] = dists[i * 2 + 1] = length));
+      (positions.set([spaced[j].x + ox, spaced[j].y, spaced[j].z + oz, spaced[j].x - ox, spaced[j].y, spaced[j].z - oz], j * 6),
+        uvs.set([0, 0, 0, 1], j * 4),
+        (dists[j * 2] = dists[j * 2 + 1] = length));
     }
     let geo = this.pathMesh.geometry;
     ((geo.attributes.position.needsUpdate = !0),
