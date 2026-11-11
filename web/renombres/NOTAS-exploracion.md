@@ -10,6 +10,8 @@ comporta igual que el publicado. Los nombres son los nuevos (tras `renombres/exp
 - `explore/battle.js`, `finishBattle`: `let cp = game.store.cp;` se declara y no se usa.
 - `explore/battle.js`, `simulatedBattle(explore, groups, actors)`: el parámetro `actors` no se usa.
 
+- `explore/fallback-world.js`, `seededRng`: copia exacta de `seededRng` de `explore/checks.js` (mulberry32).
+
 ## Posibles fallos
 
 ## Herramienta

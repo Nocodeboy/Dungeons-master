@@ -18,7 +18,7 @@ import { ExploreRules } from './checks.js';
 import { ensureCampaign } from './campaign.js';
 import { loadLevel } from './levels.js';
 import { loadAreaModules } from './areas.js';
-import { mk } from './fallback-world.js';
+import { buildFallbackWorld } from './fallback-world.js';
 import { createActorFactory } from './actors.js';
 import { ExploreInput } from './input.js';
 import { Floaters } from './floaters.js';
@@ -116,7 +116,7 @@ const Explore = class {
           c,
         );
       }
-    (this.world || (this.world = await mk(this.three, i, { quality: e.quality })),
+    (this.world || (this.world = await buildFallbackWorld(this.three, i, { quality: e.quality })),
       (this.world.width ??= Math.max(...i.rows.map((c) => c.length))),
       (this.world.height ??= i.rows.length),
       s('mundo', 'Reuniendo al grupo', 0.7),
