@@ -2145,5 +2145,30 @@
     "yT/n": "job",
     "yT/s#1": "url",
     "yT/s#2": "err"
+  },
+  "src/actors/index.js": {
+    "setRenderer/o": "renderer",
+    "makeHero/o": "sheet",
+    "makeHero/e": "opts",
+    "makeHero/t": "id",
+    "makeHero/a": "look",
+    "makeHero/n": "character",
+    "makeCompanion/o": "id",
+    "makeCompanion/e": "opts",
+    "makeCompanion/t": "look",
+    "makeCompanion/a": "character",
+    "makeNpc/o": "def",
+    "makeNpc/e": "look",
+    "makeNpc/t": "character",
+    "makeMonster/o": "id",
+    "makeMonster/e": "index",
+    "makeMonster/t": "def",
+    "makeMonster/a": "character",
+    "makeMonster/n": "look",
+    "makeAnimal/o": "kind",
+    "makeAnimal/e": "opts",
+    "hasAnimal/o": "kind",
+    "portrait/o": "subject",
+    "portrait/e": "opts"
   }
 }
