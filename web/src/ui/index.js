@@ -18,7 +18,7 @@ import {
 import { screenFrame, ScreenStack } from './modal.js';
 import { setTip, createTooltip } from './tooltip.js';
 import { installDiceDefs, makeDie, rollDie } from './dice.js';
-import { createRulesBridge } from './rules-mock.js';
+import { createRulesBridge } from './rules-bridge.js';
 import { createDialog } from './dialog.js';
 import { createHud } from './hud.js';
 import { createPortraitPainter } from './portraits.js';

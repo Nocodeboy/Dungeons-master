@@ -1,7 +1,7 @@
 // ui/rules-mock.js
 // Reconstruido de publicado/juego.js (módulo __esm «Ww»). Nombres locales aún minificados.
 
-import { createSimulator } from './catalog.js';
+import { createSimulator } from './simulator.js';
 
 function createRulesBridge(game, { mock = !0 } = {}) {
   let missing = new Set(),
