@@ -1,854 +1,969 @@
-// explore/interact.js
-// Reconstruido de publicado/juego.js (módulo __esm «ty»). Nombres locales aún minificados.
+// explore/interact.js — Interacción con el mundo de exploración: acercarse a un objeto, cofres y botín,
+// cerraduras (llave, herramientas, Abrir, fuerza), trampas (descubrir, desactivar, saltar), puertas,
+// carteles, escaleras, PNJ (saludo, tienda, posada, templo), compañeros, descanso corto y largo y la
+// etiqueta de lo que hay bajo el puntero. Antes de la lógica propia pregunta a la historia
+// (`story.interact`). Todas las funciones reciben la instancia de Explore.
+// Lo usan explore/index.js y detection.js.
+// Reconstruido de publicado/juego.js (módulo __esm «ty»).
 
 import { Vector3 } from 'three';
 import { cellKey, neighbors, hexDistance } from './hex.js';
-import { Ck, W1 } from './hud.js';
+import { lootDialog, showInterlude } from './hud.js';
+/** Import solo por orden de inicialización (en el bundle original este módulo inicializaba checks.js). */
 import './checks.js';
-import { Uo } from './battle.js';
+import { startBattle } from './battle.js';
 
-async function f0(o, e, { actorId: t = null, adjacent: a = !0 } = {}) {
-  let n = o.member(t) || o.lead();
-  if (!n) return !1;
-  if ((a && hexDistance(n.cell, e) <= 1) || (n.cell[0] === e[0] && n.cell[1] === e[1]))
-    return (n.moving && o.stopAll(), o.faceTo(n.id, e), !0);
-  let s = o.blocked(),
-    i = null;
-  if (!a && o.xmap.walkable(e) && !s.has(cellKey(e[0], e[1]))) i = e;
+/** Lleva al miembro (o al líder) junto a la casilla (o encima, sin `adjacent`); false si no hay camino. */
+async function approach(explore, cell, { actorId = null, adjacent = !0 } = {}) {
+  let who = explore.member(actorId) || explore.lead();
+  if (!who) return !1;
+  if ((adjacent && hexDistance(who.cell, cell) <= 1) || (who.cell[0] === cell[0] && who.cell[1] === cell[1]))
+    return (who.moving && explore.stopAll(), explore.faceTo(who.id, cell), !0);
+  let blocked = explore.blocked(),
+    dest = null;
+  if (!adjacent && explore.xmap.walkable(cell) && !blocked.has(cellKey(cell[0], cell[1]))) dest = cell;
   else {
-    let l = null;
-    for (let c of neighbors(e[0], e[1])) {
-      if (!o.xmap.walkable(c) || s.has(cellKey(c[0], c[1]))) continue;
-      let d = o.xmap.path(n.cell, c, s);
-      d.length && (!l || d.length < l.length) && (l = d);
+    let best = null;
+    for (let nb of neighbors(cell[0], cell[1])) {
+      if (!explore.xmap.walkable(nb) || blocked.has(cellKey(nb[0], nb[1]))) continue;
+      let path = explore.xmap.path(who.cell, nb, blocked);
+      path.length && (!best || path.length < best.length) && (best = path);
     }
-    i = l ? l[l.length - 1] : null;
+    dest = best ? best[best.length - 1] : null;
   }
-  if (!i)
-    return (o.toast('No hay forma de llegar hasta ah\xED.', 'apagado'), o.game.bus.emit('ui:error', {}), !1);
-  let r = await o.moveParty(i, { leaderId: n.id });
-  return (r && o.faceTo(n.id, e), r);
+  if (!dest)
+    return (
+      explore.toast('No hay forma de llegar hasta ah\xED.', 'apagado'),
+      explore.game.bus.emit('ui:error', {}),
+      !1
+    );
+  let ok = await explore.moveParty(dest, { leaderId: who.id });
+  return (ok && explore.faceTo(who.id, cell), ok);
 }
-async function Wu(o, e) {
-  let t = o.game;
-  t.bus.emit('interact', { object: e.object, level: o.levelId, actor: e.actor, kind: e.kind });
-  let a = t.story?.interact;
-  if (typeof a != 'function') return !1;
+/** Emite «interact» y deja que la historia trate la interacción; true si la ha resuelto. */
+async function storyInteract(explore, ctx) {
+  let game = explore.game;
+  game.bus.emit('interact', { object: ctx.object, level: explore.levelId, actor: ctx.actor, kind: ctx.kind });
+  let fn = game.story?.interact;
+  if (typeof fn != 'function') return !1;
   try {
-    return !!(await o.withBusy(() => a.call(t.story, { ...e, level: o.levelId, explore: t.explore })));
-  } catch (n) {
-    return (console.error('[exploraci\xF3n] story.interact', n), !1);
+    return !!(await explore.withBusy(() =>
+      fn.call(game.story, { ...ctx, level: explore.levelId, explore: game.explore }),
+    ));
+  } catch (err) {
+    return (console.error('[exploraci\xF3n] story.interact', err), !1);
   }
 }
-function Ju(o, e) {
-  return o.ls.loot[e.id]
-    ? o.ls.loot[e.id]
-    : (e.loot || []).map((t) => ({ id: t[0], n: t[1] ?? 1, unid: o.rules.unidentified(t[0]) }));
+/** Contenido actual de un contenedor (el guardado en el nivel o el inicial del objeto). */
+function lootOf(explore, obj) {
+  return explore.ls.loot[obj.id]
+    ? explore.ls.loot[obj.id]
+    : (obj.loot || []).map((entry) => ({
+        id: entry[0],
+        n: entry[1] ?? 1,
+        unid: explore.rules.unidentified(entry[0]),
+      }));
 }
-async function Vk(o, e, t = o.leader) {
-  let a = o.objects.get(e);
-  if (!a) return;
-  let n = Ju(o, a);
+/** Abre un contenedor y muestra su botín (pantalla «botin» o ventana de sustituto). */
+async function openLoot(explore, id, by = explore.leader) {
+  let obj = explore.objects.get(id);
+  if (!obj) return;
+  let loot = lootOf(explore, obj);
   if (
-    ((o.ls.loot[e] = n),
-    o.ls.opened.includes(e) || o.ls.opened.push(e),
-    o.world.setObjectState?.(e, n.length ? 'open' : 'empty'),
-    o.game.bus.emit('object:state', { id: e, object: a, state: 'open' }),
-    !n.length)
+    ((explore.ls.loot[id] = loot),
+    explore.ls.opened.includes(id) || explore.ls.opened.push(id),
+    explore.world.setObjectState?.(id, loot.length ? 'open' : 'empty'),
+    explore.game.bus.emit('object:state', { id, object: obj, state: 'open' }),
+    !loot.length)
   ) {
-    (o.toast(`${a.name || 'Cofre'}: vac\xEDo.`, 'apagado'), o.refreshObject(e));
+    (explore.toast(`${obj.name || 'Cofre'}: vac\xEDo.`, 'apagado'), explore.refreshObject(id));
     return;
   }
-  let s = n.filter((r) => r.id === 'gold').reduce((r, l) => r + l.n, 0),
-    i = n.filter((r) => r.id !== 'gold');
-  if (o.hasScreen('botin')) {
-    let r = await o.withBusy(() =>
-      o.game.ui.open('botin', { title: a.name || 'Bot\xEDn', items: i, gold: s, object: e }),
+  let gold = loot.filter((it) => it.id === 'gold').reduce((sum, it) => sum + it.n, 0),
+    items = loot.filter((it) => it.id !== 'gold');
+  if (explore.hasScreen('botin')) {
+    let res = await explore.withBusy(() =>
+      explore.game.ui.open('botin', { title: obj.name || 'Bot\xEDn', items, gold, object: id }),
     );
-    if (r) {
-      let l = (r.left || [])
-          .filter((d) => d.id !== 'gold')
-          .map((d) => ({ id: d.id, n: d.n ?? 1, unid: !!d.unid })),
-        c =
-          (r.left || []).filter((d) => d.id === 'gold').reduce((d, u) => d + (u.n || 0), 0) ||
-          Math.max(0, s - (Number(r.gold) || 0));
-      ((o.ls.loot[e] = c > 0 ? [{ id: 'gold', n: c, unid: !1 }, ...l] : l),
-        ((r.taken || []).length || r.gold) &&
-          o.game.bus.emit('loot:taken', {
-            items: r.taken || [],
-            gold: Number(r.gold) || 0,
-            by: t,
-            object: a,
+    if (res) {
+      let left = (res.left || [])
+          .filter((it) => it.id !== 'gold')
+          .map((it) => ({ id: it.id, n: it.n ?? 1, unid: !!it.unid })),
+        goldLeft =
+          (res.left || []).filter((it) => it.id === 'gold').reduce((sum, it) => sum + (it.n || 0), 0) ||
+          Math.max(0, gold - (Number(res.gold) || 0));
+      ((explore.ls.loot[id] = goldLeft > 0 ? [{ id: 'gold', n: goldLeft, unid: !1 }, ...left] : left),
+        ((res.taken || []).length || res.gold) &&
+          explore.game.bus.emit('loot:taken', {
+            items: res.taken || [],
+            gold: Number(res.gold) || 0,
+            by,
+            object: obj,
           }));
     }
   } else {
-    let r = await o.withBusy(() =>
-      Ck(o.game.ui.root, {
-        title: a.name || 'Bot\xEDn',
-        items: i,
-        gold: s,
-        names: (l) => o.rules.itemName(l),
+    let res = await explore.withBusy(() =>
+      lootDialog(explore.game.ui.root, {
+        title: obj.name || 'Bot\xEDn',
+        items,
+        gold,
+        names: (item) => explore.rules.itemName(item),
       }),
     );
-    gN(o, e, n, i, r, t);
+    applyLootChoice(explore, id, loot, items, res, by);
   }
-  (o.world.setObjectState?.(e, o.ls.loot[e].length ? 'open' : 'empty'), o.refreshObject(e), o.updateHud());
+  (explore.world.setObjectState?.(id, explore.ls.loot[id].length ? 'open' : 'empty'),
+    explore.refreshObject(id),
+    explore.updateHud());
 }
-function gN(o, e, t, a, n, s) {
-  if (!n) return;
-  let i = new Set();
-  for (let h of n.taken || [])
-    if (typeof h == 'number') i.add(h);
+/** Aplica lo elegido en la ventana de sustituto: da objetos y oro y deja el resto en el contenedor. */
+function applyLootChoice(explore, id, all, items, res, by) {
+  if (!res) return;
+  let takenIdx = new Set();
+  for (let t of res.taken || [])
+    if (typeof t == 'number') takenIdx.add(t);
     else {
-      let p = a.findIndex((m, _) => !i.has(_) && m.id === h.id);
-      p >= 0 && i.add(p);
+      let idx = items.findIndex((it, k) => !takenIdx.has(k) && it.id === t.id);
+      idx >= 0 && takenIdx.add(idx);
     }
-  let r = [],
-    l = new Map();
-  for (let h of i) {
-    let p = a[h];
-    if (!p) continue;
-    let m = o.rules.give(p.id, p.n, !!p.unid);
-    r.push({ id: p.id, n: p.n, who: m });
-    let _ = m ? o.rules.shortName(m) : '';
-    (l.has(_) || l.set(_, []), l.get(_).push(`${o.rules.itemName(p.id)}${p.n > 1 ? ` \xD7${p.n}` : ''}`));
+  let taken = [],
+    byWho = new Map();
+  for (let k of takenIdx) {
+    let it = items[k];
+    if (!it) continue;
+    let who = explore.rules.give(it.id, it.n, !!it.unid);
+    taken.push({ id: it.id, n: it.n, who });
+    let name = who ? explore.rules.shortName(who) : '';
+    (byWho.has(name) || byWho.set(name, []),
+      byWho.get(name).push(`${explore.rules.itemName(it.id)}${it.n > 1 ? ` \xD7${it.n}` : ''}`));
   }
-  let c =
-    typeof n.gold == 'number'
-      ? n.gold
-      : n.gold
-        ? t.filter((h) => h.id === 'gold').reduce((h, p) => h + p.n, 0)
+  let gold =
+    typeof res.gold == 'number'
+      ? res.gold
+      : res.gold
+        ? all.filter((it) => it.id === 'gold').reduce((sum, it) => sum + it.n, 0)
         : 0;
-  c > 0 && o.rules.gold(c);
-  let d = a.filter((h, p) => !i.has(p)),
-    u = t.filter((h) => h.id === 'gold').reduce((h, p) => h + p.n, 0) - c;
-  if ((u > 0 && d.unshift({ id: 'gold', n: u, unid: !1 }), (o.ls.loot[e] = d), r.length || c)) {
-    o.game.bus.emit('loot:taken', { items: r, gold: c, by: s, object: o.objects.get(e) || e });
-    let h = [];
-    c && h.push(`+${c} po`);
-    for (let [p, m] of l) h.push(`${p ? `${p} guarda ` : ''}${m.join(', ')}`);
-    o.toast(h.join(' \xB7 '), 'botin', 5e3);
+  gold > 0 && explore.rules.gold(gold);
+  let left = items.filter((it, k) => !takenIdx.has(k)),
+    goldLeft = all.filter((it) => it.id === 'gold').reduce((sum, it) => sum + it.n, 0) - gold;
+  if (
+    (goldLeft > 0 && left.unshift({ id: 'gold', n: goldLeft, unid: !1 }),
+    (explore.ls.loot[id] = left),
+    taken.length || gold)
+  ) {
+    explore.game.bus.emit('loot:taken', { items: taken, gold, by, object: explore.objects.get(id) || id });
+    let parts = [];
+    gold && parts.push(`+${gold} po`);
+    for (let [name, list] of byWho) parts.push(`${name ? `${name} guarda ` : ''}${list.join(', ')}`);
+    explore.toast(parts.join(' \xB7 '), 'botin', 5e3);
   }
 }
-function bN(o) {
-  for (let e of o.members)
-    if ((o.rules.summary(e.id)?.spells?.prepared || []).some((n) => (n.id || n) === 'knock')) return e.id;
+/** Id del primer miembro con el conjuro Abrir preparado, o null. */
+function knockCaster(explore) {
+  for (let m of explore.members)
+    if ((explore.rules.summary(m.id)?.spells?.prepared || []).some((sp) => (sp.id || sp) === 'knock'))
+      return m.id;
   return null;
 }
-async function iy(o, e) {
-  let t = o.objects.get(e),
-    a = t.lock || {},
-    n = a.dc ?? 13,
-    s = o.rules,
-    i = [];
-  if (a.key) {
-    let h = s.holder(a.key);
-    h &&
-      i.push({
-        text: `Abrir con ${Ku(s.itemName(a.key))} (la lleva ${s.shortName(h)})`,
-        value: { how: 'key', who: h },
+/** Opciones para abrir una cerradura (llave, herramientas, Abrir, fuerza); true si se abre. */
+async function chooseUnlock(explore, id) {
+  let obj = explore.objects.get(id),
+    lock = obj.lock || {},
+    dc = lock.dc ?? 13,
+    rules = explore.rules,
+    options = [];
+  if (lock.key) {
+    let who = rules.holder(lock.key);
+    who &&
+      options.push({
+        text: `Abrir con ${lowerFirst(rules.itemName(lock.key))} (la lleva ${rules.shortName(who)})`,
+        value: { how: 'key', who },
       });
   }
-  if (s.holder('thieves_tools')) {
-    let h = s.best('thieves_tools');
-    i.push({
-      text: `Forzar la cerradura: ${s.shortName(h.who)}`,
-      tag: `[Herramientas de ladr\xF3n ${ry(h.mod)} \xB7 CD ${n}]`,
+  if (rules.holder('thieves_tools')) {
+    let best = rules.best('thieves_tools');
+    options.push({
+      text: `Forzar la cerradura: ${rules.shortName(best.who)}`,
+      tag: `[Herramientas de ladr\xF3n ${signed(best.mod)} \xB7 CD ${dc}]`,
       kind: 'check',
-      value: { how: 'tools', who: h.who },
+      value: { how: 'tools', who: best.who },
     });
-  } else i.push({ text: 'Forzar la cerradura', hint: 'hacen falta herramientas de ladr\xF3n', disabled: !0 });
-  let l = bN(o);
-  l &&
-    i.push({
-      text: `${s.shortName(l)} lanza Abrir`,
+  } else
+    options.push({
+      text: 'Forzar la cerradura',
+      hint: 'hacen falta herramientas de ladr\xF3n',
+      disabled: !0,
+    });
+  let caster = knockCaster(explore);
+  caster &&
+    options.push({
+      text: `${rules.shortName(caster)} lanza Abrir`,
       tag: '[Conjuro de nivel 2]',
       kind: 'special',
-      value: { how: 'knock', who: l },
+      value: { how: 'knock', who: caster },
     });
-  let c = s.best('athletics'),
-    d = s.holder('crowbar');
-  (i.push({
-    text: `Romperla a golpes: ${s.shortName(c.who)}${d ? ', con la palanca' : ''}`,
-    tag: `[Atletismo ${ry(c.mod)} \xB7 CD ${n + 2}${d ? ' \xB7 ventaja' : ''}]`,
+  let strong = rules.best('athletics'),
+    crowbar = rules.holder('crowbar');
+  (options.push({
+    text: `Romperla a golpes: ${rules.shortName(strong.who)}${crowbar ? ', con la palanca' : ''}`,
+    tag: `[Atletismo ${signed(strong.mod)} \xB7 CD ${dc + 2}${crowbar ? ' \xB7 ventaja' : ''}]`,
     kind: 'check',
-    value: { how: 'force', who: c.who },
+    value: { how: 'force', who: strong.who },
   }),
-    i.push({ text: 'Dejarlo', kind: 'end', value: null }));
-  let u = await o.choose({
-    speaker: t.name || 'Cerradura',
+    options.push({ text: 'Dejarlo', kind: 'end', value: null }));
+  let choice = await explore.choose({
+    speaker: obj.name || 'Cerradura',
     title: 'Cerrado con llave',
-    text: t.lock_text || 'Una cerradura s\xF3lida. Habr\xE1 que abrirla de alguna forma.',
-    options: i,
+    text: obj.lock_text || 'Una cerradura s\xF3lida. Habr\xE1 que abrirla de alguna forma.',
+    options,
   });
-  return u ? vN(o, e, u.how, u.who, n) : !1;
+  return choice ? tryUnlock(explore, id, choice.how, choice.who, dc) : !1;
 }
-async function vN(o, e, t, a, n) {
-  let s = o.objects.get(e),
-    i = o.rules;
-  if (!(await f0(o, s.cell, { actorId: a }))) return !1;
-  let r = o.member(a)?.actor;
-  return o.withBusy(async () => {
-    if (t === 'key')
-      return (await r?.once('interact'), oy(o, e, a, 'key', `${i.shortName(a)} gira la llave.`));
-    if (t === 'knock')
+/** Intenta abrir con el método elegido; el conjuro y la fuerza hacen ruido y pueden atraer enemigos. */
+async function tryUnlock(explore, id, how, who, dc) {
+  let obj = explore.objects.get(id),
+    rules = explore.rules;
+  if (!(await approach(explore, obj.cell, { actorId: who }))) return !1;
+  let actor = explore.member(who)?.actor;
+  return explore.withBusy(async () => {
+    if (how === 'key')
       return (
-        await r?.once('cast'),
-        i.call('cp_cast', { cp: o.game.store.cp, who: a, spell: 'knock' }),
-        $k(o, s.cell, 'Un golpe seco resuena: el conjuro Abrir no es nada discreto.'),
-        oy(o, e, a, 'knock', 'La cerradura cede con un chasquido.')
+        await actor?.once('interact'),
+        markUnlocked(explore, id, who, 'key', `${rules.shortName(who)} gira la llave.`)
       );
-    let l =
-        t === 'tools'
-          ? i.check({ who: a, tool: 'thieves_tools', dc: n })
-          : i.check({ who: a, skill: 'athletics', dc: n + 2, adv: !!i.holder('crowbar') }),
-      c = r?.once(t === 'tools' ? 'kneel' : 'attack_melee', { speed: t === 'tools' ? 1.4 : 1.2 });
+    if (how === 'knock')
+      return (
+        await actor?.once('cast'),
+        rules.call('cp_cast', { cp: explore.game.store.cp, who, spell: 'knock' }),
+        makeNoise(explore, obj.cell, 'Un golpe seco resuena: el conjuro Abrir no es nada discreto.'),
+        markUnlocked(explore, id, who, 'knock', 'La cerradura cede con un chasquido.')
+      );
+    let res =
+        how === 'tools'
+          ? rules.check({ who, tool: 'thieves_tools', dc })
+          : rules.check({ who, skill: 'athletics', dc: dc + 2, adv: !!rules.holder('crowbar') }),
+      anim = actor?.once(how === 'tools' ? 'kneel' : 'attack_melee', { speed: how === 'tools' ? 1.4 : 1.2 });
     return (
-      await sy(t === 'tools' ? 900 : 500),
-      Wk(o, a, l),
-      await c,
-      t === 'force' && $k(o, s.cell, 'Los golpes se oyen desde lejos.'),
-      l.success
-        ? oy(o, e, a, t, `${i.shortName(a)} lo consigue (${l.total} contra CD ${l.dc}).`)
-        : (o.game.bus.emit('ui:error', {}),
-          o.toast(
-            `${i.shortName(a)} no lo consigue (${l.total} contra CD ${l.dc}). Puede volver a intentarlo.`,
+      await sleep(how === 'tools' ? 900 : 500),
+      floatRoll(explore, who, res),
+      await anim,
+      how === 'force' && makeNoise(explore, obj.cell, 'Los golpes se oyen desde lejos.'),
+      res.success
+        ? markUnlocked(
+            explore,
+            id,
+            who,
+            how,
+            `${rules.shortName(who)} lo consigue (${res.total} contra CD ${res.dc}).`,
+          )
+        : (explore.game.bus.emit('ui:error', {}),
+          explore.toast(
+            `${rules.shortName(who)} no lo consigue (${res.total} contra CD ${res.dc}). Puede volver a intentarlo.`,
             'mal',
           ),
           !1)
     );
   });
 }
-function Wk(o, e, t) {
-  let a = o.member(e)?.actor;
-  a &&
-    o.overlay.float(
-      (n) => a.head(n).add(new Vector3(0, 0.25, 0)),
-      `${t.label} ${t.total}`,
-      t.success ? 'bien' : 'mal',
+/** Muestra el resultado de una prueba sobre la cabeza del miembro. */
+function floatRoll(explore, who, res) {
+  let actor = explore.member(who)?.actor;
+  actor &&
+    explore.overlay.float(
+      (v) => actor.head(v).add(new Vector3(0, 0.25, 0)),
+      `${res.label} ${res.total}`,
+      res.success ? 'bien' : 'mal',
       { dur: 1.6 },
     );
 }
-function $k(o, e, t) {
-  for (let [a, n] of o.groups)
-    if (!n.hidden && n.enemies.some((s) => !s.dead && hexDistance(s.cell, e) <= 7)) {
-      (o.toast(t, 'mal'), setTimeout(() => !o.inBattle && o.groups.has(a) && Uo(o, a, {}), 900));
+/** Ruido: si hay un grupo enemigo visible a 7 casillas o menos, empieza el combate. */
+function makeNoise(explore, cell, text) {
+  for (let [gid, group] of explore.groups)
+    if (!group.hidden && group.enemies.some((en) => !en.dead && hexDistance(en.cell, cell) <= 7)) {
+      (explore.toast(text, 'mal'),
+        setTimeout(() => !explore.inBattle && explore.groups.has(gid) && startBattle(explore, gid, {}), 900));
       return;
     }
 }
-function oy(o, e, t, a, n) {
+/** Marca la cerradura como abierta y emite «lock:opened». */
+function markUnlocked(explore, id, who, how, text) {
   return (
-    o.ls.unlocked.includes(e) || o.ls.unlocked.push(e),
-    o.game.bus.emit('lock:opened', { object: o.objects.get(e) || e, by: t, how: a }),
-    o.toast(n, 'bien'),
+    explore.ls.unlocked.includes(id) || explore.ls.unlocked.push(id),
+    explore.game.bus.emit('lock:opened', { object: explore.objects.get(id) || id, by: who, how }),
+    explore.toast(text, 'bien'),
     !0
   );
 }
-function Xu(o, e, t, a) {
-  let n = o.objects.get(e);
-  if (!n || o.ls.found.includes(e)) return;
-  (o.ls.found.push(e), o.refreshObject(e));
-  let s = n.type === 'trap',
-    i = o.world.cellToWorld(n.cell).add(new Vector3(0, 0.9, 0));
-  o.overlay.float(i, s ? '\xA1Trampa!' : '\xA1Algo escondido!', s ? 'mal' : 'oro', { dur: 1.8, size: 1.15 });
-  let r = t ? o.rules.shortName(t) : '';
-  (s
-    ? (o.stopAll(),
-      o.toast(`${r} ve una trampa: ${Ku(n.name || 'trampa')}${a ? ` (${a})` : ''}.`, 'mal', 5e3))
-    : o.toast(`${r} encuentra ${Ku(n.name || 'algo')}${a ? ` (${a})` : ''}.`, 'botin', 5e3),
-    n.found_text && o.hint(n.found_text),
-    o.game.bus.emit('hidden:found', { object: n, by: t }));
-}
-async function yN(o, e) {
-  let t = o.objects.get(e),
-    a = o.rules,
-    n = t.dc_disarm ?? 13,
-    s = [];
-  if (a.holder('thieves_tools')) {
-    let r = a.best('thieves_tools');
-    s.push({
-      text: `Desactivarla: ${a.shortName(r.who)}`,
-      tag: `[Herramientas de ladr\xF3n ${ry(r.mod)} \xB7 CD ${n}]`,
-      kind: 'check',
-      value: r.who,
-    });
-  } else s.push({ text: 'Desactivarla', hint: 'hacen falta herramientas de ladr\xF3n', disabled: !0 });
-  s.push({ text: 'Dejarla y rodearla', kind: 'end', value: null });
-  let i = await o.choose({
-    speaker: t.name || 'Trampa',
-    title: 'Trampa descubierta',
-    text: t.desc || 'Un mecanismo escondido. Si alguien lo pisa, saltar\xE1.',
-    options: s,
+/** Revela un objeto oculto (o una trampa) encontrado por `who`; `why` explica la tirada. */
+function revealObject(explore, id, who, why) {
+  let obj = explore.objects.get(id);
+  if (!obj || explore.ls.found.includes(id)) return;
+  (explore.ls.found.push(id), explore.refreshObject(id));
+  let trap = obj.type === 'trap',
+    pos = explore.world.cellToWorld(obj.cell).add(new Vector3(0, 0.9, 0));
+  explore.overlay.float(pos, trap ? '\xA1Trampa!' : '\xA1Algo escondido!', trap ? 'mal' : 'oro', {
+    dur: 1.8,
+    size: 1.15,
   });
-  i &&
-    (await f0(o, t.cell, { actorId: i })) &&
-    (await o.withBusy(async () => {
-      let r = o.member(i)?.actor,
-        l = a.check({ who: i, tool: 'thieves_tools', dc: n }),
-        c = r?.once('kneel', { speed: 1.3 });
-      (await sy(1e3),
-        Wk(o, i, l),
-        await c,
-        l.success
-          ? (o.ls.disarmed.push(e),
-            o.refreshObject(e),
-            o.world.setObjectState?.(e, 'disarmed'),
-            o.toast(
-              `${a.shortName(i)} desactiva ${Ku(t.name || 'la trampa')} (${l.total} contra CD ${n}).`,
+  let name = who ? explore.rules.shortName(who) : '';
+  (trap
+    ? (explore.stopAll(),
+      explore.toast(
+        `${name} ve una trampa: ${lowerFirst(obj.name || 'trampa')}${why ? ` (${why})` : ''}.`,
+        'mal',
+        5e3,
+      ))
+    : explore.toast(
+        `${name} encuentra ${lowerFirst(obj.name || 'algo')}${why ? ` (${why})` : ''}.`,
+        'botin',
+        5e3,
+      ),
+    obj.found_text && explore.hint(obj.found_text),
+    explore.game.bus.emit('hidden:found', { object: obj, by: who }));
+}
+/** Desactivar una trampa descubierta; si se falla por 5 o más, salta. */
+async function chooseDisarm(explore, id) {
+  let trap = explore.objects.get(id),
+    rules = explore.rules,
+    dc = trap.dc_disarm ?? 13,
+    options = [];
+  if (rules.holder('thieves_tools')) {
+    let best = rules.best('thieves_tools');
+    options.push({
+      text: `Desactivarla: ${rules.shortName(best.who)}`,
+      tag: `[Herramientas de ladr\xF3n ${signed(best.mod)} \xB7 CD ${dc}]`,
+      kind: 'check',
+      value: best.who,
+    });
+  } else options.push({ text: 'Desactivarla', hint: 'hacen falta herramientas de ladr\xF3n', disabled: !0 });
+  options.push({ text: 'Dejarla y rodearla', kind: 'end', value: null });
+  let who = await explore.choose({
+    speaker: trap.name || 'Trampa',
+    title: 'Trampa descubierta',
+    text: trap.desc || 'Un mecanismo escondido. Si alguien lo pisa, saltar\xE1.',
+    options,
+  });
+  who &&
+    (await approach(explore, trap.cell, { actorId: who })) &&
+    (await explore.withBusy(async () => {
+      let actor = explore.member(who)?.actor,
+        res = rules.check({ who, tool: 'thieves_tools', dc }),
+        anim = actor?.once('kneel', { speed: 1.3 });
+      (await sleep(1e3),
+        floatRoll(explore, who, res),
+        await anim,
+        res.success
+          ? (explore.ls.disarmed.push(id),
+            explore.refreshObject(id),
+            explore.world.setObjectState?.(id, 'disarmed'),
+            explore.toast(
+              `${rules.shortName(who)} desactiva ${lowerFirst(trap.name || 'la trampa')} (${res.total} contra CD ${dc}).`,
               'bien',
             ),
-            o.game.bus.emit('trap:disarmed', { object: t, by: i }))
-          : l.total <= n - 5
-            ? (o.toast(`${a.shortName(i)} se equivoca (${l.total} contra CD ${n})\u2026`, 'mal'),
-              await sy(400),
-              cy(o, e, i))
-            : (o.game.bus.emit('ui:error', {}),
-              o.toast(
-                `${a.shortName(i)} no lo consigue (${l.total} contra CD ${n}). Puede volver a intentarlo.`,
+            explore.game.bus.emit('trap:disarmed', { object: trap, by: who }))
+          : res.total <= dc - 5
+            ? (explore.toast(
+                `${rules.shortName(who)} se equivoca (${res.total} contra CD ${dc})\u2026`,
+                'mal',
+              ),
+              await sleep(400),
+              springTrap(explore, id, who))
+            : (explore.game.bus.emit('ui:error', {}),
+              explore.toast(
+                `${rules.shortName(who)} no lo consigue (${res.total} contra CD ${dc}). Puede volver a intentarlo.`,
                 'mal',
               )));
     }));
 }
-function cy(o, e, t) {
-  o.stopAll();
-  let a = o.objects.get(e),
-    n = o.rules;
-  (o.ls.found.includes(e) || o.ls.found.push(e), o.ls.disarmed.includes(e) || o.ls.disarmed.push(e));
-  let s = n.roll(a.damage ?? '1d6'),
-    i = `\xA1${n.shortName(t)} pisa ${Ku(a.name || 'una trampa')}!`;
-  if (a.save && s > 0) {
-    let l = n.check({ who: t, save: a.save.ab || 'dex', dc: a.save.dc ?? 12 });
-    l.success
-      ? ((s = Math.floor(s / 2)), (i += ` Salva (${l.total}) y se lleva la mitad.`))
-      : (i += ` Falla la salvaci\xF3n (${l.total}).`);
+/** Salta una trampa sobre `who`: daño (salvación a la mitad) y alarma opcional. */
+function springTrap(explore, id, who) {
+  explore.stopAll();
+  let trap = explore.objects.get(id),
+    rules = explore.rules;
+  (explore.ls.found.includes(id) || explore.ls.found.push(id),
+    explore.ls.disarmed.includes(id) || explore.ls.disarmed.push(id));
+  let dmg = rules.roll(trap.damage ?? '1d6'),
+    text = `\xA1${rules.shortName(who)} pisa ${lowerFirst(trap.name || 'una trampa')}!`;
+  if (trap.save && dmg > 0) {
+    let save = rules.check({ who, save: trap.save.ab || 'dex', dc: trap.save.dc ?? 12 });
+    save.success
+      ? ((dmg = Math.floor(dmg / 2)), (text += ` Salva (${save.total}) y se lleva la mitad.`))
+      : (text += ` Falla la salvaci\xF3n (${save.total}).`);
   }
-  let r = o.member(t);
-  (s > 0 &&
-    (n.damage(t, s, a.dtype || 'piercing'),
-    r?.actor.once('hit', { speed: 1.2 }),
-    r && o.overlay.float((l) => r.actor.head(l), `-${s}`, 'mal', { size: 1.3 })),
-    o.world.setObjectState?.(e, 'sprung'),
-    o.marks.trap(e, null),
-    o.refreshObject(e),
-    o.toast(i + (s > 0 ? ` ${s} de da\xF1o.` : ''), 'mal', 5500),
-    o.game.bus.emit('trap:triggered', { object: a, by: t }),
-    o.updateHud(),
-    a.alarm &&
-      (o.hud?.banner?.('\xA1Una alarma!', 'mal', 1300),
-      o.toast('Una cuerda tensa, un ruido de latas: el campamento sabe que est\xE1is aqu\xED.', 'mal'),
-      o.groups.has(a.alarm) && setTimeout(() => !o.inBattle && Uo(o, a.alarm, {}), 1300)));
+  let m = explore.member(who);
+  (dmg > 0 &&
+    (rules.damage(who, dmg, trap.dtype || 'piercing'),
+    m?.actor.once('hit', { speed: 1.2 }),
+    m && explore.overlay.float((v) => m.actor.head(v), `-${dmg}`, 'mal', { size: 1.3 })),
+    explore.world.setObjectState?.(id, 'sprung'),
+    explore.marks.trap(id, null),
+    explore.refreshObject(id),
+    explore.toast(text + (dmg > 0 ? ` ${dmg} de da\xF1o.` : ''), 'mal', 5500),
+    explore.game.bus.emit('trap:triggered', { object: trap, by: who }),
+    explore.updateHud(),
+    trap.alarm &&
+      (explore.hud?.banner?.('\xA1Una alarma!', 'mal', 1300),
+      explore.toast('Una cuerda tensa, un ruido de latas: el campamento sabe que est\xE1is aqu\xED.', 'mal'),
+      explore.groups.has(trap.alarm) &&
+        setTimeout(() => !explore.inBattle && startBattle(explore, trap.alarm, {}), 1300)));
 }
-async function xN(o, e) {
-  let t = o.objects.get(e);
-  if (t.npc && o.npcs.has(t.npc)) return m0(o, t.npc, { skipApproach: !0 });
-  if (t.to) {
-    if (!o.flag(t.requires)) {
-      o.toast(t.closed || 'La puerta est\xE1 cerrada.', 'apagado', 4500);
+/** Puertas: a otro nivel (`to`), de un PNJ, decorativas (`target`), cerradas o que se abren. */
+async function useDoor(explore, id) {
+  let door = explore.objects.get(id);
+  if (door.npc && explore.npcs.has(door.npc)) return talkToNpc(explore, door.npc, { skipApproach: !0 });
+  if (door.to) {
+    if (!explore.flag(door.requires)) {
+      explore.toast(door.closed || 'La puerta est\xE1 cerrada.', 'apagado', 4500);
       return;
     }
-    if (t.lock && !o.ls.unlocked.includes(e) && !(await iy(o, e))) return;
-    (o.world.setObjectState?.(e, 'open'),
-      o.game.bus.emit('object:state', { id: e, object: t, state: 'open' }),
-      await new Promise((a) => setTimeout(a, 350)),
-      o.disposed || o.useExit({ to: t.to }));
+    if (door.lock && !explore.ls.unlocked.includes(id) && !(await chooseUnlock(explore, id))) return;
+    (explore.world.setObjectState?.(id, 'open'),
+      explore.game.bus.emit('object:state', { id, object: door, state: 'open' }),
+      await new Promise((resolve) => setTimeout(resolve, 350)),
+      explore.disposed || explore.useExit({ to: door.to }));
     return;
   }
-  if (t.target) {
-    o.toast(
-      `${t.name || 'Puerta'}: ${t.closed || 'La puerta est\xE1 cerrada. Nadie contesta.'}`,
+  if (door.target) {
+    explore.toast(
+      `${door.name || 'Puerta'}: ${door.closed || 'La puerta est\xE1 cerrada. Nadie contesta.'}`,
       'apagado',
       4500,
     );
     return;
   }
-  if (o.ls.states[e] === 'open') {
-    o.toast(`${t.name || 'La puerta'} ya est\xE1 abierta.`, 'apagado');
+  if (explore.ls.states[id] === 'open') {
+    explore.toast(`${door.name || 'La puerta'} ya est\xE1 abierta.`, 'apagado');
     return;
   }
-  if (!o.flag(t.requires)) {
-    o.toast(
-      t.closed || 'No se abre. No hay tirador, ni bisagras, ni cerradura: algo la mantiene cerrada.',
+  if (!explore.flag(door.requires)) {
+    explore.toast(
+      door.closed || 'No se abre. No hay tirador, ni bisagras, ni cerradura: algo la mantiene cerrada.',
       'apagado',
       5e3,
     );
     return;
   }
-  (t.lock && !o.ls.unlocked.includes(e) && !(await iy(o, e))) || _N(o, e);
+  (door.lock && !explore.ls.unlocked.includes(id) && !(await chooseUnlock(explore, id))) ||
+    openDoor(explore, id);
 }
-function _N(o, e) {
-  let t = o.objects.get(e);
-  ((o.ls.states[e] = 'open'),
-    t?.cell && !t.target && o.xmap.setTile(t.cell, t.open_tile || '.'),
-    o.world.setObjectState?.(e, 'open'),
-    o.game.bus.emit('object:state', { id: e, object: t, state: 'open' }),
-    o.refreshObject(e));
+/** Abre una puerta del nivel (cambia la casilla del mapa a transitable). */
+function openDoor(explore, id) {
+  let door = explore.objects.get(id);
+  ((explore.ls.states[id] = 'open'),
+    door?.cell && !door.target && explore.xmap.setTile(door.cell, door.open_tile || '.'),
+    explore.world.setObjectState?.(id, 'open'),
+    explore.game.bus.emit('object:state', { id, object: door, state: 'open' }),
+    explore.refreshObject(id));
 }
-async function Xk(o, e) {
-  let t = o.objects.get(e);
-  if (!t) return;
-  if (t.type === 'door' && t.npc && o.npcs.has(t.npc)) return m0(o, t.npc);
-  if (!(await f0(o, t.cell, { adjacent: !0 })) || o.disposed) return;
-  let n = o.leader;
-  if (await Wu(o, { object: t, kind: 'object', actor: n })) {
-    o.refreshObject(e);
+/**
+ * Usar un objeto del nivel tras acercarse: contenedores, carteles, runas, puertas, trampas,
+ * escaleras, hogueras y posada.
+ */
+async function useObject(explore, id) {
+  let obj = explore.objects.get(id);
+  if (!obj) return;
+  if (obj.type === 'door' && obj.npc && explore.npcs.has(obj.npc)) return talkToNpc(explore, obj.npc);
+  if (!(await approach(explore, obj.cell, { adjacent: !0 })) || explore.disposed) return;
+  let by = explore.leader;
+  if (await storyInteract(explore, { object: obj, kind: 'object', actor: by })) {
+    explore.refreshObject(id);
     return;
   }
-  let s = o.member(n)?.actor;
-  switch (t.type) {
+  let actor = explore.member(by)?.actor;
+  switch (obj.type) {
     case 'chest':
     case 'cache':
     case 'loot':
-      t.lock && !o.ls.unlocked.includes(e)
-        ? (s?.once('interact'), (await iy(o, e)) && (await Vk(o, e, n)))
-        : (await o.withBusy(() => s?.once(t.type === 'chest' ? 'interact' : 'kneel', { speed: 1.5 })),
-          await Vk(o, e, n));
+      obj.lock && !explore.ls.unlocked.includes(id)
+        ? (actor?.once('interact'), (await chooseUnlock(explore, id)) && (await openLoot(explore, id, by)))
+        : (await explore.withBusy(() =>
+            actor?.once(obj.type === 'chest' ? 'interact' : 'kneel', { speed: 1.5 }),
+          ),
+          await openLoot(explore, id, by));
       break;
     case 'sign':
     case 'board':
     case 'inspect':
     case 'rune':
     case 'seal': {
-      s?.once('interact');
-      let i = [].concat(
-        t.text ||
-          (t.type === 'rune' || t.type === 'seal'
+      actor?.once('interact');
+      let lines = [].concat(
+        obj.text ||
+          (obj.type === 'rune' || obj.type === 'seal'
             ? ['Unas runas durn talladas en la piedra. No pasa nada al tocarlas\u2026 todav\xEDa.']
             : ['\u2026']),
       );
-      (await o.narrate(i, { title: t.name || '', sub: t.type === 'board' ? 'Tabl\xF3n de anuncios' : '' }),
-        t.journal && o.addJournal(t.journal),
-        t.sets && o.game.store.setFlag(t.sets, !0));
+      (await explore.narrate(lines, {
+        title: obj.name || '',
+        sub: obj.type === 'board' ? 'Tabl\xF3n de anuncios' : '',
+      }),
+        obj.journal && explore.addJournal(obj.journal),
+        obj.sets && explore.game.store.setFlag(obj.sets, !0));
       break;
     }
     case 'door':
-      await xN(o, e);
+      await useDoor(explore, id);
       break;
     case 'trap':
-      await yN(o, e);
+      await chooseDisarm(explore, id);
       break;
     case 'stairs': {
-      let i = /merrowick|arriba|subir/i.test(t.to || '') || /sube/i.test((t.text || []).join(' '));
-      (await o.choose({
-        speaker: t.name || 'Escalera',
+      let up = /merrowick|arriba|subir/i.test(obj.to || '') || /sube/i.test((obj.text || []).join(' '));
+      (await explore.choose({
+        speaker: obj.name || 'Escalera',
         text:
-          (t.text || []).map((l) => o.heroText(l)).join(`
+          (obj.text || []).map((line) => explore.heroText(line)).join(`
 
-`) || (i ? 'La escalera sube.' : 'La escalera baja a la oscuridad.'),
+`) || (up ? 'La escalera sube.' : 'La escalera baja a la oscuridad.'),
         options: [
-          { text: i ? 'Subir' : 'Bajar', value: 'go' },
+          { text: up ? 'Subir' : 'Bajar', value: 'go' },
           { text: 'Todav\xEDa no', kind: 'end', value: null },
         ],
-      })) === 'go' && o.useExit({ to: t.to });
+      })) === 'go' && explore.useExit({ to: obj.to });
       break;
     }
     case 'campfire':
-      await uy(o, { camp: !0, where: t.name });
+      await openRest(explore, { camp: !0, where: obj.name });
       break;
     case 'inn': {
-      s?.once('interact');
-      let i = dy(o);
-      (await o.choose({
-        speaker: t.name || 'Habitaciones',
+      actor?.once('interact');
+      let price = innPrice(explore);
+      (await explore.choose({
+        speaker: obj.name || 'Habitaciones',
         text:
-          [].concat(t.text || []).map((l) => o.heroText(l)).join(`
+          [].concat(obj.text || []).map((line) => explore.heroText(line)).join(`
 
 `) || 'Una escalera estrecha sube a las habitaciones.',
         options: [
           {
-            text: `Pasar la noche (${i.free ? 'invita la casa' : `${i.cost} po`})`,
+            text: `Pasar la noche (${price.free ? 'invita la casa' : `${price.cost} po`})`,
             value: 'inn',
-            disabled: !i.ok,
-            hint: i.ok ? null : 'no os llega',
+            disabled: !price.ok,
+            hint: price.ok ? null : 'no os llega',
           },
           { text: 'Todav\xEDa no', kind: 'end', value: null },
         ],
-      })) === 'inn' && (await Kk(o));
+      })) === 'inn' && (await stayAtInn(explore));
       break;
     }
     default:
-      t.text && (await o.narrate(t.text, { title: t.name || '' }));
+      obj.text && (await explore.narrate(obj.text, { title: obj.name || '' }));
       break;
   }
 }
-async function Yk(o, e) {
-  let t = o.member(e);
-  if (!t || o.isBusy()) return;
-  let a = o.lead();
+/** Hablar con un compañero (la historia o una frase suelta). */
+async function talkToMember(explore, id) {
+  let m = explore.member(id);
+  if (!m || explore.isBusy()) return;
+  let lead = explore.lead();
   if (
-    (a && a.id !== e && (o.faceTo(e, a.id), o.faceTo(a.id, t.cell)),
-    await Wu(o, { object: e, kind: 'npc', actor: o.leader, companion: !0 }))
+    (lead && lead.id !== id && (explore.faceTo(id, lead.id), explore.faceTo(lead.id, m.cell)),
+    await storyInteract(explore, { object: id, kind: 'npc', actor: explore.leader, companion: !0 }))
   )
     return;
-  let n = ['\xBFSeguimos?', 'Te escucho.', 'Aqu\xED estoy.', 'No me gusta este silencio.'];
-  o.say(e, n[Math.floor(Math.random() * n.length)], { dur: 2.5 });
+  let lines = ['\xBFSeguimos?', 'Te escucho.', 'Aqu\xED estoy.', 'No me gusta este silencio.'];
+  explore.say(id, lines[Math.floor(Math.random() * lines.length)], { dur: 2.5 });
 }
-async function m0(o, e, { skipApproach: t = !1 } = {}) {
-  let a = o.npcs.get(e);
-  if (!a || (!t && (!(await f0(o, a.cell, { adjacent: !0 })) || o.disposed))) return;
-  let n = o.lead();
-  (n && (o.faceTo(e, n.id), o.faceTo(n.id, a.cell)), a.actor.once('interact'));
-  let s = a.def;
-  (await Wu(o, { object: s, kind: 'npc', actor: o.leader })) || (await wN(o, e));
+/** Hablar con un PNJ: acercarse, mirarse y conversación de la historia o menú propio. */
+async function talkToNpc(explore, id, { skipApproach = !1 } = {}) {
+  let npc = explore.npcs.get(id);
+  if (!npc || (!skipApproach && (!(await approach(explore, npc.cell, { adjacent: !0 })) || explore.disposed)))
+    return;
+  let lead = explore.lead();
+  (lead && (explore.faceTo(id, lead.id), explore.faceTo(lead.id, npc.cell)), npc.actor.once('interact'));
+  let def = npc.def;
+  (await storyInteract(explore, { object: def, kind: 'npc', actor: explore.leader })) ||
+    (await npcMenu(explore, id));
 }
-async function wN(o, e) {
-  let t = o.npcs.get(e),
-    a = t.def,
-    n = o.rules,
-    s = [].concat(a.greet || ['\u2026']),
-    i = `*${s[Math.floor(Math.random() * s.length)]}*`,
-    r = !1,
-    l =
-      o.game.ui.portrait?.(a.id) ||
-      (await o.factory.portrait(t.actor, { id: a.id, name: a.name, class: a.visual?.class }));
+/** Menú de sustituto de un PNJ: comerciar, posada, templo (curar, identificar, resucitar), preguntar. */
+async function npcMenu(explore, id) {
+  let npc = explore.npcs.get(id),
+    def = npc.def,
+    rules = explore.rules,
+    greets = [].concat(def.greet || ['\u2026']),
+    text = `*${greets[Math.floor(Math.random() * greets.length)]}*`,
+    asked = !1,
+    portrait =
+      explore.game.ui.portrait?.(def.id) ||
+      (await explore.factory.portrait(npc.actor, { id: def.id, name: def.name, class: def.visual?.class }));
   for (;;) {
-    let c = [];
-    if ((a.shop && c.push({ text: 'Comerciar', value: 'shop' }), a.inn)) {
-      let u = dy(o);
-      c.push({
-        text: `Pasar la noche (${u.free ? 'invita la casa' : `${u.cost} po`})`,
+    let options = [];
+    if ((def.shop && options.push({ text: 'Comerciar', value: 'shop' }), def.inn)) {
+      let price = innPrice(explore);
+      options.push({
+        text: `Pasar la noche (${price.free ? 'invita la casa' : `${price.cost} po`})`,
         value: 'inn',
-        disabled: !u.ok,
-        hint: u.ok ? null : 'no os llega',
+        disabled: !price.ok,
+        hint: price.ok ? null : 'no os llega',
       });
     }
-    if (a.temple) {
-      (c.push({ text: 'Curar heridas (10 po)', value: 'heal', disabled: (o.game.store.cp.gold || 0) < 10 }),
-        c.push({
+    if (def.temple) {
+      (options.push({
+        text: 'Curar heridas (10 po)',
+        value: 'heal',
+        disabled: (explore.game.store.cp.gold || 0) < 10,
+      }),
+        options.push({
           text: 'Identificar objetos (20 po)',
           value: 'identify',
-          disabled: (o.game.store.cp.gold || 0) < 20,
+          disabled: (explore.game.store.cp.gold || 0) < 20,
         }));
-      for (let u of o.dead)
-        c.push({
-          text: `Devolver a la vida a ${n.shortName(u)} (150 po)`,
-          value: `raise:${u}`,
-          disabled: (o.game.store.cp.gold || 0) < 150,
+      for (let deadId of explore.dead)
+        options.push({
+          text: `Devolver a la vida a ${rules.shortName(deadId)} (150 po)`,
+          value: `raise:${deadId}`,
+          disabled: (explore.game.store.cp.gold || 0) < 150,
         });
     }
-    (a.talk?.length && !r && c.push({ text: 'Preguntar', value: 'ask' }),
-      c.push({ text: 'Adi\xF3s', kind: 'end', value: 'bye' }));
-    let d = await o.choose({ speaker: a.name, title: a.title || '', portrait: l, text: i, options: c });
-    if (!d || d === 'bye') break;
-    if (d === 'ask') {
-      ((r = !0),
-        (i = [].concat(a.talk).map((u) => `*${u}*`).join(`
+    (def.talk?.length && !asked && options.push({ text: 'Preguntar', value: 'ask' }),
+      options.push({ text: 'Adi\xF3s', kind: 'end', value: 'bye' }));
+    let choice = await explore.choose({ speaker: def.name, title: def.title || '', portrait, text, options });
+    if (!choice || choice === 'bye') break;
+    if (choice === 'ask') {
+      ((asked = !0),
+        (text = [].concat(def.talk).map((line) => `*${line}*`).join(`
 
 `)),
-        a.journal && o.addJournal(a.journal),
-        a.sets && o.game.store.setFlag(a.sets, !0));
+        def.journal && explore.addJournal(def.journal),
+        def.sets && explore.game.store.setFlag(def.sets, !0));
       continue;
     }
-    if (d === 'shop') {
-      await o.openScreen('tienda', { merchant: a.shop, npc: e });
+    if (choice === 'shop') {
+      await explore.openScreen('tienda', { merchant: def.shop, npc: id });
       break;
     }
-    if (d === 'inn') {
-      await Kk(o);
+    if (choice === 'inn') {
+      await stayAtInn(explore);
       break;
     }
-    if (d === 'heal') {
-      if (!n.gold(-10)) break;
-      let u = n.call('cp_heal', { cp: o.game.store.cp, id: 'all' });
-      if (u?.cp) n.apply(u);
+    if (choice === 'heal') {
+      if (!rules.gold(-10)) break;
+      let res = rules.call('cp_heal', { cp: explore.game.store.cp, id: 'all' });
+      if (res?.cp) rules.apply(res);
       else {
-        for (let h of o.members) n.state(h.id).hp = n.hp(h.id).max;
-        o.game.store.set(o.game.store.cp);
+        for (let m of explore.members) rules.state(m.id).hp = rules.hp(m.id).max;
+        explore.game.store.set(explore.game.store.cp);
       }
-      (o.game.bus.emit('ui:sfx', { name: 'curacion' }),
-        (i = '*Hermana Aldis os pone las manos encima y murmura una oraci\xF3n. Las heridas se cierran.*'),
-        o.toast('Todos recuper\xE1is los puntos de golpe.', 'bien'),
-        o.updateHud());
+      (explore.game.bus.emit('ui:sfx', { name: 'curacion' }),
+        (text = '*Hermana Aldis os pone las manos encima y murmura una oraci\xF3n. Las heridas se cierran.*'),
+        explore.toast('Todos recuper\xE1is los puntos de golpe.', 'bien'),
+        explore.updateHud());
       continue;
     }
-    if (d === 'identify') {
-      let u = n.call('identify', { cp: o.game.store.cp, cost: 20 });
-      u?.cp && u.ok !== !1
-        ? (n.apply(u),
-          o.toast(
-            u.identified?.length
-              ? `Identificado: ${u.identified.map((h) => h.name || h).join(', ')}.`
+    if (choice === 'identify') {
+      let res = rules.call('identify', { cp: explore.game.store.cp, cost: 20 });
+      res?.cp && res.ok !== !1
+        ? (rules.apply(res),
+          explore.toast(
+            res.identified?.length
+              ? `Identificado: ${res.identified.map((it) => it.name || it).join(', ')}.`
               : 'No hab\xEDa nada que identificar.',
             'magia',
             6e3,
           ))
-        : o.toast('Identificar todav\xEDa no est\xE1 disponible.', 'apagado');
+        : explore.toast('Identificar todav\xEDa no est\xE1 disponible.', 'apagado');
       continue;
     }
-    if (d.startsWith('raise:')) {
-      let u = d.slice(6);
-      if (!n.gold(-150)) break;
-      let h = n.call('cp_revive', { cp: o.game.store.cp, id: u });
-      if (h?.cp) n.apply(h);
+    if (choice.startsWith('raise:')) {
+      let id = choice.slice(6);
+      if (!rules.gold(-150)) break;
+      let res = rules.call('cp_revive', { cp: explore.game.store.cp, id });
+      if (res?.cp) rules.apply(res);
       else {
-        let p = n.state(u);
-        ((p.dead = !1), (p.hp = 1), o.game.store.set(o.game.store.cp));
+        let st = rules.state(id);
+        ((st.dead = !1), (st.hp = 1), explore.game.store.set(explore.game.store.cp));
       }
-      (o.game.bus.emit('ui:sfx', { name: 'curacion' }),
-        o.toast(`${n.shortName(u)} vuelve a respirar.`, 'bien', 5e3),
-        await o.rebuildParty());
+      (explore.game.bus.emit('ui:sfx', { name: 'curacion' }),
+        explore.toast(`${rules.shortName(id)} vuelve a respirar.`, 'bien', 5e3),
+        await explore.rebuildParty());
       break;
     }
   }
-  t.actor.anim(t.def.anim || 'idle');
+  npc.actor.anim(npc.def.anim || 'idle');
 }
-function TN(o, e = 14) {
-  for (let t of o.groups.values())
-    for (let a of t.enemies)
-      if (!a.dead) {
-        for (let n of o.members) if (hexDistance(a.cell, n.cell) <= e) return !0;
+/** ¿Hay algún enemigo vivo a `range` casillas o menos de algún miembro? */
+function enemiesNear(explore, range = 14) {
+  for (let group of explore.groups.values())
+    for (let en of group.enemies)
+      if (!en.dead) {
+        for (let m of explore.members) if (hexDistance(en.cell, m.cell) <= range) return !0;
       }
   return !1;
 }
-function dy(o) {
-  let e = !o.game.store.flag('inn_first_night'),
-    t = e ? 0 : 2 * o.members.length;
-  return { free: e, cost: t, ok: (o.game.store.cp.gold || 0) >= t };
+/** Precio de la posada: la primera noche invita la casa; después 2 po por miembro. */
+function innPrice(explore) {
+  let free = !explore.game.store.flag('inn_first_night'),
+    cost = free ? 0 : 2 * explore.members.length;
+  return { free, cost, ok: (explore.game.store.cp.gold || 0) >= cost };
 }
-async function Kk(o) {
-  let { cost: e } = dy(o);
-  (e && !o.rules.gold(-e)) ||
-    (o.game.store.setFlag('inn_first_night', !0),
-    await Jk(o, 'largo', 'Cen\xE1is caliente, dorm\xEDs bajo techo y, por una noche, nadie os despierta.', {
-      where: 'posada',
-    }));
+/** Paga y hace un descanso largo en la posada. */
+async function stayAtInn(explore) {
+  let { cost } = innPrice(explore);
+  (cost && !explore.rules.gold(-cost)) ||
+    (explore.game.store.setFlag('inn_first_night', !0),
+    await doRest(
+      explore,
+      'largo',
+      'Cen\xE1is caliente, dorm\xEDs bajo techo y, por una noche, nadie os despierta.',
+      {
+        where: 'posada',
+      },
+    ));
 }
-async function uy(o, { camp: e = !1, where: t = '' } = {}) {
-  if (o.isBusy()) return;
-  o.stopAll();
-  let a = o.game.store.cp,
-    n = TN(o),
-    s = e;
-  for (let [h, p] of o.objects)
-    p.type === 'campfire' &&
-      o.objectVisible(p) &&
-      hexDistance(p.cell, o.lead().cell) <= 3 &&
-      ((s = !0), (t ||= p.name));
-  let i = a.short_rests_left ?? 2,
-    r = i > 0 && !n,
-    l = s && !n,
-    c = n ? 'hay enemigos cerca' : '';
-  if (o.hasScreen('descanso')) {
-    let h = await o.openScreen('descanso', {
+/**
+ * Descanso: pantalla «descanso» o diálogo; el largo solo junto a una hoguera o en la posada y sin
+ * enemigos cerca.
+ */
+async function openRest(explore, { camp = !1, where = '' } = {}) {
+  if (explore.isBusy()) return;
+  explore.stopAll();
+  let cp = explore.game.store.cp,
+    danger = enemiesNear(explore),
+    safe = camp;
+  for (let [id, obj] of explore.objects)
+    obj.type === 'campfire' &&
+      explore.objectVisible(obj) &&
+      hexDistance(obj.cell, explore.lead().cell) <= 3 &&
+      ((safe = !0), (where ||= obj.name));
+  let shortLeft = cp.short_rests_left ?? 2,
+    allowShort = shortLeft > 0 && !danger,
+    allowLong = safe && !danger,
+    reason = danger ? 'hay enemigos cerca' : '';
+  if (explore.hasScreen('descanso')) {
+    let res = await explore.openScreen('descanso', {
       kind: 'elegir',
-      where: t || o.level.name,
-      allowShort: r,
-      allowLong: l,
-      reason: c,
-      shortLeft: i,
+      where: where || explore.level.name,
+      allowShort,
+      allowLong,
+      reason,
+      shortLeft,
     });
-    h?.kind && (await ly(o, h.kind, { ...h, screen: !0 }));
+    res?.kind && (await afterRest(explore, res.kind, { ...res, screen: !0 }));
     return;
   }
-  let d = o.members.map((h) => {
-      let p = o.rules.hp(h.id);
-      return `${o.rules.shortName(h.id)}: ${p.hp}/${p.max} PG \xB7 ${o.rules.state(h.id).hit_dice ?? '?'} dados de golpe`;
+  let lines = explore.members.map((m) => {
+      let hp = explore.rules.hp(m.id);
+      return `${explore.rules.shortName(m.id)}: ${hp.hp}/${hp.max} PG \xB7 ${explore.rules.state(m.id).hit_dice ?? '?'} dados de golpe`;
     }),
-    u = await o.choose({
+    choice = await explore.choose({
       speaker: 'Descansar',
-      title: `D\xEDa ${a.day || 1}${t ? ` \xB7 ${t}` : ''}`,
-      text: `${d.join(`
+      title: `D\xEDa ${cp.day || 1}${where ? ` \xB7 ${where}` : ''}`,
+      text: `${lines.join(`
 `)}
 
 *El descanso corto cura con los dados de golpe y recupera algunos recursos (como mucho dos entre descansos largos). El largo lo restablece todo.*`,
       options: [
         {
-          text: `Descanso corto: 1 hora (quedan ${i})`,
+          text: `Descanso corto: 1 hora (quedan ${shortLeft})`,
           value: 'corto',
-          disabled: !r,
-          hint: r ? null : c || 'haced un descanso largo',
+          disabled: !allowShort,
+          hint: allowShort ? null : reason || 'haced un descanso largo',
         },
         {
           text: 'Descanso largo: hasta ma\xF1ana',
           value: 'largo',
-          disabled: !l,
-          hint: l ? null : c || 'solo en la posada o junto a una hoguera segura',
+          disabled: !allowLong,
+          hint: allowLong ? null : reason || 'solo en la posada o junto a una hoguera segura',
         },
         { text: 'Seguir', kind: 'end', value: null },
       ],
     });
-  u &&
-    (await Jk(
-      o,
-      u,
-      u === 'largo' ? 'Mont\xE1is guardias junto al fuego. La noche pasa sin sobresaltos.' : '',
-      { where: t },
+  choice &&
+    (await doRest(
+      explore,
+      choice,
+      choice === 'largo' ? 'Mont\xE1is guardias junto al fuego. La noche pasa sin sobresaltos.' : '',
+      { where },
     ));
 }
-async function Jk(o, e, t = '', { where: a = '' } = {}) {
-  let n = o.rules,
-    s = o.game.store.cp,
-    i = null;
-  if (o.hasScreen('descanso')) {
-    let r = await o.openScreen('descanso', {
-      kind: e,
-      where: a || o.level.name,
+/** Hace el descanso `kind` («corto» o «largo») con el núcleo o con el sustituto. */
+async function doRest(explore, kind, text = '', { where = '' } = {}) {
+  let rules = explore.rules,
+    cp = explore.game.store.cp,
+    report = null;
+  if (explore.hasScreen('descanso')) {
+    let res = await explore.openScreen('descanso', {
+      kind,
+      where: where || explore.level.name,
       allowShort: !0,
       allowLong: !0,
-      text: t,
+      text,
     });
-    r?.kind && (await ly(o, r.kind, { ...r, screen: !0 }));
+    res?.kind && (await afterRest(explore, res.kind, { ...res, screen: !0 }));
     return;
   }
-  (await o.withBusy(async () => {
-    if (e === 'corto') {
-      let r = n.call('cp_short_rest', { cp: s });
-      if (r?.cp) (n.apply(r), (i = r.report));
+  (await explore.withBusy(async () => {
+    if (kind === 'corto') {
+      let res = rules.call('cp_short_rest', { cp });
+      if (res?.cp) (rules.apply(res), (report = res.report));
       else {
-        (n.fallback('cp_short_rest'), (i = {}));
-        for (let l of o.members) {
-          let c = n.state(l.id),
-            d = n.hp(l.id),
-            u = Math.min(c.hit_dice ?? 1, d.hp < d.max ? 1 : 0),
-            h = u ? Math.min(d.max - d.hp, n.roll('1d8') + n.abilityMod(l.id, 'con')) : 0;
-          ((c.hp = d.hp + Math.max(0, h)),
-            (c.hit_dice = (c.hit_dice ?? 1) - u),
-            (i[l.id] = { healed: Math.max(0, h), dice: u }));
+        (rules.fallback('cp_short_rest'), (report = {}));
+        for (let m of explore.members) {
+          let st = rules.state(m.id),
+            hp = rules.hp(m.id),
+            dice = Math.min(st.hit_dice ?? 1, hp.hp < hp.max ? 1 : 0),
+            healed = dice ? Math.min(hp.max - hp.hp, rules.roll('1d8') + rules.abilityMod(m.id, 'con')) : 0;
+          ((st.hp = hp.hp + Math.max(0, healed)),
+            (st.hit_dice = (st.hit_dice ?? 1) - dice),
+            (report[m.id] = { healed: Math.max(0, healed), dice }));
         }
-        ((s.short_rests_left = Math.max(0, (s.short_rests_left ?? 2) - 1)), o.game.store.set(s));
+        ((cp.short_rests_left = Math.max(0, (cp.short_rests_left ?? 2) - 1)), explore.game.store.set(cp));
       }
-      await W1(o.game.ui.root, 'Una hora despu\xE9s\u2026', 1100);
+      await showInterlude(explore.game.ui.root, 'Una hora despu\xE9s\u2026', 1100);
     } else {
-      let r = n.call('cp_long_rest', { cp: s });
-      if (r?.cp) n.apply(r);
+      let res = rules.call('cp_long_rest', { cp });
+      if (res?.cp) rules.apply(res);
       else {
-        n.fallback('cp_long_rest');
-        for (let l of s.party) {
-          let c = n.state(l);
-          c.dead || ((c.hp = n.hp(l).max), (c.temp_hp = 0), (c.hit_dice = n.level()));
+        rules.fallback('cp_long_rest');
+        for (let id of cp.party) {
+          let st = rules.state(id);
+          st.dead || ((st.hp = rules.hp(id).max), (st.temp_hp = 0), (st.hit_dice = rules.level()));
         }
-        ((s.short_rests_left = 2), (s.day = (s.day || 1) + 1), o.game.store.set(s));
+        ((cp.short_rests_left = 2), (cp.day = (cp.day || 1) + 1), explore.game.store.set(cp));
       }
-      await W1(o.game.ui.root, `Amanece. D\xEDa ${o.game.store.cp.day || 1}.`, 1400);
+      await showInterlude(explore.game.ui.root, `Amanece. D\xEDa ${explore.game.store.cp.day || 1}.`, 1400);
     }
   }),
-    await ly(o, e, { report: i, text: t }));
+    await afterRest(explore, kind, { report, text }));
 }
-async function ly(o, e, t = {}) {
-  let a = o.rules;
-  if ((await o.rebuildParty(), t.screen)) {
-    (o.updateHud(), o.game.store.save('auto'));
+/** Tras descansar: reconstruye el grupo, avisa y guarda la partida automática. */
+async function afterRest(explore, kind, opts = {}) {
+  let rules = explore.rules;
+  if ((await explore.rebuildParty(), opts.screen)) {
+    (explore.updateHud(), explore.game.store.save('auto'));
     return;
   }
-  if (e === 'corto') {
-    let n = t.report || {},
-      s = o.members
-        .filter((i) => n[i.id]?.healed > 0)
-        .map((i) => `${a.shortName(i.id)} +${n[i.id].healed} PG`);
-    (o.toast(`Descanso corto. ${s.length ? s.join(', ') : 'Nadie necesitaba curarse.'}`, 'bien', 5e3),
-      o.game.bus.emit('rest:short', { report: n }));
-  } else (t.text && o.toast(t.text, 'bien', 5500), o.game.bus.emit('rest:long', { level: o.levelId }));
-  (o.updateHud(), o.game.store.save('auto'));
+  if (kind === 'corto') {
+    let report = opts.report || {},
+      lines = explore.members
+        .filter((m) => report[m.id]?.healed > 0)
+        .map((m) => `${rules.shortName(m.id)} +${report[m.id].healed} PG`);
+    (explore.toast(
+      `Descanso corto. ${lines.length ? lines.join(', ') : 'Nadie necesitaba curarse.'}`,
+      'bien',
+      5e3,
+    ),
+      explore.game.bus.emit('rest:short', { report }));
+  } else
+    (opts.text && explore.toast(opts.text, 'bien', 5500),
+      explore.game.bus.emit('rest:long', { level: explore.levelId }));
+  (explore.updateHud(), explore.game.store.save('auto'));
 }
-function Zk(o, e) {
-  let t = (n) => (s) => s.copy(e.actor.root.position).add(new Vector3(0, n, 0)),
-    a = (n) => (s) => s.copy(n.root.position);
-  switch (e.kind) {
+/**
+ * Etiqueta y anclas del objetivo bajo el puntero (npc, enemy, member, object, exit):
+ * {title, sub, bad, anchor, ring, ringKind, size}.
+ */
+function hoverInfo(explore, target) {
+  let above = (dy) => (v) => v.copy(target.actor.root.position).add(new Vector3(0, dy, 0)),
+    ringAt = (actor) => (v) => v.copy(actor.root.position);
+  switch (target.kind) {
     case 'npc': {
-      let n = o.npcs.get(e.id);
+      let npc = explore.npcs.get(target.id);
       return {
-        title: n.def.name,
-        sub: n.def.title || 'Hablar',
-        anchor: t((n.actor.height || 1.7) + 0.35),
-        ring: a(n.actor),
+        title: npc.def.name,
+        sub: npc.def.title || 'Hablar',
+        anchor: above((npc.actor.height || 1.7) + 0.35),
+        ring: ringAt(npc.actor),
         ringKind: 'npc',
       };
     }
     case 'enemy': {
-      let n = o.enemy(e.id),
-        s = o.groups.get(n.group),
-        i =
-          s.def.talk && (typeof o.game.story?.interact == 'function' || !o.ls.talked.includes(s.def.id))
+      let enemy = explore.enemy(target.id),
+        group = explore.groups.get(enemy.group),
+        sub =
+          group.def.talk &&
+          (typeof explore.game.story?.interact == 'function' || !explore.ls.talked.includes(group.def.id))
             ? 'Hablar'
-            : o.stealth && (s.roll?.success || !s.roll)
+            : explore.stealth && (group.roll?.success || !group.roll)
               ? 'Atacar por sorpresa'
               : 'Atacar';
       return {
-        title: n.name,
-        sub: i,
+        title: enemy.name,
+        sub,
         bad: !0,
-        anchor: t((n.actor.height || 1.4) + 0.3),
-        ring: a(n.actor),
+        anchor: above((enemy.actor.height || 1.4) + 0.3),
+        ring: ringAt(enemy.actor),
         ringKind: 'enemy',
       };
     }
     case 'member':
       return {
-        title: o.rules.name(e.id),
-        sub: e.id === o.leader ? 'Va en cabeza' : 'Poner en cabeza',
-        anchor: t((e.actor.height || 1.7) + 0.35),
+        title: explore.rules.name(target.id),
+        sub: target.id === explore.leader ? 'Va en cabeza' : 'Poner en cabeza',
+        anchor: above((target.actor.height || 1.7) + 0.35),
         ring: null,
       };
     case 'object': {
-      let n = o.objects.get(e.id),
-        s = o.anchorOf(e.id),
-        i = s ? s.getWorldPosition(new Vector3()) : o.world.cellToWorld(n.cell),
-        r = n.type === 'sign' || n.type === 'board' ? 1.7 : n.type === 'door' ? 2.4 : 1,
-        l = (u) => u.copy(i).add(new Vector3(0, r, 0)),
-        c = '',
-        d = !1;
-      switch (n.type) {
+      let obj = explore.objects.get(target.id),
+        anchorObj = explore.anchorOf(target.id),
+        pos = anchorObj ? anchorObj.getWorldPosition(new Vector3()) : explore.world.cellToWorld(obj.cell),
+        lift = obj.type === 'sign' || obj.type === 'board' ? 1.7 : obj.type === 'door' ? 2.4 : 1,
+        anchorFn = (v) => v.copy(pos).add(new Vector3(0, lift, 0)),
+        sub = '',
+        bad = !1;
+      switch (obj.type) {
         case 'chest':
-          c =
-            n.lock && !o.ls.unlocked.includes(n.id)
+          sub =
+            obj.lock && !explore.ls.unlocked.includes(obj.id)
               ? 'Cerrado con llave'
-              : o.ls.opened.includes(n.id) && !Ju(o, n).length
+              : explore.ls.opened.includes(obj.id) && !lootOf(explore, obj).length
                 ? 'Vac\xEDo'
                 : 'Abrir';
           break;
         case 'cache':
         case 'loot':
-          c = 'Registrar';
+          sub = 'Registrar';
           break;
         case 'sign':
         case 'board':
-          c = 'Leer';
+          sub = 'Leer';
           break;
         case 'door':
-          c =
-            n.npc && o.npcs.has(n.npc)
-              ? `Llamar \xB7 ${o.npcs.get(n.npc).def.name}`
-              : n.to
-                ? o.flag(n.requires)
+          sub =
+            obj.npc && explore.npcs.has(obj.npc)
+              ? `Llamar \xB7 ${explore.npcs.get(obj.npc).def.name}`
+              : obj.to
+                ? explore.flag(obj.requires)
                   ? 'Entrar'
                   : 'Cerrada'
-                : o.ls.states[n.id] === 'open'
+                : explore.ls.states[obj.id] === 'open'
                   ? 'Abierta'
                   : 'Llamar';
           break;
         case 'inn':
-          c = 'Pasar la noche';
+          sub = 'Pasar la noche';
           break;
         case 'trap':
-          ((c = 'Trampa \xB7 desactivar'), (d = !0));
+          ((sub = 'Trampa \xB7 desactivar'), (bad = !0));
           break;
         case 'stairs':
-          c = /merrowick/.test(n.to || '') ? 'Subir' : 'Bajar';
+          sub = /merrowick/.test(obj.to || '') ? 'Subir' : 'Bajar';
           break;
         case 'campfire':
-          c = 'Descansar';
+          sub = 'Descansar';
           break;
         default:
-          c = 'Examinar';
+          sub = 'Examinar';
       }
       return {
-        title: n.name || n.id,
-        sub: c,
-        bad: d,
-        anchor: l,
-        ring: (u) => u.copy(i),
-        ringKind: d ? 'enemy' : 'object',
-        size: n.type === 'door' ? 1.3 : 1,
+        title: obj.name || obj.id,
+        sub,
+        bad,
+        anchor: anchorFn,
+        ring: (v) => v.copy(pos),
+        ringKind: bad ? 'enemy' : 'object',
+        size: obj.type === 'door' ? 1.3 : 1,
       };
     }
     case 'exit': {
-      let n = e.exit,
-        s = o.flag(n.requires) && !!n.to,
-        i = o.world.cellToWorld(e.cell);
+      let exit = target.exit,
+        open = explore.flag(exit.requires) && !!exit.to,
+        pos = explore.world.cellToWorld(target.cell);
       return {
-        title: n.label || 'Salida',
-        sub: s ? 'Salir' : 'Cerrado',
-        bad: !s,
-        anchor: (r) => r.copy(i).add(new Vector3(0, 1.2, 0)),
+        title: exit.label || 'Salida',
+        sub: open ? 'Salir' : 'Cerrado',
+        bad: !open,
+        anchor: (v) => v.copy(pos).add(new Vector3(0, 1.2, 0)),
         ring: null,
       };
     }
@@ -856,8 +971,19 @@ function Zk(o, e) {
       return null;
   }
 }
-const sy = (o) => new Promise((e) => setTimeout(e, o));
-const Ku = (o) => o && o[0].toLowerCase() + o.slice(1);
-const ry = (o) => (o >= 0 ? `+${o}` : `${o}`);
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const lowerFirst = (text) => text && text[0].toLowerCase() + text.slice(1);
+/** Modificador con signo («+3», «-1»). */
+const signed = (n) => (n >= 0 ? `+${n}` : `${n}`);
 
-export { Ju, Wu, Xk, Xu, Yk, Zk, cy, m0, uy };
+export {
+  lootOf,
+  storyInteract,
+  useObject,
+  revealObject,
+  talkToMember,
+  hoverInfo,
+  springTrap,
+  talkToNpc,
+  openRest,
+};

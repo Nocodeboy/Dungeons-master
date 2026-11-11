@@ -1,101 +1,117 @@
-// scenes/travel.js
-// Reconstruido de publicado/juego.js (módulo __esm «zM»). Nombres locales aún minificados.
+// scenes/travel.js — Escena «travel»: mapa de viaje (ui/travel-map.js) con el panel del destino, la
+// animación del viaje con el reloj y el paso de las horas (passHours) y la llegada al nivel elegido.
+// La registra ui/index.js; la abre explore/index.js (`travel('travel')`).
+// Reconstruido de publicado/juego.js (módulo __esm «zM»).
 
 import { iconHtml, escapeHtml, elem, makeButton, sleep, reducedMotion } from '../ui/dom.js';
 import { im } from '../ui/travel-map.js';
 
-async function crearEscenaTravel(o, e = {}) {
-  let t = o.ui;
-  (await t.ready, t.hud.hide());
-  let a = elem('div.mg-travel');
-  t.root.append(a);
-  let n = elem('div.mg-map-info.mg-panel'),
-    s = elem('div'),
-    i = makeButton('Viajar', { icon: 'treasure_map', variant: 'primary', disabled: !0 }),
-    r = makeButton('Quedarse', { icon: 'return' });
-  n.append(s, r, i);
-  let l = null,
-    c = !1,
-    d = im(t, o, a, {
-      from: e.from,
-      onSelect(p, m) {
-        if (c) return;
-        l = null;
-        let _ = m.here
+/**
+ * Crea la escena del mapa de viaje (exportada como `create`). `params`: from, to (viajar directamente)
+ * y back (adónde volver con «Quedarse»).
+ */
+async function crearEscenaTravel(game, params = {}) {
+  let ui = game.ui;
+  (await ui.ready, ui.hud.hide());
+  let root = elem('div.mg-travel');
+  ui.root.append(root);
+  let info = elem('div.mg-map-info.mg-panel'),
+    infoText = elem('div'),
+    goBtn = makeButton('Viajar', { icon: 'treasure_map', variant: 'primary', disabled: !0 }),
+    stayBtn = makeButton('Quedarse', { icon: 'return' });
+  info.append(infoText, stayBtn, goBtn);
+  let pick = null,
+    traveling = !1,
+    map = im(ui, game, root, {
+      from: params.from,
+      onSelect(place, route) {
+        if (traveling) return;
+        pick = null;
+        let status = route.here
           ? 'Est\xE1is aqu\xED.'
-          : m.open
-            ? m.hours != null
-              ? `${m.hours} ${m.hours === 1 ? 'hora' : 'horas'} de camino.`
+          : route.open
+            ? route.hours != null
+              ? `${route.hours} ${route.hours === 1 ? 'hora' : 'horas'} de camino.`
               : 'No hay camino directo desde aqu\xED.'
-            : m.why;
-        ((s.innerHTML = `<b>${escapeHtml(p.name)}</b><p>${escapeHtml(p.desc || '')}</p><p class="${m.open && !m.here ? 'mg-oro' : 'mg-dim'}" style="margin:.2rem 0 0">${escapeHtml(_)}</p>`),
-          m.open &&
-            !m.here &&
-            m.hours != null &&
-            (l = { place: p.id, level: m.level, spawn: m.spawn, hours: m.hours, name: p.name }),
-          (i.disabled = !l));
+            : route.why;
+        ((infoText.innerHTML = `<b>${escapeHtml(place.name)}</b><p>${escapeHtml(place.desc || '')}</p><p class="${route.open && !route.here ? 'mg-oro' : 'mg-dim'}" style="margin:.2rem 0 0">${escapeHtml(status)}</p>`),
+          route.open &&
+            !route.here &&
+            route.hours != null &&
+            (pick = {
+              place: place.id,
+              level: route.level,
+              spawn: route.spawn,
+              hours: route.hours,
+              name: place.name,
+            }),
+          (goBtn.disabled = !pick));
       },
-      onActivate: () => l && h(),
+      onActivate: () => pick && startTravel(),
     });
-  (a.append(n), (d.inner || d.el).append(elem('div.mg-map-title', d.world.title || 'Las Marcas de Vharen')));
-  let u = elem('div.mg-clock');
-  ((u.hidden = !0),
-    d.el.append(u),
-    (s.innerHTML =
+  (root.append(info),
+    (map.inner || map.el).append(elem('div.mg-map-title', map.world.title || 'Las Marcas de Vharen')));
+  let clock = elem('div.mg-clock');
+  ((clock.hidden = !0),
+    map.el.append(clock),
+    (infoText.innerHTML =
       '<b>\xBFAd\xF3nde vais?</b><p>Elige un lugar del mapa. Las horas de camino pasan, y con ellas el d\xEDa.</p>'));
-  async function h() {
-    if (!l || c) return;
-    ((c = !0), (i.disabled = r.disabled = !0));
-    let p = elem('div.mg-token');
-    (d.el.append(p), (u.hidden = !1));
-    let m = o.store.cp,
-      _ = m?.hour ?? 18,
-      b = reducedMotion() ? 200 : Math.min(3600, 900 + l.hours * 420),
-      f = performance.now();
-    for (o.audio?.sfx?.('pasos_camino'); ;) {
-      let v = Math.min(1, (performance.now() - f) / b),
-        x = d.routePoint(v);
-      if (x) {
-        let [y, w] = d.toPx(x);
-        ((p.style.left = `${y}px`), (p.style.top = `${w}px`));
+  /** Anima la ficha por la ruta mientras avanza el reloj y entra en el nivel de destino. */
+  async function startTravel() {
+    if (!pick || traveling) return;
+    ((traveling = !0), (goBtn.disabled = stayBtn.disabled = !0));
+    let token = elem('div.mg-token');
+    (map.el.append(token), (clock.hidden = !1));
+    let cp = game.store.cp,
+      hour0 = cp?.hour ?? 18,
+      dur = reducedMotion() ? 200 : Math.min(3600, 900 + pick.hours * 420),
+      t0 = performance.now();
+    for (game.audio?.sfx?.('pasos_camino'); ;) {
+      let k = Math.min(1, (performance.now() - t0) / dur),
+        pt = map.routePoint(k);
+      if (pt) {
+        let [px, py] = map.toPx(pt);
+        ((token.style.left = `${px}px`), (token.style.top = `${py}px`));
       }
-      let g = Math.floor((_ + l.hours * v) % 24);
+      let hour = Math.floor((hour0 + pick.hours * k) % 24);
       if (
-        ((u.innerHTML = `${iconHtml(g >= 7 && g < 20 ? 'sun' : 'moon')}<span>${String(g).padStart(2, '0')}:00 \xB7 ${escapeHtml(l.name)}</span>`),
-        v >= 1)
+        ((clock.innerHTML = `${iconHtml(hour >= 7 && hour < 20 ? 'sun' : 'moon')}<span>${String(hour).padStart(2, '0')}:00 \xB7 ${escapeHtml(pick.name)}</span>`),
+        k >= 1)
       )
         break;
-      await new Promise((y) => requestAnimationFrame(y));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
     }
     (await sleep(350),
-      m && t.R.passHours(l.hours),
-      o.bus?.emit('travel', { from: d.here, to: l.place, hours: l.hours }),
-      o.scenes.registry.has('explore')
-        ? o.go('explore', { level: l.level, spawn: l.spawn, from: d.here })
-        : (t.toast(
-            `Lleg\xE1is a ${l.name} (la exploraci\xF3n a\xFAn no est\xE1 montada en esta versi\xF3n).`,
+      cp && ui.R.passHours(pick.hours),
+      game.bus?.emit('travel', { from: map.here, to: pick.place, hours: pick.hours }),
+      game.scenes.registry.has('explore')
+        ? game.go('explore', { level: pick.level, spawn: pick.spawn, from: map.here })
+        : (ui.toast(
+            `Lleg\xE1is a ${pick.name} (la exploraci\xF3n a\xFAn no est\xE1 montada en esta versi\xF3n).`,
             'info',
           ),
-          (c = !1),
-          (i.disabled = r.disabled = !1),
-          p.remove()));
+          (traveling = !1),
+          (goBtn.disabled = stayBtn.disabled = !1),
+          token.remove()));
   }
   return (
-    i.addEventListener('click', h),
-    r.addEventListener('click', () => {
-      let p =
-        e.back ||
-        (o.store.cp?.location?.level
-          ? { level: o.store.cp.location.level, spawn: o.store.cp.location.spawn }
+    goBtn.addEventListener('click', startTravel),
+    stayBtn.addEventListener('click', () => {
+      let back =
+        params.back ||
+        (game.store.cp?.location?.level
+          ? { level: game.store.cp.location.level, spawn: game.store.cp.location.spawn }
           : null);
-      p && o.scenes.registry.has('explore') ? o.go('explore', p) : o.go('menu');
+      back && game.scenes.registry.has('explore') ? game.go('explore', back) : game.go('menu');
     }),
-    e.to ? (d.select(e.to), l && setTimeout(h, 500)) : d.here && d.select(d.here),
-    o.audio?.music?.('viaje', { fade: 1.5 }),
-    t.loading(null),
+    params.to
+      ? (map.select(params.to), pick && setTimeout(startTravel, 500))
+      : map.here && map.select(map.here),
+    game.audio?.music?.('viaje', { fade: 1.5 }),
+    ui.loading(null),
     {
       dispose() {
-        (d.dispose(), a.remove());
+        (map.dispose(), root.remove());
       },
     }
   );

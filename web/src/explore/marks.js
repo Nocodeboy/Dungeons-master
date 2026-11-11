@@ -1,5 +1,7 @@
-// explore/marks.js
-// Reconstruido de publicado/juego.js (módulo __esm «Mk»). Nombres locales aún minificados.
+// explore/marks.js — Marcas en el suelo de la exploración: destino del movimiento, anillos de los
+// miembros del grupo (líder, seleccionado), resalte bajo el puntero, flechas de salida y trampas
+// descubiertas. Lo usa explore/index.js.
+// Reconstruido de publicado/juego.js (módulo __esm «Mk»).
 
 import {
   CanvasTexture,
@@ -15,50 +17,54 @@ import {
 } from 'three';
 import { hexShape, HEX_SIZE, HEX_RADIUS } from './hex.js';
 
-function $u(o, e, t = 0.8, a = null) {
-  let n = new Mesh(
-    o,
+/** Malla plana tumbada sobre el suelo, sin niebla ni mapeo de tonos. */
+function flatMesh(geo, color, opacity = 0.8, map = null) {
+  let mesh = new Mesh(
+    geo,
     new MeshBasicMaterial({
-      color: e,
-      map: a,
+      color,
+      map,
       transparent: !0,
-      opacity: t,
+      opacity,
       depthWrite: !1,
       toneMapped: !1,
       fog: !1,
       side: DoubleSide,
     }),
   );
-  return ((n.rotation.x = -Math.PI / 2), (n.renderOrder = 3), n);
+  return ((mesh.rotation.x = -Math.PI / 2), (mesh.renderOrder = 3), mesh);
 }
-const Tk = (() => {
-  let o = document.createElement('canvas');
-  o.width = o.height = 128;
-  let e = o.getContext('2d');
-  ((e.strokeStyle = '#fff'),
-    (e.lineWidth = 7),
-    e.beginPath(),
-    e.arc(64, 64, 54, 0, Math.PI * 2),
-    e.stroke(),
-    (e.globalAlpha = 0.4),
-    (e.lineWidth = 3),
-    e.beginPath(),
-    e.arc(64, 64, 44, 0, Math.PI * 2),
-    e.stroke());
-  let t = new CanvasTexture(o);
-  return ((t.colorSpace = SRGBColorSpace), t);
+/** Textura de anillo doble (se tiñe con el color de la marca). */
+const RING_TEXTURE = (() => {
+  let canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  let ctx = canvas.getContext('2d');
+  ((ctx.strokeStyle = '#fff'),
+    (ctx.lineWidth = 7),
+    ctx.beginPath(),
+    ctx.arc(64, 64, 54, 0, Math.PI * 2),
+    ctx.stroke(),
+    (ctx.globalAlpha = 0.4),
+    (ctx.lineWidth = 3),
+    ctx.beginPath(),
+    ctx.arc(64, 64, 44, 0, Math.PI * 2),
+    ctx.stroke());
+  let tex = new CanvasTexture(canvas);
+  return ((tex.colorSpace = SRGBColorSpace), tex);
 })();
-const nN = (() => {
-  let o = document.createElement('canvas');
-  o.width = o.height = 128;
-  let e = o.getContext('2d');
-  ((e.strokeStyle = '#fff'), (e.lineWidth = 14), (e.lineCap = 'round'), (e.lineJoin = 'round'));
-  for (let a of [34, 70])
-    (e.beginPath(), e.moveTo(30, a + 26), e.lineTo(64, a), e.lineTo(98, a + 26), e.stroke());
-  let t = new CanvasTexture(o);
-  return ((t.colorSpace = SRGBColorSpace), t);
+/** Textura de doble flecha para las salidas del nivel. */
+const EXIT_TEXTURE = (() => {
+  let canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 128;
+  let ctx = canvas.getContext('2d');
+  ((ctx.strokeStyle = '#fff'), (ctx.lineWidth = 14), (ctx.lineCap = 'round'), (ctx.lineJoin = 'round'));
+  for (let y of [34, 70])
+    (ctx.beginPath(), ctx.moveTo(30, y + 26), ctx.lineTo(64, y), ctx.lineTo(98, y + 26), ctx.stroke());
+  let tex = new CanvasTexture(canvas);
+  return ((tex.colorSpace = SRGBColorSpace), tex);
 })();
-const Qr = {
+/** Colores por tipo de marca o de objeto señalado. */
+const MARK_COLORS = {
   leader: 15779936,
   selected: 9425018,
   member: 9425018,
@@ -68,22 +74,23 @@ const Qr = {
   object: 15784080,
   bad: 16728112,
 };
-const r0 = class {
-  constructor(e, t) {
-    ((this.three = e),
-      (this.world = t),
+/** Marcas del suelo. `world` da cellToWorld y el tamaño del mapa. */
+const ExploreMarks = class {
+  constructor(three, world) {
+    ((this.three = three),
+      (this.world = world),
       (this.group = new Group()),
       (this.group.name = 'marcas_exploracion'),
-      e.add(this.group));
-    let a = new RingGeometry(HEX_RADIUS * HEX_SIZE * 0.62, HEX_RADIUS * HEX_SIZE * 0.86, 6, 1);
-    (a.rotateZ(Math.PI / 6),
-      (this.dest = $u(a, 15779936, 0)),
+      three.add(this.group));
+    let geo = new RingGeometry(HEX_RADIUS * HEX_SIZE * 0.62, HEX_RADIUS * HEX_SIZE * 0.86, 6, 1);
+    (geo.rotateZ(Math.PI / 6),
+      (this.dest = flatMesh(geo, 15779936, 0)),
       (this.dest.visible = !1),
       this.group.add(this.dest),
       (this.destT = 0),
       (this.ringGeo = new PlaneGeometry(1.25, 1.25)),
       (this.rings = new Map()),
-      (this.hover = $u(new PlaneGeometry(1.4, 1.4), Qr.hover, 0, Tk)),
+      (this.hover = flatMesh(new PlaneGeometry(1.4, 1.4), MARK_COLORS.hover, 0, RING_TEXTURE)),
       (this.hover.visible = !1),
       this.group.add(this.hover),
       (this.hoverTarget = null),
@@ -92,109 +99,122 @@ const r0 = class {
       (this.t = 0),
       (this.v = new Vector3()));
   }
-  destination(e, t = !0) {
-    (this.world.cellToWorld(e, this.v),
+  /** Muestra el hexágono de destino (rojo si no se puede llegar). */
+  destination(cell, ok = !0) {
+    (this.world.cellToWorld(cell, this.v),
       this.dest.position.set(this.v.x, this.v.y + 0.04, this.v.z),
-      this.dest.material.color.setHex(t ? 15779936 : Qr.bad),
+      this.dest.material.color.setHex(ok ? 15779936 : MARK_COLORS.bad),
       (this.dest.visible = !0),
       (this.destT = 0));
   }
   clearDestination() {
     this.dest.visible = !1;
   }
-  ring(e, t, a) {
-    let n = this.rings.get(e);
-    if (!a) {
-      n && (n.mesh.visible = !1);
+  /** Anillo bajo un personaje; `state`: leader, selected, member… o falso para ocultarlo. */
+  ring(id, root, state) {
+    let ring = this.rings.get(id);
+    if (!state) {
+      ring && (ring.mesh.visible = !1);
       return;
     }
-    (n ||
-      ((n = { mesh: $u(this.ringGeo, Qr.member, 0.75, Tk), root: t }),
-      this.group.add(n.mesh),
-      this.rings.set(e, n)),
-      (n.root = t),
-      (n.mesh.visible = !0),
-      n.mesh.material.color.setHex(Qr[a] ?? Qr.member),
-      (n.mesh.material.opacity = a === 'leader' ? 0.95 : a === 'selected' ? 0.75 : 0.35),
-      (n.state = a));
+    (ring ||
+      ((ring = { mesh: flatMesh(this.ringGeo, MARK_COLORS.member, 0.75, RING_TEXTURE), root }),
+      this.group.add(ring.mesh),
+      this.rings.set(id, ring)),
+      (ring.root = root),
+      (ring.mesh.visible = !0),
+      ring.mesh.material.color.setHex(MARK_COLORS[state] ?? MARK_COLORS.member),
+      (ring.mesh.material.opacity = state === 'leader' ? 0.95 : state === 'selected' ? 0.75 : 0.35),
+      (ring.state = state));
   }
-  removeRing(e) {
-    let t = this.rings.get(e);
-    t && (this.group.remove(t.mesh), t.mesh.material.dispose(), this.rings.delete(e));
+  removeRing(id) {
+    let ring = this.rings.get(id);
+    ring && (this.group.remove(ring.mesh), ring.mesh.material.dispose(), this.rings.delete(id));
   }
-  hideRings(e) {
-    for (let t of this.rings.values()) t.mesh.visible = !e && !!t.state;
+  /** Oculta o vuelve a mostrar todos los anillos. */
+  hideRings(hidden) {
+    for (let ring of this.rings.values()) ring.mesh.visible = !hidden && !!ring.state;
   }
-  setHover(e) {
-    if (((this.hoverTarget = e), (this.hover.visible = !!e), e)) {
-      this.hover.material.color.setHex(Qr[e.kind] ?? Qr.hover);
-      let t = e.size || 1;
-      this.hover.scale.set(t, t, 1);
+  /** Resalte bajo el objeto señalado (`target.kind`, `size`, `pos(v)`), o null. */
+  setHover(target) {
+    if (((this.hoverTarget = target), (this.hover.visible = !!target), target)) {
+      this.hover.material.color.setHex(MARK_COLORS[target.kind] ?? MARK_COLORS.hover);
+      let size = target.size || 1;
+      this.hover.scale.set(size, size, 1);
     }
   }
-  setExits(e) {
-    for (let t of this.exits) this.group.remove(t);
+  /** Flechas en las casillas de salida, giradas hacia el borde del mapa. */
+  setExits(exits) {
+    for (let mesh of this.exits) this.group.remove(mesh);
     this.exits = [];
-    for (let t of e)
-      for (let a of t.cells || []) {
-        let n = $u(new PlaneGeometry(1.1, 1.1), t.usable ? 15782016 : 10128500, t.usable ? 0.7 : 0.35, nN);
-        (this.world.cellToWorld(a, this.v), n.position.set(this.v.x, this.v.y + 0.05, this.v.z));
-        let s = this.world.width || 0,
-          i = this.world.height || 0,
-          r = 0;
-        (a[0] <= 0
-          ? (r = Math.PI / 2)
-          : s && a[0] >= s - 1
-            ? (r = -Math.PI / 2)
-            : a[1] <= 0
-              ? (r = Math.PI)
-              : i && a[1] >= i - 1 && (r = 0),
-          (n.rotation.z = r),
-          (n.userData.base = t.usable ? 0.7 : 0.35),
-          this.group.add(n),
-          this.exits.push(n));
+    for (let exit of exits)
+      for (let cell of exit.cells || []) {
+        let mesh = flatMesh(
+          new PlaneGeometry(1.1, 1.1),
+          exit.usable ? 15782016 : 10128500,
+          exit.usable ? 0.7 : 0.35,
+          EXIT_TEXTURE,
+        );
+        (this.world.cellToWorld(cell, this.v), mesh.position.set(this.v.x, this.v.y + 0.05, this.v.z));
+        let w = this.world.width || 0,
+          h = this.world.height || 0,
+          rot = 0;
+        (cell[0] <= 0
+          ? (rot = Math.PI / 2)
+          : w && cell[0] >= w - 1
+            ? (rot = -Math.PI / 2)
+            : cell[1] <= 0
+              ? (rot = Math.PI)
+              : h && cell[1] >= h - 1 && (rot = 0),
+          (mesh.rotation.z = rot),
+          (mesh.userData.base = exit.usable ? 0.7 : 0.35),
+          this.group.add(mesh),
+          this.exits.push(mesh));
       }
   }
-  trap(e, t) {
-    let a = this.traps.get(e);
-    if ((a && (this.group.remove(a), this.traps.delete(e)), !t)) return;
-    let n = hexShape(HEX_RADIUS * HEX_SIZE * 0.9),
-      s = $u(new ShapeGeometry(n), 16724e3, 0.32);
-    (this.world.cellToWorld(t, this.v),
-      s.position.set(this.v.x, this.v.y + 0.045, this.v.z),
-      this.group.add(s),
-      this.traps.set(e, s));
+  /** Marca (o quita, sin `cell`) una trampa descubierta. */
+  trap(id, cell) {
+    let old = this.traps.get(id);
+    if ((old && (this.group.remove(old), this.traps.delete(id)), !cell)) return;
+    let shape = hexShape(HEX_RADIUS * HEX_SIZE * 0.9),
+      mesh = flatMesh(new ShapeGeometry(shape), 16724e3, 0.32);
+    (this.world.cellToWorld(cell, this.v),
+      mesh.position.set(this.v.x, this.v.y + 0.045, this.v.z),
+      this.group.add(mesh),
+      this.traps.set(id, mesh));
   }
-  update(e) {
-    if (((this.t += e), this.dest.visible)) {
-      this.destT += e;
-      let t = this.destT;
-      this.dest.material.opacity = Math.max(0, 0.95 - t * 0.55);
-      let a = 1 + Math.sin(t * 7) * 0.06;
-      (this.dest.scale.set(a, a, 1), t > 1.8 && (this.dest.visible = !1));
+  /** Animación: pulso del destino, del líder, del resalte, de las salidas y de las trampas. */
+  update(dt) {
+    if (((this.t += dt), this.dest.visible)) {
+      this.destT += dt;
+      let age = this.destT;
+      this.dest.material.opacity = Math.max(0, 0.95 - age * 0.55);
+      let scale = 1 + Math.sin(age * 7) * 0.06;
+      (this.dest.scale.set(scale, scale, 1), age > 1.8 && (this.dest.visible = !1));
     }
-    for (let t of this.rings.values()) {
-      if (!t.mesh.visible || !t.root) continue;
-      let a = t.root.position;
-      if ((t.mesh.position.set(a.x, a.y + 0.035, a.z), t.state === 'leader')) {
-        let n = 1 + Math.sin(this.t * 3) * 0.04;
-        t.mesh.scale.set(n, n, 1);
+    for (let ring of this.rings.values()) {
+      if (!ring.mesh.visible || !ring.root) continue;
+      let pos = ring.root.position;
+      if ((ring.mesh.position.set(pos.x, pos.y + 0.035, pos.z), ring.state === 'leader')) {
+        let scale = 1 + Math.sin(this.t * 3) * 0.04;
+        ring.mesh.scale.set(scale, scale, 1);
       }
     }
     if (this.hover.visible && this.hoverTarget?.pos) {
-      let t = this.hoverTarget.pos(this.v);
-      (this.hover.position.set(t.x, t.y + 0.04, t.z),
+      let p = this.hoverTarget.pos(this.v);
+      (this.hover.position.set(p.x, p.y + 0.04, p.z),
         (this.hover.material.opacity = 0.55 + Math.sin(this.t * 6) * 0.2));
     }
-    for (let t of this.exits) t.material.opacity = t.userData.base * (0.75 + 0.25 * Math.sin(this.t * 3));
-    for (let t of this.traps.values()) t.material.opacity = 0.25 + 0.12 * Math.sin(this.t * 4);
+    for (let mesh of this.exits)
+      mesh.material.opacity = mesh.userData.base * (0.75 + 0.25 * Math.sin(this.t * 3));
+    for (let mesh of this.traps.values()) mesh.material.opacity = 0.25 + 0.12 * Math.sin(this.t * 4);
   }
   dispose() {
     (this.three.remove(this.group),
-      this.group.traverse((e) => {
-        (e.geometry?.dispose?.(), e.material?.dispose?.());
+      this.group.traverse((obj) => {
+        (obj.geometry?.dispose?.(), obj.material?.dispose?.());
       }));
   }
 };
 
-export { r0 };
+export { ExploreMarks };

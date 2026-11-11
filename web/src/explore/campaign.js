@@ -1,63 +1,68 @@
-// explore/campaign.js
-// Reconstruido de publicado/juego.js (módulo __esm «SS»). Nombres locales aún minificados.
+// explore/campaign.js — Asegura que hay una campaña activa al entrar en exploración. La crea con
+// cp_new/cp_recruit del núcleo o, si no responde, con una campaña sustituta en JS. Lee los parámetros
+// de depuración ?grupo=completo|odvar y ?banderas=a,b=valor. Lo usa explore/index.js.
+// Reconstruido de publicado/juego.js (módulo __esm «SS»).
 
-function ensureCampaign(o, { party: e = null, level: t = 1 } = {}) {
-  let a = o.store;
-  if (a.cp) return a.cp;
-  let n = o.params?.get?.('grupo'),
-    s =
-      e ||
-      (n === 'completo'
+/** Devuelve la campaña activa de `game.store` o crea una nueva (héroe por defecto y compañeros). */
+function ensureCampaign(game, { party = null, level = 1 } = {}) {
+  let store = game.store;
+  if (store.cp) return store.cp;
+  let groupParam = game.params?.get?.('grupo'),
+    companions =
+      party ||
+      (groupParam === 'completo'
         ? ['brenna', 'pip', 'ilyra']
-        : n === 'odvar'
+        : groupParam === 'odvar'
           ? ['brenna', 'pip', 'odvar']
           : ['brenna']),
-    i = null;
+    cp = null;
   try {
-    let r = o.rules?.('cp_new', { hero: DEFAULT_HERO, companions: s });
-    r && !r.error && r.cp && (i = r.cp);
+    let res = game.rules?.('cp_new', { hero: DEFAULT_HERO, companions });
+    res && !res.error && res.cp && (cp = res.cp);
   } catch {}
-  if (i) {
-    for (let r of s)
-      if (!i.party.includes(r)) {
-        let l = o.rules('cp_recruit', { cp: i, id: r });
-        l?.cp && (i = l.cp);
+  if (cp) {
+    for (let id of companions)
+      if (!cp.party.includes(id)) {
+        let rec = game.rules('cp_recruit', { cp, id });
+        rec?.cp && (cp = rec.cp);
       }
-  } else i = TI(s, t);
-  for (let r of (o.params?.get?.('banderas') || '').split(',').filter(Boolean)) {
-    let [l, c] = r.split('=');
-    ((i.flags ??= {}), (i.flags[l] = c ?? !0));
+  } else cp = buildFallbackCampaign(companions, level);
+  for (let pair of (game.params?.get?.('banderas') || '').split(',').filter(Boolean)) {
+    let [flag, value] = pair.split('=');
+    ((cp.flags ??= {}), (cp.flags[flag] = value ?? !0));
   }
-  return (a.start(i), a.cp);
+  return (store.start(cp), store.cp);
 }
-function TI(o = ['brenna'], e = 1) {
-  let t = { hero: { ...DEFAULT_HERO } },
-    a = ['hero'];
-  for (let s of o) TS[s] && ((t[s] = { id: s, ...TS[s] }), a.push(s));
-  let n = {};
-  for (let s of a) {
-    let i = t[s],
-      r = { fighter: 10, ranger: 10, rogue: 8, cleric: 8, wizard: 6 }[i.class] || 8,
-      l = Math.floor(((i.abilities?.con ?? 10) - 10) / 2),
-      c = r + l + (e - 1) * (r / 2 + 1 + l);
-    n[s] = {
-      hp: c,
-      max_hp: c,
+/** Campaña mínima en JS (marcada `_sustituto`) para cuando el núcleo de reglas no está. */
+function buildFallbackCampaign(companions = ['brenna'], level = 1) {
+  let members = { hero: { ...DEFAULT_HERO } },
+    party = ['hero'];
+  for (let id of companions)
+    FALLBACK_COMPANIONS[id] && ((members[id] = { id, ...FALLBACK_COMPANIONS[id] }), party.push(id));
+  let state = {};
+  for (let id of party) {
+    let m = members[id],
+      hitDie = { fighter: 10, ranger: 10, rogue: 8, cleric: 8, wizard: 6 }[m.class] || 8,
+      conMod = Math.floor(((m.abilities?.con ?? 10) - 10) / 2),
+      hp = hitDie + conMod + (level - 1) * (hitDie / 2 + 1 + conMod);
+    state[id] = {
+      hp,
+      max_hp: hp,
       temp_hp: 0,
       slots: [],
       resources: {},
       free_casts: {},
-      hit_dice: e,
+      hit_dice: level,
       dead: !1,
       buffs: [],
     };
   }
   return {
     version: 1,
-    members: t,
-    party: a,
-    state: n,
-    party_level: e,
+    members,
+    party,
+    state,
+    party_level: level,
     gold: 15,
     location: {},
     flags: {},
@@ -71,6 +76,7 @@ function TI(o = ['brenna'], e = 1) {
     _sustituto: !0,
   };
 }
+/** Héroe por defecto para la exploración directa (sin pasar por el creador). */
 const DEFAULT_HERO = {
   id: 'hero',
   name: 'Aren Vael',
@@ -86,7 +92,8 @@ const DEFAULT_HERO = {
   items: { potion_healing: 1 },
   appearance: { skin: '#e8c3a0', hair: '#6b4a2b', eyes: '#3a6b4a', body: 'm' },
 };
-const TS = {
+/** Fichas de los compañeros para la campaña sustituta. */
+const FALLBACK_COMPANIONS = {
   brenna: {
     name: 'Brenna Halvard',
     pronoun: 'f',

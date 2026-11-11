@@ -1,9 +1,13 @@
-// explore/terrain.js
-// Reconstruido de publicado/juego.js (módulo __esm «_S»). Nombres locales aún minificados.
+// explore/terrain.js — Mapa de exploración (ExploreMap): rejilla de caracteres `rows` del nivel con
+// transitabilidad, coste y cobertura por casilla, caminos A*, línea de visión y casillas libres.
+// Si el núcleo de reglas tiene las operaciones xmap_load/xmap_path/xmap_los, las usa (modo «native»);
+// si no, calcula en JS. Lo usa explore/index.js (y desde ahí interact, detection y battle).
+// Reconstruido de publicado/juego.js (módulo __esm «_S»).
 
 import { cellToPlane, planeToCell, cellKey, neighbors, hexDistance } from './hex.js';
 
-const xS = {
+/** Propiedades por carácter del mapa: [transitable, coste (2 = difícil), cobertura 0–3, difícil]. */
+const TILE_PROPS = {
   '.': [!0, 1, 0, !1],
   ',': [!0, 1, 0, !1],
   ':': [!0, 1, 0, !1],
@@ -26,10 +30,11 @@ const xS = {
   O: [!1, 0, 3, !1],
   ' ': [!1, 0, 0, !1],
 };
-const bI = xS['.'];
-const Tm = class {
-  constructor(e = null) {
-    ((this.api = e),
+const DEFAULT_TILE = TILE_PROPS['.'];
+/** Mapa de exploración de un nivel. `api` es el envoltorio de reglas (opcional, con `call`). */
+const ExploreMap = class {
+  constructor(api = null) {
+    ((this.api = api),
       (this.native = !1),
       (this.rows = []),
       (this.w = 0),
@@ -37,189 +42,210 @@ const Tm = class {
       (this.losCache = new Map()),
       (this.stats = { path: 0, los: 0, losHits: 0 }));
   }
-  load(e) {
-    ((this.rows = e.map((a) => a)),
-      (this.h = e.length),
-      (this.w = Math.max(0, ...e.map((a) => a.length))),
-      (this.rows = this.rows.map((a) => a.padEnd(this.w, ' '))));
-    let t = this.w * this.h;
-    ((this.walk = new Uint8Array(t)), (this.cost = new Uint8Array(t)), (this.cover = new Uint8Array(t)));
-    for (let a = 0; a < this.h; a++)
-      for (let n = 0; n < this.w; n++) {
-        let s = xS[this.rows[a][n]] || bI,
-          i = n + a * this.w;
-        ((this.walk[i] = s[0] ? 1 : 0), (this.cost[i] = s[1]), (this.cover[i] = s[2]));
+  /** Carga las filas del mapa (se rellenan con espacios) y avisa al núcleo con xmap_load. */
+  load(rows) {
+    ((this.rows = rows.map((row) => row)),
+      (this.h = rows.length),
+      (this.w = Math.max(0, ...rows.map((row) => row.length))),
+      (this.rows = this.rows.map((row) => row.padEnd(this.w, ' '))));
+    let size = this.w * this.h;
+    ((this.walk = new Uint8Array(size)),
+      (this.cost = new Uint8Array(size)),
+      (this.cover = new Uint8Array(size)));
+    for (let y = 0; y < this.h; y++)
+      for (let x = 0; x < this.w; x++) {
+        let props = TILE_PROPS[this.rows[y][x]] || DEFAULT_TILE,
+          idx = x + y * this.w;
+        ((this.walk[idx] = props[0] ? 1 : 0), (this.cost[idx] = props[1]), (this.cover[idx] = props[2]));
       }
     if ((this.losCache.clear(), (this.native = !1), this.api?.call)) {
-      let a = this.api.call('xmap_load', { rows: this.rows });
-      this.native = !!(a && !a.error && a.w);
+      let res = this.api.call('xmap_load', { rows: this.rows });
+      this.native = !!(res && !res.error && res.w);
     }
     return { w: this.w, h: this.h };
   }
-  setTile(e, t) {
-    let [a, n] = e;
-    if (!this.inBounds(e)) return;
-    let s = this.rows[n];
-    s[a] !== t && ((this.rows[n] = s.slice(0, a) + t + s.slice(a + 1)), this.load(this.rows));
+  /** Cambia el carácter de una casilla (p. ej. puerta abierta) y recarga el mapa. */
+  setTile(cell, ch) {
+    let [x, y] = cell;
+    if (!this.inBounds(cell)) return;
+    let row = this.rows[y];
+    row[x] !== ch && ((this.rows[y] = row.slice(0, x) + ch + row.slice(x + 1)), this.load(this.rows));
   }
-  inBounds([e, t]) {
-    return e >= 0 && t >= 0 && e < this.w && t < this.h;
+  inBounds([x, y]) {
+    return x >= 0 && y >= 0 && x < this.w && y < this.h;
   }
-  tile([e, t]) {
-    return this.inBounds([e, t]) ? this.rows[t][e] : ' ';
+  tile([x, y]) {
+    return this.inBounds([x, y]) ? this.rows[y][x] : ' ';
   }
-  walkable(e) {
-    return this.inBounds(e) && this.walk[e[0] + e[1] * this.w] === 1;
+  /** ¿Se puede pisar la casilla? */
+  walkable(cell) {
+    return this.inBounds(cell) && this.walk[cell[0] + cell[1] * this.w] === 1;
   }
-  difficult(e) {
-    return this.inBounds(e) && this.cost[e[0] + e[1] * this.w] > 1;
+  /** ¿Es terreno difícil (coste > 1)? */
+  difficult(cell) {
+    return this.inBounds(cell) && this.cost[cell[0] + cell[1] * this.w] > 1;
   }
-  path(e, t, a = null, n = 6e3) {
-    if ((this.stats.path++, e[0] === t[0] && e[1] === t[1])) return [e.slice()];
+  /** Camino de casillas de `from` a `to` evitando `blocked` (Set de claves «x,y»); [] si no hay. */
+  path(from, to, blocked = null, maxSteps = 6e3) {
+    if ((this.stats.path++, from[0] === to[0] && from[1] === to[1])) return [from.slice()];
     if (this.native) {
-      let s = a ? [...a].map((r) => r.split(',').map(Number)) : void 0,
-        i = this.api.call('xmap_path', { from: e, to: t, blocked: s });
-      if (i && !i.error && Array.isArray(i.path)) return i.path;
+      let blockedCells = blocked ? [...blocked].map((key) => key.split(',').map(Number)) : void 0,
+        res = this.api.call('xmap_path', { from, to, blocked: blockedCells });
+      if (res && !res.error && Array.isArray(res.path)) return res.path;
     }
-    return this._astar(e, t, a, n);
+    return this._astar(from, to, blocked, maxSteps);
   }
-  _astar(e, t, a, n) {
-    let s = this.w;
-    if (!this.inBounds(t) || !this.walkable(t) || !this.inBounds(e)) return [];
-    if (a && a.has(cellKey(t[0], t[1]))) return [];
-    let i = s * this.h,
-      r = new Int32Array(i).fill(1 << 29),
-      l = new Int32Array(i).fill(-1),
-      c = e[0] + e[1] * s,
-      d = t[0] + t[1] * s;
-    r[c] = 0;
-    let u = [],
-      h = (f, v) => {
-        u.push([f, v]);
-        let x = u.length - 1;
-        for (; x > 0;) {
-          let g = (x - 1) >> 1;
-          if (u[g][0] <= u[x][0]) break;
-          (([u[g], u[x]] = [u[x], u[g]]), (x = g));
+  /** A* en JS con montículo binario (coste 2 en terreno difícil). */
+  _astar(from, to, blocked, maxSteps) {
+    let width = this.w;
+    if (!this.inBounds(to) || !this.walkable(to) || !this.inBounds(from)) return [];
+    if (blocked && blocked.has(cellKey(to[0], to[1]))) return [];
+    let size = width * this.h,
+      dist = new Int32Array(size).fill(1 << 29),
+      prev = new Int32Array(size).fill(-1),
+      start = from[0] + from[1] * width,
+      goal = to[0] + to[1] * width;
+    dist[start] = 0;
+    let heap = [],
+      push = (prio, node) => {
+        heap.push([prio, node]);
+        let i = heap.length - 1;
+        for (; i > 0;) {
+          let parent = (i - 1) >> 1;
+          if (heap[parent][0] <= heap[i][0]) break;
+          (([heap[parent], heap[i]] = [heap[i], heap[parent]]), (i = parent));
         }
       },
-      p = () => {
-        let f = u[0],
-          v = u.pop();
-        if (u.length) {
-          u[0] = v;
-          let x = 0;
+      pop = () => {
+        let top = heap[0],
+          last = heap.pop();
+        if (heap.length) {
+          heap[0] = last;
+          let i = 0;
           for (;;) {
-            let g = 2 * x + 1,
-              y = g + 1,
-              w = x;
+            let left = 2 * i + 1,
+              right = left + 1,
+              min = i;
             if (
-              (g < u.length && u[g][0] < u[w][0] && (w = g),
-              y < u.length && u[y][0] < u[w][0] && (w = y),
-              w === x)
+              (left < heap.length && heap[left][0] < heap[min][0] && (min = left),
+              right < heap.length && heap[right][0] < heap[min][0] && (min = right),
+              min === i)
             )
               break;
-            (([u[w], u[x]] = [u[x], u[w]]), (x = w));
+            (([heap[min], heap[i]] = [heap[i], heap[min]]), (i = min));
           }
         }
-        return f;
+        return top;
       };
-    h(hexDistance(e, t), c);
-    let m = 0,
-      _ = !1;
-    for (; u.length && m++ < n;) {
-      let [, f] = p();
-      if (f === d) {
-        _ = !0;
+    push(hexDistance(from, to), start);
+    let steps = 0,
+      found = !1;
+    for (; heap.length && steps++ < maxSteps;) {
+      let [, cur] = pop();
+      if (cur === goal) {
+        found = !0;
         break;
       }
-      let v = f % s,
-        x = (f / s) | 0;
-      for (let [g, y] of neighbors(v, x)) {
-        if (g < 0 || y < 0 || g >= s || y >= this.h) continue;
-        let w = g + y * s;
-        if (!this.walk[w] || (a && w !== d && a.has(cellKey(g, y)))) continue;
-        let k = r[f] + (this.cost[w] > 1 ? 2 : 1);
-        k < r[w] && ((r[w] = k), (l[w] = f), h(k + hexDistance([g, y], t), w));
+      let cx = cur % width,
+        cy = (cur / width) | 0;
+      for (let [nx, ny] of neighbors(cx, cy)) {
+        if (nx < 0 || ny < 0 || nx >= width || ny >= this.h) continue;
+        let next = nx + ny * width;
+        if (!this.walk[next] || (blocked && next !== goal && blocked.has(cellKey(nx, ny)))) continue;
+        let cost = dist[cur] + (this.cost[next] > 1 ? 2 : 1);
+        cost < dist[next] &&
+          ((dist[next] = cost), (prev[next] = cur), push(cost + hexDistance([nx, ny], to), next));
       }
     }
-    if (!_) return [];
-    let b = [];
-    for (let f = d; f >= 0 && (b.push([f % s, (f / s) | 0]), f !== c); f = l[f]);
-    return b.reverse();
+    if (!found) return [];
+    let out = [];
+    for (
+      let node = goal;
+      node >= 0 && (out.push([node % width, (node / width) | 0]), node !== start);
+      node = prev[node]
+    );
+    return out.reverse();
   }
-  los(e, t) {
-    if ((e[0] === t[0] && e[1] === t[1]) || hexDistance(e, t) <= 1) return !0;
-    let a = `${e[0]},${e[1]}|${t[0]},${t[1]}`,
-      n = this.losCache.get(a);
-    if (n !== void 0) return (this.stats.losHits++, n);
+  /** Línea de visión entre casillas (con caché); falsa si la cobertura es total (3). */
+  los(from, to) {
+    if ((from[0] === to[0] && from[1] === to[1]) || hexDistance(from, to) <= 1) return !0;
+    let key = `${from[0]},${from[1]}|${to[0]},${to[1]}`,
+      cached = this.losCache.get(key);
+    if (cached !== void 0) return (this.stats.losHits++, cached);
     this.stats.los++;
-    let s;
+    let visible;
     if (this.native) {
-      let i = this.api.call('xmap_los', { from: e, to: t });
-      s = i && !i.error ? !!i.los : this._coverHex(e, t) < 3;
-    } else s = this._coverHex(e, t) < 3;
-    return (this.losCache.size > 2e4 && this.losCache.clear(), this.losCache.set(a, s), s);
+      let res = this.api.call('xmap_los', { from, to });
+      visible = res && !res.error ? !!res.los : this._coverHex(from, to) < 3;
+    } else visible = this._coverHex(from, to) < 3;
+    return (this.losCache.size > 2e4 && this.losCache.clear(), this.losCache.set(key, visible), visible);
   }
-  _segment(e, t, a = 0.12) {
-    let n = [],
-      s = new Set(),
-      i = Math.hypot(t.x - e.x, t.y - e.y),
-      r = Math.max(1, Math.ceil(i / a));
-    for (let l = 0; l <= r; l++) {
-      let c = l / r,
-        d = planeToCell(e.x + (t.x - e.x) * c, e.y + (t.y - e.y) * c),
-        u = d[0] * 4096 + d[1];
-      s.has(u) || (s.add(u), n.push(d));
+  /** Casillas que atraviesa el segmento entre dos puntos del plano, muestreado cada `step`. */
+  _segment(from, to, step = 0.12) {
+    let cells = [],
+      seen = new Set(),
+      len = Math.hypot(to.x - from.x, to.y - from.y),
+      count = Math.max(1, Math.ceil(len / step));
+    for (let i = 0; i <= count; i++) {
+      let f = i / count,
+        cell = planeToCell(from.x + (to.x - from.x) * f, from.y + (to.y - from.y) * f),
+        code = cell[0] * 4096 + cell[1];
+      seen.has(code) || (seen.add(code), cells.push(cell));
     }
-    return n;
+    return cells;
   }
-  _coverAt(e) {
-    return this.inBounds(e) ? this.cover[e[0] + e[1] * this.w] : 0;
+  _coverAt(cell) {
+    return this.inBounds(cell) ? this.cover[cell[0] + cell[1] * this.w] : 0;
   }
-  _coverHex(e, t) {
-    let a = cellToPlane(e[0], e[1]),
-      n = cellToPlane(t[0], t[1]),
-      s = Math.hypot(n.x - a.x, n.y - a.y) || 1,
-      i = { x: (n.x - a.x) / s, y: (n.y - a.y) / s },
-      r = { x: -i.y * 0.38, y: i.x * 0.38 },
-      l = [a, { x: a.x + r.x, y: a.y + r.y }, { x: a.x - r.x, y: a.y - r.y }],
-      c = [n, { x: n.x + r.x, y: n.y + r.y }, { x: n.x - r.x, y: n.y - r.y }],
-      d = 99;
-    for (let u of l) {
-      let h = 0;
-      for (let p of c)
-        for (let m of this._segment(u, p, 0.18))
+  /** Cobertura 0–3: cuántos de los 3 rayos (centro y bordes) quedan tapados por casillas opacas. */
+  _coverHex(from, to) {
+    let pa = cellToPlane(from[0], from[1]),
+      pb = cellToPlane(to[0], to[1]),
+      len = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1,
+      dir = { x: (pb.x - pa.x) / len, y: (pb.y - pa.y) / len },
+      side = { x: -dir.y * 0.38, y: dir.x * 0.38 },
+      fromPts = [pa, { x: pa.x + side.x, y: pa.y + side.y }, { x: pa.x - side.x, y: pa.y - side.y }],
+      toPts = [pb, { x: pb.x + side.x, y: pb.y + side.y }, { x: pb.x - side.x, y: pb.y - side.y }],
+      best = 99;
+    for (let p0 of fromPts) {
+      let blockedRays = 0;
+      for (let p1 of toPts)
+        for (let cell of this._segment(p0, p1, 0.18))
           if (
-            !((m[0] === e[0] && m[1] === e[1]) || (m[0] === t[0] && m[1] === t[1])) &&
-            this._coverAt(m) >= 3
+            !((cell[0] === from[0] && cell[1] === from[1]) || (cell[0] === to[0] && cell[1] === to[1])) &&
+            this._coverAt(cell) >= 3
           ) {
-            h++;
+            blockedRays++;
             break;
           }
-      d = Math.min(d, h);
+      best = Math.min(best, blockedRays);
     }
-    return d >= 3 ? 3 : d;
+    return best >= 3 ? 3 : best;
   }
-  straight(e, t, a = null) {
-    for (let n of this._segment(e, t, 0.18))
-      if (!this.walkable(n) || (a && a.has(cellKey(n[0], n[1])))) return !1;
+  /** ¿El segmento entre dos puntos del plano pasa solo por casillas transitables y libres? */
+  straight(from, to, blocked = null) {
+    for (let cell of this._segment(from, to, 0.18))
+      if (!this.walkable(cell) || (blocked && blocked.has(cellKey(cell[0], cell[1])))) return !1;
     return !0;
   }
-  freeNear(e, t, a = null, { maxR: n = 12 } = {}) {
-    let s = [],
-      i = new Set([cellKey(e[0], e[1])]),
-      r = [e];
-    for (; r.length && s.length < t;) {
-      let l = r.shift();
-      this.walkable(l) && !(a && a.has(cellKey(l[0], l[1]))) && s.push(l);
-      for (let c of neighbors(l[0], l[1])) {
-        let d = cellKey(c[0], c[1]);
-        i.has(d) || !this.inBounds(c) || hexDistance(c, e) > n || (i.add(d), r.push(c));
+  /** Hasta `count` casillas transitables y libres cerca de `center` (búsqueda en anchura). */
+  freeNear(center, count, blocked = null, { maxR = 12 } = {}) {
+    let out = [],
+      seen = new Set([cellKey(center[0], center[1])]),
+      queue = [center];
+    for (; queue.length && out.length < count;) {
+      let cell = queue.shift();
+      this.walkable(cell) && !(blocked && blocked.has(cellKey(cell[0], cell[1]))) && out.push(cell);
+      for (let nb of neighbors(cell[0], cell[1])) {
+        let key = cellKey(nb[0], nb[1]);
+        seen.has(key) ||
+          !this.inBounds(nb) ||
+          hexDistance(nb, center) > maxR ||
+          (seen.add(key), queue.push(nb));
       }
     }
-    return s;
+    return out;
   }
 };
 
-export { Tm };
+export { ExploreMap };

@@ -1,598 +1,671 @@
-// explore/battle.js
-// Reconstruido de publicado/juego.js (módulo __esm «p0»). Nombres locales aún minificados.
+// explore/battle.js — Paso de la exploración al combate y vuelta, en el mismo mundo: prepara la escena
+// (rejilla, PNJ ocultos, animales que huyen), llama a battle_start y a combat/runBattle, y al terminar
+// reparte botín, banderas, diario, PX y subida de nivel, o gestiona la derrota. Si falta el área de
+// combate o el núcleo, usa un combate automático con la IA del núcleo o uno simulado en JS.
+// Lo usan explore/index.js, detection.js e interact.js.
+// Reconstruido de publicado/juego.js (módulo __esm «p0»).
 
 import { MathUtils } from 'three';
 import { hexDistance } from './hex.js';
 import { rollDice } from './checks.js';
 
-function Dc(o, e) {
-  return new Promise((t) => {
-    let a = performance.now(),
-      n = () => {
-        let s = Math.min(1, (performance.now() - a) / (o * 1e3));
-        (e(s), s < 1 ? requestAnimationFrame(n) : t());
+/** Llama a `fn(k)` con k de 0 a 1 durante `seconds` (en requestAnimationFrame); promesa al acabar. */
+function tween(seconds, fn) {
+  return new Promise((resolve) => {
+    let t0 = performance.now(),
+      step = () => {
+        let k = Math.min(1, (performance.now() - t0) / (seconds * 1e3));
+        (fn(k), k < 1 ? requestAnimationFrame(step) : resolve());
       };
-    n();
+    step();
   });
 }
-function qk(o, e, t, { speed: a = 3.8, anim: n = 'run' } = {}) {
-  if (!t.length) return Promise.resolve();
-  e.anim(n, { mps: a });
-  let s = t.map((i) => o.world.cellToWorld(i));
-  return new Promise((i) => {
-    let r = performance.now(),
-      l = () => {
-        let c = performance.now(),
-          d = Math.min(0.05, (c - r) / 1e3) * (o.turbo || 1);
-        r = c;
-        let u = e.root.position,
-          h = a * d;
-        for (; h > 0 && s.length;) {
-          let p = s[0],
-            m = p.x - u.x,
-            _ = p.z - u.z,
-            b = Math.hypot(m, _);
-          (b > 1e-4 && (e.root.rotation.y = Math.atan2(m, _)),
-            b <= h
-              ? (u.set(p.x, p.y, p.z), s.shift(), (h -= b))
-              : ((u.x += (m / b) * h), (u.z += (_ / b) * h), (h = 0)));
+/** Mueve un actor por una lista de casillas a `speed` m/s con la animación `anim`. */
+function walkPath(explore, actor, cells, { speed = 3.8, anim = 'run' } = {}) {
+  if (!cells.length) return Promise.resolve();
+  actor.anim(anim, { mps: speed });
+  let points = cells.map((c) => explore.world.cellToWorld(c));
+  return new Promise((resolve) => {
+    let last = performance.now(),
+      step = () => {
+        let now = performance.now(),
+          dt = Math.min(0.05, (now - last) / 1e3) * (explore.turbo || 1);
+        last = now;
+        let pos = actor.root.position,
+          left = speed * dt;
+        for (; left > 0 && points.length;) {
+          let pt = points[0],
+            dx = pt.x - pos.x,
+            dz = pt.z - pos.z,
+            dist = Math.hypot(dx, dz);
+          (dist > 1e-4 && (actor.root.rotation.y = Math.atan2(dx, dz)),
+            dist <= left
+              ? (pos.set(pt.x, pt.y, pt.z), points.shift(), (left -= dist))
+              : ((pos.x += (dx / dist) * left), (pos.z += (dz / dist) * left), (left = 0)));
         }
-        (o.world.heightAt && (u.y = o.world.heightAt(u.x, u.z)),
-          s.length && !o.disposed ? requestAnimationFrame(l) : (e.anim('idle', { fade: 0.25 }), i()));
+        (explore.world.heightAt && (pos.y = explore.world.heightAt(pos.x, pos.z)),
+          points.length && !explore.disposed
+            ? requestAnimationFrame(step)
+            : (actor.anim('idle', { fade: 0.25 }), resolve()));
       };
-    l();
+    step();
   });
 }
-function ny(o, e) {
-  let t = o.root.position,
-    a = e.root.position;
-  Math.abs(t.x - a.x) + Math.abs(t.z - a.z) > 0.001 && (o.root.rotation.y = Math.atan2(a.x - t.x, a.z - t.z));
+/** Gira `actor` para que mire a `target`. */
+function faceActor(actor, target) {
+  let from = actor.root.position,
+    to = target.root.position;
+  Math.abs(from.x - to.x) + Math.abs(from.z - to.z) > 0.001 &&
+    (actor.root.rotation.y = Math.atan2(to.x - from.x, to.z - from.z));
 }
-async function Uk(o, e) {
-  let t = o.enemy(e);
-  if (!t) return;
-  let a = o.groups.get(t.group);
-  if (!a) return;
-  let n = a.def.sight ?? 8,
-    s = o.members.some((c) =>
-      a.enemies.some((d) => !d.dead && hexDistance(d.cell, c.cell) <= n && o.xmap.los(d.cell, c.cell)),
+/**
+ * El jugador ataca a un enemigo: si su grupo quiere hablar, conversación; si no, combate
+ * (con sorpresa si el grupo iba en sigilo sin ser visto).
+ */
+async function attackEnemy(explore, id) {
+  let enemy = explore.enemy(id);
+  if (!enemy) return;
+  let group = explore.groups.get(enemy.group);
+  if (!group) return;
+  let sight = group.def.sight ?? 8,
+    seen = explore.members.some((m) =>
+      group.enemies.some(
+        (en) => !en.dead && hexDistance(en.cell, m.cell) <= sight && explore.xmap.los(en.cell, m.cell),
+      ),
     ),
-    i = o.stealth && (a.roll ? a.roll.success : !s),
-    r = await import('./detection.js');
-  if (r.wantsTalk(o, a)) return r.talkGroup(o, a.def.id, t, { stealth: i });
-  let l = {};
-  if (i) for (let c of a.roll?.results || []) c.success && (l[c.who] = c.total);
-  await Uo(o, a.def.id, { surprise: i, hidden: l });
+    surprise = explore.stealth && (group.roll ? group.roll.success : !seen),
+    detection = await import('./detection.js');
+  if (detection.wantsTalk(explore, group))
+    return detection.talkGroup(explore, group.def.id, enemy, { stealth: surprise });
+  let hidden = {};
+  if (surprise) for (let r of group.roll?.results || []) r.success && (hidden[r.who] = r.total);
+  await startBattle(explore, group.def.id, { surprise, hidden });
 }
-async function Uo(o, e, { surprise: t = !1, surprisedParty: a = [], hidden: n = {}, ambush: s = !1 } = {}) {
-  if (o.inBattle || !o.groups.has(e) || o.disposed) return { won: !1, fled: !1, error: 'no hay combate' };
-  let i = o.groups.get(e),
-    r = o.game,
-    l = o.rules;
-  (o.stopAll(),
-    (o.inBattle = !0),
-    o.busyN++,
-    o.overlay.setLabel(null),
-    o.overlay.clearBubbles(),
-    o.marks.setHover(null),
-    o.marks.hideRings(!0),
-    o.marks.clearDestination(),
-    o.hud?.hide?.(),
-    (r.stage.renderer.domElement.style.cursor = ''));
-  let c = [e, ...(i.def.link || []).filter((E) => o.groups.has(E) && E !== e)],
-    d = c.map((E) => o.groups.get(E));
-  await Promise.all(d.map((E) => E.ready));
-  for (let E of d) (E.hidden && (await import('./detection.js')).revealGroup(o, E.def.id), (E.alerted = !0));
-  r.bus.emit('battle:start', {
-    group: e,
-    groups: c,
-    surprise: t,
-    level: o.levelId,
-    ambush: s,
-    surprisedParty: a,
+/**
+ * Empieza el combate contra el grupo `gid` (y los grupos enlazados). Opciones: `surprise` (el grupo
+ * sorprende), `surprisedParty` (ids sorprendidos del grupo), `hidden` (totales de sigilo) y `ambush`.
+ * Devuelve {won, fled}.
+ */
+async function startBattle(
+  explore,
+  gid,
+  { surprise = !1, surprisedParty = [], hidden = {}, ambush = !1 } = {},
+) {
+  if (explore.inBattle || !explore.groups.has(gid) || explore.disposed)
+    return { won: !1, fled: !1, error: 'no hay combate' };
+  let group = explore.groups.get(gid),
+    game = explore.game,
+    rules = explore.rules;
+  (explore.stopAll(),
+    (explore.inBattle = !0),
+    explore.busyN++,
+    explore.overlay.setLabel(null),
+    explore.overlay.clearBubbles(),
+    explore.marks.setHover(null),
+    explore.marks.hideRings(!0),
+    explore.marks.clearDestination(),
+    explore.hud?.hide?.(),
+    (game.stage.renderer.domElement.style.cursor = ''));
+  let gids = [gid, ...(group.def.link || []).filter((id) => explore.groups.has(id) && id !== gid)],
+    groups = gids.map((id) => explore.groups.get(id));
+  await Promise.all(groups.map((g) => g.ready));
+  for (let g of groups)
+    (g.hidden && (await import('./detection.js')).revealGroup(explore, g.def.id), (g.alerted = !0));
+  game.bus.emit('battle:start', {
+    group: gid,
+    groups: gids,
+    surprise,
+    level: explore.levelId,
+    ambush,
+    surprisedParty,
   });
-  let u = o.level.ambient === 'crypt' ? 0.28 : 0.35;
-  (Dc(0.6, (E) => o.world.setGrid?.(E * u)), o.world.setCombatView?.(!0));
-  for (let E of o.members) E.actor.setShadowed(!1);
-  for (let E of o.npcs.values()) {
-    let S = E.actor.root,
-      z = S.scale.x;
-    ((E.scale0 = z),
-      Dc(0.45, (D) => S.scale.setScalar(z * Math.max(0.001, 1 - D))).then(() => (S.visible = !1)));
+  let gridAlpha = explore.level.ambient === 'crypt' ? 0.28 : 0.35;
+  (tween(0.6, (k) => explore.world.setGrid?.(k * gridAlpha)), explore.world.setCombatView?.(!0));
+  for (let m of explore.members) m.actor.setShadowed(!1);
+  for (let npc of explore.npcs.values()) {
+    let root = npc.actor.root,
+      scale0 = root.scale.x;
+    ((npc.scale0 = scale0),
+      tween(0.45, (k) => root.scale.setScalar(scale0 * Math.max(0.001, 1 - k))).then(
+        () => (root.visible = !1),
+      ));
   }
-  let h = [
-    ...o.members.map((E) => E.actor),
-    ...d.flatMap((E) => E.enemies.filter((S) => !S.dead).map((S) => S.actor)),
+  let combatants = [
+    ...explore.members.map((m) => m.actor),
+    ...groups.flatMap((g) => g.enemies.filter((en) => !en.dead).map((en) => en.actor)),
   ];
-  (o.animals?.flee(h.map((E) => E.root.position)),
+  (explore.animals?.flee(combatants.map((a) => a.root.position)),
     await Promise.all(
-      o.members.map((E) => {
-        let S = E.actor.root.position.clone(),
-          z = o.world.cellToWorld(E.cell);
-        return (E.actor.anim('idle'), Dc(0.25, (D) => E.actor.root.position.lerpVectors(S, z, D)));
+      explore.members.map((m) => {
+        let from = m.actor.root.position.clone(),
+          to = explore.world.cellToWorld(m.cell);
+        return (m.actor.anim('idle'), tween(0.25, (k) => m.actor.root.position.lerpVectors(from, to, k)));
       }),
     ),
-    t && !o.mods.combat && o.hud?.banner?.('\xA1Los cog\xE9is por sorpresa!', 'bien', 1600));
-  let p = r.store.cp,
-    m = o.members.map((E) => ({
-      id: E.id,
-      cell: E.cell.slice(),
-      face: Math.round(Ok(E.actor.root.rotation.y)),
+    surprise &&
+      !explore.mods.combat &&
+      explore.hud?.banner?.('\xA1Los cog\xE9is por sorpresa!', 'bien', 1600));
+  let cp = game.store.cp,
+    party = explore.members.map((m) => ({
+      id: m.id,
+      cell: m.cell.slice(),
+      face: Math.round(radToDeg(m.actor.root.rotation.y)),
     })),
-    _ = d.flatMap((E) =>
-      E.enemies
-        .filter((S) => !S.dead)
-        .map((S) => ({
-          id: S.id,
-          monster: S.monster,
-          cell: S.cell.slice(),
-          face: Math.round(Ok(S.actor.root.rotation.y)),
-          group: E.def.id,
+    enemies = groups.flatMap((g) =>
+      g.enemies
+        .filter((en) => !en.dead)
+        .map((en) => ({
+          id: en.id,
+          monster: en.monster,
+          cell: en.cell.slice(),
+          face: Math.round(radToDeg(en.actor.root.rotation.y)),
+          group: g.def.id,
         })),
     ),
-    b = {
-      id: e,
-      name: i.def.name || '\xA1Combate!',
-      place: o.level.name,
-      tips: i.def.tips || [],
-      ambient: o.level.ambient || 'dusk',
-      level: p.party_level || 1,
-      sunlight: o.level.ambient === 'day',
+    encounter = {
+      id: gid,
+      name: group.def.name || '\xA1Combate!',
+      place: explore.level.name,
+      tips: group.def.tips || [],
+      ambient: explore.level.ambient || 'dusk',
+      level: cp.party_level || 1,
+      sunlight: explore.level.ambient === 'day',
     },
-    f = t ? _.map((E) => E.id) : a.slice(),
-    v = Number(r.params?.get?.('semilla')) || Math.floor(Math.random() * 1e9),
-    x = null;
+    surprised = surprise ? enemies.map((en) => en.id) : surprisedParty.slice(),
+    seed = Number(game.params?.get?.('semilla')) || Math.floor(Math.random() * 1e9),
+    cpBefore = null;
   try {
-    x = structuredClone(p);
+    cpBefore = structuredClone(cp);
   } catch {
-    x = JSON.parse(JSON.stringify(p));
+    cpBefore = JSON.parse(JSON.stringify(cp));
   }
-  let g = r.ui?.keys?.disabled,
-    y = l.call('battle_start', {
-      cp: p,
-      rows: o.xmap.rows,
-      party: m,
-      enemies: _,
-      group: e,
-      encounter: b,
-      surprised: f,
-      surprise: t || void 0,
-      hidden: n,
-      seed: v,
+  let keysWas = game.ui?.keys?.disabled,
+    init = rules.call('battle_start', {
+      cp,
+      rows: explore.xmap.rows,
+      party,
+      enemies,
+      group: gid,
+      encounter,
+      surprised,
+      surprise: surprise || void 0,
+      hidden,
+      seed,
     });
-  y?.cp && l.apply(y);
-  let w = new Map();
-  for (let E of o.members) w.set(E.id, E.actor);
-  for (let E of d) for (let S of E.enemies) S.dead || w.set(S.id, S.actor);
-  let k = { won: !1, fled: !1 },
-    T = y && !y.error && y.state;
+  init?.cp && rules.apply(init);
+  let actors = new Map();
+  for (let m of explore.members) actors.set(m.id, m.actor);
+  for (let g of groups) for (let en of g.enemies) en.dead || actors.set(en.id, en.actor);
+  let result = { won: !1, fled: !1 },
+    native = init && !init.error && init.state;
   try {
-    if (T && o.mods.combat) {
-      o.camera.suspended = !0;
-      let E = r.params?.has?.('autocombate')
-        ? new Set(o.members.map((S) => S.id))
-        : r.store.settings.autoCompanions !== !1
-          ? new Set(o.members.filter((S) => S.id !== 'hero').map((S) => S.id))
+    if (native && explore.mods.combat) {
+      explore.camera.suspended = !0;
+      let auto = game.params?.has?.('autocombate')
+        ? new Set(explore.members.map((m) => m.id))
+        : game.store.settings.autoCompanions !== !1
+          ? new Set(explore.members.filter((m) => m.id !== 'hero').map((m) => m.id))
           : void 0;
-      k =
-        (await o.mods.combat.runBattle(r, {
-          three: o.three,
-          world: o.world,
-          actors: w,
-          init: y,
-          hud: o.hud,
-          group: e,
-          groups: c,
-          surprise: t,
-          surprised: f,
-          level: o.levelId,
-          auto: E,
-          portrait: (S) =>
-            o.portraits.get(S.id) ||
-            r.ui.portrait?.(S.id) ||
-            o.factory.portrait(w.get(S.id), {
-              ...o.rules.sheet(S.id),
-              id: S.id,
-              name: S.name || o.rules.name(S.id),
+      result =
+        (await explore.mods.combat.runBattle(game, {
+          three: explore.three,
+          world: explore.world,
+          actors,
+          init,
+          hud: explore.hud,
+          group: gid,
+          groups: gids,
+          surprise,
+          surprised,
+          level: explore.levelId,
+          auto,
+          portrait: (c) =>
+            explore.portraits.get(c.id) ||
+            game.ui.portrait?.(c.id) ||
+            explore.factory.portrait(actors.get(c.id), {
+              ...explore.rules.sheet(c.id),
+              id: c.id,
+              name: c.name || explore.rules.name(c.id),
             }),
-          makeMonster: (S) => o.factory.monster(S.template || S.monster, S.id),
-          makeForm: (S, z) => o.factory.monster(S, z),
-        })) || k;
-    } else T ? (k = await fN(o, y, w)) : (k = await mN(o, d, w));
-  } catch (E) {
+          makeMonster: (c) => explore.factory.monster(c.template || c.monster, c.id),
+          makeForm: (kind, id) => explore.factory.monster(kind, id),
+        })) || result;
+    } else
+      native
+        ? (result = await autoBattle(explore, init, actors))
+        : (result = await simulatedBattle(explore, groups, actors));
+  } catch (err) {
     return (
-      console.error('[exploraci\xF3n] el combate ha fallado', E),
-      uN(o, e, c, {
-        cpBefore: x,
-        keysWas: g,
-        error: String(E?.message || E),
-        args: { surprise: t, surprisedParty: a, hidden: n, ambush: s },
+      console.error('[exploraci\xF3n] el combate ha fallado', err),
+      recoverFromError(explore, gid, gids, {
+        cpBefore,
+        keysWas,
+        error: String(err?.message || err),
+        args: { surprise, surprisedParty, hidden, ambush },
       })
     );
   }
-  return jk(o, e, c, k, T);
+  return finishBattle(explore, gid, gids, result, native);
 }
-async function uN(o, e, t, { cpBefore: a, keysWas: n, error: s, args: i }) {
-  let r = o.game;
-  (r.battle && (r.battle = null),
-    r.ui?.keys && n !== void 0 && (r.ui.keys.disabled = n),
-    a && r.store.set(a));
-  for (let c of [
-    ...o.members.map((d) => d.actor),
-    ...t.flatMap(
-      (d) =>
-        o.groups
-          .get(d)
-          ?.enemies.filter((u) => !u.dead)
-          .map((u) => u.actor) || [],
+/** Si el combate falla: restaura la campaña de antes y ofrece repetirlo, cargar o retirarse. */
+async function recoverFromError(explore, gid, gids, { cpBefore, keysWas, error, args }) {
+  let game = explore.game;
+  (game.battle && (game.battle = null),
+    game.ui?.keys && keysWas !== void 0 && (game.ui.keys.disabled = keysWas),
+    cpBefore && game.store.set(cpBefore));
+  for (let actor of [
+    ...explore.members.map((m) => m.actor),
+    ...gids.flatMap(
+      (id) =>
+        explore.groups
+          .get(id)
+          ?.enemies.filter((en) => !en.dead)
+          .map((en) => en.actor) || [],
     ),
   ])
-    c && (c.ch && (c.ch._mdgDown = !1), (c.root.visible = !0), (c.cur = null), c.anim('idle', { fade: 0.2 }));
+    actor &&
+      (actor.ch && (actor.ch._mdgDown = !1),
+      (actor.root.visible = !0),
+      (actor.cur = null),
+      actor.anim('idle', { fade: 0.2 }));
   if (
-    (r.bus.emit('ui:error', { what: 'battle', error: s }),
-    await jk(o, e, t, { won: !1, fled: !0 }, !1, { quiet: !0 }),
-    o.disposed)
+    (game.bus.emit('ui:error', { what: 'battle', error }),
+    await finishBattle(explore, gid, gids, { won: !1, fled: !0 }, !1, { quiet: !0 }),
+    explore.disposed)
   )
-    return { won: !1, fled: !0, error: s };
-  let l = await o.choose({
+    return { won: !1, fled: !0, error };
+  let choice = await explore.choose({
     speaker: 'Algo ha fallado',
     text: `*El combate se ha interrumpido por un error del juego. Todo ha vuelto a como estaba justo antes de empezar.*
 
-(${s})`,
+(${error})`,
     options: [
       { text: 'Volver a empezar el combate', value: 'retry' },
       { text: 'Cargar la \xFAltima partida autom\xE1tica', value: 'load' },
       { text: 'Retirarse por ahora', kind: 'end', value: null },
     ],
   });
-  if (l === 'retry' && o.groups.has(e)) return Uo(o, e, i);
-  if (l === 'load') {
-    let c = await r.store.load('auto');
-    c?.location?.level &&
-      ((r.store.cp = r.rules?.('cp_load', { cp: c })?.cp || c),
-      r.go('explore', { level: c.location.level, spawn: 'saved' }));
+  if (choice === 'retry' && explore.groups.has(gid)) return startBattle(explore, gid, args);
+  if (choice === 'load') {
+    let saved = await game.store.load('auto');
+    saved?.location?.level &&
+      ((game.store.cp = game.rules?.('cp_load', { cp: saved })?.cp || saved),
+      game.go('explore', { level: saved.location.level, spawn: 'saved' }));
   }
-  return { won: !1, fled: !0, error: s };
+  return { won: !1, fled: !0, error };
 }
-async function jk(o, e, t, a, n, { quiet: s = !1 } = {}) {
-  let i = o.game,
-    r = o.rules,
-    l = !!a.won,
-    c = !!a.fled,
-    d = null,
-    u = t.flatMap((b) => o.groups.get(b)?.def.loot || []);
-  (n && ((d = r.call('battle_end', { cp: i.store.cp, won: l, loot: l ? u : [] })), d?.cp && r.apply(d)),
-    (o.camera.suspended = !1),
-    o.camera.configure());
-  for (let b of d?.enemies_dead || []) {
-    let f = o.enemy(b);
-    f && (f.dead = !0);
+/**
+ * Cierre del combate: battle_end, muertos, botín, banderas, historia (afterBattle), PX, subida de
+ * nivel y guardado automático. `native` indica si el combate fue del núcleo.
+ */
+async function finishBattle(explore, gid, gids, result, native, { quiet = !1 } = {}) {
+  let game = explore.game,
+    rules = explore.rules,
+    won = !!result.won,
+    fled = !!result.fled,
+    end = null,
+    loot = gids.flatMap((id) => explore.groups.get(id)?.def.loot || []);
+  (native &&
+    ((end = rules.call('battle_end', { cp: game.store.cp, won, loot: won ? loot : [] })),
+    end?.cp && rules.apply(end)),
+    (explore.camera.suspended = !1),
+    explore.camera.configure());
+  for (let id of end?.enemies_dead || []) {
+    let en = explore.enemy(id);
+    en && (en.dead = !0);
   }
-  i.bus.emit('battle:end', { group: e, groups: t, won: l, fled: c, level: o.levelId });
-  for (let b of o.members) b.cell = o.world.worldToCell(b.actor.root.position);
+  game.bus.emit('battle:end', { group: gid, groups: gids, won, fled, level: explore.levelId });
+  for (let m of explore.members) m.cell = explore.world.worldToCell(m.actor.root.position);
   if (
-    (Dc(0.8, (b) => o.world.setGrid?.((1 - b) * 0.35)).then(() => o.world.setGrid?.(0)),
-    o.world.setCombatView?.(!1),
-    !l && !c)
+    (tween(0.8, (k) => explore.world.setGrid?.((1 - k) * 0.35)).then(() => explore.world.setGrid?.(0)),
+    explore.world.setCombatView?.(!1),
+    !won && !fled)
   )
-    return Bk(o, null);
-  let h = i.store.cp;
-  if (l && r.state('hero').dead)
-    return Bk(
-      o,
+    return defeat(explore, null);
+  let cp = game.store.cp;
+  if (won && rules.state('hero').dead)
+    return defeat(
+      explore,
       'Tus compa\xF1eros han ganado el combate, pero t\xFA no has sobrevivido. Sin la Marca, nadie sabr\xE1 qu\xE9 duerme bajo el toro\u2026',
     );
-  for (let b of o.npcs.values()) {
-    let f = b.actor.root;
-    f.visible = !0;
-    let v = b.scale0 ?? 1;
-    Dc(0.45, (x) => f.scale.setScalar(v * Math.max(0.001, x)));
+  for (let npc of explore.npcs.values()) {
+    let root = npc.actor.root;
+    root.visible = !0;
+    let scale0 = npc.scale0 ?? 1;
+    tween(0.45, (k) => root.scale.setScalar(scale0 * Math.max(0.001, k)));
   }
-  let p = t.map((b) => o.groups.get(b)?.def).filter(Boolean),
-    m = [];
-  if (l) {
-    let b = null;
-    for (let f of t) {
-      let v = o.groups.get(f);
-      if (v) {
-        o.ls.dead.includes(f) || o.ls.dead.push(f);
-        for (let x of v.enemies) {
-          ((x.cell = o.world.worldToCell(x.actor.root.position)), (b = x.cell));
-          let g = !!d?.captured?.[x.id] || (d?.enemies_alive || []).includes(x.id);
-          (!d && !g && m.push(...r.drops(x.monster)),
-            x.dead || ((x.dead = !0), !x.actor.ch?._mdgDown && !g && x.actor.once('die', { hold: !0 })));
+  let defs = gids.map((id) => explore.groups.get(id)?.def).filter(Boolean),
+    drops = [];
+  if (won) {
+    let lastCell = null;
+    for (let id of gids) {
+      let group = explore.groups.get(id);
+      if (group) {
+        explore.ls.dead.includes(id) || explore.ls.dead.push(id);
+        for (let en of group.enemies) {
+          ((en.cell = explore.world.worldToCell(en.actor.root.position)), (lastCell = en.cell));
+          let spared = !!end?.captured?.[en.id] || (end?.enemies_alive || []).includes(en.id);
+          (!end && !spared && drops.push(...rules.drops(en.monster)),
+            en.dead ||
+              ((en.dead = !0), !en.actor.ch?._mdgDown && !spared && en.actor.once('die', { hold: !0 })));
         }
-        if (!d)
-          for (let x of v.def.loot || []) m.push({ id: x[0], n: x[1] ?? 1, unid: r.unidentified(x[0]) });
-        ((o.corpses ??= []), o.corpses.push(...v.enemies), o.groups.delete(f));
+        if (!end)
+          for (let entry of group.def.loot || [])
+            drops.push({ id: entry[0], n: entry[1] ?? 1, unid: rules.unidentified(entry[0]) });
+        ((explore.corpses ??= []), explore.corpses.push(...group.enemies), explore.groups.delete(id));
       }
     }
     if (
-      (d?.loot && (m = d.loot.map((f) => ({ id: f.id, n: f.n ?? 1, unid: !!f.unid }))),
-      (m = hN(m)),
-      m.length && b)
+      (end?.loot && (drops = end.loot.map((it) => ({ id: it.id, n: it.n ?? 1, unid: !!it.unid }))),
+      (drops = mergeLoot(drops)),
+      drops.length && lastCell)
     ) {
-      let f = `drop_${e}`,
-        v = b;
-      o.xmap.walkable(v) || (v = o.xmap.freeNear(v, 1)[0] || v);
-      let x = { id: f, type: 'loot', cell: v, name: 'Restos del combate' };
-      ((o.ls.drops[f] = x), (o.ls.loot[f] = m), o.addObject(x));
+      let dropId = `drop_${gid}`,
+        cell = lastCell;
+      explore.xmap.walkable(cell) || (cell = explore.xmap.freeNear(cell, 1)[0] || cell);
+      let obj = { id: dropId, type: 'loot', cell, name: 'Restos del combate' };
+      ((explore.ls.drops[dropId] = obj), (explore.ls.loot[dropId] = drops), explore.addObject(obj));
     }
   } else
-    for (let b of t) {
-      let f = o.groups.get(b);
-      if (f) {
-        ((f.alerted = !1), (f.cooldown = 12));
-        for (let v of f.enemies)
-          ((v.cell = o.world.worldToCell(v.actor.root.position)),
-            !v.dead && v.actor.cur == null && v.actor.anim('idle'));
+    for (let id of gids) {
+      let group = explore.groups.get(id);
+      if (group) {
+        ((group.alerted = !1), (group.cooldown = 12));
+        for (let en of group.enemies)
+          ((en.cell = explore.world.worldToCell(en.actor.root.position)),
+            !en.dead && en.actor.cur == null && en.actor.anim('idle'));
       }
     }
-  await o.rebuildParty();
-  for (let b of o.members)
-    ((b.actor.cur = null),
-      b.actor.anim(o.stealth ? 'crouch' : 'idle', { fade: 0.4 }),
-      b.actor.setShadowed(o.stealth));
-  ((o.inBattle = !1),
-    (o.busyN = Math.max(0, o.busyN - 1)),
-    o.marks.hideRings(!1),
-    o.updateRings(),
-    o.hud?.show?.());
-  let _ = !1;
+  await explore.rebuildParty();
+  for (let m of explore.members)
+    ((m.actor.cur = null),
+      m.actor.anim(explore.stealth ? 'crouch' : 'idle', { fade: 0.4 }),
+      m.actor.setShadowed(explore.stealth));
+  ((explore.inBattle = !1),
+    (explore.busyN = Math.max(0, explore.busyN - 1)),
+    explore.marks.hideRings(!1),
+    explore.updateRings(),
+    explore.hud?.show?.());
+  let handled = !1;
   try {
-    _ = !!(await i.story?.afterBattle?.({
-      group: e,
-      groups: t,
-      won: l,
-      fled: c,
-      level: o.levelId,
-      explore: i.explore,
+    handled = !!(await game.story?.afterBattle?.({
+      group: gid,
+      groups: gids,
+      won,
+      fled,
+      level: explore.levelId,
+      explore: game.explore,
     }));
-  } catch (b) {
-    console.error('[exploraci\xF3n] story.afterBattle', b);
+  } catch (err) {
+    console.error('[exploraci\xF3n] story.afterBattle', err);
   }
-  if (l) {
-    let b = p[0] || {};
-    for (let f of p) f.flag && !i.store.flag(f.flag) && i.store.setFlag(f.flag, !0);
-    for (let f of p) f.journal && o.addJournal(f.journal);
-    (m.length && o.toast('Han dejado algo: mirad los restos del combate.', 'botin', 5e3),
-      d?.xp && o.toast(`+${d.xp} PX`, 'oro'),
-      b.after && !_ && (await o.narrate(b.after)),
-      await o.refreshWorld(),
-      b.level_after && b.level_after > (i.store.cp.party_level || 1) && (await pN(o, b.level_after)),
-      b.story_after && (await o.narrate(b.story_after, { title: b.story_title || o.level.name })));
-  } else s || o.toast('Os retir\xE1is. Los enemigos no os siguen\u2026 de momento.', 'apagado', 5e3);
-  return (o.updateHud(), s || i.store.save('auto'), { won: l, fled: c });
+  if (won) {
+    let first = defs[0] || {};
+    for (let def of defs) def.flag && !game.store.flag(def.flag) && game.store.setFlag(def.flag, !0);
+    for (let def of defs) def.journal && explore.addJournal(def.journal);
+    (drops.length && explore.toast('Han dejado algo: mirad los restos del combate.', 'botin', 5e3),
+      end?.xp && explore.toast(`+${end.xp} PX`, 'oro'),
+      first.after && !handled && (await explore.narrate(first.after)),
+      await explore.refreshWorld(),
+      first.level_after &&
+        first.level_after > (game.store.cp.party_level || 1) &&
+        (await levelUp(explore, first.level_after)),
+      first.story_after &&
+        (await explore.narrate(first.story_after, { title: first.story_title || explore.level.name })));
+  } else
+    quiet || explore.toast('Os retir\xE1is. Los enemigos no os siguen\u2026 de momento.', 'apagado', 5e3);
+  return (explore.updateHud(), quiet || game.store.save('auto'), { won, fled });
 }
-function hN(o) {
-  let e = [];
-  for (let t of o) {
-    let a = !t.unid && e.find((n) => n.id === t.id && !n.unid);
-    a && (t.id === 'gold' || /arrows|bolts|coin|charm|pelt|gem|potion|ration|torch/.test(t.id))
-      ? (a.n += t.n)
-      : e.push({ ...t });
+/** Junta en una sola entrada los objetos apilables iguales (oro, flechas, monedas…). */
+function mergeLoot(items) {
+  let out = [];
+  for (let it of items) {
+    let same = !it.unid && out.find((x) => x.id === it.id && !x.unid);
+    same && (it.id === 'gold' || /arrows|bolts|coin|charm|pelt|gem|potion|ration|torch/.test(it.id))
+      ? (same.n += it.n)
+      : out.push({ ...it });
   }
-  return e;
+  return out;
 }
-async function pN(o, e) {
-  let t = o.game,
-    a = o.rules;
+/** Sube el grupo de nivel: pantalla «nivel», o cp_level_up, o un sustituto que recalcula los PG. */
+async function levelUp(explore, level) {
+  let game = explore.game,
+    rules = explore.rules;
   if (
-    (o.hud?.banner?.(`\xA1Nivel ${e}!`, '', 1800),
-    await Yu(1500),
-    o.hasScreen('nivel') && !t.params?.has?.('autonivel'))
+    (explore.hud?.banner?.(`\xA1Nivel ${level}!`, '', 1800),
+    await sleep(1500),
+    explore.hasScreen('nivel') && !game.params?.has?.('autonivel'))
   )
-    await o.openScreen('nivel', { level: e });
+    await explore.openScreen('nivel', { level });
   else {
-    let n = a.call('cp_level_up', { cp: t.store.cp, level: e });
-    if (n?.cp) a.apply(n);
+    let res = rules.call('cp_level_up', { cp: game.store.cp, level });
+    if (res?.cp) rules.apply(res);
     else {
-      a.fallback('cp_level_up');
-      let s = t.store.cp,
-        i = {};
-      for (let r of s.party) i[r] = a.hp(r).max;
-      s.party_level = e;
-      for (let r of s.party) {
-        let l = a.state(r);
-        delete l.max_hp;
-        let c = a.maxHpGuess(r);
-        ((l.max_hp = c), (l.hp = Math.min(c, (l.hp ?? c) + (c - i[r]))), (l.hit_dice = e));
+      rules.fallback('cp_level_up');
+      let cp = game.store.cp,
+        oldMax = {};
+      for (let id of cp.party) oldMax[id] = rules.hp(id).max;
+      cp.party_level = level;
+      for (let id of cp.party) {
+        let st = rules.state(id);
+        delete st.max_hp;
+        let max = rules.maxHpGuess(id);
+        ((st.max_hp = max),
+          (st.hp = Math.min(max, (st.hp ?? max) + (max - oldMax[id]))),
+          (st.hit_dice = level));
       }
-      t.store.set(s);
+      game.store.set(cp);
     }
-    (o.toast(`El grupo sube a nivel ${e}.`, 'oro', 5e3), t.bus.emit('levelup', { level: e }));
+    (explore.toast(`El grupo sube a nivel ${level}.`, 'oro', 5e3), game.bus.emit('levelup', { level }));
   }
-  await o.rebuildParty();
+  await explore.rebuildParty();
 }
-async function Bk(o, e) {
-  let t = o.game;
+/** Derrota: pantalla «derrota» o diálogo para cargar la partida automática o volver al menú. */
+async function defeat(explore, text) {
+  let game = explore.game;
   if (
-    ((o.inBattle = !1),
-    (o.busyN = Math.max(0, o.busyN - 1)),
-    t.bus.emit('game:over', { level: o.levelId, text: e }),
-    o.hasScreen('derrota'))
+    ((explore.inBattle = !1),
+    (explore.busyN = Math.max(0, explore.busyN - 1)),
+    game.bus.emit('game:over', { level: explore.levelId, text }),
+    explore.hasScreen('derrota'))
   )
-    return (await t.ui.open('derrota', { text: e, level: o.levelId }), { won: !1, fled: !1 });
-  let n =
-    (await o.choose({
+    return (await game.ui.open('derrota', { text, level: explore.levelId }), { won: !1, fled: !1 });
+  let saved =
+    (await explore.choose({
       speaker: 'Derrota',
-      text: `*${e || 'El \xFAltimo de vosotros cae. La oscuridad se cierra sobre el prado y, muy por debajo, algo sonr\xEDe.'}*`,
+      text: `*${text || 'El \xFAltimo de vosotros cae. La oscuridad se cierra sobre el prado y, muy por debajo, algo sonr\xEDe.'}*`,
       options: [
         { text: 'Cargar la \xFAltima partida autom\xE1tica', value: 'load' },
         { text: 'Volver al men\xFA principal', kind: 'end', value: 'menu' },
       ],
     })) === 'load'
-      ? await t.store.load('auto')
+      ? await game.store.load('auto')
       : null;
   return (
-    n?.location?.level
-      ? ((t.store.cp = t.rules?.('cp_load', { cp: n })?.cp || n),
-        t.go('explore', { level: n.location.level, spawn: 'saved' }))
-      : t.go('menu'),
+    saved?.location?.level
+      ? ((game.store.cp = game.rules?.('cp_load', { cp: saved })?.cp || saved),
+        game.go('explore', { level: saved.location.level, spawn: 'saved' }))
+      : game.go('menu'),
     { won: !1, fled: !1 }
   );
 }
-async function Gk(o, e, { flee: t = !1 } = {}) {
-  let a = o.groups.get(e);
-  if (!a) return;
-  (await a.ready, o.ls.gone.includes(e) || o.ls.gone.push(e), o.groups.delete(e));
-  let n = o.lead(),
-    s = a.enemies
-      .filter((i) => !i.dead && i.actor)
-      .map(async (i) => {
-        let r = o.xmap
-          .freeNear(i.cell, 30, o.blocked(!0), { maxR: 9 })
-          .sort((d, u) => hexDistance(u, n?.cell || i.cell) - hexDistance(d, n?.cell || i.cell))[0];
-        if (r) {
-          let d = o.xmap.path(i.cell, r, o.blocked(!0)).slice(1, 9);
-          await qk(o, i.actor, d, { speed: t ? 4.2 : 2.2, anim: t ? 'run' : 'walk' });
+/** Un grupo enemigo se marcha (tras hablar, o huyendo con `flee`) y desaparece del nivel. */
+async function withdrawGroup(explore, gid, { flee = !1 } = {}) {
+  let group = explore.groups.get(gid);
+  if (!group) return;
+  (await group.ready, explore.ls.gone.includes(gid) || explore.ls.gone.push(gid), explore.groups.delete(gid));
+  let lead = explore.lead(),
+    moves = group.enemies
+      .filter((en) => !en.dead && en.actor)
+      .map(async (en) => {
+        let dest = explore.xmap
+          .freeNear(en.cell, 30, explore.blocked(!0), { maxR: 9 })
+          .sort((a, b) => hexDistance(b, lead?.cell || en.cell) - hexDistance(a, lead?.cell || en.cell))[0];
+        if (dest) {
+          let path = explore.xmap.path(en.cell, dest, explore.blocked(!0)).slice(1, 9);
+          await walkPath(explore, en.actor, path, { speed: flee ? 4.2 : 2.2, anim: flee ? 'run' : 'walk' });
         }
-        let l = i.actor.root,
-          c = l.scale.x;
-        (await Dc(0.5, (d) => l.scale.setScalar(c * Math.max(0.001, 1 - d))), i.actor.dispose());
+        let root = en.actor.root,
+          scale0 = root.scale.x;
+        (await tween(0.5, (k) => root.scale.setScalar(scale0 * Math.max(0.001, 1 - k))), en.actor.dispose());
       });
-  await Promise.all(s);
+  await Promise.all(moves);
 }
-async function fN(o, e, t) {
-  let a = o.rules;
-  o.toast(
+/** Combate automático (sin el área de combate): turnos del núcleo con ai_turn hasta que acabe. */
+async function autoBattle(explore, init, actors) {
+  let rules = explore.rules;
+  explore.toast(
     'Combate autom\xE1tico (sustituto: el combate t\xE1ctico de Combate todav\xEDa no est\xE1 enganchado).',
     'apagado',
     6e3,
   );
-  let n = [],
-    s = e.state;
-  await ay(o, e.events || [], t, n);
-  let i = 0;
-  for (; s && !s.over && i++ < 600 && !o.disposed;) {
-    let r = (s.creatures || []).find((c) => c.id === s.current);
-    if (r && r.hp > 0 && !r.dead) {
-      let c = t.get(r.id);
-      c && o.camera.focus(c.root.position);
-      let d = a.call('ai_turn');
-      await ay(o, d?.events || [], t, n);
+  let log = [],
+    state = init.state;
+  await playEvents(explore, init.events || [], actors, log);
+  let guard = 0;
+  for (; state && !state.over && guard++ < 600 && !explore.disposed;) {
+    let cur = (state.creatures || []).find((c) => c.id === state.current);
+    if (cur && cur.hp > 0 && !cur.dead) {
+      let actor = actors.get(cur.id);
+      actor && explore.camera.focus(actor.root.position);
+      let res = rules.call('ai_turn');
+      await playEvents(explore, res?.events || [], actors, log);
     }
-    if (((s = a.call('state')), !s || s.over)) break;
-    let l = a.call('end_turn');
-    (await ay(o, l?.events || [], t, n), (s = a.call('state')));
+    if (((state = rules.call('state')), !state || state.over)) break;
+    let res = rules.call('end_turn');
+    (await playEvents(explore, res?.events || [], actors, log), (state = rules.call('state')));
   }
-  return (await Yu(500 / (o.turbo || 1)), { won: s?.winner === 0, fled: !1, events: n });
+  return (await sleep(500 / (explore.turbo || 1)), { won: state?.winner === 0, fled: !1, events: log });
 }
-async function ay(o, e, t, a) {
-  let n = (s) => Yu(s / (o.turbo || 1));
-  for (let s of e) {
-    (a.push(s), o.game.bus.emit('battle:event', { ev: s }));
-    let i = s.who ? t.get(s.who) : null;
+/** Representa los eventos del núcleo (move, attack, damage, heal, cast, death…) con animaciones. */
+async function playEvents(explore, events, actors, log) {
+  let wait = (ms) => sleep(ms / (explore.turbo || 1));
+  for (let ev of events) {
+    (log.push(ev), explore.game.bus.emit('battle:event', { ev }));
+    let actor = ev.who ? actors.get(ev.who) : null;
     try {
-      switch (s.t) {
+      switch (ev.t) {
         case 'turn':
-          o.game.bus.emit('battle:turn', { creature: s.who, isPc: !!o.member(s.who) });
+          explore.game.bus.emit('battle:turn', { creature: ev.who, isPc: !!explore.member(ev.who) });
           break;
         case 'move': {
-          if (!i) break;
-          let r = (s.path || []).slice(1);
-          await qk(o, i, r, { speed: s.dash ? 5 : 3.6 });
-          let l = o.member(s.who);
-          l && r.length && (l.cell = r[r.length - 1].slice());
-          let c = o.enemy(s.who);
-          c && r.length && (c.cell = r[r.length - 1].slice());
+          if (!actor) break;
+          let path = (ev.path || []).slice(1);
+          await walkPath(explore, actor, path, { speed: ev.dash ? 5 : 3.6 });
+          let m = explore.member(ev.who);
+          m && path.length && (m.cell = path[path.length - 1].slice());
+          let en = explore.enemy(ev.who);
+          en && path.length && (en.cell = path[path.length - 1].slice());
           break;
         }
         case 'attack': {
-          let r = t.get(s.target);
-          if (!i || !r) break;
-          ny(i, r);
-          let l = i.once(s.kind === 'melee' ? 'attack_melee' : 'attack_ranged', { speed: 1.3 });
-          (await n(380),
-            s.hit
-              ? r.once('hit', { speed: 1.2 })
-              : o.overlay.float((c) => r.head(c), s.natural === 1 ? 'Pifia' : 'Falla', 'apagado', { dur: 1 }),
-            await l);
+          let target = actors.get(ev.target);
+          if (!actor || !target) break;
+          faceActor(actor, target);
+          let anim = actor.once(ev.kind === 'melee' ? 'attack_melee' : 'attack_ranged', { speed: 1.3 });
+          (await wait(380),
+            ev.hit
+              ? target.once('hit', { speed: 1.2 })
+              : explore.overlay.float(
+                  (v) => target.head(v),
+                  ev.natural === 1 ? 'Pifia' : 'Falla',
+                  'apagado',
+                  { dur: 1 },
+                ),
+            await anim);
           break;
         }
         case 'damage':
-          (i &&
-            s.amount > 0 &&
-            o.overlay.float((r) => i.head(r), `${s.amount}`, o.member(s.who) ? 'mal' : '', {
+          (actor &&
+            ev.amount > 0 &&
+            explore.overlay.float((v) => actor.head(v), `${ev.amount}`, explore.member(ev.who) ? 'mal' : '', {
               dur: 1.1,
-              size: s.crit ? 1.4 : 1.1,
+              size: ev.crit ? 1.4 : 1.1,
             }),
-            await n(150));
+            await wait(150));
           break;
         case 'heal':
-          i && s.amount > 0 && o.overlay.float((r) => i.head(r), `+${s.amount}`, 'bien', { dur: 1.1 });
+          actor &&
+            ev.amount > 0 &&
+            explore.overlay.float((v) => actor.head(v), `+${ev.amount}`, 'bien', { dur: 1.1 });
           break;
         case 'cast':
-          i &&
-            (o.overlay.float((r) => i.head(r), s.name || 'Conjuro', 'magia', { dur: 1.1 }),
-            await i.once('cast', { speed: 1.3 }));
+          actor &&
+            (explore.overlay.float((v) => actor.head(v), ev.name || 'Conjuro', 'magia', { dur: 1.1 }),
+            await actor.once('cast', { speed: 1.3 }));
           break;
         case 'downed':
         case 'death':
-          if (i) {
-            ((i.ch._mdgDown = !0), i.once('die', { hold: !0 }));
-            let r = o.enemy(s.who);
-            r && s.t === 'death' && (r.dead = !0);
-            let l = o.member(s.who);
-            l && (l.down = !0);
+          if (actor) {
+            ((actor.ch._mdgDown = !0), actor.once('die', { hold: !0 }));
+            let en = explore.enemy(ev.who);
+            en && ev.t === 'death' && (en.dead = !0);
+            let m = explore.member(ev.who);
+            m && (m.down = !0);
           }
-          await n(400);
+          await wait(400);
           break;
         case 'revive':
         case 'stand':
-          i && ((i.ch._mdgDown = !1), (i.cur = null), i.anim('idle'));
+          actor && ((actor.ch._mdgDown = !1), (actor.cur = null), actor.anim('idle'));
           break;
         default:
           break;
       }
-    } catch (r) {
-      console.warn('[exploraci\xF3n] evento', s.t, r);
+    } catch (err) {
+      console.warn('[exploraci\xF3n] evento', ev.t, err);
     }
   }
 }
-async function mN(o, e, t) {
-  let a = o.rules;
-  (o.rules.fallback('battle_start'),
-    o.toast('Combate simulado (sustituto: el n\xFAcleo todav\xEDa no tiene battle_start).', 'apagado', 6e3));
-  let n = e.flatMap((c) => c.enemies.filter((d) => !d.dead)),
-    s = new Map(n.map((c) => [c.id, a.monster(c.monster).hp || 8])),
-    i = a.level(),
-    r = o.members.reduce((c, d) => c + a.hp(d.id).hp, 0),
-    l = 0;
-  for (; n.some((c) => !c.dead) && r > 0 && l++ < 30 && !o.disposed;) {
-    for (let c of o.members) {
-      let d = n.find((p) => !p.dead);
-      if (!d) break;
-      (ny(c.actor, d.actor), o.camera.focus(d.actor.root.position));
-      let u = c.actor.once('attack_melee', { speed: 1.4 });
-      await Yu(300 / (o.turbo || 1));
-      let h = a.d20() + 3 >= 13 ? rollDice('1d8', a.rng) + 2 + i : 0;
-      (h
-        ? (d.actor.once('hit'),
-          o.overlay.float((p) => d.actor.head(p), `${h}`, '', { dur: 1 }),
-          s.set(d.id, s.get(d.id) - h),
-          s.get(d.id) <= 0 && ((d.dead = !0), (d.actor.ch._mdgDown = !0), d.actor.once('die', { hold: !0 })))
-        : o.overlay.float((p) => d.actor.head(p), 'Falla', 'apagado', { dur: 1 }),
-        await u);
+/** Combate simulado en JS (sin battle_start en el núcleo): golpes simples hasta que caiga un bando. */
+async function simulatedBattle(explore, groups, actors) {
+  let rules = explore.rules;
+  (explore.rules.fallback('battle_start'),
+    explore.toast(
+      'Combate simulado (sustituto: el n\xFAcleo todav\xEDa no tiene battle_start).',
+      'apagado',
+      6e3,
+    ));
+  let enemies = groups.flatMap((g) => g.enemies.filter((en) => !en.dead)),
+    hp = new Map(enemies.map((en) => [en.id, rules.monster(en.monster).hp || 8])),
+    level = rules.level(),
+    partyHp = explore.members.reduce((sum, m) => sum + rules.hp(m.id).hp, 0),
+    rounds = 0;
+  for (; enemies.some((en) => !en.dead) && partyHp > 0 && rounds++ < 30 && !explore.disposed;) {
+    for (let m of explore.members) {
+      let target = enemies.find((en) => !en.dead);
+      if (!target) break;
+      (faceActor(m.actor, target.actor), explore.camera.focus(target.actor.root.position));
+      let anim = m.actor.once('attack_melee', { speed: 1.4 });
+      await sleep(300 / (explore.turbo || 1));
+      let dmg = rules.d20() + 3 >= 13 ? rollDice('1d8', rules.rng) + 2 + level : 0;
+      (dmg
+        ? (target.actor.once('hit'),
+          explore.overlay.float((v) => target.actor.head(v), `${dmg}`, '', { dur: 1 }),
+          hp.set(target.id, hp.get(target.id) - dmg),
+          hp.get(target.id) <= 0 &&
+            ((target.dead = !0), (target.actor.ch._mdgDown = !0), target.actor.once('die', { hold: !0 })))
+        : explore.overlay.float((v) => target.actor.head(v), 'Falla', 'apagado', { dur: 1 }),
+        await anim);
     }
-    for (let c of n.filter((d) => !d.dead)) {
-      let d = o.members[Math.floor(a.rng() * o.members.length)];
-      ny(c.actor, d.actor);
-      let u = c.actor.once('attack_melee', { speed: 1.4 });
-      if ((await Yu(250 / (o.turbo || 1)), a.d20() + 4 >= 14)) {
-        let h = rollDice('1d6', a.rng) + 1;
-        r -= h;
-        let p = a.state(d.id);
-        ((p.hp = Math.max(1, a.hp(d.id).hp - h)),
-          d.actor.once('hit'),
-          o.overlay.float((m) => d.actor.head(m), `${h}`, 'mal', { dur: 1 }));
+    for (let en of enemies.filter((en) => !en.dead)) {
+      let target = explore.members[Math.floor(rules.rng() * explore.members.length)];
+      faceActor(en.actor, target.actor);
+      let anim = en.actor.once('attack_melee', { speed: 1.4 });
+      if ((await sleep(250 / (explore.turbo || 1)), rules.d20() + 4 >= 14)) {
+        let dmg = rollDice('1d6', rules.rng) + 1;
+        partyHp -= dmg;
+        let st = rules.state(target.id);
+        ((st.hp = Math.max(1, rules.hp(target.id).hp - dmg)),
+          target.actor.once('hit'),
+          explore.overlay.float((v) => target.actor.head(v), `${dmg}`, 'mal', { dur: 1 }));
       }
-      await u;
+      await anim;
     }
   }
-  return (o.game.store.set(o.game.store.cp), { won: r > 0, fled: !1 });
+  return (explore.game.store.set(explore.game.store.cp), { won: partyHp > 0, fled: !1 });
 }
-const Yu = (o) => new Promise((e) => setTimeout(e, o));
-const Ok = MathUtils.radToDeg;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const radToDeg = MathUtils.radToDeg;
 
-export { Gk, Uk, Uo };
+export { withdrawGroup, attackEnemy, startBattle };

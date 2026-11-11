@@ -1,173 +1,195 @@
-// explore/animals.js
-// Reconstruido de publicado/juego.js (módulo __esm «Qk»). Nombres locales aún minificados.
+// explore/animals.js — Vida de fondo de la exploración: animales que pastan y deambulan cerca de su sitio
+// (y huyen de los combates) y la charla ambiental (PNJ que saludan al acercarse el grupo y diálogos entre
+// compañeros de `story.banter`). Lo usa explore/index.js (`this.animals`, `this.banter`).
+// Reconstruido de publicado/juego.js (módulo __esm «Qk»).
 
 import { MathUtils, Vector3 } from 'three';
 import { hexDistance, HEX_SIZE } from './hex.js';
 
-const go = (o, e) => o + Math.random() * (e - o);
-const g0 = class {
-  constructor(e) {
-    ((this.x = e), (this.list = []), (this.v = new Vector3()));
+/** Número aleatorio uniforme en [min, max). */
+const randRange = (min, max) => min + Math.random() * (max - min);
+/** Animales del nivel. `explore` es la instancia de Explore (factory, world, xmap, three). */
+const AmbientAnimals = class {
+  constructor(explore) {
+    ((this.x = explore), (this.list = []), (this.v = new Vector3()));
   }
-  async spawn(e) {
-    let t = this.x,
-      a = await Promise.all(e.map((n) => t.factory.animal(n.kind).catch(() => null)));
-    e.forEach((n, s) => {
-      let i = a[s];
-      if (!i || t.disposed) return;
-      let r = t.world.cellToWorld(n.cell);
-      ((r.x += go(-0.3, 0.3)),
-        (r.z += go(-0.3, 0.3)),
-        i.root.position.copy(r),
-        (i.root.rotation.y = n.rot != null ? MathUtils.degToRad(n.rot) : go(0, Math.PI * 2)),
-        t.three.add(i.root),
-        i.anim('idle', { speed: go(0.85, 1.1) }),
+  /** Crea los animales de `defs` ({kind, cell, rot, wander}) y los coloca en su casilla. */
+  async spawn(defs) {
+    let x = this.x,
+      actors = await Promise.all(defs.map((def) => x.factory.animal(def.kind).catch(() => null)));
+    defs.forEach((def, i) => {
+      let actor = actors[i];
+      if (!actor || x.disposed) return;
+      let pos = x.world.cellToWorld(def.cell);
+      ((pos.x += randRange(-0.3, 0.3)),
+        (pos.z += randRange(-0.3, 0.3)),
+        actor.root.position.copy(pos),
+        (actor.root.rotation.y = def.rot != null ? MathUtils.degToRad(def.rot) : randRange(0, Math.PI * 2)),
+        x.three.add(actor.root),
+        actor.anim('idle', { speed: randRange(0.85, 1.1) }),
         this.list.push({
-          actor: i,
-          kind: n.kind,
-          home: r.clone(),
-          radius: (n.wander ?? 0) * HEX_SIZE,
+          actor,
+          kind: def.kind,
+          home: pos.clone(),
+          radius: (def.wander ?? 0) * HEX_SIZE,
           state: 'idle',
-          timer: go(0.5, 5),
+          timer: randRange(0.5, 5),
           target: new Vector3(),
           speed: 0.45,
-          yaw: i.root.rotation.y,
+          yaw: actor.root.rotation.y,
         }));
     });
   }
-  walkableAt(e) {
-    let t = this.x.world.worldToCell(e);
-    return this.x.xmap.walkable(t);
+  /** ¿La posición de mundo cae en una casilla transitable? */
+  walkableAt(pos) {
+    let cell = this.x.world.worldToCell(pos);
+    return this.x.xmap.walkable(cell);
   }
-  update(e) {
-    for (let t of this.list) {
-      (t.actor.update(e), (t.timer -= e));
-      let a = t.actor.root;
-      if (t.state === 'walk') {
-        let n = t.target.x - a.position.x,
-          s = t.target.z - a.position.z,
-          i = Math.hypot(n, s);
-        if (i < 0.06 || t.timer <= 0) {
-          this.idle(t);
+  /** Máquina de estados de cada animal: quieto/comiendo o caminando hacia un punto de su zona. */
+  update(dt) {
+    for (let a of this.list) {
+      (a.actor.update(dt), (a.timer -= dt));
+      let root = a.actor.root;
+      if (a.state === 'walk') {
+        let dx = a.target.x - root.position.x,
+          dz = a.target.z - root.position.z,
+          dist = Math.hypot(dx, dz);
+        if (dist < 0.06 || a.timer <= 0) {
+          this.idle(a);
           continue;
         }
-        t.yaw = Math.atan2(n, s);
-        let r = t.yaw - a.rotation.y;
-        ((r = Math.atan2(Math.sin(r), Math.cos(r))), (a.rotation.y += r * Math.min(1, e * 4)));
-        let l = Math.min(i, t.speed * e),
-          c = a.position.x + (n / i) * l,
-          d = a.position.z + (s / i) * l;
-        (this.v.set(c, 0, d),
+        a.yaw = Math.atan2(dx, dz);
+        let turn = a.yaw - root.rotation.y;
+        ((turn = Math.atan2(Math.sin(turn), Math.cos(turn))),
+          (root.rotation.y += turn * Math.min(1, dt * 4)));
+        let step = Math.min(dist, a.speed * dt),
+          nx = root.position.x + (dx / dist) * step,
+          nz = root.position.z + (dz / dist) * step;
+        (this.v.set(nx, 0, nz),
           this.walkableAt(this.v)
-            ? ((a.position.x = c),
-              (a.position.z = d),
-              this.x.world.heightAt && (a.position.y = this.x.world.heightAt(c, d)))
-            : this.idle(t));
+            ? ((root.position.x = nx),
+              (root.position.z = nz),
+              this.x.world.heightAt && (root.position.y = this.x.world.heightAt(nx, nz)))
+            : this.idle(a));
         continue;
       }
-      if (!(t.timer > 0))
-        if (t.radius > 0.1 && Math.random() < 0.45) {
-          let n = go(0, Math.PI * 2);
+      if (!(a.timer > 0))
+        if (a.radius > 0.1 && Math.random() < 0.45) {
+          let angle = randRange(0, Math.PI * 2);
           if (
-            (t.target
-              .copy(t.home)
-              .add(new Vector3(Math.cos(n), 0, Math.sin(n)).multiplyScalar(go(0.2, t.radius))),
-            !this.walkableAt(t.target))
+            (a.target
+              .copy(a.home)
+              .add(new Vector3(Math.cos(angle), 0, Math.sin(angle)).multiplyScalar(randRange(0.2, a.radius))),
+            !this.walkableAt(a.target))
           ) {
-            t.timer = go(1, 3);
+            a.timer = randRange(1, 3);
             continue;
           }
-          ((t.state = 'walk'), (t.timer = 8), (t.speed = 0.45), t.actor.anim('walk', { mps: t.speed }));
-        } else (this.idle(t), Math.random() < 0.3 && (t.actor.root.rotation.y += go(-1, 1)));
+          ((a.state = 'walk'), (a.timer = 8), (a.speed = 0.45), a.actor.anim('walk', { mps: a.speed }));
+        } else (this.idle(a), Math.random() < 0.3 && (a.actor.root.rotation.y += randRange(-1, 1)));
     }
   }
-  idle(e) {
-    e.state = 'idle';
-    let t = e.actor.logical && e.actor.ch.has?.('eat') && Math.random() < 0.45;
-    (e.actor.anim(t ? 'eat' : 'idle', { speed: go(0.85, 1.1) }), (e.timer = go(3, 9)), (e.speed = 0.45));
+  /** Pasa el animal a reposo (a veces comiendo) durante 3–9 s. */
+  idle(a) {
+    a.state = 'idle';
+    let eat = a.actor.logical && a.actor.ch.has?.('eat') && Math.random() < 0.45;
+    (a.actor.anim(eat ? 'eat' : 'idle', { speed: randRange(0.85, 1.1) }),
+      (a.timer = randRange(3, 9)),
+      (a.speed = 0.45));
   }
-  flee(e) {
-    for (let t of this.list) {
-      let a = t.actor.root.position,
-        n = null;
-      for (let r of e) r.distanceTo(a) < 10 && (!n || r.distanceTo(a) < n.distanceTo(a)) && (n = r);
-      if (!n) continue;
-      let s = a.clone().sub(n).setY(0);
-      (s.lengthSq() < 1e-4 && s.set(1, 0, 0), s.normalize());
-      let i = null;
-      for (let r = 8; r >= 2; r -= 1.5) {
-        let l = a.clone().addScaledVector(s, r);
-        if (this.walkableAt(l)) {
-          i = l;
+  /** Los animales a menos de 10 m de alguna amenaza (Vector3) corren en dirección contraria. */
+  flee(threats) {
+    for (let a of this.list) {
+      let pos = a.actor.root.position,
+        nearest = null;
+      for (let p of threats)
+        p.distanceTo(pos) < 10 && (!nearest || p.distanceTo(pos) < nearest.distanceTo(pos)) && (nearest = p);
+      if (!nearest) continue;
+      let dir = pos.clone().sub(nearest).setY(0);
+      (dir.lengthSq() < 1e-4 && dir.set(1, 0, 0), dir.normalize());
+      let dest = null;
+      for (let d = 8; d >= 2; d -= 1.5) {
+        let p = pos.clone().addScaledVector(dir, d);
+        if (this.walkableAt(p)) {
+          dest = p;
           break;
         }
       }
-      i &&
-        (t.target.copy(i),
-        t.home.copy(i),
-        (t.radius = Math.min(t.radius, 0.8)),
-        (t.state = 'walk'),
-        (t.timer = 10),
-        (t.speed = 2.4),
-        t.actor.anim('run', { mps: t.speed }));
+      dest &&
+        (a.target.copy(dest),
+        a.home.copy(dest),
+        (a.radius = Math.min(a.radius, 0.8)),
+        (a.state = 'walk'),
+        (a.timer = 10),
+        (a.speed = 2.4),
+        a.actor.anim('run', { mps: a.speed }));
     }
   }
   dispose() {
-    for (let e of this.list) e.actor.dispose();
+    for (let a of this.list) a.actor.dispose();
     this.list = [];
   }
 };
-const b0 = class {
-  constructor(e) {
-    ((this.x = e), (this.t = go(16, 24)), (this.greeted = new Set()), (this.npcT = 0), (this.playing = !1));
+/** Charla ambiental: saludos de PNJ y conversaciones del grupo cada 18–26 s de marcha. */
+const Banter = class {
+  constructor(explore) {
+    ((this.x = explore),
+      (this.t = randRange(16, 24)),
+      (this.greeted = new Set()),
+      (this.npcT = 0),
+      (this.playing = !1));
   }
-  update(e) {
-    let t = this.x;
-    if (!t.isBusy()) {
-      if (((this.npcT -= e), this.npcT <= 0)) {
+  update(dt) {
+    let x = this.x;
+    if (!x.isBusy()) {
+      if (((this.npcT -= dt), this.npcT <= 0)) {
         this.npcT = 0.5;
-        let a = t.lead();
-        if (a)
-          for (let [n, s] of t.npcs) {
-            if (s.path.length) continue;
-            let i = hexDistance(s.cell, a.cell);
+        let lead = x.lead();
+        if (lead)
+          for (let [id, npc] of x.npcs) {
+            if (npc.path.length) continue;
+            let dist = hexDistance(npc.cell, lead.cell);
             if (
-              i <= 4 &&
-              ((s.lookAt = a.actor.root.position.clone()), (s.talkT = 2), i <= 3 && !this.greeted.has(n))
+              dist <= 4 &&
+              ((npc.lookAt = lead.actor.root.position.clone()),
+              (npc.talkT = 2),
+              dist <= 3 && !this.greeted.has(id))
             ) {
-              this.greeted.add(n);
-              let r = s.def.bark || (s.def.greet ? [].concat(s.def.greet)[0] : null);
-              r && r.length < 160 && t.say(n, r.replace(/^«|»$/g, ''), { dur: 3.4 });
+              this.greeted.add(id);
+              let line = npc.def.bark || (npc.def.greet ? [].concat(npc.def.greet)[0] : null);
+              line && line.length < 160 && x.say(id, line.replace(/^«|»$/g, ''), { dur: 3.4 });
             }
           }
       }
       this.playing ||
-        t.members.length < 2 ||
-        ((this.t -= t.lead()?.moving ? e : e * 0.15), !(this.t > 0) && ((this.t = go(18, 26)), this.play()));
+        x.members.length < 2 ||
+        ((this.t -= x.lead()?.moving ? dt : dt * 0.15),
+        !(this.t > 0) && ((this.t = randRange(18, 26)), this.play()));
     }
   }
+  /** Pide a la historia una charla para el lugar y el grupo actuales y la muestra en bocadillos. */
   async play() {
-    let e = this.x,
-      t = e.game.story;
-    if (typeof t?.banter != 'function') return;
-    let a;
+    let x = this.x,
+      story = x.game.story;
+    if (typeof story?.banter != 'function') return;
+    let lines;
     try {
-      a = await t.banter({
-        level: e.levelId,
-        cell: e.lead()?.cell,
-        members: e.members.map((n) => n.id),
-        explore: e.game.explore,
+      lines = await story.banter({
+        level: x.levelId,
+        cell: x.lead()?.cell,
+        members: x.members.map((m) => m.id),
+        explore: x.game.explore,
       });
-    } catch (n) {
-      console.warn('[exploraci\xF3n] banter', n);
+    } catch (err) {
+      console.warn('[exploraci\xF3n] banter', err);
       return;
     }
-    if (!(!Array.isArray(a) || !a.length)) {
+    if (!(!Array.isArray(lines) || !lines.length)) {
       this.playing = !0;
       try {
-        for (let n of a) {
-          if (e.isBusy() || e.disposed) break;
-          (!e.member(n.who) && !e.npcs.has(n.who)) || (await e.say(n.who, n.text));
+        for (let line of lines) {
+          if (x.isBusy() || x.disposed) break;
+          (!x.member(line.who) && !x.npcs.has(line.who)) || (await x.say(line.who, line.text));
         }
       } finally {
         this.playing = !1;
@@ -176,4 +198,4 @@ const b0 = class {
   }
 };
 
-export { b0, g0 };
+export { Banter, AmbientAnimals };

@@ -1,114 +1,127 @@
-// scenes/creator.js
-// Reconstruido de publicado/juego.js (módulo __esm «CM»). Nombres locales aún minificados.
+// scenes/creator.js — Escena «creator»: el creador de personajes (ui/creator.js) sobre la vista previa
+// 3D del héroe (actors/outfits.js). Al terminar crea la campaña (cp_new con Brenna), lanza el prólogo de la
+// historia y entra en Merrowick. Admite ?clase, ?especie y ?paso. La registra ui/index.js.
+// Reconstruido de publicado/juego.js (módulo __esm «CM»).
 
 import { mu } from '../actors/outfits.js';
 import { buildCreator } from '../ui/creator.js';
 
-async function crearEscenaCreator(o, e = {}) {
-  let t = o.ui,
-    a = t.R;
-  (await t.ready, t.loading('Preparando el creador'));
-  let n = o.stage,
-    s = n.camera,
-    i = n.controls,
-    r = {
-      pos: s.position.clone(),
-      target: i.target.clone(),
-      enabled: i.enabled,
-      min: i.minDistance,
-      max: i.maxDistance,
-      minP: i.minPolarAngle,
-      maxP: i.maxPolarAngle,
-      damping: i.enableDamping,
+/** Crea la escena del creador (exportada como `create`). Bloquea los OrbitControls y los restaura al salir. */
+async function crearEscenaCreator(game, params = {}) {
+  let ui = game.ui,
+    rules = ui.R;
+  (await ui.ready, ui.loading('Preparando el creador'));
+  let stage = game.stage,
+    camera = stage.camera,
+    controls = stage.controls,
+    saved = {
+      pos: camera.position.clone(),
+      target: controls.target.clone(),
+      enabled: controls.enabled,
+      min: controls.minDistance,
+      max: controls.maxDistance,
+      minP: controls.minPolarAngle,
+      maxP: controls.maxPolarAngle,
+      damping: controls.enableDamping,
     };
-  ((i.enabled = !1),
-    (i.enableDamping = !1),
-    (i.minDistance = 0.1),
-    (i.maxDistance = 100),
-    (i.minPolarAngle = 0),
-    (i.maxPolarAngle = Math.PI));
-  let l = new mu(o),
-    c = a.sheetNew({ ...(e.clase ? { class: e.clase } : {}), ...(e.especie ? { species: e.especie } : {}) });
-  if (!c || c.error)
+  ((controls.enabled = !1),
+    (controls.enableDamping = !1),
+    (controls.minDistance = 0.1),
+    (controls.maxDistance = 100),
+    (controls.minPolarAngle = 0),
+    (controls.maxPolarAngle = Math.PI));
+  let preview = new mu(game),
+    res = rules.sheetNew({
+      ...(params.clase ? { class: params.clase } : {}),
+      ...(params.especie ? { species: params.especie } : {}),
+    });
+  if (!res || res.error)
     return (
-      t.loading(null),
-      await t.message(
+      ui.loading(null),
+      await ui.message(
         'No se puede crear el h\xE9roe',
-        `El n\xFAcleo de reglas no responde (${c?.error || 'sin respuesta'}).`,
+        `El n\xFAcleo de reglas no responde (${res?.error || 'sin respuesta'}).`,
       ),
-      o.go('menu'),
-      { three: l.scene, dispose: () => l.dispose() }
+      game.go('menu'),
+      { three: preview.scene, dispose: () => preview.dispose() }
     );
-  let d = !1,
-    u = buildCreator(t, o, {
+  let finished = !1,
+    creator = buildCreator(ui, game, {
       mode: 'create',
-      sheet: c.sheet,
-      options: c.options,
-      onChange: (m) => l.setHero(m),
-      onDrag: (m) => l.drag(m),
+      sheet: res.sheet,
+      options: res.options,
+      onChange: (sheet) => preview.setHero(sheet),
+      onDrag: (dx) => preview.drag(dx),
       onCancel: async () => {
-        (await t.confirm('Volver\xE1s al men\xFA principal y este h\xE9roe se perder\xE1.', {
+        (await ui.confirm('Volver\xE1s al men\xFA principal y este h\xE9roe se perder\xE1.', {
           titulo: '\xBFSalir del creador?',
           si: 'Salir',
           no: 'Seguir creando',
-        })) && o.go('menu');
+        })) && game.go('menu');
       },
-      onFinish: async (m) => {
-        if (d) return;
-        let _ = a.cpNew(m, ['brenna']);
-        if (!_ || _.error || !_.cp) {
-          t.toast(`No se ha podido empezar la partida: ${_?.error || 'sin respuesta del n\xFAcleo'}`, 'mal');
+      onFinish: async (hero) => {
+        if (finished) return;
+        let res = rules.cpNew(hero, ['brenna']);
+        if (!res || res.error || !res.cp) {
+          ui.toast(
+            `No se ha podido empezar la partida: ${res?.error || 'sin respuesta del n\xFAcleo'}`,
+            'mal',
+          );
           return;
         }
-        ((d = !0),
-          o.store.start(_.cp),
-          u.el.classList.add('cierra'),
-          (u.el.style.transition = 'opacity .5s'),
-          (u.el.style.opacity = '0'),
-          (u.el.style.pointerEvents = 'none'),
-          o.store.save('auto').catch(() => null));
+        ((finished = !0),
+          game.store.start(res.cp),
+          creator.el.classList.add('cierra'),
+          (creator.el.style.transition = 'opacity .5s'),
+          (creator.el.style.opacity = '0'),
+          (creator.el.style.pointerEvents = 'none'),
+          game.store.save('auto').catch(() => null));
         try {
-          await o.story?.prologue?.();
-        } catch (b) {
-          console.warn('[creador] pr\xF3logo', b);
+          await game.story?.prologue?.();
+        } catch (err) {
+          console.warn('[creador] pr\xF3logo', err);
         }
-        o.scenes.registry.has('explore')
-          ? o.go('explore', { level: 'merrowick', spawn: 'arrival' })
-          : (await t.message(
+        game.scenes.registry.has('explore')
+          ? game.go('explore', { level: 'merrowick', spawn: 'arrival' })
+          : (await ui.message(
               '\xA1H\xE9roe creado!',
-              `${m.name} est\xE1 listo para partir hacia Merrowick, pero la exploraci\xF3n a\xFAn no est\xE1 montada en esta versi\xF3n.`,
+              `${hero.name} est\xE1 listo para partir hacia Merrowick, pero la exploraci\xF3n a\xFAn no est\xE1 montada en esta versi\xF3n.`,
               { boton: 'Volver al men\xFA' },
             ),
-            o.go('menu'));
+            game.go('menu'));
       },
     });
-  (e.paso && u.go(e.paso), await l.setHero(c.sheet), o.audio?.music?.('menu', { fade: 2 }), t.loading(null));
-  let h = null,
-    p = 0;
+  (params.paso && creator.go(params.paso),
+    await preview.setHero(res.sheet),
+    game.audio?.music?.('menu', { fade: 2 }),
+    ui.loading(null));
+  let heroRect = null,
+    rectTime = 0;
   return {
-    three: l.scene,
-    sun: l.sun,
-    update(m, _) {
-      (l.update(m),
-        (!h || _ - p > 0.5) && ((h = u.heroEl.getBoundingClientRect()), (p = _)),
-        l.frame(s, h),
-        i.target.set(0, l.lookY ?? 1, 0));
+    three: preview.scene,
+    sun: preview.sun,
+    update(dt, time) {
+      (preview.update(dt),
+        (!heroRect || time - rectTime > 0.5) &&
+          ((heroRect = creator.heroEl.getBoundingClientRect()), (rectTime = time)),
+        preview.frame(camera, heroRect),
+        controls.target.set(0, preview.lookY ?? 1, 0));
     },
     dispose() {
-      (u.dispose(),
-        l.dispose(),
-        s.clearViewOffset(),
-        s.position.copy(r.pos),
-        i.target.copy(r.target),
-        Object.assign(i, {
-          enabled: r.enabled,
-          minDistance: r.min,
-          maxDistance: r.max,
-          minPolarAngle: r.minP,
-          maxPolarAngle: r.maxP,
-          enableDamping: r.damping,
+      (creator.dispose(),
+        preview.dispose(),
+        camera.clearViewOffset(),
+        camera.position.copy(saved.pos),
+        controls.target.copy(saved.target),
+        Object.assign(controls, {
+          enabled: saved.enabled,
+          minDistance: saved.min,
+          maxDistance: saved.max,
+          minPolarAngle: saved.minP,
+          maxPolarAngle: saved.maxP,
+          enableDamping: saved.damping,
         }),
-        s.updateProjectionMatrix());
+        camera.updateProjectionMatrix());
     },
   };
 }
