@@ -10,7 +10,12 @@ const sharp = require('/opt/npm-tools/node_modules/sharp');
 const { argumentos } = require('./lib/mdg.cjs');
 
 const A = argumentos();
-const ORIGENES = (A.origen || [path.join(__dirname, 'salida', 'flujo'), path.join(__dirname, 'salida', 'humo')].join(',')).split(',');
+// Por defecto: todas las carpetas qa/salida/flujo* (en orden: la partida y sus reanudaciones) y luego humo.
+const SALIDA = path.join(__dirname, 'salida');
+const ORIGENES = A.origen ? A.origen.split(',') : [
+  ...(fs.existsSync(SALIDA) ? fs.readdirSync(SALIDA).filter((d) => /^flujo/.test(d)).sort() : []).map((d) => path.join(SALIDA, d)),
+  path.join(SALIDA, 'humo'),
+];
 const DESTINO = path.resolve(A.destino || path.join(__dirname, 'referencia'));
 const ANCHO = Number(A.ancho || 1280);
 const CALIDAD = Number(A.calidad || 72);
@@ -21,8 +26,8 @@ const SELECCION = [
   'menu', 'creador_especie', 'creador_clase', 'creador_aspecto', 'creador_final', 'prologo_relato', 'prologo_dialogo',
   'merrowick_llegada', 'combate_e1', 'e1_ganado', 'dialogo_maren', 'dialogo_aldis', 'tienda',
   'posada_interior', 'dialogo_pip', 'tablon_mercenarios', 'descanso_posada', 'guardar',
-  'viaje_merrowick_elderhal', 'elderhal_llegada', 'combate_santuario', 'dialogo_ilyra', 'combate_centinelas', 'dialogo_jefe', 'elderhal_hecho',
-  'merrowick_escalera', 'kesh_llegada', 'dialogo_odvar', 'runa_3', 'kesh_hecho', 'combate_aranas',
+  'viaje_merrowick_elderhal', 'elderhal_llegada', 'combate_santuario', 'santuario_ganado', 'combate_centinelas', 'dialogo_jefe', 'elderhal_hecho',
+  'merrowick_escalera', 'kesh_llegada', 'dialogo_odvar', 'runa_3', 'combate_aranas', 'aranas_ganado', 'kesh_hecho',
   'nivel3', 'tumulo_entrada', 'losas', 'combate_vorhan', 'vorhan_ganado', 'dialogo_sello',
   'epilogo_1', 'epilogo_4', 'epilogo_8', 'creditos',
 ];
