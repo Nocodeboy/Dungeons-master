@@ -3,7 +3,7 @@
 
 import { iconHtml, escapeHtml, elem, makeButton, Cn } from '../dom.js';
 import { screenFrame } from '../modal.js';
-import { pc } from '../../actors/outfits.js';
+import { HeroViewer as pc } from '../../actors/outfits.js';
 import { buildCreator } from '../creator.js';
 import { ns } from '../labels.js';
 

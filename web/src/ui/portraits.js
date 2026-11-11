@@ -12,7 +12,7 @@ import {
 } from 'three';
 import { makeCharacter as Fs } from '../actors/character.js';
 import { hc } from '../actors/roster.js';
-import { Tv } from '../actors/outfits.js';
+import { legacyHeroDef as Tv } from '../actors/outfits.js';
 
 function AT(o, e) {
   let t = new Set();

@@ -1,7 +1,7 @@
 // ui/screens/creador.js
 // Reconstruido de publicado/juego.js (módulo __esm «bM»). Nombres locales aún minificados.
 
-import { pc } from '../../actors/outfits.js';
+import { HeroViewer as pc } from '../../actors/outfits.js';
 import { buildCreator } from '../creator.js';
 
 function opcionesCreador() {

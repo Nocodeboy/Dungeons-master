@@ -1,5 +1,13 @@
-// actors/outfits.js
-// Reconstruido de publicado/juego.js (módulo __esm «gu»). Nombres locales aún minificados.
+// actors/hero-stage.js (antes outfits.js)
+// Reconstruido de publicado/juego.js (módulo __esm «gu»).
+//
+// Pedestal 3D del héroe en el creador de personajes y en la subida de nivel: HeroStage monta la
+// escena (suelo, peana de piedra con anillo de latón y runas, luces, polvo en suspensión) y gira la
+// figura del héroe; HeroViewer la dibuja en su propio canvas con un WebGLRenderer y su bucle.
+// legacyHeroDef traduce una hoja a la definición antigua de personaje (modelos Male/Female_Ranger o
+// _Peasant con pelo, recoloreado y armas) para makeCharacter cuando no hay game.actors.
+// Lo usan scenes/creator.js (HeroStage), ui/screens/creador.js y nivel.js (HeroViewer) y
+// ui/portraits.js (legacyHeroDef).
 
 import {
   ACESFilmicToneMapping,
@@ -32,136 +40,160 @@ import {
 import { makeCharacter } from './character.js';
 import '../assets.js';
 
-function vL(o) {
-  let e = new Color(o),
-    t = {};
-  e.getHSL(t);
-  let a = Math.max(e.r, e.g, e.b),
-    n = Math.min(e.r, e.g, e.b);
-  return { h: t.h, s: a ? (a - n) / a : 0, v: a };
+/** Tono (HSL), saturación y valor (HSV) de un color. */
+function colorHsv(hex) {
+  let c = new Color(hex),
+    hsl = {};
+  c.getHSL(hsl);
+  let max = Math.max(c.r, c.g, c.b),
+    min = Math.min(c.r, c.g, c.b);
+  return { h: hsl.h, s: max ? (max - min) / max : 0, v: max };
 }
-function yL() {
-  let o = new Group(),
-    e = new MeshStandardMaterial({ color: 5978914, roughness: 0.8 }),
-    t = new Mesh(new CylinderGeometry(0.018, 0.022, 1.55, 8), e);
-  ((t.position.y = 0.35), o.add(t));
-  let a = new Mesh(
+/** Bastón con gema brillante para los lanzadores de conjuros en la definición antigua. */
+function makeStaffProp() {
+  let group = new Group(),
+    woodMat = new MeshStandardMaterial({ color: 5978914, roughness: 0.8 }),
+    shaft = new Mesh(new CylinderGeometry(0.018, 0.022, 1.55, 8), woodMat);
+  ((shaft.position.y = 0.35), group.add(shaft));
+  let gem = new Mesh(
     new OctahedronGeometry(0.04),
     new MeshStandardMaterial({ color: 16762250, emissive: 16747066, emissiveIntensity: 2.4, roughness: 0.2 }),
   );
-  return ((a.position.y = 1.17), o.add(a), o.traverse((n) => n.isMesh && (n.castShadow = !0)), o);
+  return (
+    (gem.position.y = 1.17),
+    group.add(gem),
+    group.traverse((obj) => obj.isMesh && (obj.castShadow = !0)),
+    group
+  );
 }
-function Tv(o) {
-  let e = o.appearance || {},
-    t = e.body === 'f' || (!e.body && o.pronoun === 'f'),
-    a = bL.has(o.class),
-    n = `${t ? 'Female' : 'Male'}_${a ? 'Ranger' : 'Peasant'}`,
-    s = {
+/** Definición antigua de héroe para makeCharacter (modelo, pelo, recoloreado de la ropa, armas, escala). */
+function legacyHeroDef(sheet) {
+  let look = sheet.appearance || {},
+    female = look.body === 'f' || (!look.body && sheet.pronoun === 'f'),
+    martial = MARTIAL_CLASSES.has(sheet.class),
+    outfit = `${female ? 'Female' : 'Male'}_${martial ? 'Ranger' : 'Peasant'}`,
+    hairMesh = {
       raya: 'Hair_SimpleParted',
       largo: 'Hair_Long',
       mono: 'Hair_Buns',
       coleta: 'Hair_Long',
       trenza: 'Hair_Long',
-      rapado: t ? 'Hair_BuzzedFemale' : 'Hair_Buzzed',
+      rapado: female ? 'Hair_BuzzedFemale' : 'Hair_Buzzed',
       cresta: 'Hair_Buzzed',
       calvo: null,
-    }[e.hair || (t ? 'largo' : 'raya')],
-    i = [];
-  (s && o.species !== 'dragonborn' && i.push(s),
-    !t && e.beard && e.beard !== 'ninguna' && i.push('Hair_Beard'));
-  let r = a ? { from: 0.33, width: 0.16, s: 0.45, v: 0.45 } : { from: 0.09, width: 0.12, s: 0.5, v: 0.5 },
-    l = vL(e.cloth1 || '#3f5f9a'),
-    c = {
-      from: r.from,
-      width: r.width,
-      shift: l.h - r.from,
-      sat: Math.max(0.15, Math.min(2.2, l.s / r.s)),
-      val: Math.max(0.45, Math.min(1.7, l.v / r.v)),
+    }[look.hair || (female ? 'largo' : 'raya')],
+    hair = [];
+  (hairMesh && sheet.species !== 'dragonborn' && hair.push(hairMesh),
+    !female && look.beard && look.beard !== 'ninguna' && hair.push('Hair_Beard'));
+  let ref = martial
+      ? { from: 0.33, width: 0.16, s: 0.45, v: 0.45 }
+      : { from: 0.09, width: 0.12, s: 0.5, v: 0.5 },
+    hsv = colorHsv(look.cloth1 || '#3f5f9a'),
+    recolor = {
+      from: ref.from,
+      width: ref.width,
+      shift: hsv.h - ref.from,
+      sat: Math.max(0.15, Math.min(2.2, hsv.s / ref.s)),
+      val: Math.max(0.45, Math.min(1.7, hsv.v / ref.v)),
     },
-    d = [];
-  ['fighter', 'paladin'].includes(o.class)
-    ? (d.push({ prop: 'antique_estoc', bone: 'hand_r', scale: 0.62, pos: [0, 0.07, 0.03], rot: [0, 0, -90] }),
-      d.push({
+    attach = [];
+  ['fighter', 'paladin'].includes(sheet.class)
+    ? (attach.push({
+        prop: 'antique_estoc',
+        bone: 'hand_r',
+        scale: 0.62,
+        pos: [0, 0.07, 0.03],
+        rot: [0, 0, -90],
+      }),
+      attach.push({
         prop: 'kite_shield',
         bone: 'lowerarm_l',
         scale: 0.48,
         pos: [0.08, 0.12, -0.02],
         rot: [0, 90, 90],
       }))
-    : o.class === 'barbarian'
-      ? d.push({ prop: 'q_Axe_Bronze', bone: 'hand_r', scale: 1, pos: [0, 0.05, 0], rot: [0, 0, -90] })
-      : ['wizard', 'sorcerer', 'druid', 'warlock'].includes(o.class)
-        ? d.push({ make: yL, bone: 'hand_r', scale: 1, pos: [0, 0.06, 0.02], rot: [0, 0, -90] })
-        : o.class === 'cleric' &&
-          d.push({
+    : sheet.class === 'barbarian'
+      ? attach.push({ prop: 'q_Axe_Bronze', bone: 'hand_r', scale: 1, pos: [0, 0.05, 0], rot: [0, 0, -90] })
+      : ['wizard', 'sorcerer', 'druid', 'warlock'].includes(sheet.class)
+        ? attach.push({
+            make: makeStaffProp,
+            bone: 'hand_r',
+            scale: 1,
+            pos: [0, 0.06, 0.02],
+            rot: [0, 0, -90],
+          })
+        : sheet.class === 'cleric' &&
+          attach.push({
             prop: 'q_Shield_Wooden',
             bone: 'lowerarm_l',
             scale: 0.9,
             pos: [0.06, 0.1, 0],
             rot: [0, 90, 90],
           });
-  let u = (kT[o.species] || 1) * (e.height || 1);
+  let scale = (SPECIES_HEIGHT[sheet.species] || 1) * (look.height || 1);
   return {
     id: 'heroe',
-    outfit: n,
-    hair: i,
-    hairColor: e.hairColor || '#5a3a22',
-    skin: e.skin || '#e0ac83',
-    recolor: c,
+    outfit,
+    hair,
+    hairColor: look.hairColor || '#5a3a22',
+    skin: look.skin || '#e0ac83',
+    recolor,
     hideParts: ['Hood'],
-    attach: d,
-    scale: u,
-    anim: a && d.length ? 'Sword_Idle' : 'Idle_Loop',
+    attach,
+    scale,
+    anim: martial && attach.length ? 'Sword_Idle' : 'Idle_Loop',
   };
 }
-function xL() {
-  let o = document.createElement('canvas');
-  o.width = o.height = 512;
-  let e = o.getContext('2d');
-  (e.translate(256, 256),
-    (e.strokeStyle = 'rgba(255,190,110,0.95)'),
-    (e.fillStyle = 'rgba(255,190,110,0.95)'),
-    (e.lineWidth = 4));
-  for (let a of [238, 214]) (e.beginPath(), e.arc(0, 0, a, 0, Math.PI * 2), e.stroke());
-  e.lineWidth = 3;
-  for (let a = 0; a < 24; a++) {
-    (e.save(), e.rotate((a / 24) * Math.PI * 2), e.translate(0, -226), e.beginPath());
-    let n = a % 4;
-    (e.moveTo(-6, -8),
-      e.lineTo(n === 0 ? 6 : 0, 8),
-      n !== 1 && (e.moveTo(6, -8), e.lineTo(n === 2 ? -6 : 0, 2)),
-      n === 3 && (e.moveTo(-6, 0), e.lineTo(6, 0)),
-      e.stroke(),
-      e.restore());
+/** Textura de canvas con el círculo de runas de la peana. */
+function runesTexture() {
+  let canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 512;
+  let ctx = canvas.getContext('2d');
+  (ctx.translate(256, 256),
+    (ctx.strokeStyle = 'rgba(255,190,110,0.95)'),
+    (ctx.fillStyle = 'rgba(255,190,110,0.95)'),
+    (ctx.lineWidth = 4));
+  for (let r of [238, 214]) (ctx.beginPath(), ctx.arc(0, 0, r, 0, Math.PI * 2), ctx.stroke());
+  ctx.lineWidth = 3;
+  for (let k = 0; k < 24; k++) {
+    (ctx.save(), ctx.rotate((k / 24) * Math.PI * 2), ctx.translate(0, -226), ctx.beginPath());
+    let kind = k % 4;
+    (ctx.moveTo(-6, -8),
+      ctx.lineTo(kind === 0 ? 6 : 0, 8),
+      kind !== 1 && (ctx.moveTo(6, -8), ctx.lineTo(kind === 2 ? -6 : 0, 2)),
+      kind === 3 && (ctx.moveTo(-6, 0), ctx.lineTo(6, 0)),
+      ctx.stroke(),
+      ctx.restore());
   }
-  ((e.lineWidth = 5),
-    e.beginPath(),
-    e.moveTo(-70, -40),
-    e.quadraticCurveTo(-40, -90, -10, -50),
-    e.moveTo(70, -40),
-    e.quadraticCurveTo(40, -90, 10, -50),
-    e.moveTo(-28, -40),
-    e.lineTo(0, 60),
-    e.lineTo(28, -40),
-    e.closePath(),
-    e.stroke());
-  let t = new CanvasTexture(o);
-  return ((t.colorSpace = SRGBColorSpace), t);
+  ((ctx.lineWidth = 5),
+    ctx.beginPath(),
+    ctx.moveTo(-70, -40),
+    ctx.quadraticCurveTo(-40, -90, -10, -50),
+    ctx.moveTo(70, -40),
+    ctx.quadraticCurveTo(40, -90, 10, -50),
+    ctx.moveTo(-28, -40),
+    ctx.lineTo(0, 60),
+    ctx.lineTo(28, -40),
+    ctx.closePath(),
+    ctx.stroke());
+  let tex = new CanvasTexture(canvas);
+  return ((tex.colorSpace = SRGBColorSpace), tex);
 }
-function _L() {
-  let o = document.createElement('canvas');
-  o.width = o.height = 256;
-  let e = o.getContext('2d'),
-    t = e.createRadialGradient(128, 128, 4, 128, 128, 128);
-  (t.addColorStop(0, 'rgba(120,80,48,1)'),
-    t.addColorStop(0.35, 'rgba(60,40,26,1)'),
-    t.addColorStop(1, 'rgba(10,7,5,1)'),
-    (e.fillStyle = t),
-    e.fillRect(0, 0, 256, 256));
-  let a = new CanvasTexture(o);
-  return ((a.colorSpace = SRGBColorSpace), a);
+/** Textura de canvas del suelo: degradado radial cálido que se pierde en negro. */
+function floorTexture() {
+  let canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 256;
+  let ctx = canvas.getContext('2d'),
+    grad = ctx.createRadialGradient(128, 128, 4, 128, 128, 128);
+  (grad.addColorStop(0, 'rgba(120,80,48,1)'),
+    grad.addColorStop(0.35, 'rgba(60,40,26,1)'),
+    grad.addColorStop(1, 'rgba(10,7,5,1)'),
+    (ctx.fillStyle = grad),
+    ctx.fillRect(0, 0, 256, 256));
+  let tex = new CanvasTexture(canvas);
+  return ((tex.colorSpace = SRGBColorSpace), tex);
 }
-const kT = {
+const SPECIES_HEIGHT = {
   human: 1,
   elf: 1,
   half_elf: 1,
@@ -174,10 +206,14 @@ const kT = {
   half_orc: 1.03,
   tiefling: 1,
 };
-const bL = new Set(['fighter', 'paladin', 'barbarian', 'ranger', 'rogue', 'monk']);
-const mu = class {
-  constructor(e) {
-    ((this.game = e),
+const MARTIAL_CLASSES = new Set(['fighter', 'paladin', 'barbarian', 'ranger', 'rogue', 'monk']);
+/**
+ * Escena del pedestal del héroe. `setHero(hoja)` cambia la figura (solo si cambia su aspecto),
+ * `drag(dx)` la gira, `update(dt)` anima y `frame(camera, rect)` encuadra la cámara en un rectángulo.
+ */
+const HeroStage = class {
+  constructor(game) {
+    ((this.game = game),
       (this.yaw = -0.35),
       (this.yawVel = 0),
       (this.lastTouch = -10),
@@ -186,30 +222,30 @@ const mu = class {
       (this.vkey = ''),
       (this.hero = null),
       (this.disposables = []));
-    let t = (this.scene = new Scene());
-    ((t.background = new Color(657157)), (t.fog = new Fog(657157, 8, 20)));
-    let a = e.quality?.low,
-      n = (v) => (this.disposables.push(v), v),
-      s = new Mesh(
-        n(new CircleGeometry(14, 48)),
-        n(new MeshStandardMaterial({ map: n(_L()), roughness: 1 })),
+    let scene = (this.scene = new Scene());
+    ((scene.background = new Color(657157)), (scene.fog = new Fog(657157, 8, 20)));
+    let low = game.quality?.low,
+      track = (obj) => (this.disposables.push(obj), obj),
+      floor = new Mesh(
+        track(new CircleGeometry(14, 48)),
+        track(new MeshStandardMaterial({ map: track(floorTexture()), roughness: 1 })),
       );
-    ((s.rotation.x = -Math.PI / 2), (s.receiveShadow = !0), t.add(s));
-    let i = n(new MeshStandardMaterial({ color: 6050635, roughness: 0.92, metalness: 0 })),
-      r = new Mesh(n(new CylinderGeometry(0.82, 0.92, 0.3, 48)), i);
-    ((r.position.y = 0.15), (r.receiveShadow = !0), (r.castShadow = !0), t.add(r));
-    let l = new Mesh(n(new CylinderGeometry(1.02, 1.1, 0.12, 48)), i);
-    ((l.position.y = 0.06), (l.receiveShadow = !0), t.add(l));
-    let c = n(new MeshStandardMaterial({ color: 13215068, metalness: 0.85, roughness: 0.35 })),
-      d = new Mesh(n(new TorusGeometry(0.85, 0.022, 8, 64)), c);
-    ((d.rotation.x = Math.PI / 2),
-      (d.position.y = 0.3),
-      t.add(d),
+    ((floor.rotation.x = -Math.PI / 2), (floor.receiveShadow = !0), scene.add(floor));
+    let stoneMat = track(new MeshStandardMaterial({ color: 6050635, roughness: 0.92, metalness: 0 })),
+      plinth = new Mesh(track(new CylinderGeometry(0.82, 0.92, 0.3, 48)), stoneMat);
+    ((plinth.position.y = 0.15), (plinth.receiveShadow = !0), (plinth.castShadow = !0), scene.add(plinth));
+    let base = new Mesh(track(new CylinderGeometry(1.02, 1.1, 0.12, 48)), stoneMat);
+    ((base.position.y = 0.06), (base.receiveShadow = !0), scene.add(base));
+    let brassMat = track(new MeshStandardMaterial({ color: 13215068, metalness: 0.85, roughness: 0.35 })),
+      ring = new Mesh(track(new TorusGeometry(0.85, 0.022, 8, 64)), brassMat);
+    ((ring.rotation.x = Math.PI / 2),
+      (ring.position.y = 0.3),
+      scene.add(ring),
       (this.runes = new Mesh(
-        n(new CircleGeometry(0.8, 48)),
-        n(
+        track(new CircleGeometry(0.8, 48)),
+        track(
           new MeshBasicMaterial({
-            map: n(xL()),
+            map: track(runesTexture()),
             transparent: !0,
             opacity: 0.55,
             blending: AdditiveBlending,
@@ -219,38 +255,38 @@ const mu = class {
       )),
       (this.runes.rotation.x = -Math.PI / 2),
       (this.runes.position.y = 0.302),
-      t.add(this.runes),
-      t.add(new HemisphereLight(8021072, 657414, 1.3)));
-    let u = new SpotLight(16767144, 85, 16, 0.52, 0.65, 1.6);
-    (u.position.set(2.4, 5.2, 3.6),
-      u.target.position.set(0, 0.9, 0),
-      (u.castShadow = !a),
-      u.shadow.mapSize.set(1024, 1024),
-      (u.shadow.bias = -4e-4),
-      t.add(u, u.target),
-      (this.keyLight = u));
-    let h = new DirectionalLight(8824575, 2.2);
-    h.position.set(-3, 3, -4);
-    let p = new DirectionalLight(16751184, 1.6);
-    p.position.set(3.2, 2.2, -3);
-    let m = new DirectionalLight(16769216, 1.25);
-    (m.position.set(-1.5, 2.2, 5), t.add(h, p, m), (this.sun = u));
-    let _ = a ? 70 : 160,
-      b = new Float32Array(_ * 3);
-    this.dustSeed = new Float32Array(_);
-    for (let v = 0; v < _; v++) {
-      let x = 0.4 + Math.random() * 2.4,
-        g = Math.random() * Math.PI * 2;
-      ((b[v * 3] = Math.cos(g) * x),
-        (b[v * 3 + 1] = Math.random() * 3.2),
-        (b[v * 3 + 2] = Math.sin(g) * x),
-        (this.dustSeed[v] = Math.random() * 10));
+      scene.add(this.runes),
+      scene.add(new HemisphereLight(8021072, 657414, 1.3)));
+    let key = new SpotLight(16767144, 85, 16, 0.52, 0.65, 1.6);
+    (key.position.set(2.4, 5.2, 3.6),
+      key.target.position.set(0, 0.9, 0),
+      (key.castShadow = !low),
+      key.shadow.mapSize.set(1024, 1024),
+      (key.shadow.bias = -4e-4),
+      scene.add(key, key.target),
+      (this.keyLight = key));
+    let rim = new DirectionalLight(8824575, 2.2);
+    rim.position.set(-3, 3, -4);
+    let warm = new DirectionalLight(16751184, 1.6);
+    warm.position.set(3.2, 2.2, -3);
+    let fill = new DirectionalLight(16769216, 1.25);
+    (fill.position.set(-1.5, 2.2, 5), scene.add(rim, warm, fill), (this.sun = key));
+    let dustCount = low ? 70 : 160,
+      positions = new Float32Array(dustCount * 3);
+    this.dustSeed = new Float32Array(dustCount);
+    for (let k = 0; k < dustCount; k++) {
+      let r = 0.4 + Math.random() * 2.4,
+        ang = Math.random() * Math.PI * 2;
+      ((positions[k * 3] = Math.cos(ang) * r),
+        (positions[k * 3 + 1] = Math.random() * 3.2),
+        (positions[k * 3 + 2] = Math.sin(ang) * r),
+        (this.dustSeed[k] = Math.random() * 10));
     }
-    let f = n(new BufferGeometry());
-    (f.setAttribute('position', new BufferAttribute(b, 3)),
+    let dustGeo = track(new BufferGeometry());
+    (dustGeo.setAttribute('position', new BufferAttribute(positions, 3)),
       (this.dust = new Points(
-        f,
-        n(
+        dustGeo,
+        track(
           new PointsMaterial({
             color: 16763016,
             size: 0.03,
@@ -261,140 +297,145 @@ const mu = class {
           }),
         ),
       )),
-      t.add(this.dust),
+      scene.add(this.dust),
       (this.root = new Group()),
       (this.root.position.y = 0.3),
-      t.add(this.root));
+      scene.add(this.root));
   }
-  visualKey(e) {
+  /** Clave que cambia solo si cambia el aspecto visible del héroe. */
+  visualKey(sheet) {
     try {
-      let t = this.game.actors?.heroLook?.(e);
-      if (t) return JSON.stringify(t);
+      let look = this.game.actors?.heroLook?.(sheet);
+      if (look) return JSON.stringify(look);
     } catch {}
     return JSON.stringify([
-      e.species,
-      e.lineage,
-      e.ancestry,
-      e.class,
-      e.kit,
-      e.size,
-      e.appearance,
-      e.pronoun,
-      e.armor,
-      e.weapons,
-      e.shield,
+      sheet.species,
+      sheet.lineage,
+      sheet.ancestry,
+      sheet.class,
+      sheet.kit,
+      sheet.size,
+      sheet.appearance,
+      sheet.pronoun,
+      sheet.armor,
+      sheet.weapons,
+      sheet.shield,
     ]);
   }
-  async setHero(e) {
-    let t = this.visualKey(e);
-    if (t === this.vkey && this.hero) return;
-    this.vkey = t;
-    let a = ++this.token,
-      n = null,
-      s = this.game.actors;
+  async setHero(sheet) {
+    let key = this.visualKey(sheet);
+    if (key === this.vkey && this.hero) return;
+    this.vkey = key;
+    let token = ++this.token,
+      hero = null,
+      actors = this.game.actors;
     try {
-      ((n = s?.makeHero ? await s.makeHero(e) : await makeCharacter(Tv(e))),
-        s?.texturesReady && (await s.texturesReady()));
-    } catch (i) {
-      console.warn('[interfaz] figura del h\xE9roe', i);
+      ((hero = actors?.makeHero ? await actors.makeHero(sheet) : await makeCharacter(legacyHeroDef(sheet))),
+        actors?.texturesReady && (await actors.texturesReady()));
+    } catch (err) {
+      console.warn('[interfaz] figura del h\xE9roe', err);
       return;
     }
-    if (a !== this.token) {
-      n.dispose?.();
+    if (token !== this.token) {
+      hero.dispose?.();
       return;
     }
-    (s?.makeHero && n.play?.('idle', 0),
-      this.hero && (this.root.remove(this.hero.root), s?.makeHero && this.hero.dispose?.()),
-      (this.hero = n),
-      n.root.position.set(0, 0, 0),
-      (n.root.rotation.y = 0),
-      this.root.add(n.root),
-      (this.height = (s?.makeHero && n.height) || (kT[e.species] || 1) * (e.appearance?.height || 1) * 1.8),
+    (actors?.makeHero && hero.play?.('idle', 0),
+      this.hero && (this.root.remove(this.hero.root), actors?.makeHero && this.hero.dispose?.()),
+      (this.hero = hero),
+      hero.root.position.set(0, 0, 0),
+      (hero.root.rotation.y = 0),
+      this.root.add(hero.root),
+      (this.height =
+        (actors?.makeHero && hero.height) ||
+        (SPECIES_HEIGHT[sheet.species] || 1) * (sheet.appearance?.height || 1) * 1.8),
       (this.pop = 0.25));
   }
-  drag(e) {
-    ((this.yawVel = e * 0.012), (this.yaw += e * 0.012), (this.lastTouch = this.time));
+  drag(dx) {
+    ((this.yawVel = dx * 0.012), (this.yaw += dx * 0.012), (this.lastTouch = this.time));
   }
-  update(e) {
+  update(dt) {
     if (
-      ((this.time += e),
-      this.hero?.update?.(e),
-      this.time - this.lastTouch > 2.5 && (this.yaw += e * 0.22),
+      ((this.time += dt),
+      this.hero?.update?.(dt),
+      this.time - this.lastTouch > 2.5 && (this.yaw += dt * 0.22),
       (this.root.rotation.y = this.yaw),
       this.pop > 0)
     ) {
-      this.pop = Math.max(0, this.pop - e);
-      let a = 1 - this.pop / 0.25;
-      this.root.scale.setScalar(0.94 + 0.06 * (1 - Math.pow(1 - a, 3)));
+      this.pop = Math.max(0, this.pop - dt);
+      let k = 1 - this.pop / 0.25;
+      this.root.scale.setScalar(0.94 + 0.06 * (1 - Math.pow(1 - k, 3)));
     }
     ((this.runes.material.opacity = 0.42 + Math.sin(this.time * 1.6) * 0.12),
-      (this.runes.rotation.z += e * 0.05));
-    let t = this.dust.geometry.attributes.position;
-    for (let a = 0; a < t.count; a++) {
-      let n = t.getY(a) + e * (0.05 + (this.dustSeed[a] % 1) * 0.06);
-      (n > 3.3 && (n = 0.1),
-        t.setY(a, n),
-        t.setX(a, t.getX(a) + Math.sin(this.time * 0.6 + this.dustSeed[a]) * e * 0.03));
+      (this.runes.rotation.z += dt * 0.05));
+    let pos = this.dust.geometry.attributes.position;
+    for (let k = 0; k < pos.count; k++) {
+      let y = pos.getY(k) + dt * (0.05 + (this.dustSeed[k] % 1) * 0.06);
+      (y > 3.3 && (y = 0.1),
+        pos.setY(k, y),
+        pos.setX(k, pos.getX(k) + Math.sin(this.time * 0.6 + this.dustSeed[k]) * dt * 0.03));
     }
-    ((t.needsUpdate = !0),
+    ((pos.needsUpdate = !0),
       (this.keyLight.intensity = 85 + Math.sin(this.time * 7.3) * 1.2 + Math.sin(this.time * 2.1) * 2));
   }
-  frame(e, t, a = innerWidth, n = innerHeight) {
-    if (!t || t.width < 10 || t.height < 10) return;
-    let s = (this.height || 1.8) + 0.3 + 0.25,
-      i = Math.tan(MathUtils.degToRad(e.fov / 2)),
-      r = Math.min(t.height * 0.9, t.width * 1.9),
-      l = MathUtils.clamp((s * n) / (r * 2 * i), 2.4, 14),
-      c = s * 0.47;
-    (e.position.set(0, c + l * 0.12, l), e.lookAt(0, c, 0), (this.lookY = c));
-    let d = t.left + t.width / 2,
-      u = t.top + t.height / 2;
-    e.setViewOffset(a, n, a / 2 - d, n / 2 - u, a, n);
+  /** Coloca la cámara para que el héroe quepa en `rect` (px) dentro de una vista de vw × vh. */
+  frame(camera, rect, vw = innerWidth, vh = innerHeight) {
+    if (!rect || rect.width < 10 || rect.height < 10) return;
+    let height = (this.height || 1.8) + 0.3 + 0.25,
+      tanHalf = Math.tan(MathUtils.degToRad(camera.fov / 2)),
+      px = Math.min(rect.height * 0.9, rect.width * 1.9),
+      dist = MathUtils.clamp((height * vh) / (px * 2 * tanHalf), 2.4, 14),
+      lookY = height * 0.47;
+    (camera.position.set(0, lookY + dist * 0.12, dist), camera.lookAt(0, lookY, 0), (this.lookY = lookY));
+    let cx = rect.left + rect.width / 2,
+      cy = rect.top + rect.height / 2;
+    camera.setViewOffset(vw, vh, vw / 2 - cx, vh / 2 - cy, vw, vh);
   }
   dispose() {
-    for (let e of this.disposables) e.dispose?.();
+    for (let d of this.disposables) d.dispose?.();
     this.scene.clear();
   }
 };
-const pc = class {
-  constructor(e, t) {
-    ((this.stage = new mu(e)),
-      (this.canvas = t),
-      (this.renderer = new WebGLRenderer({ canvas: t, antialias: !0, powerPreference: 'high-performance' })),
-      this.renderer.setPixelRatio(Math.min(devicePixelRatio, e.quality?.low ? 1 : 1.5)),
+/** HeroStage con renderer, cámara y bucle propios sobre `canvas` (pantallas del creador y de nivel). */
+const HeroViewer = class {
+  constructor(game, canvas) {
+    ((this.stage = new HeroStage(game)),
+      (this.canvas = canvas),
+      (this.renderer = new WebGLRenderer({ canvas, antialias: !0, powerPreference: 'high-performance' })),
+      this.renderer.setPixelRatio(Math.min(devicePixelRatio, game.quality?.low ? 1 : 1.5)),
       (this.renderer.toneMapping = ACESFilmicToneMapping),
-      (this.renderer.shadowMap.enabled = !e.quality?.low),
+      (this.renderer.shadowMap.enabled = !game.quality?.low),
       (this.renderer.shadowMap.type = PCFShadowMap),
       (this.camera = new PerspectiveCamera(30, 1, 0.1, 100)),
       (this.last = performance.now()));
-    let a = (n) => {
-      this.raf = requestAnimationFrame(a);
-      let s = Math.min(0.05, (n - this.last) / 1e3);
-      this.last = n;
-      let i = t.clientWidth,
-        r = t.clientHeight;
-      !i ||
-        !r ||
-        ((t.width !== Math.round(i * this.renderer.getPixelRatio()) ||
-          t.height !== Math.round(r * this.renderer.getPixelRatio())) &&
-          (this.renderer.setSize(i, r, !1),
-          (this.camera.aspect = i / r),
+    let loop = (now) => {
+      this.raf = requestAnimationFrame(loop);
+      let dt = Math.min(0.05, (now - this.last) / 1e3);
+      this.last = now;
+      let w = canvas.clientWidth,
+        h = canvas.clientHeight;
+      !w ||
+        !h ||
+        ((canvas.width !== Math.round(w * this.renderer.getPixelRatio()) ||
+          canvas.height !== Math.round(h * this.renderer.getPixelRatio())) &&
+          (this.renderer.setSize(w, h, !1),
+          (this.camera.aspect = w / h),
           this.camera.updateProjectionMatrix()),
-        this.stage.update(s),
-        this.stage.frame(this.camera, { left: 0, top: 0, width: i, height: r }, i, r),
+        this.stage.update(dt),
+        this.stage.frame(this.camera, { left: 0, top: 0, width: w, height: h }, w, h),
         this.renderer.render(this.stage.scene, this.camera));
     };
-    this.raf = requestAnimationFrame(a);
+    this.raf = requestAnimationFrame(loop);
   }
-  setHero(e) {
-    return this.stage.setHero(e);
+  setHero(sheet) {
+    return this.stage.setHero(sheet);
   }
-  drag(e) {
-    this.stage.drag(e);
+  drag(dx) {
+    this.stage.drag(dx);
   }
   dispose() {
     (cancelAnimationFrame(this.raf), this.stage.dispose(), this.renderer.dispose());
   }
 };
 
-export { Tv, mu, pc };
+export { legacyHeroDef, HeroStage, HeroViewer };
