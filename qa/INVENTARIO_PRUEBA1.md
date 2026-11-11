@@ -71,6 +71,19 @@ Gravedad: **alta** (bloquea o rompe la partida), **media** (molesta o confunde, 
 
 - La subida a nivel 2 tras e1 respeta `?autonivel`, pero la de nivel 3 al salir de Kesh (`story.levelUp(3)`) abre siempre la pantalla `nivel`. Solo afecta a la automatización (el piloto la resuelve).
 
+### F7 · Los enemigos salen con retrato humano en la barra de iniciativa — gravedad **media**
+
+- **Pasos:** empezar el combate e1 (ver F1). En la barra de iniciativa de arriba, los seis trasgos (marco rojo) aparecen con el mismo retrato de un hombre humano de camisa azul, en vez de una cara de trasgo; solo el héroe y Brenna (marco verde) tienen su retrato. Captura: `qa/referencia/*combate_e1*.webp`.
+- Observado con SwiftShader (render por software); conviene confirmarlo con GPU. El retrato de los enemigos sale de `factory.portrait(actor, {...rules.sheet(id)})`, que para un monstruo no tiene hoja de personaje.
+
+### F8 · Falta el sonido de pasos del mapa de viaje — gravedad **baja**
+
+- **Pasos:** en exploración, salir de Merrowick por el este hacia el mapa de viaje, elegir Elderhal y pulsar «Viajar». La consola avisa `[sonido] efecto desconocido: pasos_camino`: la escena `travel` pide un efecto que no está en el manifiesto de audio y el viaje se hace en silencio.
+
+### F9 · Aviso `item_info: Ese objeto no existe: gold` al abrir cofres con oro — gravedad **baja**
+
+- **Pasos:** en el vado de Kesh, resolver las piedras rúnicas y abrir el «Pedestal del cuerno» (botín: cuerno de piedra, 40 po, monedas durn, poción mayor). El oro se suma bien (70 → 110 po), pero la consola avisa `[exploración] item_info: Ese objeto no existe: gold`: la exploración pide al núcleo la ficha de «gold» como si fuera un objeto.
+
 <!-- MAS_FALLOS -->
 
 ## 4. Hasta dónde llega la partida automática

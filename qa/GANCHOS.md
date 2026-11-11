@@ -23,7 +23,7 @@ Se leen de un único `URLSearchParams(location.search)` global (en el bundle se 
 | `?semilla=N` ✅ | Semilla de cada combate (`battle_start.seed`). Sin ella, `Math.random()`. Con la misma semilla y el mismo estado, el combate es reproducible. | `Uo()` |
 | `?autocombate` ✅ | La IA controla a **todo** el grupo, héroe incluido. Sin él, solo a los compañeros si `settings.autoCompanions` (por defecto sí). | `Uo()` |
 | `?autonivel` ✅ | Las subidas de nivel tras combate se aplican solas, sin abrir la pantalla `nivel`. **Ojo:** la subida a nivel 3 tras Kesh (`story.levelUp(3)`) no mira este parámetro y abre la pantalla `nivel` igualmente. | `pN()` |
-| `?captura=N` 📖 | Para el bucle de render N fotogramas después de `ready` y pone `document.title = "listo"` (capturas estáticas). También desactiva la calidad adaptativa y el modo «disparo» del combate (`shotMode`). | bucle principal |
+| `?captura=N` 📖 | Para el bucle de render N fotogramas después de `ready` y pone `document.title = "listo"` (capturas estáticas). También desactiva la calidad adaptativa y activa el modo «disparo» del combate (`shotMode`: sin intro, sin carteles de sorpresa). | bucle principal |
 | `?captura-nitida` ✅ | Desactiva el desenfoque «maqueta» (tilt-shift) de la exploración: capturas más comparables. | `gy()` |
 | `?audio=no\|buffer` 📖 | `no`: audio desactivado; `buffer`: sin streaming. | `jv()` |
 | `?encuentro=`, `?nivel=` 📖 | Solo en el banco `combate.html` (selector de encuentro e1_prado / e2_pinar / e3_tumulo y nivel). | banco de combate |

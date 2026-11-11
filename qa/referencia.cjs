@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Genera las capturas de referencia comprimidas (WebP) a partir de la salida de flujo/humo.
-// Uso: node qa/referencia.cjs [--origen=qa/salida/flujo] [--destino=qa/referencia] [--ancho=960] [--calidad=62] [--max=5]
+// Uso: node qa/referencia.cjs [--origen=qa/salida/flujo] [--destino=qa/referencia] [--ancho=1280] [--calidad=72] [--max=5]
 // Elige las capturas cuyo nombre aparece en SELECCION (en ese orden) y las guarda como
 // NN_nombre.webp. Comprueba que el total no pase de --max MB.
 'use strict';
@@ -12,8 +12,8 @@ const { argumentos } = require('./lib/mdg.cjs');
 const A = argumentos();
 const ORIGENES = (A.origen || [path.join(__dirname, 'salida', 'flujo'), path.join(__dirname, 'salida', 'humo')].join(',')).split(',');
 const DESTINO = path.resolve(A.destino || path.join(__dirname, 'referencia'));
-const ANCHO = Number(A.ancho || 960);
-const CALIDAD = Number(A.calidad || 62);
+const ANCHO = Number(A.ancho || 1280);
+const CALIDAD = Number(A.calidad || 72);
 const MAX_MB = Number(A.max || 5);
 
 // Nombres de etapa (sin el prefijo numérico) que interesan como referencia visual.

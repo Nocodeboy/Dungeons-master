@@ -31,6 +31,7 @@
     descanso: 'largo',      // en la pantalla «descanso»: 'largo' | 'cerrar' («Seguir» se pulsa siempre)
     cerrar: ['tienda', 'inventario', 'grupo', 'diario', 'ayuda', 'ajustes', 'creditos', 'cargar', 'guardar', 'viaje', 'pausa'],
     semillas: [7, 11, 23, 42, 97, 131, 257, 409, 613, 997],
+    turboCombate: 12,       // velocidad de las esperas/animaciones de combate (?turbo pone 5); null = no tocar
   };
   const RUIDO = new Set(['step', 'ui:click', 'ui:hover', 'footstep', 'portrait']);
   const MAXEV = 3000;
@@ -91,13 +92,13 @@
     const reglas = [...(pol.dialogos?.[id] || []), ...(pol.dialogos?.['*'] || []), ...(pol.general || [])];
     for (const r of reglas) {
       const re = new RegExp(r, 'i');
-      const o = usables.find((o) => re.test(o.t) && !QA.elegidas.has(o.t));
+      const o = usables.find((o) => (re.test(o.t) || re.test(o.completo)) && !QA.elegidas.has(o.t));
       if (o) return { o, por: 'regla ' + r };
     }
     if (usables.length === 1) return { o: usables[0], por: 'única' };
     if (pol.explorar !== false) {
       const ev = (pol.evitar || []).map((r) => new RegExp(r, 'i'));
-      const o = usables.find((o) => !QA.elegidas.has(o.t) && !ev.some((re) => re.test(o.t)));
+      const o = usables.find((o) => !QA.elegidas.has(o.t) && !ev.some((re) => re.test(o.t) || re.test(o.completo)));
       if (o) return { o, por: 'explorar' };
     }
     return { o: usables[usables.length - 1], por: 'última' };
@@ -109,7 +110,14 @@
     if (dlg.querySelector('.mg-dlg-line.escribiendo')) return true;
     const botones = [...dlg.querySelectorAll('button.mg-dlg-opt')];
     if (!botones.length) return true;
-    const ops = botones.map((b, i) => ({ i, b, t: corta(b.querySelector('.mg-dlg-t')?.innerText || b.innerText, 200), off: b.disabled }));
+    // Texto de la opción sin la etiqueta «[Persuasión CD 13]», «[40 po]»…, que va delante en .mg-dlg-tag.
+    const ops = botones.map((b, i) => {
+      const tEl = b.querySelector('.mg-dlg-t');
+      const etiqueta = corta(tEl?.querySelector('.mg-dlg-tag')?.innerText || '', 80);
+      const completo = corta(tEl?.innerText || b.innerText, 220);
+      const t = etiqueta && completo.startsWith(etiqueta) ? completo.slice(etiqueta.length).trim() : completo;
+      return { i, b, t, etiqueta, completo, off: b.disabled };
+    });
     const quien = corta(dlg.querySelector('.mg-dlg-name')?.textContent, 60);
     const id = QA.dlgId || (quien ? 'elegir:' + quien : 'narracion');
     QA.elegidas ??= new Set();
@@ -119,8 +127,8 @@
     QA.dialogos.push({
       t: ahora(), id, quien,
       texto: corta(lineas[lineas.length - 1]?.innerText, 240),
-      opciones: ops.map((o) => (o.off ? '(x) ' : '') + o.t),
-      elegida: r.o.t, por: r.por,
+      opciones: ops.map((o) => (o.off ? '(x) ' : '') + o.completo),
+      elegida: r.o.completo, por: r.por,
     });
     if (QA.dialogos.length > 1500) QA.dialogos.splice(0, 300);
     QA.elegidas.add(r.o.t);
@@ -243,9 +251,19 @@
     return si;
   }
 
+  // Acelera el combate en curso con los ganchos del propio juego (solo tiempos, no reglas).
+  function acelerar() {
+    const c = window.__combate?.ctl;
+    const t = QA.politica.turboCombate;
+    if (!c || c.disposed || !t) return;
+    if (c.turbo !== t) c.turbo = t;
+    if (!c.fast && typeof c.setFast === 'function') c.setFast(true);
+  }
+
   function paso() {
     try {
       enganchar();
+      acelerar();
       if (!QA.activo) return;
       if (parar()) return;
       if (ahora() - ultimo < (QA.pausa ?? 180)) return;

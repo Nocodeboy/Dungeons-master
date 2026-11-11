@@ -196,6 +196,8 @@ class Sesion {
     const e = { etapa: nombre, ok: extra.ok ?? true, t: +((Date.now() - this.t0) / 1000).toFixed(1), captura: path.basename(String(archivo)), ...extra, estado: st };
     this.etapas.push(e);
     this.log(`ETAPA ${nombre}: escena=${st.escena} nivel=${st.nivel} grupoN=${st.nivelGrupo} oro=${st.oro} PV=${(st.grupo || []).map((m) => `${m.id}:${m.pv}/${m.pvMax}`).join(' ')}`);
+    // Informe parcial tras cada etapa: si el proceso se corta, no se pierde lo recorrido.
+    await this.informe({ parcial: true, ...(this.extraInforme?.() || {}) }).catch(() => null);
     return e;
   }
 

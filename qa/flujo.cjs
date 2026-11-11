@@ -366,7 +366,8 @@ async function comprar(s) {
     await filas.last().click();
     await espera(400);
     await s.etapa('tienda');
-    await s.pagina.locator('.mg-layer[data-capa="tienda"] button', { hasText: 'Comprar' }).first().click();
+    // Ojo: en la tienda hay una pestaña oculta «Comprar» (vista móvil); el botón bueno es el principal del detalle.
+    await s.pagina.locator('.mg-layer[data-capa="tienda"] [data-pane="detalle"] button.mg-btn--primary', { hasText: /Comprar/ }).first().click();
     await espera(800);
     const despues = await s.estado();
     s.log(`compra: oro ${antes.oro} → ${despues.oro}`);
@@ -387,12 +388,16 @@ async function guardar(s) {
     await s.pagina.locator('.mg-layer[data-capa="pausa"] button', { hasText: /Guardar/ }).first().click();
     await s.esperar(() => document.querySelector('.mg-layer[data-capa="guardar"] .mg-save-acts button'), null, { timeout: 20000, desc: 'pantalla de guardar' });
     await espera(500);
-    await s.pagina.locator('.mg-layer[data-capa="guardar"] .mg-save-acts button', { hasText: /^(Guardar|Sobrescribir)$/ }).first().click();
+    // La lista de guardar empieza por la ranura «Rápido»; se usa explícitamente la «Ranura 1».
+    const fila = s.pagina.locator('.mg-layer[data-capa="guardar"] .mg-save', { has: s.pagina.locator('.mg-save-n', { hasText: 'Ranura 1' }) });
+    await fila.locator('.mg-save-acts button', { hasText: /Guardar|Sobrescribir/ }).first().click();
+    await espera(800);
+    await s.pagina.evaluate(() => document.querySelector('.mg-layer[data-capa="confirmar"] .mg-btn--primary')?.click());
     await espera(1200);
     await s.etapa('guardar');
     const guardadas = await s.pagina.evaluate(() => Object.keys(localStorage).filter((k) => /^mdg\.partida\./.test(k)));
     s.log('ranuras en localStorage: ' + guardadas.join(', '));
-    if (!guardadas.some((k) => !/\.(auto|rapida)$/.test(k))) throw new Error('No aparece la partida guardada en una ranura manual');
+    if (!guardadas.includes('mdg.partida.1')) throw new Error('No aparece la partida guardada en la ranura 1 (mdg.partida.1)');
     await s.pagina.evaluate(() => { window.__mdg.store.setFlag('qa_guardado', true); for (const l of [...window.__mdg.ui.layers.stack].reverse()) l.close(null); });
   } finally {
     await s.politica({ cerrar: ['tienda', 'inventario', 'grupo', 'diario', 'ayuda', 'ajustes', 'creditos', 'cargar', 'guardar', 'viaje', 'pausa'] });
@@ -416,6 +421,7 @@ async function principal() {
   const s = new Sesion({ base: BASE, salida: SALIDA, nombre: 'flujo' });
   s.avisos = [];
   const resultado = { desde, hasta, etapas: {}, ultima: null };
+  s.extraInforme = () => ({ resultado, avisos: s.avisos, params: PARAMS, tiradas: TIRADAS });
   const reloj = setTimeout(async () => {
     console.error(`FLUJO: límite de ${LIMITE_MIN} min superado`);
     await s.etapa('limite', { ok: false }).catch(() => null);
