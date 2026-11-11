@@ -23,11 +23,11 @@ import { yk } from './actors.js';
 import { ExploreInput } from './input.js';
 import { Floaters } from './floaters.js';
 import { ExploreMarks } from './marks.js';
-import { kk, Rk } from './hud.js';
+import { createExploreHud, fallbackDialog } from './hud.js';
 import { Ju, Xu, cy, Xk, Yk, m0, uy, Zk } from './interact.js';
 import { perceive, search, toggleStealth, detect, checkTriggers } from './detection.js';
 import { Uk, Uo, Gk } from './battle.js';
-import { g0, b0 } from './animals.js';
+import { AmbientAnimals, Banter } from './animals.js';
 
 async function createExplore(o, e = {}) {
   let t = new Explore(o, e);
@@ -145,8 +145,8 @@ const Explore = class {
       s('grupo', 'Saludando a los vecinos', 0.85),
       await this.spawnNpcs(),
       s('pnj', 'Casi listo', 0.95),
-      (this.animals = new g0(this)),
-      (this.banter = new b0(this)),
+      (this.animals = new AmbientAnimals(this)),
+      (this.banter = new Banter(this)),
       await this.makeHud(),
       this.refreshObjects(),
       this.updateExits(),
@@ -895,7 +895,7 @@ const Explore = class {
       } catch (n) {
         console.warn('[exploraci\xF3n] ui.hud.explore:', n);
       }
-    this.hud = a || (await kk(e.ui.root, t));
+    this.hud = a || (await createExploreHud(e.ui.root, t));
   }
   hudState() {
     let e = this.game.store.cp;
@@ -962,7 +962,9 @@ const Explore = class {
     e !== this._busyShown && ((this._busyShown = e), this.hud?.update?.({ busy: e }));
   }
   dialog(e) {
-    return this.withBusy(() => (this.realDialog ? this.game.ui.dialog(e) : Rk(this.game.ui.root, e)));
+    return this.withBusy(() =>
+      this.realDialog ? this.game.ui.dialog(e) : fallbackDialog(this.game.ui.root, e),
+    );
   }
   async choose({ speaker: e = '', title: t = '', text: a = '', portrait: n = null, options: s = [] }) {
     let i = await this.dialog({

@@ -3,7 +3,7 @@
 
 import { Vector3 } from 'three';
 import { cellKey, neighbors, hexDistance } from './hex.js';
-import { Ck, W1 } from './hud.js';
+import { lootDialog, showInterlude } from './hud.js';
 import './checks.js';
 import { Uo } from './battle.js';
 
@@ -83,7 +83,7 @@ async function Vk(o, e, t = o.leader) {
     }
   } else {
     let r = await o.withBusy(() =>
-      Ck(o.game.ui.root, {
+      lootDialog(o.game.ui.root, {
         title: a.name || 'Bot\xEDn',
         items: i,
         gold: s,
@@ -706,7 +706,7 @@ async function Jk(o, e, t = '', { where: a = '' } = {}) {
         }
         ((s.short_rests_left = Math.max(0, (s.short_rests_left ?? 2) - 1)), o.game.store.set(s));
       }
-      await W1(o.game.ui.root, 'Una hora despu\xE9s\u2026', 1100);
+      await showInterlude(o.game.ui.root, 'Una hora despu\xE9s\u2026', 1100);
     } else {
       let r = n.call('cp_long_rest', { cp: s });
       if (r?.cp) n.apply(r);
@@ -718,7 +718,7 @@ async function Jk(o, e, t = '', { where: a = '' } = {}) {
         }
         ((s.short_rests_left = 2), (s.day = (s.day || 1) + 1), o.game.store.set(s));
       }
-      await W1(o.game.ui.root, `Amanece. D\xEDa ${o.game.store.cp.day || 1}.`, 1400);
+      await showInterlude(o.game.ui.root, `Amanece. D\xEDa ${o.game.store.cp.day || 1}.`, 1400);
     }
   }),
     await ly(o, e, { report: i, text: t }));

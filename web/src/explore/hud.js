@@ -1,268 +1,298 @@
-// explore/hud.js
-// Reconstruido de publicado/juego.js (módulo __esm «X1»). Nombres locales aún minificados.
+// explore/hud.js — HUD propio de la exploración (retratos del grupo, lugar y oro, botones de acción,
+// avisos, bandera y pistas) y ventanas de sustituto para cuando la interfaz de ui/ no está: diálogo,
+// botín y rótulo de transición («Una hora después…»). Lo usan explore/index.js e interact.js.
+// Reconstruido de publicado/juego.js (módulo __esm «X1»).
 
-function sN() {
+/** Carga (una vez) icons.json: {nombre: contenido SVG}. */
+function loadIcons() {
   return (
-    V1 ||
-      (V1 = fetch('icons.json')
-        .then((o) => (o.ok ? o.json() : {}))
+    iconsPromise ||
+      (iconsPromise = fetch('icons.json')
+        .then((res) => (res.ok ? res.json() : {}))
         .catch(() => ({}))),
-    V1
+    iconsPromise
   );
 }
-function $1() {
-  if (Ek) return;
-  Ek = !0;
-  let o = document.createElement('style');
-  ((o.textContent = oN), document.head.append(o));
+/** Inyecta la hoja de estilos del HUD y de las ventanas de sustituto (una vez). */
+function injectStyles() {
+  if (stylesInjected) return;
+  stylesInjected = !0;
+  let style = document.createElement('style');
+  ((style.textContent = HUD_CSS), document.head.append(style));
 }
-async function kk(o, e) {
-  $1();
-  let t = await sN(),
-    a = document.createElement('div');
-  ((a.className = 'xh'),
-    (a.innerHTML = `
+/**
+ * Crea el HUD dentro de `root`. `opts`: party, place, day, gold, stealth, run y las retrollamadas
+ * onAction(acción), onMenu(), onMember(id, {additive, focus}) y onMemberHold(id).
+ * Devuelve {el, update, toast, banner, hint, status, show, hide, isOnUi, dispose}.
+ */
+async function createExploreHud(root, opts) {
+  injectStyles();
+  let icons = await loadIcons(),
+    el = document.createElement('div');
+  ((el.className = 'xh'),
+    (el.innerHTML = `
     <div class="xh-grupo"></div>
-    <div class="xh-arriba"><div class="xh-lugar"><div class="l"></div><div class="o">${l0(t, 'coins')}<span></span></div></div>
-      <button class="xh-boton" data-a="menu" title="Men\xFA (Esc)">${l0(t, 'menu') || '\u2630'}</button></div>
+    <div class="xh-arriba"><div class="xh-lugar"><div class="l"></div><div class="o">${iconSvg(icons, 'coins')}<span></span></div></div>
+      <button class="xh-boton" data-a="menu" title="Men\xFA (Esc)">${iconSvg(icons, 'menu') || '\u2630'}</button></div>
     <div class="xh-estado"></div>
-    <div class="xh-acciones">${iN.map(([u, h, p, m]) => `<button class="xh-acc" data-a="${u}" title="${h} (${m})">${l0(t, p)}<span>${h}</span><kbd>${m}</kbd></button>`).join('')}</div>
+    <div class="xh-acciones">${HUD_ACTIONS.map(([action, label, icon, key]) => `<button class="xh-acc" data-a="${action}" title="${label} (${key})">${iconSvg(icons, icon)}<span>${label}</span><kbd>${key}</kbd></button>`).join('')}</div>
     <div class="xh-avisos"></div>
     <div class="xh-bandera"></div>`),
-    o.append(a));
-  let n = (u) => a.querySelector(u),
-    s = { ...e },
-    i = new Map();
-  (a.querySelector('.xh-acciones').addEventListener('click', (u) => {
-    let h = u.target.closest('[data-a]');
-    h && s.onAction?.(h.dataset.a);
+    root.append(el));
+  let find = (sel) => el.querySelector(sel),
+    state = { ...opts },
+    cards = new Map();
+  (el.querySelector('.xh-acciones').addEventListener('click', (ev) => {
+    let btn = ev.target.closest('[data-a]');
+    btn && state.onAction?.(btn.dataset.a);
   }),
-    n('[data-a="menu"]').addEventListener('click', () => s.onMenu?.()));
-  function r() {
-    let u = n('.xh-grupo'),
-      h = (s.party || []).map((_) => _.id).join('|');
-    if (u.dataset.ids !== h) {
-      ((u.dataset.ids = h), (u.innerHTML = ''), i.clear());
-      for (let b of s.party || []) {
-        let f = document.createElement('div');
-        ((f.className = 'xh-pj'),
-          (f.dataset.id = b.id),
-          (f.innerHTML =
+    find('[data-a="menu"]').addEventListener('click', () => state.onMenu?.()));
+  function renderParty() {
+    let box = find('.xh-grupo'),
+      ids = (state.party || []).map((m) => m.id).join('|');
+    if (box.dataset.ids !== ids) {
+      ((box.dataset.ids = ids), (box.innerHTML = ''), cards.clear());
+      for (let m of state.party || []) {
+        let card = document.createElement('div');
+        ((card.className = 'xh-pj'),
+          (card.dataset.id = m.id),
+          (card.innerHTML =
             '<img alt=""><div class="t" style="min-width:0;flex:1"><div class="n"></div><div class="b"><i></i></div><div class="p"></div></div>'));
-        let v = null,
-          x = !1;
-        f.addEventListener('pointerdown', (y) => {
-          ((x = !1),
-            clearTimeout(v),
-            (v = setTimeout(() => {
-              ((x = !0), s.onMemberHold?.(b.id));
+        let holdTimer = null,
+          held = !1;
+        card.addEventListener('pointerdown', (ev) => {
+          ((held = !1),
+            clearTimeout(holdTimer),
+            (holdTimer = setTimeout(() => {
+              ((held = !0), state.onMemberHold?.(m.id));
             }, 550)),
-            y.preventDefault());
+            ev.preventDefault());
         });
-        let g = () => clearTimeout(v);
-        (f.addEventListener('pointerleave', g),
-          f.addEventListener('pointerup', (y) => {
-            (clearTimeout(v), x || s.onMember?.(b.id, { additive: y.shiftKey || y.ctrlKey || y.metaKey }));
+        let cancelHold = () => clearTimeout(holdTimer);
+        (card.addEventListener('pointerleave', cancelHold),
+          card.addEventListener('pointerup', (ev) => {
+            (clearTimeout(holdTimer),
+              held || state.onMember?.(m.id, { additive: ev.shiftKey || ev.ctrlKey || ev.metaKey }));
           }),
-          f.addEventListener('dblclick', () => s.onMember?.(b.id, { focus: !0 })),
-          f.addEventListener('contextmenu', (y) => {
-            (y.preventDefault(), s.onMemberHold?.(b.id));
+          card.addEventListener('dblclick', () => state.onMember?.(m.id, { focus: !0 })),
+          card.addEventListener('contextmenu', (ev) => {
+            (ev.preventDefault(), state.onMemberHold?.(m.id));
           }),
-          u.append(f),
-          i.set(b.id, f));
+          box.append(card),
+          cards.set(m.id, card));
       }
-      let _ = document.createElement('button');
-      ((_.className = 'xh-todos'),
-        (_.textContent = 'Todo el grupo'),
-        _.addEventListener('click', () => s.onAction?.('select_all')),
-        u.append(_));
+      let allBtn = document.createElement('button');
+      ((allBtn.className = 'xh-todos'),
+        (allBtn.textContent = 'Todo el grupo'),
+        allBtn.addEventListener('click', () => state.onAction?.('select_all')),
+        box.append(allBtn));
     }
-    let p = !1;
-    for (let _ of s.party || []) {
-      let b = i.get(_.id);
-      if (!b) continue;
-      let f = b.querySelector('img');
-      (_.portrait && f.src !== _.portrait && (f.src = _.portrait),
-        (b.querySelector('.n').textContent = _.name));
-      let v = _.maxHp ? Math.max(0, _.hp / _.maxHp) : 1,
-        x = b.querySelector('.b i');
-      ((x.style.width = `${Math.round(v * 100)}%`),
-        (x.className = v < 0.34 ? 'bajo' : v < 0.67 ? 'medio' : ''),
-        (b.querySelector('.p').textContent = _.dead ? 'Muerto' : `${_.hp}/${_.maxHp} PG`),
-        b.classList.toggle('lider', !!_.leader),
-        b.classList.toggle('sel', !!_.selected),
-        b.classList.toggle('fuera', !_.selected && !_.dead),
-        b.classList.toggle('muerto', !!_.dead),
-        !_.selected && !_.dead && (p = !0));
+    let someOut = !1;
+    for (let m of state.party || []) {
+      let card = cards.get(m.id);
+      if (!card) continue;
+      let img = card.querySelector('img');
+      (m.portrait && img.src !== m.portrait && (img.src = m.portrait),
+        (card.querySelector('.n').textContent = m.name));
+      let frac = m.maxHp ? Math.max(0, m.hp / m.maxHp) : 1,
+        bar = card.querySelector('.b i');
+      ((bar.style.width = `${Math.round(frac * 100)}%`),
+        (bar.className = frac < 0.34 ? 'bajo' : frac < 0.67 ? 'medio' : ''),
+        (card.querySelector('.p').textContent = m.dead ? 'Muerto' : `${m.hp}/${m.maxHp} PG`),
+        card.classList.toggle('lider', !!m.leader),
+        card.classList.toggle('sel', !!m.selected),
+        card.classList.toggle('fuera', !m.selected && !m.dead),
+        card.classList.toggle('muerto', !!m.dead),
+        !m.selected && !m.dead && (someOut = !0));
     }
-    let m = n('.xh-todos');
-    m && (m.style.display = p ? '' : 'none');
+    let allBtn = find('.xh-todos');
+    allBtn && (allBtn.style.display = someOut ? '' : 'none');
   }
-  function l() {
-    (r(),
-      (n('.xh-lugar .l').textContent = `${s.place || ''}${s.day ? ` \xB7 d\xEDa ${s.day}` : ''}`),
-      (n('.xh-lugar .o span').textContent = `${s.gold ?? 0} po`),
-      n('[data-a="stealth"]').classList.toggle('on', !!s.stealth));
-    let u = n('[data-a="run"]');
-    ((u.querySelector('span').textContent = s.run === !1 ? 'Andar' : 'Correr'),
-      (u.innerHTML = `${l0(t, s.run === !1 ? 'footsteps' : 'fast') || ''}<span>${s.run === !1 ? 'Andar' : 'Correr'}</span><kbd>X</kbd>`));
+  function render() {
+    (renderParty(),
+      (find('.xh-lugar .l').textContent =
+        `${state.place || ''}${state.day ? ` \xB7 d\xEDa ${state.day}` : ''}`),
+      (find('.xh-lugar .o span').textContent = `${state.gold ?? 0} po`),
+      find('[data-a="stealth"]').classList.toggle('on', !!state.stealth));
+    let runBtn = find('[data-a="run"]');
+    ((runBtn.querySelector('span').textContent = state.run === !1 ? 'Andar' : 'Correr'),
+      (runBtn.innerHTML = `${iconSvg(icons, state.run === !1 ? 'footsteps' : 'fast') || ''}<span>${state.run === !1 ? 'Andar' : 'Correr'}</span><kbd>X</kbd>`));
   }
-  l();
-  let c = null,
-    d = null;
+  render();
+  let bannerTimer = null,
+    hintEl = null;
   return {
-    el: a,
-    update(u) {
-      ((s = { ...s, ...u }), l());
+    el,
+    /** Mezcla `patch` en el estado y vuelve a pintar. */
+    update(patch) {
+      ((state = { ...state, ...patch }), render());
     },
-    toast(u, h = 'info', p = 4200) {
-      let m = n('.xh-avisos'),
-        _ = document.createElement('div');
-      for (_.className = `xh-aviso ${h}`, _.textContent = u, m.append(_); m.children.length > 5;)
-        m.firstChild.remove();
-      (setTimeout(() => (_.style.opacity = '0'), p), setTimeout(() => _.remove(), p + 600));
+    /** Aviso temporal abajo a la izquierda (máximo 6 a la vez); `kind`: info, mal, bien, botin, magia, apagado. */
+    toast(text, kind = 'info', ms = 4200) {
+      let box = find('.xh-avisos'),
+        el = document.createElement('div');
+      for (el.className = `xh-aviso ${kind}`, el.textContent = text, box.append(el); box.children.length > 5;)
+        box.firstChild.remove();
+      (setTimeout(() => (el.style.opacity = '0'), ms), setTimeout(() => el.remove(), ms + 600));
     },
-    banner(u, h = '', p = 1500) {
-      let m = n('.xh-bandera');
-      ((m.textContent = u),
-        (m.className = `xh-bandera ${h}`),
-        (m.style.opacity = '1'),
-        clearTimeout(c),
-        (c = setTimeout(() => (m.style.opacity = '0'), p)));
+    /** Rótulo grande en el centro durante `ms`. */
+    banner(text, kind = '', ms = 1500) {
+      let el = find('.xh-bandera');
+      ((el.textContent = text),
+        (el.className = `xh-bandera ${kind}`),
+        (el.style.opacity = '1'),
+        clearTimeout(bannerTimer),
+        (bannerTimer = setTimeout(() => (el.style.opacity = '0'), ms)));
     },
-    hint(u) {
-      (d?.remove(),
-        (d = null),
-        u &&
-          ((d = document.createElement('div')),
-          (d.className = 'xh-pista'),
-          (d.innerHTML = `${Sk(u)}<small>(toca para cerrar)</small>`),
-          d.addEventListener('click', () => {
-            (d?.remove(), (d = null));
+    /** Pista que se cierra al tocarla (sin texto, quita la actual). */
+    hint(text) {
+      (hintEl?.remove(),
+        (hintEl = null),
+        text &&
+          ((hintEl = document.createElement('div')),
+          (hintEl.className = 'xh-pista'),
+          (hintEl.innerHTML = `${richText(text)}<small>(toca para cerrar)</small>`),
+          hintEl.addEventListener('click', () => {
+            (hintEl?.remove(), (hintEl = null));
           }),
-          a.append(d)));
+          el.append(hintEl)));
     },
-    status(u) {
-      n('.xh-estado').textContent = u || '';
+    /** Texto de estado arriba en el centro (p. ej. «Sigilo»). */
+    status(text) {
+      find('.xh-estado').textContent = text || '';
     },
     show() {
-      a.style.display = '';
+      el.style.display = '';
     },
     hide() {
-      a.style.display = 'none';
+      el.style.display = 'none';
     },
-    isOnUi(u, h) {
-      let p = document.elementFromPoint(u, h);
-      return !!(p && p !== document.getElementById('escena') && p.closest('#ui'));
+    /** ¿El punto de pantalla cae sobre la interfaz (y no sobre el lienzo de la escena)? */
+    isOnUi(x, y) {
+      let el = document.elementFromPoint(x, y);
+      return !!(el && el !== document.getElementById('escena') && el.closest('#ui'));
     },
     dispose() {
-      a.remove();
+      el.remove();
     },
   };
 }
-function Ak(o, { center: e = !1 } = {}) {
-  $1();
-  let t = document.createElement('div');
-  return ((t.className = `xd-fondo${e ? ' centro' : ''}`), o.append(t), t);
+/** Fondo oscuro para una ventana de sustituto (abajo, o centrada). */
+function openBackdrop(root, { center = !1 } = {}) {
+  injectStyles();
+  let el = document.createElement('div');
+  return ((el.className = `xd-fondo${center ? ' centro' : ''}`), root.append(el), el);
 }
-function Rk(o, e) {
-  return new Promise((t) => {
-    let a = Ak(o),
-      n = e.options?.length ? e.options : [{ text: 'Continuar', kind: 'end' }],
-      s = e.roll
-        ? `<div class="xd-tirada ${e.roll.success ? 'si' : 'no'}">[${ms(e.roll.label)} ${e.roll.total} contra CD ${e.roll.dc}: ${e.roll.success ? '\xE9xito' : 'fallo'}]</div>`
+/**
+ * Diálogo de sustituto: {speaker, title, portrait, text, roll, options}. Resuelve con el índice
+ * de la opción elegida (teclas 1–9; Escape elige la de tipo «end»).
+ */
+function fallbackDialog(root, dlg) {
+  return new Promise((resolve) => {
+    let back = openBackdrop(root),
+      options = dlg.options?.length ? dlg.options : [{ text: 'Continuar', kind: 'end' }],
+      rollHtml = dlg.roll
+        ? `<div class="xd-tirada ${dlg.roll.success ? 'si' : 'no'}">[${escapeHtml(dlg.roll.label)} ${dlg.roll.total} contra CD ${dlg.roll.dc}: ${dlg.roll.success ? '\xE9xito' : 'fallo'}]</div>`
         : '';
-    a.innerHTML = `<div class="xd-caja">${e.portrait ? `<img src="${ms(e.portrait)}" alt="">` : ''}<div style="flex:1;min-width:0">
-      ${e.speaker ? `<div class="xd-quien">${ms(e.speaker)}</div>` : ''}${e.title ? `<div class="xd-titulo">${ms(e.title)}</div>` : ''}
-      <div class="xd-texto">${Sk(e.text)}</div>${s}
-      <div class="xd-opciones">${n.map((l, c) => `<button class="xd-op" data-i="${c}" ${l.disabled ? 'disabled' : ''}><span class="k">${c + 1}.</span>${l.tag ? `<span class="tag">${ms(l.tag)}</span>` : ''}${ms(l.text)}${l.hint ? `<span class="hint">(${ms(l.hint)})</span>` : ''}</button>`).join('')}</div></div></div>`;
-    let i = (l) => {
-        (removeEventListener('keydown', r, !0), a.remove(), t(l));
+    back.innerHTML = `<div class="xd-caja">${dlg.portrait ? `<img src="${escapeHtml(dlg.portrait)}" alt="">` : ''}<div style="flex:1;min-width:0">
+      ${dlg.speaker ? `<div class="xd-quien">${escapeHtml(dlg.speaker)}</div>` : ''}${dlg.title ? `<div class="xd-titulo">${escapeHtml(dlg.title)}</div>` : ''}
+      <div class="xd-texto">${richText(dlg.text)}</div>${rollHtml}
+      <div class="xd-opciones">${options.map((opt, i) => `<button class="xd-op" data-i="${i}" ${opt.disabled ? 'disabled' : ''}><span class="k">${i + 1}.</span>${opt.tag ? `<span class="tag">${escapeHtml(opt.tag)}</span>` : ''}${escapeHtml(opt.text)}${opt.hint ? `<span class="hint">(${escapeHtml(opt.hint)})</span>` : ''}</button>`).join('')}</div></div></div>`;
+    let close = (choice) => {
+        (removeEventListener('keydown', onKey, !0), back.remove(), resolve(choice));
       },
-      r = (l) => {
-        let c = Number(l.key);
-        if (c >= 1 && c <= n.length && !n[c - 1].disabled) (l.stopPropagation(), i(c - 1));
-        else if (l.key === 'Escape') {
-          let d = n.findIndex((u) => u.kind === 'end');
-          d >= 0 && (l.stopPropagation(), i(d));
+      onKey = (ev) => {
+        let num = Number(ev.key);
+        if (num >= 1 && num <= options.length && !options[num - 1].disabled)
+          (ev.stopPropagation(), close(num - 1));
+        else if (ev.key === 'Escape') {
+          let endIdx = options.findIndex((opt) => opt.kind === 'end');
+          endIdx >= 0 && (ev.stopPropagation(), close(endIdx));
         }
       };
-    (addEventListener('keydown', r, !0),
-      a.addEventListener('click', (l) => {
-        let c = l.target.closest('.xd-op');
-        c && !c.disabled && i(Number(c.dataset.i));
+    (addEventListener('keydown', onKey, !0),
+      back.addEventListener('click', (ev) => {
+        let btn = ev.target.closest('.xd-op');
+        btn && !btn.disabled && close(Number(btn.dataset.i));
       }),
-      a.querySelector('.xd-op:not([disabled])')?.focus());
+      back.querySelector('.xd-op:not([disabled])')?.focus());
   });
 }
-function Ck(o, { title: e, items: t, gold: a, names: n }) {
-  return new Promise((s) => {
-    let i = Ak(o, { center: !0 }),
-      r = t.map((p, m) => ({ ...p, i: m })),
-      l = [],
-      c = a || 0,
-      d = () => {
-        i.innerHTML = `<div class="xd-caja" style="display:block;margin:0"><div class="xd-quien">${ms(e)}</div>
-        <div class="xd-lista">${c ? `<div class="xd-obj" data-g="1">Oro<span>${c} po</span></div>` : ''}${r.map((p) => `<div class="xd-obj" data-i="${p.i}">${ms(n(p.id))}${p.unid ? ' (sin identificar)' : ''}<span>\xD7${p.n}</span></div>`).join('')}${!c && !r.length ? '<i style="color:#9a8c74">Vac\xEDo.</i>' : ''}</div>
+/**
+ * Ventana de botín: el jugador coge objetos sueltos, el oro o todo. Resuelve con
+ * {taken: índices cogidos, gold: oro cogido}.
+ */
+function lootDialog(root, { title, items, gold, names }) {
+  return new Promise((resolve) => {
+    let back = openBackdrop(root, { center: !0 }),
+      left = items.map((item, idx) => ({ ...item, i: idx })),
+      taken = [],
+      goldLeft = gold || 0,
+      render = () => {
+        back.innerHTML = `<div class="xd-caja" style="display:block;margin:0"><div class="xd-quien">${escapeHtml(title)}</div>
+        <div class="xd-lista">${goldLeft ? `<div class="xd-obj" data-g="1">Oro<span>${goldLeft} po</span></div>` : ''}${left.map((item) => `<div class="xd-obj" data-i="${item.i}">${escapeHtml(names(item.id))}${item.unid ? ' (sin identificar)' : ''}<span>\xD7${item.n}</span></div>`).join('')}${!goldLeft && !left.length ? '<i style="color:#9a8c74">Vac\xEDo.</i>' : ''}</div>
         <div class="xd-opciones" style="grid-template-columns:1fr 1fr"><button class="xd-op" data-a="todo">Cogerlo todo</button><button class="xd-op" data-a="cerrar">Cerrar</button></div></div>`;
       };
-    d();
-    let u = () => {
-        (removeEventListener('keydown', h, !0), i.remove(), s({ taken: l, gold: (a || 0) - c }));
+    render();
+    let close = () => {
+        (removeEventListener('keydown', onKey, !0),
+          back.remove(),
+          resolve({ taken, gold: (gold || 0) - goldLeft }));
       },
-      h = (p) => {
-        p.key === 'Escape'
-          ? (p.stopPropagation(), u())
-          : (p.key === 'Enter' || p.key === ' ') &&
-            (p.stopPropagation(),
-            p.preventDefault(),
-            l.push(...r.map((m) => m.i)),
-            (r.length = 0),
-            (c = 0),
-            u());
+      onKey = (ev) => {
+        ev.key === 'Escape'
+          ? (ev.stopPropagation(), close())
+          : (ev.key === 'Enter' || ev.key === ' ') &&
+            (ev.stopPropagation(),
+            ev.preventDefault(),
+            taken.push(...left.map((item) => item.i)),
+            (left.length = 0),
+            (goldLeft = 0),
+            close());
       };
-    (addEventListener('keydown', h, !0),
-      i.addEventListener('click', (p) => {
-        let m = p.target.closest('[data-a]')?.dataset.a;
-        if (m === 'todo') {
-          (l.push(...r.map((b) => b.i)), (r.length = 0), (c = 0), u());
+    (addEventListener('keydown', onKey, !0),
+      back.addEventListener('click', (ev) => {
+        let action = ev.target.closest('[data-a]')?.dataset.a;
+        if (action === 'todo') {
+          (taken.push(...left.map((item) => item.i)), (left.length = 0), (goldLeft = 0), close());
           return;
         }
-        if (m === 'cerrar' || p.target === i) {
-          u();
+        if (action === 'cerrar' || ev.target === back) {
+          close();
           return;
         }
-        let _ = p.target.closest('.xd-obj');
-        if (_) {
-          if (_.dataset.g) c = 0;
+        let row = ev.target.closest('.xd-obj');
+        if (row) {
+          if (row.dataset.g) goldLeft = 0;
           else {
-            let b = Number(_.dataset.i),
-              f = r.findIndex((v) => v.i === b);
-            f >= 0 && l.push(...r.splice(f, 1).map((v) => v.i));
+            let idx = Number(row.dataset.i),
+              pos = left.findIndex((item) => item.i === idx);
+            pos >= 0 && taken.push(...left.splice(pos, 1).map((item) => item.i));
           }
-          !c && !r.length ? u() : d();
+          !goldLeft && !left.length ? close() : render();
         }
       }));
   });
 }
-function W1(o, e, t = 1600) {
+/** Rótulo a pantalla casi negra durante `ms` (paso del tiempo, amanecer…). */
+function showInterlude(root, text, ms = 1600) {
   return (
-    $1(),
-    new Promise((a) => {
-      let n = document.createElement('div');
-      ((n.style.cssText =
+    injectStyles(),
+    new Promise((resolve) => {
+      let el = document.createElement('div');
+      ((el.style.cssText =
         'position:fixed;inset:0;background:#050302;opacity:0;transition:opacity .6s;display:grid;place-items:center;z-index:40;pointer-events:auto'),
-        (n.innerHTML = `<div style="font:700 32px Cinzel,Georgia,serif;color:#e8c060;letter-spacing:.06em;text-align:center;padding:16px">${ms(e)}</div>`),
-        o.append(n),
-        requestAnimationFrame(() => (n.style.opacity = '0.94')),
-        setTimeout(() => (n.style.opacity = '0'), 600 + t),
+        (el.innerHTML = `<div style="font:700 32px Cinzel,Georgia,serif;color:#e8c060;letter-spacing:.06em;text-align:center;padding:16px">${escapeHtml(text)}</div>`),
+        root.append(el),
+        requestAnimationFrame(() => (el.style.opacity = '0.94')),
+        setTimeout(() => (el.style.opacity = '0'), 600 + ms),
         setTimeout(() => {
-          (n.remove(), a());
-        }, 1250 + t));
+          (el.remove(), resolve());
+        }, 1250 + ms));
     })
   );
 }
-const oN = `
+const HUD_CSS = `
 .xh{position:fixed;inset:0;pointer-events:none!important;font-family:Alegreya,Georgia,serif;color:#ecdfc4;z-index:5}
 .xh *{box-sizing:border-box}
 .xh button{font:inherit;color:inherit;cursor:pointer}
@@ -320,13 +350,21 @@ const oN = `
 .xd-obj{display:flex;justify-content:space-between;gap:10px;padding:6px 10px;background:#00000040;border:1px solid #5a4528;border-radius:5px;cursor:pointer;font-size:17px}
 .xd-obj:hover{border-color:#e8c060}.xd-obj span{color:#c9a55c}
 `;
-let V1 = null;
-const l0 = (o, e) => (o?.[e] ? `<svg viewBox="0 0 512 512" aria-hidden="true">${o[e]}</svg>` : '');
-const ms = (o) =>
-  String(o ?? '').replace(/[&<>"]/g, (e) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[e]);
-const Sk = (o) => ms(o).replace(/\*([^*]+)\*/g, '<em>$1</em>');
-let Ek = !1;
-const iN = [
+let iconsPromise = null;
+/** SVG de un icono de icons.json, o cadena vacía. */
+const iconSvg = (icons, name) =>
+  icons?.[name] ? `<svg viewBox="0 0 512 512" aria-hidden="true">${icons[name]}</svg>` : '';
+/** Escapa & < > " para insertar texto en HTML. */
+const escapeHtml = (text) =>
+  String(text ?? '').replace(
+    /[&<>"]/g,
+    (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch],
+  );
+/** Texto escapado con *cursiva* convertida en <em>. */
+const richText = (text) => escapeHtml(text).replace(/\*([^*]+)\*/g, '<em>$1</em>');
+let stylesInjected = !1;
+/** Botones de acción del HUD: [acción, etiqueta, icono, tecla]. */
+const HUD_ACTIONS = [
   ['inventory', 'Equipo', 'bag', 'I'],
   ['stealth', 'Sigilo', 'stealth', 'C'],
   ['search', 'Buscar', 'search', 'B'],
@@ -335,4 +373,4 @@ const iN = [
   ['journal', 'Diario', 'book', 'J'],
 ];
 
-export { Ck, Rk, W1, kk };
+export { lootDialog, fallbackDialog, showInterlude, createExploreHud };
