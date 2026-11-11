@@ -1,12 +1,19 @@
 // ui/screens/diario.js
-// Reconstruido de publicado/juego.js (módulo __esm «VT»). Nombres locales aún minificados.
+// Pantalla «diario»: misiones (en curso y terminadas) y notas del jugador.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('diario').
+// Reconstruido de publicado/juego.js (módulo __esm «VT»).
 
 import { iconHtml, escapeHtml, richText, elem, makeButton } from '../dom.js';
 import { screenFrame, makeTabs } from '../modal.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesDiario() {
   return { width: '64rem', height: '44rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaDiario(screen, params, ui, game) {
   let currentCp = () => game.store.cp,
     frame = screenFrame(screen, { title: 'Diario', ic: 'open_book' });

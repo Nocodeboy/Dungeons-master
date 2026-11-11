@@ -1,5 +1,8 @@
 // ui/creator.js
-// Reconstruido de publicado/juego.js (módulo __esm «sm»). Nombres locales aún minificados.
+// Creador de personajes por pasos (especie, clase, trasfondo, características, habilidades, opciones,
+// conjuros, equipo, aspecto, identidad) y subida de nivel. Lo usan scenes/creator.js y las pantallas
+// creador y nivel.
+// Reconstruido de publicado/juego.js (módulo __esm «sm»).
 
 import { iconHtml, escapeHtml, richText, elem, makeButton, iconButton, signed } from './dom.js';
 import { setTip } from './tooltip.js';
@@ -16,6 +19,10 @@ function spellTip(spell) {
     foot: [CAST_TIMES[spell.cast] || '', ...(spell.bits || [])].filter(Boolean).join(' \xB7 '),
   });
 }
+/**
+ * Monta el creador en `opts.container` (o en ui.root) y habla con el núcleo por ui.R (sheet_options,
+ * sheet_set, sheet_finish). Modos: create, mercenario, levelup. Devuelve {el, heroEl, sheet(), go(step), dispose()}.
+ */
 function buildCreator(ui, game, opts) {
   let rules = ui.R,
     mode = opts.mode || 'create',

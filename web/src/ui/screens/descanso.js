@@ -1,14 +1,21 @@
 // ui/screens/descanso.js
-// Reconstruido de publicado/juego.js (módulo __esm «FT»). Nombres locales aún minificados.
+// Pantalla «descanso»: elegir descanso corto (gastar dados de golpe) o largo y enseñar el resultado.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('descanso').
+// Reconstruido de publicado/juego.js (módulo __esm «FT»).
 
 import { iconHtml, escapeHtml, richText, elem, makeButton, faceBadge, plural } from '../dom.js';
 import { screenFrame } from '../modal.js';
 import { makeDie, rollDie } from '../dice.js';
 import { CLASS_ICONS } from '../labels.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesDescanso() {
   return { width: '46rem', auto: !0, full: !0 };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaDescanso(screen, params, ui, game) {
   let rules = ui.R,
     currentCp = () => game.store.cp,

@@ -1,12 +1,19 @@
 // ui/screens/ajustes.js
-// Reconstruido de publicado/juego.js (módulo __esm «YT»). Nombres locales aún minificados.
+// Pantalla «ajustes»: sonido, texto e interfaz, partida y gráficos; guarda con store.saveSettings y avisa al audio.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('ajustes').
+// Reconstruido de publicado/juego.js (módulo __esm «YT»).
 
 import { elem, makeButton } from '../dom.js';
 import { screenFrame, makeSegmented } from '../modal.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesAjustes() {
   return { width: '58rem', height: '46rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaAjustes(screen, params, ui, game) {
   let store = game.store,
     current = () => store.settings,

@@ -1,5 +1,7 @@
 // ui/screens/grupo.js
-// Reconstruido de publicado/juego.js (módulo __esm «qT»). Nombres locales aún minificados.
+// Pantalla «grupo»: fichas de personaje (características, habilidades, ataques, conjuros, rasgos y aprobación).
+// La registra ui/index.js (SCREENS) y se abre con ui.open('grupo').
+// Reconstruido de publicado/juego.js (módulo __esm «qT»).
 
 import { iconHtml, escapeHtml, elem, makeButton, faceBadge, signed } from '../dom.js';
 import { screenFrame, makeTabs } from '../modal.js';
@@ -13,9 +15,14 @@ import {
   CLASS_ICONS,
 } from '../labels.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesGrupo() {
   return { width: '80rem', height: '50rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaGrupo(screen, params, ui, game) {
   let rules = ui.R,
     currentCp = () => game.store.cp,

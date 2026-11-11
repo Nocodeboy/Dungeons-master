@@ -1,11 +1,17 @@
 // ui/hud.js
-// Reconstruido de publicado/juego.js (módulo __esm «o2»). Nombres locales aún minificados.
+// HUD de exploración: retratos y vida del grupo, oro y lugar, registro, avisos, pistas, barra de acciones
+// con atajos y etiquetas o textos flotantes sobre el mundo 3D. Lo crea ui/index.js (ui.hud); lo maneja explore/.
+// Reconstruido de publicado/juego.js (módulo __esm «o2»).
 
 import { Vector3 } from 'three';
 import { iconHtml, escapeHtml, richText, elem, faceBadge } from './dom.js';
 import { conditionName, CLASS_ICONS } from './labels.js';
 import { setTip } from './tooltip.js';
 
+/**
+ * Crea el HUD (oculto al principio). hud.explore(opts) lo pone en modo exploración y devuelve el manejador
+ * que usa explore/ (update, banner, hint, status…); también log, prompt, label, float, setActions…
+ */
 function createHud(ui, game) {
   let listeners = { select: new Set(), action: new Set(), portrait: new Set() },
     emit = (type, payload) => {

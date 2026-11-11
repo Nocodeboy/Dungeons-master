@@ -1,5 +1,7 @@
 // ui/screens/tienda.js
-// Reconstruido de publicado/juego.js (módulo __esm «IT»). Nombres locales aún minificados.
+// Pantalla «tienda»: comprar y vender a un comerciante (ui.R.shop, buy y sell).
+// La registra ui/index.js (SCREENS) y se abre con ui.open('tienda').
+// Reconstruido de publicado/juego.js (módulo __esm «IT»).
 
 import { iconHtml, escapeHtml, elem, makeButton, faceBadge } from '../dom.js';
 import { screenFrame, makeTabs } from '../modal.js';
@@ -7,9 +9,14 @@ import { setTip } from '../tooltip.js';
 import { rarityClass, itemIcon, itemTip } from '../items.js';
 import { ITEM_KINDS } from '../labels.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesTienda() {
   return { width: '76rem', height: '46rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaTienda(screen, params, ui, game) {
   let rules = ui.R,
     currentCp = () => game.store.cp,

@@ -1,8 +1,15 @@
-// ui/rules-mock.js
-// Reconstruido de publicado/juego.js (módulo __esm «Ww»). Nombres locales aún minificados.
+// ui/rules-bridge.js
+// Puente de reglas de la interfaz (ui.R): llama al núcleo (game.rules, es decir, mdg_call) y, si la
+// operación no existe o no hay combate, usa el simulador JS de simulator.js. Cachea datos y fichas de
+// objetos y ofrece la API de alto nivel (hojas, campaña, inventario, tiendas, pruebas). Lo crea ui/index.js.
+// Reconstruido de publicado/juego.js (módulo __esm «Ww»).
 
 import { createSimulator } from './simulator.js';
 
+/**
+ * Crea ui.R: call(op, args) con respaldo del simulador (si `mock`), apply(res) guarda la campaña que
+ * devuelva una operación, data/item con caché y los métodos de la API (sheetNew, equip, buy…).
+ */
 function createRulesBridge(game, { mock = !0 } = {}) {
   let missing = new Set(),
     simulator = null,

@@ -877,7 +877,8 @@
     "g": "hp",
     "y": "row",
     "w": "info",
-    "f": "button"
+    "f": "button",
+    "k": "feature"
   },
   "src/ui/screens/relato.js": {
     "o": "screen",
@@ -2422,6 +2423,8 @@
     "zf/o": "id",
     "zf/e": "def",
     "tz": "isStackable",
-    "tz/o": "id"
+    "tz/o": "id",
+    ".inv_drop/n": "n",
+    ".shop_buy/n": "n"
   }
 }

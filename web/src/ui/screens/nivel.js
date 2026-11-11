@@ -1,5 +1,7 @@
 // ui/screens/nivel.js
-// Reconstruido de publicado/juego.js (módulo __esm «aM»). Nombres locales aún minificados.
+// Pantalla «nivel»: subida de nivel del héroe paso a paso con el creador y resumen de lo que gana el grupo.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('nivel').
+// Reconstruido de publicado/juego.js (módulo __esm «aM»).
 
 import { iconHtml, escapeHtml, elem, makeButton, faceBadge } from '../dom.js';
 import { screenFrame } from '../modal.js';
@@ -7,9 +9,14 @@ import { pc } from '../../actors/outfits.js';
 import { buildCreator } from '../creator.js';
 import { CLASS_ICONS } from '../labels.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesNivel() {
   return { width: '86rem', height: '52rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaNivel(screen, params, ui, game) {
   let rules = ui.R,
     currentCp = () => game.store.cp;
@@ -86,7 +93,7 @@ function pantallaNivel(screen, params, ui, game) {
         }),
       );
       let info = elem('div');
-      ((info.innerHTML = `<b class="mg-h3" style="font-size:1.05rem">${escapeHtml(member.name)}</b> <span class="mg-dim">\xB7 ${escapeHtml(member.class_name || '')} ${escapeHtml(targetLevel)}</span><div><span class="mg-bien">${hp ? `+${escapeHtml(hp)} PG` : ''}</span>${hp ? ' \xB7 ' : ''}<span class="mg-dim">${escapeHtml(member.max_hp)} PG m\xE1ximos</span></div>${gained.length ? `<div class="mg-small" style="margin-top:.2rem">${gained.map((k) => `<b>${escapeHtml(k.name)}</b>`).join(' \xB7 ')}</div>` : ''}`),
+      ((info.innerHTML = `<b class="mg-h3" style="font-size:1.05rem">${escapeHtml(member.name)}</b> <span class="mg-dim">\xB7 ${escapeHtml(member.class_name || '')} ${escapeHtml(targetLevel)}</span><div><span class="mg-bien">${hp ? `+${escapeHtml(hp)} PG` : ''}</span>${hp ? ' \xB7 ' : ''}<span class="mg-dim">${escapeHtml(member.max_hp)} PG m\xE1ximos</span></div>${gained.length ? `<div class="mg-small" style="margin-top:.2rem">${gained.map((feature) => `<b>${escapeHtml(feature.name)}</b>`).join(' \xB7 ')}</div>` : ''}`),
         row.append(info),
         rows.append(row));
     }

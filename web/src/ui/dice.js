@@ -1,8 +1,11 @@
 // ui/dice.js
-// Reconstruido de publicado/juego.js (módulo __esm «eu»). Nombres locales aún minificados.
+// Dados SVG de la interfaz (d4…d20) y su animación de tirada. Lo usan el diálogo, el creador, el descanso
+// y los avisos de tiradas de ui/index.js.
+// Reconstruido de publicado/juego.js (módulo __esm «eu»).
 
 import { escapeHtml, elem, sleep, reducedMotion } from './dom.js';
 
+/** Inserta una sola vez los degradados SVG de los dados (normal, crítico y pifia). */
 function installDiceDefs() {
   if (document.getElementById('mg-dados-defs')) return;
   let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -18,6 +21,7 @@ function installDiceDefs() {
   </defs>`),
     document.body.append(svg));
 }
+/** Dado SVG `.mg-die` de `sides` caras que muestra `value`. */
 function makeDie(sides = 20, value = '', { size = '', title } = {}) {
   let shape = DIE_SHAPES[sides] || DIE_SHAPES[20],
     die = elem(`span.mg-die${size ? `.mg-die--${size}` : ''}`, {
@@ -30,6 +34,7 @@ function makeDie(sides = 20, value = '', { size = '', title } = {}) {
     die
   );
 }
+/** Anima un dado (rueda `ms` milisegundos) y lo deja en `value`; marca crítico o pifia en el d20. */
 async function rollDie(die, value, { ms = 900, crit, fumble } = {}) {
   let sides = Number(die.dataset.sides) || 20,
     face = die.querySelector('b');

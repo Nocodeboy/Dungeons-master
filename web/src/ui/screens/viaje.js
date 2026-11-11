@@ -1,13 +1,20 @@
 // ui/screens/viaje.js
-// Reconstruido de publicado/juego.js (módulo __esm «uM»). Nombres locales aún minificados.
+// Pantalla «viaje»: el mapa de viaje para consultarlo o elegir destino.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('viaje').
+// Reconstruido de publicado/juego.js (módulo __esm «uM»).
 
 import { escapeHtml, elem, makeButton } from '../dom.js';
 import { screenFrame } from '../modal.js';
 import { createTravelMap } from '../travel-map.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesViaje() {
   return { width: '86rem', height: '54rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaViaje(screen, params, ui, game) {
   let frame = screenFrame(screen, { title: 'Mapa de viaje', ic: 'treasure_map' });
   (frame.body.classList.add('mg-fill'), (frame.body.style.padding = '0 1rem 1rem'));

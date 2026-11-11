@@ -1,5 +1,7 @@
 // ui/portraits.js
-// Reconstruido de publicado/juego.js (módulo __esm «RT»). Nombres locales aún minificados.
+// Pintor de retratos de respaldo: si el juego no trae su generador (game.actors.portrait), renderiza con
+// three.js el busto de cada miembro del grupo y lo guarda con ui.setPortrait. Lo crea ui/index.js.
+// Reconstruido de publicado/juego.js (módulo __esm «RT»).
 
 import {
   ACESFilmicToneMapping,
@@ -14,6 +16,7 @@ import { Fs } from '../actors/character.js';
 import { hc } from '../actors/roster.js';
 import { Tv } from '../actors/outfits.js';
 
+/** Pinta los retratos que falten al empezar, cargar, entrar en un nivel o unirse un compañero. Devuelve {run}. */
 function createPortraitPainter(ui, game) {
   let pending = new Set();
   async function run() {

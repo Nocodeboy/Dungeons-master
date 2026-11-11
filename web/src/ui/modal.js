@@ -1,8 +1,14 @@
 // ui/modal.js
-// Reconstruido de publicado/juego.js (módulo __esm «Pn»). Nombres locales aún minificados.
+// Marco de las pantallas: pila de capas (ScreenStack) con foco atrapado, Esc y Tab, cabecera estándar
+// (screenFrame), pestañas y controles segmentados. Lo usan ui/index.js y todas las pantallas.
+// Reconstruido de publicado/juego.js (módulo __esm «Pn»).
 
 import { iconHtml, escapeHtml, elem, iconButton } from './dom.js';
 
+/**
+ * Monta en el panel de una pantalla la cabecera (icono, título, subtítulo, extra, cerrar), las pestañas,
+ * el cuerpo y el pie. Devuelve {head, tabs, body, foot, title, sub, extra}.
+ */
 function screenFrame(
   screen,
   { title, sub = '', ic: icon = '', extra = null, closeLabel = 'Cerrar', noClose = !1 } = {},
@@ -38,6 +44,7 @@ function screenFrame(
     { head, tabs, body, foot, title: heading, sub: subtitle, extra: spacer }
   );
 }
+/** Barra de pestañas con flechas del teclado; `onChange(id)` al cambiar. El nodo tiene `.set(id)` y `.update(tabs)`. */
 function makeTabs(tabs, active, onChange, { cls = '' } = {}) {
   let bar = elem(`div.mg-tabs${cls ? '.' + cls : ''}`, { role: 'tablist' }),
     render = () => {
@@ -77,6 +84,7 @@ function makeTabs(tabs, active, onChange, { cls = '' } = {}) {
     bar
   );
 }
+/** Control segmentado (botones con aria-pressed) para elegir uno de `options` ([[valor, texto]…]). */
 function makeSegmented(options, current, onChange, { label = '' } = {}) {
   let group = elem('div.mg-seg', { role: 'group', 'aria-label': label || null }),
     render = () => {
@@ -93,6 +101,10 @@ function makeSegmented(options, current, onChange, { label = '' } = {}) {
 }
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+/**
+ * Pila de pantallas abiertas. open(name, build, opts) devuelve una promesa con el valor de close(); key(ev)
+ * atiende Esc y Tab (foco atrapado); closeAll() las cierra todas.
+ */
 const ScreenStack = class {
   constructor(ui, game) {
     ((this.ui = ui), (this.game = game), (this.stack = []));

@@ -1,5 +1,8 @@
 // ui/screens/inventario.js
-// Reconstruido de publicado/juego.js (módulo __esm «zT»). Nombres locales aún minificados.
+// Pantalla «inventario»: equipo puesto (muñeco), detalle del objeto y mochila, con arrastrar y soltar entre
+// ranuras, mochila y otros miembros del grupo.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('inventario').
+// Reconstruido de publicado/juego.js (módulo __esm «zT»).
 
 import { iconHtml, escapeHtml, elem, makeButton, faceBadge, signed } from '../dom.js';
 import { screenFrame, makeTabs } from '../modal.js';
@@ -7,9 +10,14 @@ import { setTip } from '../tooltip.js';
 import { rarityClass, itemIcon, itemTip } from '../items.js';
 import { RARITIES, ITEM_KINDS, CLASS_ICONS } from '../labels.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesInventario() {
   return { width: '78rem', height: '48rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaInventario(screen, params, ui, game) {
   let rules = ui.R,
     currentCp = () => game.store.cp;

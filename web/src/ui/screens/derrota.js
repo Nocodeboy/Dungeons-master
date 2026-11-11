@@ -1,11 +1,18 @@
 // ui/screens/derrota.js
-// Reconstruido de publicado/juego.js (módulo __esm «AM»). Nombres locales aún minificados.
+// Pantalla «derrota»: el grupo ha caído; cargar el guardado automático, otra partida o volver al menú.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('derrota').
+// Reconstruido de publicado/juego.js (módulo __esm «AM»).
 
 import { iconHtml, richText, elem, makeButton, formatDate } from '../dom.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesDerrota() {
   return { full: !0, cls: 'mg-derrota' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaDerrota(screen, params, ui, game) {
   let store = game.store,
     el = screen.el,

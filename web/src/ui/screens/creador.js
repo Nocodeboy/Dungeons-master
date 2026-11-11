@@ -1,12 +1,20 @@
 // ui/screens/creador.js
-// Reconstruido de publicado/juego.js (módulo __esm «bM»). Nombres locales aún minificados.
+// Pantalla «creador»: el creador de personajes en una capa (héroe o mercenario que se contrata), con vista
+// previa 3D del personaje.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('creador').
+// Reconstruido de publicado/juego.js (módulo __esm «bM»).
 
 import { pc } from '../../actors/outfits.js';
 import { buildCreator } from '../creator.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesCreador() {
   return { width: '86rem', height: '52rem', cls: 'mg-cr-host' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaCreador(screen, params, ui, game) {
   let rules = ui.R;
   screen.el.classList.add('mg-cr-host');

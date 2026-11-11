@@ -1,12 +1,19 @@
 // ui/screens/partidas.js
-// Reconstruido de publicado/juego.js (módulo __esm «kv»). Nombres locales aún minificados.
+// Pantallas «guardar» y «cargar»: ranuras de partida, importar, exportar y borrar.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('guardar', o 'cargar').
+// Reconstruido de publicado/juego.js (módulo __esm «kv»).
 
 import { iconHtml, escapeHtml, elem, makeButton, formatDuration, formatDate } from '../dom.js';
 import { screenFrame, makeTabs } from '../modal.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesPartidas() {
   return { width: '52rem', height: '44rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaPartidas(screen, params, ui, game) {
   let store = game.store,
     mode = params.screen === 'guardar' && store.cp ? 'guardar' : 'cargar',

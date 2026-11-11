@@ -1,5 +1,7 @@
 // ui/creator-look.js
-// Reconstruido de publicado/juego.js (módulo __esm «ZT»). Nombres locales aún minificados.
+// Aspecto del personaje en el creador: campos (cuerpo, piel, pelo, cuernos…) y valores por defecto según
+// la especie, completar y aleatorizar. Usa game.actors si trae su propia versión. Lo usa creator.js.
+// Reconstruido de publicado/juego.js (módulo __esm «ZT»).
 
 function defaultAppearanceOptions(species, { lineage, ancestry } = {}) {
   let skins = SKIN_TONES[species] || SKIN_TONES.human;
@@ -88,6 +90,7 @@ function defaultAppearanceOptions(species, { lineage, ancestry } = {}) {
   };
   return { name: species, fields, defaults };
 }
+/** Campos de aspecto y valores por defecto para una especie (los de game.actors si existen). */
 function appearanceOptions(game, species, opts) {
   try {
     let fn = game.actors?.appearanceOptions;
@@ -97,6 +100,7 @@ function appearanceOptions(game, species, opts) {
   }
   return defaultAppearanceOptions(species, opts);
 }
+/** Completa un aspecto con los valores por defecto y corrige colores de piel no válidos. */
 function completeAppearance(game, species, look = {}, opts) {
   try {
     if (game.actors?.completeAppearance) return game.actors.completeAppearance(look, species, opts);
@@ -112,6 +116,7 @@ function completeAppearance(game, species, look = {}, opts) {
       (out[field.key] = spec.defaults[field.key]);
   return out;
 }
+/** Aspecto al azar para una especie. */
 function randomAppearance(game, species, opts) {
   try {
     if (game.actors?.randomAppearance) return game.actors.randomAppearance(species, opts);
@@ -247,6 +252,7 @@ const FRILLS = [
 ];
 const HORN_COLORS = ['#2a2020', '#4a3a2e', '#7a6a58', '#c8b8a0', '#5a2a2a', '#3a3a4a'];
 const toOptions = (list) => list.map(([id, label, swatch]) => ({ id, label, ...(swatch ? { swatch } : {}) }));
+/** Grupos de campos de aspecto, en el orden en que los enseña el creador. */
 const LOOK_GROUPS = [
   ['Figura', ['body', 'build', 'height', 'face']],
   ['Piel y ojos', ['skin', 'eyes']],

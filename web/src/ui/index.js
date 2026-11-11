@@ -1,5 +1,8 @@
 // ui/index.js
-// Reconstruido de publicado/juego.js (módulo __esm «Nv»). Nombres locales aún minificados.
+// Punto de entrada de la interfaz: createUI(game) inyecta las hojas de estilo, monta #ui, el puente de
+// reglas, las fichas, el diálogo, el HUD y los retratos, registra las pantallas y las escenas perezosas
+// (creator, travel, ending) y los atajos de teclado. Lo llama main.js (game.ui).
+// Reconstruido de publicado/juego.js (módulo __esm «Nv»).
 
 import themeCss from './theme.css';
 import menuCss from './menu.css';
@@ -38,6 +41,7 @@ function ornamentTokensCss() {
     );
   return `:root{--orn-a:${cornerOrnament('')};--orn-b:${cornerOrnament('translate(26 0) scale(-1 1)')};--orn-c:${cornerOrnament('translate(0 26) scale(1 -1)')};--orn-d:${cornerOrnament('translate(26 26) scale(-1 -1)')};--grano:${grainUrl};--perg-grano:${parchmentGrainUrl};}`;
 }
+/** Crea el contexto `ui` (toast, roll, loading, confirm, choose, message, open, close, bark, portrait, quickSave…). */
 function createUI(game) {
   let root = document.getElementById('ui') || document.body.appendChild(elem('div#ui'));
   (injectStyle('mg-tokens', ornamentTokensCss()),

@@ -1,11 +1,18 @@
 // ui/screens/relato.js
-// Reconstruido de publicado/juego.js (módulo __esm «EM»). Nombres locales aún minificados.
+// Pantalla «relato»: texto narrativo a pantalla completa que aparece párrafo a párrafo.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('relato').
+// Reconstruido de publicado/juego.js (módulo __esm «EM»).
 
 import { richText, elem, makeButton, reducedMotion, coarsePointer } from '../dom.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesRelato() {
   return { full: !0, cls: 'mg-relato' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaRelato(screen, params, ui, game) {
   let el = screen.el,
     paragraphs = (params.paragraphs || []).map((text) => String(text || '').trim()).filter(Boolean),

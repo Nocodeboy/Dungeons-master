@@ -1,5 +1,7 @@
 // ui/tooltip.js
-// Reconstruido de publicado/juego.js (módulo __esm «ci»). Nombres locales aún minificados.
+// Fichas emergentes (tooltips) de toda la interfaz: setTip asocia la ficha a un nodo y createTooltip la
+// enseña con ratón, pulsación larga o teclado. La instala ui/index.js (ui.tips, ui.tip).
+// Reconstruido de publicado/juego.js (módulo __esm «ci»).
 
 import { escapeHtml, richText, elem } from './dom.js';
 
@@ -10,6 +12,10 @@ function tipHtml(tip) {
       ? tip
       : `${tip.title ? `<div class="mg-tip-t">${escapeHtml(tip.title)}</div>` : ''}${tip.sub ? `<div class="mg-tip-s">${escapeHtml(tip.sub)}</div>` : ''}${tip.body ? `<div class="mg-tip-b">${Array.isArray(tip.body) ? tip.body.map((para) => `<p>${richText(para)}</p>`).join('') : tip.html ? tip.body : `<p>${richText(tip.body)}</p>`}</div>` : ''}${tip.extra || ''}${tip.tags?.length ? `<div class="mg-tip-tags">${tip.tags.map(([label, cls]) => `<span class="mg-chip ${cls || ''}">${escapeHtml(label)}</span>`).join('')}</div>` : ''}${tip.foot ? `<div class="mg-tip-f">${richText(tip.foot)}</div>` : ''}`;
 }
+/**
+ * Asocia una ficha a un nodo: texto, objeto {title, sub, body, tags, foot, extra} o función que la
+ * devuelve. Hace el nodo enfocable para el teclado.
+ */
 function setTip(node, tip) {
   return (
     (node._tip = tip),
@@ -19,6 +25,10 @@ function setTip(node, tip) {
     node
   );
 }
+/**
+ * Instala las fichas sobre `root`: ratón (pasar por encima), táctil (mantener pulsado) y teclado
+ * (foco). Devuelve {show, hide, refresh}.
+ */
 function createTooltip(root) {
   let box = elem('div.mg-tip', { role: 'tooltip', id: 'mg-tip' });
   root.append(box);

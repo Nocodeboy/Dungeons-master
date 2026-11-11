@@ -1,5 +1,7 @@
 // ui/travel-map.js
-// Reconstruido de publicado/juego.js (módulo __esm «Lv»). Nombres locales aún minificados.
+// Pergamino SVG del mapa de viaje: lugares, caminos con horas, decoración generada (río, bosques, rosa de
+// los vientos) y selección con ratón o teclado. Lo usan la pantalla viaje y scenes/travel.js.
+// Reconstruido de publicado/juego.js (módulo __esm «Lv»).
 
 import datosMapaViaje from '../datos/mapa-viaje.json';
 import { iconSvg, escapeHtml, elem } from './dom.js';
@@ -92,6 +94,10 @@ function mapDecorSvg() {
     svg
   );
 }
+/**
+ * Dibuja el mapa en `container`. `onSelect(lugar, ruta)` al elegir un lugar; `onActivate(lugar)` al
+ * confirmarlo. Devuelve {el, world, here, select, info, routePoint, toPx, byId, dispose, selected}.
+ */
 function createTravelMap(ui, game, container, { from, selectable = !0, onSelect, onActivate } = {}) {
   let world = worldData(ui),
     cp = game.store.cp,

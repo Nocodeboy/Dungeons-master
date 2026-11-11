@@ -1,12 +1,19 @@
 // ui/screens/ayuda.js
-// Reconstruido de publicado/juego.js (módulo __esm «wM»). Nombres locales aún minificados.
+// Pantalla «ayuda»: cómo se juega y atajos de teclado.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('ayuda').
+// Reconstruido de publicado/juego.js (módulo __esm «wM»).
 
 import { elem } from '../dom.js';
 import { screenFrame } from '../modal.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesAyuda() {
   return { width: '60rem', height: '44rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaAyuda(screen) {
   let frame = screenFrame(screen, { title: 'C\xF3mo se juega', ic: 'open_book' });
   frame.body.classList.add('mg-fill');

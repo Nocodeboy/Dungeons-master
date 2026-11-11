@@ -1,12 +1,19 @@
 // ui/screens/creditos.js
-// Reconstruido de publicado/juego.js (módulo __esm «Dv»). Nombres locales aún minificados.
+// Pantalla «creditos»: créditos y licencias. scenes/ending.js reutiliza CREDITS_HTML.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('creditos').
+// Reconstruido de publicado/juego.js (módulo __esm «Dv»).
 
 import { elem } from '../dom.js';
 import { screenFrame } from '../modal.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesCreditos() {
   return { width: '46rem', height: '44rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaCreditos(screen) {
   let frame = screenFrame(screen, { title: 'Cr\xE9ditos', ic: 'scroll_quill' });
   frame.body.classList.add('mg-fill');

@@ -1,5 +1,8 @@
 // ui/screens/botin.js
-// Reconstruido de publicado/juego.js (módulo __esm «sM»). Nombres locales aún minificados.
+// Pantalla «botin»: objetos y oro encontrados, para cogerlos uno a uno o todos (a quién va cada cosa);
+// devuelve lo cogido y lo que se deja.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('botin').
+// Reconstruido de publicado/juego.js (módulo __esm «sM»).
 
 import { iconHtml, escapeHtml, elem, makeButton } from '../dom.js';
 import { screenFrame } from '../modal.js';
@@ -7,9 +10,14 @@ import { setTip } from '../tooltip.js';
 import { rarityClass, itemIcon, itemTip } from '../items.js';
 import { ITEM_KINDS } from '../labels.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesBotin() {
   return { modal: !0, full: !0, width: '38rem', auto: !0 };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaBotin(screen, params, ui, game) {
   let rules = ui.R,
     cp = game.store.cp,

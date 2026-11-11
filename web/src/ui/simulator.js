@@ -1,5 +1,8 @@
-// ui/catalog.js
-// Reconstruido de publicado/juego.js (módulo __esm «Vw»). Nombres locales aún minificados.
+// ui/simulator.js
+// Simulador JS de las operaciones del núcleo que la versión publicada aún no tenía (hojas, campaña,
+// inventario, tiendas, pruebas), sobre los datos de datos/reglas/*.json. Lo usa rules-bridge.js como
+// respaldo cuando mdg_call contesta «op desconocida».
+// Reconstruido de publicado/juego.js (módulo __esm «Vw»).
 
 import reglasEspecies from '../datos/reglas/especies.json';
 import reglasClases from '../datos/reglas/clases.json';
@@ -202,6 +205,7 @@ function preparedIds(sheet) {
       ? [...new Set(Object.values(prepared).flat())]
       : [];
 }
+/** Rellena una hoja con los valores por defecto de su clase, especie y trasfondo (sheet_complete). */
 function completeSheet(input, level = 1) {
   let sheet = clone(input || {});
   ((sheet.class ??= 'fighter'),
@@ -337,6 +341,7 @@ function attackList(sheet, level) {
   }
   return list;
 }
+/** Resumen de una hoja a un nivel: características, CA, PG, habilidades, ataques, conjuros… (sheet_summary). */
 function sheetSummary(input, level = 1, state = null) {
   let sheet = completeSheet(input, level);
   for (let key of ['weapons', 'armor', 'shield', 'shield_id', 'worn', 'pack', 'items', 'ammo'])
@@ -452,6 +457,7 @@ function sheetSummary(input, level = 1, state = null) {
     pronoun: sheet.pronoun,
   };
 }
+/** Opciones y errores del creador para una hoja (sheet_options). */
 function sheetOptions(input, level = 1) {
   let sheet = completeSheet(input, level),
     cls = reglasClases[sheet.class] || {},
@@ -667,6 +673,7 @@ function itemBrief(id, unid = !1) {
     unid,
   };
 }
+/** Inventario de un miembro: ranuras, mochila, munición y estadísticas (inv). */
 function inventory(cp, who) {
   let member = ensureGear(cp.members[who]),
     slots = {},
@@ -848,6 +855,7 @@ function recruit(cp, id) {
     !0
   );
 }
+/** Devuelve {op: (args) => respuesta} con la misma forma de petición y respuesta que mdg_call. */
 function createSimulator() {
   return {
     data: ({ name }) => clone(DATA_TABLES[name] ?? {}),

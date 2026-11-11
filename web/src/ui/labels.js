@@ -1,5 +1,7 @@
 // ui/labels.js
-// Reconstruido de publicado/juego.js (módulo __esm «os»). Nombres locales aún minificados.
+// Tablas de textos e iconos de la interfaz: características, estados, papeles de conjuro, ranuras de equipo,
+// rarezas, tipos de objeto, iconos de clase, especie y trasfondo, y consejos de la pantalla de carga.
+// Reconstruido de publicado/juego.js (módulo __esm «os»).
 
 const ABILITY_NAMES = {
   str: 'Fuerza',
@@ -42,6 +44,7 @@ const CONDITION_NAMES = {
   charmed: 'Hechizado',
   exhaustion: 'Agotado',
 };
+/** Nombre en español de un estado (prone → «Derribado»); si no se conoce, el id. */
 const conditionName = (id) => CONDITION_NAMES[id] || id;
 const SPELL_ROLES = {
   damage: ['Da\xF1o', 't-dano'],

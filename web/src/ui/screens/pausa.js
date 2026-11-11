@@ -1,12 +1,19 @@
 // ui/screens/pausa.js
-// Reconstruido de publicado/juego.js (módulo __esm «fM»). Nombres locales aún minificados.
+// Pantalla «pausa»: continuar, guardar, cargar, ajustes, ayuda y salir al menú.
+// La registra ui/index.js (SCREENS) y se abre con ui.open('pausa').
+// Reconstruido de publicado/juego.js (módulo __esm «fM»).
 
 import { elem, makeButton, formatDuration } from '../dom.js';
 import { screenFrame } from '../modal.js';
 
+/** Opciones de la capa (tamaño, modal, clases) que ui.open pasa a ScreenStack.open. */
 function opcionesPausa() {
   return { modal: !0, full: !1, auto: !0, width: '24rem' };
 }
+/**
+ * Construye la pantalla en `screen.el` (`params` son los de ui.open).
+ * Devuelve los ganchos de la capa (onKey, onEscape, dispose…), si los hay.
+ */
 function pantallaPausa(screen, params, ui, game) {
   let frame = screenFrame(screen, { title: 'Pausa', ic: 'pause' }),
     cp = game.store.cp,

@@ -1,10 +1,13 @@
 // ui/dialog.js
-// Reconstruido de publicado/juego.js (módulo __esm «Yw»). Nombres locales aún minificados.
+// Caja de diálogo de las conversaciones: retrato, texto que se escribe solo, tiradas con dados, opciones
+// numeradas con tono y manejo con teclado. La crea ui/index.js (ui.dialog, ui.dialogClose, ui.dialogOpen).
+// Reconstruido de publicado/juego.js (módulo __esm «Yw»).
 
 import { iconHtml, escapeHtml, richText, elem, faceBadge, signed, sleep, reducedMotion } from './dom.js';
 import { makeDie, rollDie } from './dice.js';
 import { setTip } from './tooltip.js';
 
+/** Devuelve {show(node) → promesa con la opción elegida (-1 si se cierra), close, key(ev), isOpen}. */
 function createDialog(ui, game) {
   let box = null,
     pending = null,
