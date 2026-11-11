@@ -7,70 +7,82 @@ import { screenFrame, makeSegmented } from '../modal.js';
 function opcionesAjustes() {
   return { width: '58rem', height: '46rem' };
 }
-function pantallaAjustes(o, e, t, a) {
-  let n = a.store,
-    s = () => n.settings,
-    i = screenFrame(o, { title: 'Ajustes', ic: 'settings' });
-  i.body.classList.add('mg-fill');
-  let r = elem('div.mg-settings.mg-scroll', { style: 'overflow-y:auto;min-height:0' }),
-    l = elem('div.mg-settings-cols');
-  (r.append(l), i.body.append(r));
-  let c = (E) => {
-      (n.saveSettings(E),
-        ('music' in E || 'sfx' in E || 'ambience' in E) &&
-          a.audio?.setVolumes?.({ music: s().music, sfx: s().sfx, ambience: s().ambience }));
+function pantallaAjustes(screen, params, ui, game) {
+  let store = game.store,
+    current = () => store.settings,
+    frame = screenFrame(screen, { title: 'Ajustes', ic: 'settings' });
+  frame.body.classList.add('mg-fill');
+  let scroller = elem('div.mg-settings.mg-scroll', { style: 'overflow-y:auto;min-height:0' }),
+    columns = elem('div.mg-settings-cols');
+  (scroller.append(columns), frame.body.append(scroller));
+  let save = (patch) => {
+      (store.saveSettings(patch),
+        ('music' in patch || 'sfx' in patch || 'ambience' in patch) &&
+          game.audio?.setVolumes?.({
+            music: current().music,
+            sfx: current().sfx,
+            ambience: current().ambience,
+          }));
     },
-    d = (E) => {
-      let S = elem('section.mg-set-group');
-      return (S.append(elem('h3.mg-sec', E)), l.append(S), S);
+    group = (title) => {
+      let section = elem('section.mg-set-group');
+      return (section.append(elem('h3.mg-sec', title)), columns.append(section), section);
     },
-    u = (E, S, z, D, M) => {
-      let R = `aj-${Math.random().toString(36).slice(2, 7)}`,
-        A = elem(`div.mg-set${M ? '.ancho' : ''}`),
-        P = elem('label', { for: R }, S);
-      return ((z.id ||= R), A.append(P, z), D && A.append(elem('p.mg-help', D)), E.append(A), A);
+    field = (section, label, control, help, wide) => {
+      let id = `aj-${Math.random().toString(36).slice(2, 7)}`,
+        row = elem(`div.mg-set${wide ? '.ancho' : ''}`),
+        labelEl = elem('label', { for: id }, label);
+      return (
+        (control.id ||= id),
+        row.append(labelEl, control),
+        help && row.append(elem('p.mg-help', help)),
+        section.append(row),
+        row
+      );
     },
-    h = (E, { min: S = 0, max: z = 1, step: D = 0.05, fmt: M = (R) => `${Math.round(R * 100)} %` } = {}) => {
-      let R = elem('span.mg-row-flex', { style: 'flex-wrap:nowrap' }),
-        A = elem('span.mg-set-val', M(s()[E])),
-        P = elem('input.mg-range', {
+    slider = (key, { min = 0, max = 1, step = 0.05, fmt = (v) => `${Math.round(v * 100)} %` } = {}) => {
+      let wrap = elem('span.mg-row-flex', { style: 'flex-wrap:nowrap' }),
+        valueEl = elem('span.mg-set-val', fmt(current()[key])),
+        input = elem('input.mg-range', {
           type: 'range',
-          min: S,
-          max: z,
-          step: D,
-          value: s()[E] ?? 0,
-          'aria-label': E,
+          min,
+          max,
+          step,
+          value: current()[key] ?? 0,
+          'aria-label': key,
         }),
-        I = () => P.style.setProperty('--p', `${((P.value - S) / (z - S)) * 100}%`);
+        paint = () => input.style.setProperty('--p', `${((input.value - min) / (max - min)) * 100}%`);
       return (
-        I(),
-        P.addEventListener('input', () => {
-          (I(), (A.textContent = M(Number(P.value))), c({ [E]: Number(P.value) }));
+        paint(),
+        input.addEventListener('input', () => {
+          (paint(), (valueEl.textContent = fmt(Number(input.value))), save({ [key]: Number(input.value) }));
         }),
-        R.append(P, A),
-        (R.id = ''),
-        (P.id = `aj-${E}`),
-        R
+        wrap.append(input, valueEl),
+        (wrap.id = ''),
+        (input.id = `aj-${key}`),
+        wrap
       );
     },
-    p = (E, S = !1) => {
-      let z = () => (s()[E] == null ? S : !!s()[E]),
-        D = elem('button.mg-switch', { role: 'switch', 'aria-checked': String(z()) });
+    toggle = (key, fallback = !1) => {
+      let isOn = () => (current()[key] == null ? fallback : !!current()[key]),
+        button = elem('button.mg-switch', { role: 'switch', 'aria-checked': String(isOn()) });
       return (
-        D.addEventListener('click', () => {
-          let M = !z();
-          (D.setAttribute('aria-checked', String(M)), c({ [E]: M }));
+        button.addEventListener('click', () => {
+          let on = !isOn();
+          (button.setAttribute('aria-checked', String(on)), save({ [key]: on }));
         }),
-        D
+        button
       );
     },
-    m = d('Sonido');
-  (u(m, 'M\xFAsica', h('music')).querySelector('label').setAttribute('for', 'aj-music'),
-    u(m, 'Efectos', h('sfx')).querySelector('label').setAttribute('for', 'aj-sfx'),
-    u(m, 'Ambiente', h('ambience')).querySelector('label').setAttribute('for', 'aj-ambience'));
-  let v = d('Texto e interfaz');
-  (u(
-    v,
+    soundGroup = group('Sonido');
+  (field(soundGroup, 'M\xFAsica', slider('music')).querySelector('label').setAttribute('for', 'aj-music'),
+    field(soundGroup, 'Efectos', slider('sfx')).querySelector('label').setAttribute('for', 'aj-sfx'),
+    field(soundGroup, 'Ambiente', slider('ambience'))
+      .querySelector('label')
+      .setAttribute('for', 'aj-ambience'));
+  let textGroup = group('Texto e interfaz');
+  (field(
+    textGroup,
     'Velocidad del texto',
     makeSegmented(
       [
@@ -79,15 +91,15 @@ function pantallaAjustes(o, e, t, a) {
         [2, 'R\xE1pida'],
         [99, 'Al instante'],
       ],
-      s().textSpeed ?? 1,
-      (E) => c({ textSpeed: E }),
+      current().textSpeed ?? 1,
+      (value) => save({ textSpeed: value }),
       { label: 'Velocidad del texto' },
     ),
     'Lo r\xE1pido que se escriben los di\xE1logos. Un clic siempre los completa.',
     !0,
   ),
-    u(
-      v,
+    field(
+      textGroup,
       'Tama\xF1o de la interfaz',
       makeSegmented(
         [
@@ -95,22 +107,27 @@ function pantallaAjustes(o, e, t, a) {
           [1.15, 'Grande'],
           [1.3, 'Muy grande'],
         ],
-        s().uiScale ?? 1,
-        (E) => c({ uiScale: E }),
+        current().uiScale ?? 1,
+        (value) => save({ uiScale: value }),
         { label: 'Tama\xF1o de la interfaz' },
       ),
       null,
       !0,
     ),
-    u(
-      v,
+    field(
+      textGroup,
       'Menos animaciones',
-      p('reduceMotion'),
+      toggle('reduceMotion'),
       'Quita los movimientos de la interfaz (los dados caen al momento).',
     ));
-  let x = u(v, 'Consejos', p('tips', !0), 'Pistas en los primeros combates y al descubrir cosas nuevas.');
-  typeof a.story?.tips?.reset == 'function' &&
-    x.append(
+  let tipsRow = field(
+    textGroup,
+    'Consejos',
+    toggle('tips', !0),
+    'Pistas en los primeros combates y al descubrir cosas nuevas.',
+  );
+  typeof game.story?.tips?.reset == 'function' &&
+    tipsRow.append(
       elem(
         'div',
         { style: 'grid-column:1/-1;padding-top:.3rem' },
@@ -119,34 +136,35 @@ function pantallaAjustes(o, e, t, a) {
           size: 'sm',
           variant: 'ghost',
           onclick: () => {
-            (a.story.tips.reset(), t.toast('Los consejos volver\xE1n a salir desde el principio.', 'info'));
+            (game.story.tips.reset(),
+              ui.toast('Los consejos volver\xE1n a salir desde el principio.', 'info'));
           },
         }),
       ),
     );
-  let g = d('Partida');
-  (u(
-    g,
+  let gameGroup = group('Partida');
+  (field(
+    gameGroup,
     'Compa\xF1eros autom\xE1ticos',
-    p('autoCompanions'),
+    toggle('autoCompanions'),
     'En combate, tus compa\xF1eros juegan solos con su propia cabeza. T\xFA llevas a tu h\xE9roe.',
   ),
-    u(
-      g,
+    field(
+      gameGroup,
       'Confirmar fin de turno',
-      p('confirmEndTurn'),
+      toggle('confirmEndTurn'),
       'Pregunta antes de acabar el turno si a\xFAn te queda algo por hacer.',
     ),
-    u(
-      g,
+    field(
+      gameGroup,
       'Narrador con IA',
-      p('narratorAI'),
+      toggle('narratorAI'),
       'Si est\xE1 disponible, un narrador describe con m\xE1s detalle algunos momentos. Si no, se usa el texto escrito.',
     ));
-  let y = d('Gr\xE1ficos'),
-    w = s().quality || 'auto';
-  u(
-    y,
+  let graphicsGroup = group('Gr\xE1ficos'),
+    quality = current().quality || 'auto';
+  field(
+    graphicsGroup,
     'Calidad',
     makeSegmented(
       [
@@ -155,16 +173,16 @@ function pantallaAjustes(o, e, t, a) {
         ['media', 'Media'],
         ['alta', 'Alta'],
       ],
-      w,
-      (E) => {
-        (c({ quality: E }), (k.hidden = E === w));
+      quality,
+      (value) => {
+        (save({ quality: value }), (reloadRow.hidden = value === quality));
       },
       { label: 'Calidad gr\xE1fica' },
     ),
     'Baja: sin sombras ni resplandor, para m\xF3viles o ahorrar bater\xEDa. Alta: sombras finas y oclusi\xF3n ambiental, para gr\xE1ficas dedicadas. Autom\xE1tica decide seg\xFAn tu equipo y baja sola si va lenta.',
     !0,
   );
-  let k = elem(
+  let reloadRow = elem(
     'div.mg-row-flex',
     { style: 'padding:.4rem 0' },
     elem('span.mg-aviso.mg-small', 'La calidad nueva se aplica al recargar.'),
@@ -172,53 +190,53 @@ function pantallaAjustes(o, e, t, a) {
       size: 'sm',
       icon: 'redo',
       onclick: async () => {
-        (n.cp &&
-          !(await t.confirm(
+        (store.cp &&
+          !(await ui.confirm(
             'Lo que no hayas guardado se perder\xE1. Antes de recargar se hace un guardado r\xE1pido.',
             { titulo: '\xBFRecargar?', si: 'Guardar y recargar' },
           ))) ||
-          (n.cp && (await n.save('rapida')), location.reload());
+          (store.cp && (await store.save('rapida')), location.reload());
       },
     }),
   );
-  ((k.hidden = !0),
-    y.append(k),
-    u(
-      y,
+  ((reloadRow.hidden = !0),
+    graphicsGroup.append(reloadRow),
+    field(
+      graphicsGroup,
       'Efecto maqueta',
-      p('tiltShift', !0),
+      toggle('tiltShift', !0),
       'Desenfoca un poco lo alto y lo bajo de la imagen, como si miraras una maqueta en miniatura. Ap\xE1galo si prefieres verlo todo n\xEDtido.',
     ),
-    u(
-      y,
+    field(
+      graphicsGroup,
       'Velocidad de la c\xE1mara',
-      h('cameraSpeed', {
+      slider('cameraSpeed', {
         min: 0.5,
         max: 2,
         step: 0.1,
-        fmt: (E) => `\xD7${String(Math.round(E * 10) / 10).replace('.', ',')}`,
+        fmt: (v) => `\xD7${String(Math.round(v * 10) / 10).replace('.', ',')}`,
       }),
     ),
-    y.lastChild.querySelector('label').setAttribute('for', 'aj-cameraSpeed'));
-  let T = ['baja', 'media', 'alta'][a.quality?.level ?? 1];
-  (y.append(
+    graphicsGroup.lastChild.querySelector('label').setAttribute('for', 'aj-cameraSpeed'));
+  let qualityName = ['baja', 'media', 'alta'][game.quality?.level ?? 1];
+  (graphicsGroup.append(
     elem(
       'p.mg-help',
       { style: 'padding-top:.4rem' },
-      `Ahora mismo: calidad ${T}${a.quality?.gpu ? ` \xB7 ${a.quality.gpu}` : ''}.`,
+      `Ahora mismo: calidad ${qualityName}${game.quality?.gpu ? ` \xB7 ${game.quality.gpu}` : ''}.`,
     ),
   ),
-    (i.foot.hidden = !1),
-    i.foot.append(
+    (frame.foot.hidden = !1),
+    frame.foot.append(
       makeButton('Valores de serie', {
         icon: 'undo',
         variant: 'ghost',
         onclick: async () => {
-          (await t.confirm('Todos los ajustes volver\xE1n a sus valores de serie.', {
+          (await ui.confirm('Todos los ajustes volver\xE1n a sus valores de serie.', {
             titulo: '\xBFRestablecer?',
             si: 'Restablecer',
           })) &&
-            (c({
+            (save({
               music: 0.7,
               sfx: 0.8,
               ambience: 0.6,
@@ -232,12 +250,12 @@ function pantallaAjustes(o, e, t, a) {
               cameraSpeed: 1,
               tiltShift: !0,
             }),
-            o.close(null),
-            t.open('ajustes'));
+            screen.close(null),
+            ui.open('ajustes'));
         },
       }),
       elem('span.mg-grow'),
-      makeButton('Hecho', { icon: 'check', variant: 'primary', onclick: () => o.close(null) }),
+      makeButton('Hecho', { icon: 'check', variant: 'primary', onclick: () => screen.close(null) }),
     ));
 }
 
