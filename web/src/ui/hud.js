@@ -6,19 +6,19 @@ import { iconHtml, escapeHtml, richText, elem, faceBadge } from './dom.js';
 import { conditionName, CLASS_ICONS } from './labels.js';
 import { setTip } from './tooltip.js';
 
-function createHud(o, e) {
-  let t = { select: new Set(), action: new Set(), portrait: new Set() },
-    a = (P, I) => {
-      for (let U of t[P])
+function createHud(ui, game) {
+  let listeners = { select: new Set(), action: new Set(), portrait: new Set() },
+    emit = (type, payload) => {
+      for (let fn of listeners[type])
         try {
-          U(I);
-        } catch (j) {
-          console.error('[hud]', P, j);
+          fn(payload);
+        } catch (err) {
+          console.error('[hud]', type, err);
         }
     },
-    n = elem('div.mg-hud', { 'aria-label': 'Interfaz de exploraci\xF3n' });
-  ((n.hidden = !0),
-    (n.innerHTML = `
+    root = elem('div.mg-hud', { 'aria-label': 'Interfaz de exploraci\xF3n' });
+  ((root.hidden = !0),
+    (root.innerHTML = `
     <nav class="mg-hud-party" aria-label="El grupo"></nav>
     <div class="mg-hud-top mg-glass">
       <div class="mg-hud-place"><b></b><span></span></div>
@@ -34,404 +34,436 @@ function createHud(o, e) {
     <div class="mg-hud-banner" aria-live="polite"><b></b><span></span></div>
     <nav class="mg-hud-bar mg-panel" aria-label="Acciones"></nav>
     <div class="mg-hud-labels" aria-hidden="true"></div>`),
-    o.root.append(n));
-  let s = (P) => n.querySelector(P),
-    i = s('.mg-hud-party'),
-    r = s('.mg-hud-bar'),
-    l = s('.mg-hud-log-list'),
-    c = s('.mg-hud-labels');
-  s('.mg-hud-tip').addEventListener('click', (P) => P.currentTarget.classList.remove('on'));
-  let d = {},
-    u = null,
-    h = [],
-    p = !1;
-  for (let P of lz) {
-    if (!P) {
-      r.append(elem('span.mg-hud-sep', { 'aria-hidden': 'true' }));
+    ui.root.append(root));
+  let find = (selector) => root.querySelector(selector),
+    partyBar = find('.mg-hud-party'),
+    actionBar = find('.mg-hud-bar'),
+    logList = find('.mg-hud-log-list'),
+    labelLayer = find('.mg-hud-labels');
+  find('.mg-hud-tip').addEventListener('click', (ev) => ev.currentTarget.classList.remove('on'));
+  let actionButtons = {},
+    selected = null,
+    members = [],
+    busy = !1;
+  for (let def of HUD_ACTIONS) {
+    if (!def) {
+      actionBar.append(elem('span.mg-hud-sep', { 'aria-hidden': 'true' }));
       continue;
     }
-    let [I, U, j, X, J] = P,
-      Z = elem('button.mg-hud-act', { 'data-kind': I, 'aria-label': `${U} (${X})` });
-    ((Z.innerHTML = `${iconHtml(j)}<span class="mg-hud-act-l">${escapeHtml(U)}</span><span class="mg-key">${escapeHtml(X)}</span>`),
-      setTip(Z, () => ({ title: U, body: J, foot: `Atajo: ${X}` })),
-      Z.addEventListener('click', () => b(I)),
-      r.append(Z),
-      (d[I] = Z));
+    let [kind, label, icon, key, desc] = def,
+      button = elem('button.mg-hud-act', { 'data-kind': kind, 'aria-label': `${label} (${key})` });
+    ((button.innerHTML = `${iconHtml(icon)}<span class="mg-hud-act-l">${escapeHtml(label)}</span><span class="mg-key">${escapeHtml(key)}</span>`),
+      setTip(button, () => ({ title: label, body: desc, foot: `Atajo: ${key}` })),
+      button.addEventListener('click', () => act(kind)),
+      actionBar.append(button),
+      (actionButtons[kind] = button));
   }
-  (d.stealth.setAttribute('aria-pressed', 'false'), d.run.setAttribute('aria-pressed', 'false'));
-  let m = elem('button.mg-hud-all', { 'aria-label': 'Seleccionar a todo el grupo' });
-  ((m.innerHTML = `${iconHtml('meeple')}<span>Todos</span>`),
-    setTip(m, { title: 'Todo el grupo', body: 'Selecciona a todos para moveros juntos.', foot: 'Atajo: G' }),
-    m.addEventListener('click', () => b('select_all')));
-  let _ = {
-    inventory: () => o.open('inventario', { who: u }),
-    party: () => o.open('grupo', { who: u }),
-    journal: () => o.open('diario'),
-    map: () => o.open('viaje', { consult: !0 }),
-    menu: () => o.open('pausa'),
-    rest: () => o.open('descanso', { kind: 'elegir' }),
+  (actionButtons.stealth.setAttribute('aria-pressed', 'false'),
+    actionButtons.run.setAttribute('aria-pressed', 'false'));
+  let allButton = elem('button.mg-hud-all', { 'aria-label': 'Seleccionar a todo el grupo' });
+  ((allButton.innerHTML = `${iconHtml('meeple')}<span>Todos</span>`),
+    setTip(allButton, {
+      title: 'Todo el grupo',
+      body: 'Selecciona a todos para moveros juntos.',
+      foot: 'Atajo: G',
+    }),
+    allButton.addEventListener('click', () => act('select_all')));
+  let defaultActions = {
+    inventory: () => ui.open('inventario', { who: selected }),
+    party: () => ui.open('grupo', { who: selected }),
+    journal: () => ui.open('diario'),
+    map: () => ui.open('viaje', { consult: !0 }),
+    menu: () => ui.open('pausa'),
+    rest: () => ui.open('descanso', { kind: 'elegir' }),
   };
-  function b(P) {
-    if (D) {
-      (P === 'menu' ? (D.onMenu ? D.onMenu() : o.open('pausa')) : D.onAction ? D.onAction(P) : _[P]?.(),
-        e.bus?.emit('hud:action', { kind: P }));
+  function act(kind) {
+    if (mode) {
+      (kind === 'menu'
+        ? mode.onMenu
+          ? mode.onMenu()
+          : ui.open('pausa')
+        : mode.onAction
+          ? mode.onAction(kind)
+          : defaultActions[kind]?.(),
+        game.bus?.emit('hud:action', { kind }));
       return;
     }
-    if (p && !['menu', 'journal', 'party', 'inventory'].includes(P)) return;
-    let I = d[P];
-    if (I?.getAttribute('aria-disabled') === 'true') {
-      I.dataset.reason && o.toast(I.dataset.reason, 'mal');
+    if (busy && !['menu', 'journal', 'party', 'inventory'].includes(kind)) return;
+    let button = actionButtons[kind];
+    if (button?.getAttribute('aria-disabled') === 'true') {
+      button.dataset.reason && ui.toast(button.dataset.reason, 'mal');
       return;
     }
-    (e.bus?.emit('hud:action', { kind: P }),
-      a('action', { kind: P }),
-      P in _ && !A._handled.has(P) && _[P]());
+    (game.bus?.emit('hud:action', { kind }),
+      emit('action', { kind }),
+      kind in defaultActions && !hud._handled.has(kind) && defaultActions[kind]());
   }
-  (o.keys.set('c', () => b('stealth')),
-    o.keys.set('b', () => b('search')),
-    o.keys.set('r', () => b('rest')),
-    o.keys.set('x', () => b('run')),
-    o.keys.set('g', () => b('select_all')),
+  (ui.keys.set('c', () => act('stealth')),
+    ui.keys.set('b', () => act('search')),
+    ui.keys.set('r', () => act('rest')),
+    ui.keys.set('x', () => act('run')),
+    ui.keys.set('g', () => act('select_all')),
     matchMedia('(max-width: 720px)').matches &&
-      (s('.mg-hud-log').classList.add('plegado'), s('.mg-hud-log-t').setAttribute('aria-expanded', 'false')),
-    s('.mg-hud-log-t').addEventListener('click', () => {
-      let I = !s('.mg-hud-log').classList.toggle('plegado');
-      s('.mg-hud-log-t').setAttribute('aria-expanded', String(I));
+      (find('.mg-hud-log').classList.add('plegado'),
+      find('.mg-hud-log-t').setAttribute('aria-expanded', 'false')),
+    find('.mg-hud-log-t').addEventListener('click', () => {
+      let open = !find('.mg-hud-log').classList.toggle('plegado');
+      find('.mg-hud-log-t').setAttribute('aria-expanded', String(open));
     }));
-  function f() {
-    let P = e.store.cp ? o.R.partySummary() : [];
-    if (!D?.party) return P;
-    let I = new Map(P.map((U) => [U.id, U]));
-    return D.party.map((U) => ({
-      ...(I.get(U.id) || {}),
-      id: U.id,
-      name: U.fullName ?? U.name ?? I.get(U.id)?.name,
-      hp: U.hp ?? I.get(U.id)?.hp ?? 0,
-      max_hp: U.maxHp ?? U.max_hp ?? I.get(U.id)?.max_hp ?? 1,
-      dead: U.dead ?? I.get(U.id)?.dead,
-      down: U.down,
-      portrait: U.portrait,
-      leader: U.leader,
-      sel: U.selected,
+  function partyRows() {
+    let summary = game.store.cp ? ui.R.partySummary() : [];
+    if (!mode?.party) return summary;
+    let byId = new Map(summary.map((row) => [row.id, row]));
+    return mode.party.map((member) => ({
+      ...(byId.get(member.id) || {}),
+      id: member.id,
+      name: member.fullName ?? member.name ?? byId.get(member.id)?.name,
+      hp: member.hp ?? byId.get(member.id)?.hp ?? 0,
+      max_hp: member.maxHp ?? member.max_hp ?? byId.get(member.id)?.max_hp ?? 1,
+      dead: member.dead ?? byId.get(member.id)?.dead,
+      down: member.down,
+      portrait: member.portrait,
+      leader: member.leader,
+      sel: member.selected,
     }));
   }
-  function v() {
-    if (((h = f()), D?.party)) {
-      let I = h.find((U) => U.leader) || h.find((U) => U.sel);
-      I && (u = I.id);
+  function renderParty() {
+    if (((members = partyRows()), mode?.party)) {
+      let lead = members.find((row) => row.leader) || members.find((row) => row.sel);
+      lead && (selected = lead.id);
     }
-    ((!u || !h.some((I) => I.id === u)) && (u = h[0]?.id || null), (i.innerHTML = ''));
-    for (let I of h) {
-      let U = Math.max(0, I.hp) / Math.max(1, I.max_hp),
-        j = D?.party ? !!(I.sel || I.leader) : I.id === u,
-        X = elem('button.mg-hud-pj', { 'aria-pressed': String(j), 'data-id': I.id });
-      (I.dead ? X.classList.add('muerto') : (I.hp <= 0 || I.down) && X.classList.add('caido'),
-        I.leader && X.classList.add('lider'));
-      let J = faceBadge(I.portrait || o.portrait(I.id), {
-          name: I.name,
-          ic: CLASS_ICONS[I.class] || 'person',
+    ((!selected || !members.some((row) => row.id === selected)) && (selected = members[0]?.id || null),
+      (partyBar.innerHTML = ''));
+    for (let member of members) {
+      let hpFrac = Math.max(0, member.hp) / Math.max(1, member.max_hp),
+        pressed = mode?.party ? !!(member.sel || member.leader) : member.id === selected,
+        button = elem('button.mg-hud-pj', { 'aria-pressed': String(pressed), 'data-id': member.id });
+      (member.dead
+        ? button.classList.add('muerto')
+        : (member.hp <= 0 || member.down) && button.classList.add('caido'),
+        member.leader && button.classList.add('lider'));
+      let face = faceBadge(member.portrait || ui.portrait(member.id), {
+          name: member.name,
+          ic: CLASS_ICONS[member.class] || 'person',
           cls: 'mg-hud-face',
         }),
-        Z = J.querySelector('img');
-      (Z && (Z.dataset.retrato = I.id),
-        X.append(J),
-        X.insertAdjacentHTML(
+        img = face.querySelector('img');
+      (img && (img.dataset.retrato = member.id),
+        button.append(face),
+        button.insertAdjacentHTML(
           'beforeend',
-          `<span class="mg-hud-ca" title="Clase de Armadura">${escapeHtml(I.ac)}</span>
-         <span class="mg-hud-pj-d"><b>${escapeHtml(String(I.name || '').split(' ')[0])}</b>
-         <span class="mg-hp${U <= 0.3 && I.hp > 0 ? ' bajo' : ''}"><span class="mg-hp-fill" style="width:${U * 100}%"></span>${I.temp_hp ? `<span class="mg-hp-temp" style="width:${Math.min(100, (I.temp_hp / I.max_hp) * 100)}%"></span>` : ''}<span class="mg-hp-txt">${I.dead ? 'Muerto' : I.hp <= 0 ? 'Ca\xEDdo' : `${I.hp}/${I.max_hp}`}</span></span>
-         <span class="mg-hud-cond">${(I.conditions || []).map((ge) => escapeHtml(conditionName(ge))).join(' \xB7 ')}</span></span>`,
+          `<span class="mg-hud-ca" title="Clase de Armadura">${escapeHtml(member.ac)}</span>
+         <span class="mg-hud-pj-d"><b>${escapeHtml(String(member.name || '').split(' ')[0])}</b>
+         <span class="mg-hp${hpFrac <= 0.3 && member.hp > 0 ? ' bajo' : ''}"><span class="mg-hp-fill" style="width:${hpFrac * 100}%"></span>${member.temp_hp ? `<span class="mg-hp-temp" style="width:${Math.min(100, (member.temp_hp / member.max_hp) * 100)}%"></span>` : ''}<span class="mg-hp-txt">${member.dead ? 'Muerto' : member.hp <= 0 ? 'Ca\xEDdo' : `${member.hp}/${member.max_hp}`}</span></span>
+         <span class="mg-hud-cond">${(member.conditions || []).map((cond) => escapeHtml(conditionName(cond))).join(' \xB7 ')}</span></span>`,
         ),
-        X.setAttribute(
+        button.setAttribute(
           'aria-label',
-          `${I.name}, ${I.hp} de ${I.max_hp} puntos de golpe${I.id === u ? ', seleccionado' : ''}`,
+          `${member.name}, ${member.hp} de ${member.max_hp} puntos de golpe${member.id === selected ? ', seleccionado' : ''}`,
         ),
-        setTip(X, () => ({
-          title: I.name,
-          sub: `${I.species_name || ''} \xB7 ${I.class_name || ''} ${I.level ? `\xB7 nivel ${I.level}` : ''}`,
-          body: `CA ${I.ac} \xB7 PG ${I.hp}/${I.max_hp}${I.temp_hp ? ` (+${I.temp_hp} temporales)` : ''}${
-            I.conditions?.length
+        setTip(button, () => ({
+          title: member.name,
+          sub: `${member.species_name || ''} \xB7 ${member.class_name || ''} ${member.level ? `\xB7 nivel ${member.level}` : ''}`,
+          body: `CA ${member.ac} \xB7 PG ${member.hp}/${member.max_hp}${member.temp_hp ? ` (+${member.temp_hp} temporales)` : ''}${
+            member.conditions?.length
               ? `
-*${I.conditions.map(conditionName).join(', ')}*`
+*${member.conditions.map(conditionName).join(', ')}*`
               : ''
           }`,
           foot: 'Clic: seleccionar \xB7 Doble clic: ficha',
         })),
-        X.addEventListener('click', (ge) => {
-          (D?.onMember && D.onMember(I.id, { additive: ge.shiftKey || ge.ctrlKey || ge.metaKey }),
-            x(I.id, { keep: !!D?.party }));
+        button.addEventListener('click', (ev) => {
+          (mode?.onMember && mode.onMember(member.id, { additive: ev.shiftKey || ev.ctrlKey || ev.metaKey }),
+            select(member.id, { keep: !!mode?.party }));
         }));
-      let K = () => (D?.onMemberHold ? D.onMemberHold(I.id) : o.open('grupo', { who: I.id }));
-      (X.addEventListener('dblclick', () => {
-        (a('portrait', { id: I.id }), o.open('grupo', { who: I.id }));
+      let openSheet = () =>
+        mode?.onMemberHold ? mode.onMemberHold(member.id) : ui.open('grupo', { who: member.id });
+      (button.addEventListener('dblclick', () => {
+        (emit('portrait', { id: member.id }), ui.open('grupo', { who: member.id }));
       }),
-        X.addEventListener('contextmenu', (ge) => {
-          (ge.preventDefault(), K());
+        button.addEventListener('contextmenu', (ev) => {
+          (ev.preventDefault(), openSheet());
         }));
-      let ve = 0;
-      X.addEventListener('pointerdown', (ge) => {
-        ge.pointerType !== 'mouse' && (ve = setTimeout(K, 550));
+      let holdTimer = 0;
+      button.addEventListener('pointerdown', (ev) => {
+        ev.pointerType !== 'mouse' && (holdTimer = setTimeout(openSheet, 550));
       });
-      for (let ge of ['pointerup', 'pointercancel', 'pointerleave'])
-        X.addEventListener(ge, () => clearTimeout(ve));
-      i.append(X);
+      for (let type of ['pointerup', 'pointercancel', 'pointerleave'])
+        button.addEventListener(type, () => clearTimeout(holdTimer));
+      partyBar.append(button);
     }
-    h.length > 1 &&
-      ((m.querySelector('[data-pend]') || !m.querySelector('svg')) &&
-        (m.innerHTML = `${iconHtml('meeple')}<span>Todos</span>`),
-      i.append(m));
-    let P = e.store.cp;
-    s('.mg-hud-gold b').textContent = D?.gold ?? (P ? (P.gold ?? 0) : 0);
+    members.length > 1 &&
+      ((allButton.querySelector('[data-pend]') || !allButton.querySelector('svg')) &&
+        (allButton.innerHTML = `${iconHtml('meeple')}<span>Todos</span>`),
+      partyBar.append(allButton));
+    let cp = game.store.cp;
+    find('.mg-hud-gold b').textContent = mode?.gold ?? (cp ? (cp.gold ?? 0) : 0);
   }
-  function x(P, { silent: I, keep: U } = {}) {
-    if (h.some((j) => j.id === P)) {
-      if (((u = P), !U)) for (let j of i.children) j.setAttribute('aria-pressed', String(j.dataset.id === P));
-      I || (a('select', { id: P }), e.bus?.emit('hud:select', { id: P }));
+  function select(id, { silent, keep } = {}) {
+    if (members.some((member) => member.id === id)) {
+      if (((selected = id), !keep))
+        for (let button of partyBar.children)
+          button.setAttribute('aria-pressed', String(button.dataset.id === id));
+      silent || (emit('select', { id }), game.bus?.emit('hud:select', { id }));
     }
   }
-  let g = !1,
-    y = () => {
-      g ||
-        n.hidden ||
-        ((g = !0),
+  let refreshQueued = !1,
+    queueRefresh = () => {
+      refreshQueued ||
+        root.hidden ||
+        ((refreshQueued = !0),
         requestAnimationFrame(() => {
-          ((g = !1), v());
+          ((refreshQueued = !1), renderParty());
         }));
     };
-  (e.bus?.on('cp:changed', y),
-    e.bus?.on('game:loaded', y),
-    e.bus?.on('level:enter', () => A.show()),
-    e.bus?.on('battle:start', () => n.classList.add('en-combate')),
-    e.bus?.on('battle:end', () => {
-      (n.classList.remove('en-combate'), y());
+  (game.bus?.on('cp:changed', queueRefresh),
+    game.bus?.on('game:loaded', queueRefresh),
+    game.bus?.on('level:enter', () => hud.show()),
+    game.bus?.on('battle:start', () => root.classList.add('en-combate')),
+    game.bus?.on('battle:end', () => {
+      (root.classList.remove('en-combate'), queueRefresh());
     }),
-    e.bus?.on('stealth:on', () => A.stealth(!0)),
-    e.bus?.on('stealth:off', () => A.stealth(!1)),
-    e.bus?.on('gold', ({ delta: P } = {}) => {
-      if (!P) return;
-      let I = s('.mg-hud-gold');
-      (I.classList.remove('sube', 'baja'), I.offsetWidth, I.classList.add(P > 0 ? 'sube' : 'baja'));
+    game.bus?.on('stealth:on', () => hud.stealth(!0)),
+    game.bus?.on('stealth:off', () => hud.stealth(!1)),
+    game.bus?.on('gold', ({ delta } = {}) => {
+      if (!delta) return;
+      let goldEl = find('.mg-hud-gold');
+      (goldEl.classList.remove('sube', 'baja'),
+        goldEl.offsetWidth,
+        goldEl.classList.add(delta > 0 ? 'sube' : 'baja'));
     }));
-  let w = new Map(),
-    k = [],
-    T = new Vector3(),
-    E = 0;
-  function S() {
-    E = 0;
-    let P = e.stage?.camera;
-    if (!P || n.hidden) return;
-    let I = innerWidth,
-      U = innerHeight;
-    for (let X of w.values()) {
-      let J = typeof X.at == 'function' ? X.at(T) : X.at;
-      if (!J) {
-        X.el.style.visibility = 'hidden';
+  let labels = new Map(),
+    floats = [],
+    screenPos = new Vector3(),
+    rafId = 0;
+  function tick() {
+    rafId = 0;
+    let camera = game.stage?.camera;
+    if (!camera || root.hidden) return;
+    let width = innerWidth,
+      height = innerHeight;
+    for (let label of labels.values()) {
+      let pos = typeof label.at == 'function' ? label.at(screenPos) : label.at;
+      if (!pos) {
+        label.el.style.visibility = 'hidden';
         continue;
       }
-      T.copy(J).project(P);
-      let Z = T.z < 1 && Math.abs(T.x) < 1.2 && Math.abs(T.y) < 1.2;
-      ((X.el.style.visibility = Z ? 'visible' : 'hidden'),
-        Z &&
-          (X.el.style.transform = `translate(${((T.x * 0.5 + 0.5) * I).toFixed(1)}px, ${((-T.y * 0.5 + 0.5) * U).toFixed(1)}px) translate(-50%, -100%)`));
+      screenPos.copy(pos).project(camera);
+      let onScreen = screenPos.z < 1 && Math.abs(screenPos.x) < 1.2 && Math.abs(screenPos.y) < 1.2;
+      ((label.el.style.visibility = onScreen ? 'visible' : 'hidden'),
+        onScreen &&
+          (label.el.style.transform = `translate(${((screenPos.x * 0.5 + 0.5) * width).toFixed(1)}px, ${((-screenPos.y * 0.5 + 0.5) * height).toFixed(1)}px) translate(-50%, -100%)`));
     }
-    let j = performance.now();
-    for (let X = k.length - 1; X >= 0; X--) {
-      let J = k[X],
-        Z = (j - J.t0) / 1e3;
-      T.copy(J.at).project(P);
-      let K = (T.x * 0.5 + 0.5) * I,
-        ve = (-T.y * 0.5 + 0.5) * U - Z * 40,
-        ge = Z < 0.15 ? Z / 0.15 : Math.max(0, 1 - (Z - 1.1) / 0.6);
-      ((J.el.style.transform = `translate(${K.toFixed(1)}px, ${ve.toFixed(1)}px) translate(-50%, -100%)`),
-        (J.el.style.opacity = ge.toFixed(3)),
-        Z > 1.7 && (J.el.remove(), k.splice(X, 1)));
+    let now = performance.now();
+    for (let index = floats.length - 1; index >= 0; index--) {
+      let float = floats[index],
+        age = (now - float.t0) / 1e3;
+      screenPos.copy(float.at).project(camera);
+      let x = (screenPos.x * 0.5 + 0.5) * width,
+        y = (-screenPos.y * 0.5 + 0.5) * height - age * 40,
+        alpha = age < 0.15 ? age / 0.15 : Math.max(0, 1 - (age - 1.1) / 0.6);
+      ((float.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`),
+        (float.el.style.opacity = alpha.toFixed(3)),
+        age > 1.7 && (float.el.remove(), floats.splice(index, 1)));
     }
-    (w.size || k.length) && (E = requestAnimationFrame(S));
+    (labels.size || floats.length) && (rafId = requestAnimationFrame(tick));
   }
-  let z = () => {
-      E || (E = requestAnimationFrame(S));
+  let wake = () => {
+      rafId || (rafId = requestAnimationFrame(tick));
     },
-    D = null;
-  function M(P = {}) {
-    D &&
-      (Object.assign(D, P),
-      ('party' in P || 'gold' in P) && v(),
-      ('place' in P || 'day' in P) &&
-        A.setPlace(
-          D.place || '',
-          D.day != null ? `D\xEDa ${D.day}${D.time ? ` \xB7 ${D.time}` : ''}` : void 0,
+    mode = null;
+  function update(patch = {}) {
+    mode &&
+      (Object.assign(mode, patch),
+      ('party' in patch || 'gold' in patch) && renderParty(),
+      ('place' in patch || 'day' in patch) &&
+        hud.setPlace(
+          mode.place || '',
+          mode.day != null ? `D\xEDa ${mode.day}${mode.time ? ` \xB7 ${mode.time}` : ''}` : void 0,
         ),
-      'stealth' in P && A.stealth(!!D.stealth),
-      'run' in P && d.run.setAttribute('aria-pressed', String(!!D.run)),
-      'busy' in P && A.busy(!!D.busy),
-      'actions' in P && A.setActions(D.actions));
+      'stealth' in patch && hud.stealth(!!mode.stealth),
+      'run' in patch && actionButtons.run.setAttribute('aria-pressed', String(!!mode.run)),
+      'busy' in patch && hud.busy(!!mode.busy),
+      'actions' in patch && hud.setActions(mode.actions));
   }
-  let R = { oro: '', bien: 'bien', malo: 'malo', mal: 'malo', apagado: 'apagado', magia: 'magia' },
-    A = {
-      explore(P = {}) {
+  let bannerTones = { oro: '', bien: 'bien', malo: 'malo', mal: 'malo', apagado: 'apagado', magia: 'magia' },
+    hud = {
+      explore(opts = {}) {
         return (
-          (D = { ...P }),
-          n.classList.add('modo-explore'),
-          (n.hidden = !1),
-          M(P),
-          v(),
-          z(),
+          (mode = { ...opts }),
+          root.classList.add('modo-explore'),
+          (root.hidden = !1),
+          update(opts),
+          renderParty(),
+          wake(),
           {
-            update: (I) => M(I),
-            toast: (I, U) => o.toast(I, U),
-            banner: (I, U = 'oro', j = 3200) => {
-              (A.banner(I, '', j), (s('.mg-hud-banner').dataset.tipo = R[U] ?? U));
+            update: (patch) => update(patch),
+            toast: (text, kind) => ui.toast(text, kind),
+            banner: (text, tone = 'oro', ms = 3200) => {
+              (hud.banner(text, '', ms), (find('.mg-hud-banner').dataset.tipo = bannerTones[tone] ?? tone));
             },
-            hint: (I) => A.prompt(I || null, { key: '' }),
-            status: (I) => A.status(I),
+            hint: (text) => hud.prompt(text || null, { key: '' }),
+            status: (text) => hud.status(text),
             show: () => {
-              ((n.hidden = !1), v(), z());
+              ((root.hidden = !1), renderParty(), wake());
             },
-            hide: () => A.hide(),
-            isOnUi: (I, U) => A.isOnUi(I, U),
+            hide: () => hud.hide(),
+            isOnUi: (x, y) => hud.isOnUi(x, y),
             dispose: () => {
-              ((D = null), n.classList.remove('modo-explore'), A.hide());
+              ((mode = null), root.classList.remove('modo-explore'), hud.hide());
             },
           }
         );
       },
-      isOnUi(P, I) {
-        let U = document.elementFromPoint(P, I);
-        return !U || U === o.root || !o.root.contains(U) ? !1 : !U.closest('.mg-hud-labels');
+      isOnUi(x, y) {
+        let el = document.elementFromPoint(x, y);
+        return !el || el === ui.root || !ui.root.contains(el) ? !1 : !el.closest('.mg-hud-labels');
       },
-      hint(P, { ms: I = 9e3 } = {}) {
-        let U = s('.mg-hud-tip');
-        if ((clearTimeout(A._tipT), !P)) {
-          U.classList.remove('on');
+      hint(text, { ms = 9e3 } = {}) {
+        let tipEl = find('.mg-hud-tip');
+        if ((clearTimeout(hud._tipT), !text)) {
+          tipEl.classList.remove('on');
           return;
         }
-        if (e.store.settings?.tips === !1) {
-          A.log(`<i>Pista:</i> ${richText(String(P))}`, 'pista');
+        if (game.store.settings?.tips === !1) {
+          hud.log(`<i>Pista:</i> ${richText(String(text))}`, 'pista');
           return;
         }
-        if (n.hidden) {
-          o.toast(P, 'info');
+        if (root.hidden) {
+          ui.toast(text, 'info');
           return;
         }
-        ((U.innerHTML = `${iconHtml('lantern')}<span><b>Pista</b>${richText(String(P))}</span>`),
-          U.classList.remove('on'),
-          U.offsetWidth,
-          U.classList.add('on'),
-          A.log(`<i>Pista:</i> ${richText(String(P))}`, 'pista'),
-          (A._tipT = setTimeout(() => U.classList.remove('on'), Math.max(4e3, I))));
+        ((tipEl.innerHTML = `${iconHtml('lantern')}<span><b>Pista</b>${richText(String(text))}</span>`),
+          tipEl.classList.remove('on'),
+          tipEl.offsetWidth,
+          tipEl.classList.add('on'),
+          hud.log(`<i>Pista:</i> ${richText(String(text))}`, 'pista'),
+          (hud._tipT = setTimeout(() => tipEl.classList.remove('on'), Math.max(4e3, ms))));
       },
-      status(P) {
-        let I = s('.mg-hud-status');
-        ((I.textContent = P || ''), I.classList.toggle('on', !!P));
+      status(text) {
+        let el = find('.mg-hud-status');
+        ((el.textContent = text || ''), el.classList.toggle('on', !!text));
       },
-      root: n,
+      root,
       _handled: new Set(),
       get selected() {
-        return u;
+        return selected;
       },
       get visible() {
-        return !n.hidden;
+        return !root.hidden;
       },
       show() {
-        ((n.hidden = !1), v());
-        let P = e.store.cp;
-        (P?.location?.name && !s('.mg-hud-place b').textContent && A.setPlace(P.location.name), z());
+        ((root.hidden = !1), renderParty());
+        let cp = game.store.cp;
+        (cp?.location?.name && !find('.mg-hud-place b').textContent && hud.setPlace(cp.location.name),
+          wake());
       },
       hide() {
-        ((n.hidden = !0), A.prompt(null));
+        ((root.hidden = !0), hud.prompt(null));
       },
-      refresh: () => (n.hidden ? null : v()),
-      select: x,
-      on(P, I) {
-        return (t[P]?.add(I), () => t[P]?.delete(I));
+      refresh: () => (root.hidden ? null : renderParty()),
+      select,
+      on(type, fn) {
+        return (listeners[type]?.add(fn), () => listeners[type]?.delete(fn));
       },
-      handle(...P) {
-        for (let I of P) A._handled.add(I);
+      handle(...kinds) {
+        for (let kind of kinds) hud._handled.add(kind);
       },
-      setActions(P = {}) {
-        for (let [I, U] of Object.entries(P)) {
-          let j = d[I];
-          !j ||
-            !U ||
-            ('on' in U && j.setAttribute('aria-pressed', String(!!U.on)),
-            'disabled' in U && j.setAttribute('aria-disabled', String(!!U.disabled)),
-            'reason' in U && (j.dataset.reason = U.reason || ''),
-            'hidden' in U && (j.hidden = !!U.hidden));
+      setActions(actions = {}) {
+        for (let [kind, state] of Object.entries(actions)) {
+          let button = actionButtons[kind];
+          !button ||
+            !state ||
+            ('on' in state && button.setAttribute('aria-pressed', String(!!state.on)),
+            'disabled' in state && button.setAttribute('aria-disabled', String(!!state.disabled)),
+            'reason' in state && (button.dataset.reason = state.reason || ''),
+            'hidden' in state && (button.hidden = !!state.hidden));
         }
       },
-      stealth(P) {
-        (d.stealth.setAttribute('aria-pressed', String(!!P)), n.classList.toggle('sigilo', !!P));
+      stealth(on) {
+        (actionButtons.stealth.setAttribute('aria-pressed', String(!!on)),
+          root.classList.toggle('sigilo', !!on));
       },
-      log(P, I = 'info') {
-        let U = elem(`p.mg-hud-msg.${I}`);
-        for (U.innerHTML = /<[a-z]/i.test(P) ? P : escapeHtml(P), l.append(U); l.children.length > 120;)
-          l.firstChild.remove();
+      log(html, cls = 'info') {
+        let line = elem(`p.mg-hud-msg.${cls}`);
+        for (
+          line.innerHTML = /<[a-z]/i.test(html) ? html : escapeHtml(html), logList.append(line);
+          logList.children.length > 120;
+        )
+          logList.firstChild.remove();
         return (
-          (l.scrollTop = l.scrollHeight),
-          U.animate?.(
+          (logList.scrollTop = logList.scrollHeight),
+          line.animate?.(
             [
               { opacity: 0, transform: 'translateY(4px)' },
               { opacity: 1, transform: 'none' },
             ],
             { duration: 220, easing: 'ease-out' },
           ),
-          U
+          line
         );
       },
-      prompt(P, { key: I = 'E', icon: U = 'hand' } = {}) {
-        let j = s('.mg-hud-prompt');
-        if (!P) {
-          j.classList.remove('on');
+      prompt(text, { key = 'E', icon = 'hand' } = {}) {
+        let el = find('.mg-hud-prompt');
+        if (!text) {
+          el.classList.remove('on');
           return;
         }
-        ((j.innerHTML = `${iconHtml(U)}<span>${escapeHtml(P)}</span>${I ? `<span class="mg-key">${escapeHtml(I)}</span>` : ''}`),
-          j.classList.add('on'));
+        ((el.innerHTML = `${iconHtml(icon)}<span>${escapeHtml(text)}</span>${key ? `<span class="mg-key">${escapeHtml(key)}</span>` : ''}`),
+          el.classList.add('on'));
       },
-      banner(P, I = '', U = 3200) {
-        let j = s('.mg-hud-banner');
-        ((j.querySelector('b').textContent = P),
-          (j.querySelector('span').textContent = I),
-          j.classList.remove('on'),
-          j.offsetWidth,
-          j.classList.add('on'),
-          clearTimeout(A._bannerT),
-          (A._bannerT = setTimeout(() => j.classList.remove('on'), U)));
+      banner(title, sub = '', ms = 3200) {
+        let el = find('.mg-hud-banner');
+        ((el.querySelector('b').textContent = title),
+          (el.querySelector('span').textContent = sub),
+          el.classList.remove('on'),
+          el.offsetWidth,
+          el.classList.add('on'),
+          clearTimeout(hud._bannerT),
+          (hud._bannerT = setTimeout(() => el.classList.remove('on'), ms)));
       },
-      setPlace(P, I) {
-        let U = e.store.cp;
-        ((s('.mg-hud-place b').textContent = P || ''),
-          (s('.mg-hud-place span').textContent = I ?? (U ? `D\xEDa ${U.day || 1}` : '')));
+      setPlace(place, sub) {
+        let cp = game.store.cp;
+        ((find('.mg-hud-place b').textContent = place || ''),
+          (find('.mg-hud-place span').textContent = sub ?? (cp ? `D\xEDa ${cp.day || 1}` : '')));
       },
-      label(P, { text: I, kind: U = 'obj', at: j }) {
-        let X = w.get(P);
-        (X || ((X = { el: elem(`div.mg-hud-label.${U}`), at: j }), c.append(X.el), w.set(P, X)),
-          (X.at = j),
-          (X.el.className = `mg-hud-label ${U}`),
-          (X.el.textContent = I),
-          z());
+      label(id, { text, kind = 'obj', at }) {
+        let entry = labels.get(id);
+        (entry ||
+          ((entry = { el: elem(`div.mg-hud-label.${kind}`), at }),
+          labelLayer.append(entry.el),
+          labels.set(id, entry)),
+          (entry.at = at),
+          (entry.el.className = `mg-hud-label ${kind}`),
+          (entry.el.textContent = text),
+          wake());
       },
-      unlabel(P) {
-        (w.get(P)?.el.remove(), w.delete(P));
+      unlabel(id) {
+        (labels.get(id)?.el.remove(), labels.delete(id));
       },
       clearLabels() {
-        for (let P of [...w.keys()]) A.unlabel(P);
+        for (let id of [...labels.keys()]) hud.unlabel(id);
       },
-      float(P, I, U = '') {
-        let j = elem(`div.mg-hud-float.${U || 'neutro'}`, I);
-        (c.append(j),
-          k.push({ el: j, at: P.clone ? P.clone() : new Vector3(P.x, P.y, P.z), t0: performance.now() }),
-          z());
+      float(pos, text, cls = '') {
+        let el = elem(`div.mg-hud-float.${cls || 'neutro'}`, text);
+        (labelLayer.append(el),
+          floats.push({
+            el,
+            at: pos.clone ? pos.clone() : new Vector3(pos.x, pos.y, pos.z),
+            t0: performance.now(),
+          }),
+          wake());
       },
-      dim(P) {
-        n.classList.toggle('atenuado', !!P);
+      dim(on) {
+        root.classList.toggle('atenuado', !!on);
       },
-      busy(P) {
-        ((p = !!P), n.classList.toggle('ocupado', p));
+      busy(on) {
+        ((busy = !!on), root.classList.toggle('ocupado', busy));
       },
     };
-  return A;
+  return hud;
 }
-const lz = [
+const HUD_ACTIONS = [
   [
     'stealth',
     'Sigilo',

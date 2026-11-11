@@ -5,15 +5,15 @@ import { iconHtml, escapeHtml, richText, elem, faceBadge, signed, sleep, reduced
 import { makeDie, rollDie } from './dice.js';
 import { setTip } from './tooltip.js';
 
-function createDialog(o, e) {
-  let t = null,
-    a = null,
-    n = 0,
-    s = [];
-  function i() {
+function createDialog(ui, game) {
+  let box = null,
+    pending = null,
+    closeTimer = 0,
+    history = [];
+  function build() {
     return (
-      (t = elem('section.mg-dlg', { role: 'dialog', 'aria-label': 'Conversaci\xF3n' })),
-      (t.innerHTML = `
+      (box = elem('section.mg-dlg', { role: 'dialog', 'aria-label': 'Conversaci\xF3n' })),
+      (box.innerHTML = `
       <div class="mg-dlg-in mg-panel mg-orn">
         <div class="mg-dlg-port"><div class="mg-dlg-marco"></div></div>
         <div class="mg-dlg-main">
@@ -22,240 +22,268 @@ function createDialog(o, e) {
           <ol class="mg-dlg-opts" role="list"></ol>
         </div>
       </div>`),
-      o.root.append(t),
-      t.querySelector('.mg-dlg-log').addEventListener('click', () => a?.finish?.()),
-      e.bus?.on('dialog:close', () => _()),
-      t
+      ui.root.append(box),
+      box.querySelector('.mg-dlg-log').addEventListener('click', () => pending?.finish?.()),
+      game.bus?.on('dialog:close', () => close()),
+      box
     );
   }
-  function r(f) {
-    return e.store.cp?.members?.[f]?.name?.split(' ')[0] || f || '';
+  function firstName(id) {
+    return game.store.cp?.members?.[id]?.name?.split(' ')[0] || id || '';
   }
-  function l(f) {
-    let x = t.querySelector('.mg-dlg-port').querySelector('.mg-dlg-marco');
-    x.innerHTML = '';
-    let g = !f.speaker;
-    if ((t.classList.toggle('narrador', g), g)) return;
-    let y = f.npc || f.who || null,
-      w = f.portrait || (y && o.portrait(y)) || null;
-    x.append(faceBadge(w, { name: f.speaker, ic: f.icon || 'person', cls: 'mg-dlg-face', id: w ? null : y }));
+  function showPortrait(node) {
+    let frame = box.querySelector('.mg-dlg-port').querySelector('.mg-dlg-marco');
+    frame.innerHTML = '';
+    let narrator = !node.speaker;
+    if ((box.classList.toggle('narrador', narrator), narrator)) return;
+    let npcId = node.npc || node.who || null,
+      src = node.portrait || (npcId && ui.portrait(npcId)) || null;
+    frame.append(
+      faceBadge(src, {
+        name: node.speaker,
+        ic: node.icon || 'person',
+        cls: 'mg-dlg-face',
+        id: src ? null : npcId,
+      }),
+    );
   }
-  function c(f, v) {
-    f.innerHTML = v;
-    let x = Number(e.store.settings.textSpeed ?? 1);
-    if (x >= 50 || reducedMotion()) return { done: Promise.resolve(), finish() {} };
-    let g = [],
-      y = document.createTreeWalker(f, NodeFilter.SHOW_TEXT);
-    for (let z = y.nextNode(); z; z = y.nextNode()) (g.push([z, z.textContent]), (z.textContent = ''));
-    let w = 48 * x,
-      k = !1,
-      T,
-      E = new Promise((z) => (T = z)),
-      S = () => {
-        if (!k) {
-          k = !0;
-          for (let [z, D] of g) z.textContent = D;
-          (f.classList.remove('escribiendo'), T());
+  function typewrite(el, html) {
+    el.innerHTML = html;
+    let speed = Number(game.store.settings.textSpeed ?? 1);
+    if (speed >= 50 || reducedMotion()) return { done: Promise.resolve(), finish() {} };
+    let texts = [],
+      walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let textNode = walker.nextNode(); textNode; textNode = walker.nextNode())
+      (texts.push([textNode, textNode.textContent]), (textNode.textContent = ''));
+    let charsPerSecond = 48 * speed,
+      finished = !1,
+      resolveDone,
+      done = new Promise((resolve) => (resolveDone = resolve)),
+      finish = () => {
+        if (!finished) {
+          finished = !0;
+          for (let [textNode, text] of texts) textNode.textContent = text;
+          (el.classList.remove('escribiendo'), resolveDone());
         }
       };
     return (
-      f.classList.add('escribiendo'),
+      el.classList.add('escribiendo'),
       (async () => {
-        let z = performance.now(),
-          D = 0;
-        for (let [M, R] of g) {
-          let A = 0;
-          for (; A < R.length && !k;) {
-            await new Promise((j) => requestAnimationFrame(j));
-            let P = performance.now(),
-              I = Math.floor(((P - z) / 1e3) * w) - D;
-            if (I <= 0) continue;
-            let U = Math.min(I, R.length - A);
-            ((A += U),
-              (D += U),
-              (M.textContent = R.slice(0, A)),
-              /[.!?…:]$/.test(M.textContent) && A < R.length && (await sleep(160 / x), (z += 160 / x)));
+        let start = performance.now(),
+          shown = 0;
+        for (let [textNode, text] of texts) {
+          let pos = 0;
+          for (; pos < text.length && !finished;) {
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+            let now = performance.now(),
+              due = Math.floor(((now - start) / 1e3) * charsPerSecond) - shown;
+            if (due <= 0) continue;
+            let step = Math.min(due, text.length - pos);
+            ((pos += step),
+              (shown += step),
+              (textNode.textContent = text.slice(0, pos)),
+              /[.!?…:]$/.test(textNode.textContent) &&
+                pos < text.length &&
+                (await sleep(160 / speed), (start += 160 / speed)));
           }
-          if (k) return;
+          if (finished) return;
         }
-        S();
+        finish();
       })(),
-      { done: E, finish: S }
+      { done, finish }
     );
   }
-  function d(f) {
-    let v = f.who ? r(f.who) : '',
-      x = Array.isArray(f.d20) ? f.d20 : [f.d20],
-      g = elem('div.mg-roll.mg-dlg-roll'),
-      y = x.map((D) => makeDie(20, '', { size: 'sm' })),
-      w = f.adv || f.mode > 0,
-      k = f.dis || f.mode < 0,
-      T = f.kept ?? (x.length > 1 ? (w && !k ? Math.max(...x) : k && !w ? Math.min(...x) : x[0]) : x[0]),
-      E = elem('div.mg-roll-txt');
-    E.innerHTML = `<b>${escapeHtml(f.label || 'Tirada')}${v ? ` \xB7 ${escapeHtml(v)}` : ''}</b><span>${escapeHtml(T)} ${signed(
-      f.mod || 0,
+  function rollWidget(roll) {
+    let who = roll.who ? firstName(roll.who) : '',
+      d20s = Array.isArray(roll.d20) ? roll.d20 : [roll.d20],
+      el = elem('div.mg-roll.mg-dlg-roll'),
+      dice = d20s.map((value) => makeDie(20, '', { size: 'sm' })),
+      adv = roll.adv || roll.mode > 0,
+      dis = roll.dis || roll.mode < 0,
+      kept =
+        roll.kept ??
+        (d20s.length > 1
+          ? adv && !dis
+            ? Math.max(...d20s)
+            : dis && !adv
+              ? Math.min(...d20s)
+              : d20s[0]
+          : d20s[0]),
+      line = elem('div.mg-roll-txt');
+    line.innerHTML = `<b>${escapeHtml(roll.label || 'Tirada')}${who ? ` \xB7 ${escapeHtml(who)}` : ''}</b><span>${escapeHtml(kept)} ${signed(
+      roll.mod || 0,
     )
       .replace('+', '+ ')
       .replace(
         '\u2212',
         '\u2212 ',
-      )} = <b class="mg-num" style="color:var(--pergamino);font:inherit;font-weight:700">${escapeHtml(f.total)}</b>${f.dc != null ? ` contra CD ${escapeHtml(f.dc)}` : ''}</span>`;
-    let S = elem(
-      `span.mg-roll-res.${f.success ? 'ok' : 'ko'}`,
-      f.success ? (f.crit ? '\xA1\xC9xito cr\xEDtico!' : '\xC9xito') : 'Fallo',
+      )} = <b class="mg-num" style="color:var(--pergamino);font:inherit;font-weight:700">${escapeHtml(roll.total)}</b>${roll.dc != null ? ` contra CD ${escapeHtml(roll.dc)}` : ''}</span>`;
+    let verdict = elem(
+      `span.mg-roll-res.${roll.success ? 'ok' : 'ko'}`,
+      roll.success ? (roll.crit ? '\xA1\xC9xito cr\xEDtico!' : '\xC9xito') : 'Fallo',
     );
-    if ((g.append(...y, E, S), Array.isArray(f.group) && f.group.length)) {
-      let D = elem('div.mg-roll-group');
-      for (let M of f.group)
-        D.append(
+    if ((el.append(...dice, line, verdict), Array.isArray(roll.group) && roll.group.length)) {
+      let group = elem('div.mg-roll-group');
+      for (let member of roll.group)
+        group.append(
           elem(
-            `span.${M.success ? 'ok' : 'ko'}`,
-            `${M.name ? String(M.name).split(' ')[0] : r(M.id || M.who)} ${M.total}`,
+            `span.${member.success ? 'ok' : 'ko'}`,
+            `${member.name ? String(member.name).split(' ')[0] : firstName(member.id || member.who)} ${member.total}`,
           ),
         );
-      g.append(D);
+      el.append(group);
     }
     return {
-      el: g,
+      el,
       play: async () => {
         if (
-          ((E.style.opacity = '0'),
-          await Promise.all(y.map((D, M) => rollDie(D, x[M], { ms: 700 + M * 120 }))),
-          x.length > 1)
+          ((line.style.opacity = '0'),
+          await Promise.all(dice.map((die, index) => rollDie(die, d20s[index], { ms: 700 + index * 120 }))),
+          d20s.length > 1)
         ) {
-          let D = x.indexOf(T);
-          y.forEach((M, R) => R !== D && M.classList.add('descartado'));
+          let keptIndex = d20s.indexOf(kept);
+          dice.forEach((die, index) => index !== keptIndex && die.classList.add('descartado'));
         }
-        ((E.style.transition = 'opacity .25s'),
-          (E.style.opacity = '1'),
+        ((line.style.transition = 'opacity .25s'),
+          (line.style.opacity = '1'),
           await sleep(200),
-          S.classList.add('on'),
-          e.bus?.emit('ui:roll', { success: !!f.success, crit: !!f.crit }),
+          verdict.classList.add('on'),
+          game.bus?.emit('ui:roll', { success: !!roll.success, crit: !!roll.crit }),
           await sleep(350));
       },
     };
   }
-  function u(f, v) {
-    let x = t.querySelector('.mg-dlg-log'),
-      g = elem(`div.mg-dlg-line.${f}`, { html: v });
-    for (x.append(g); x.children.length > 14;) x.firstChild.remove();
-    return g;
+  function addLine(cls, html) {
+    let log = box.querySelector('.mg-dlg-log'),
+      line = elem(`div.mg-dlg-line.${cls}`, { html });
+    for (log.append(line); log.children.length > 14;) log.firstChild.remove();
+    return line;
   }
-  async function h(f) {
-    if ((clearTimeout(n), !f)) return _();
-    if (f.who && !f.speaker) {
-      let S = e.store.cp?.members?.[f.who];
-      f = { ...f, speaker: S?.name || f.who, title: f.title ?? S?.title ?? '', npc: f.npc || f.who };
+  async function show(node) {
+    if ((clearTimeout(closeTimer), !node)) return close();
+    if (node.who && !node.speaker) {
+      let member = game.store.cp?.members?.[node.who];
+      node = {
+        ...node,
+        speaker: member?.name || node.who,
+        title: node.title ?? member?.title ?? '',
+        npc: node.npc || node.who,
+      };
     }
-    (t || i(),
-      (t.hidden = !1),
-      t.classList.remove('fuera'),
-      o.root.classList.add('con-dialogo'),
-      o.hud?.dim?.(!0));
-    for (let S of t.querySelectorAll('.mg-dlg-line.actual')) S.classList.replace('actual', 'pasada');
-    ((t.querySelector('.mg-dlg-name').textContent = f.speaker || ''),
-      (t.querySelector('.mg-dlg-title').textContent = f.title || ''),
-      t.setAttribute('aria-label', f.speaker ? `Conversaci\xF3n con ${f.speaker}` : 'Narraci\xF3n'),
-      l(f));
-    let v = t.querySelector('.mg-dlg-opts');
-    if (((v.innerHTML = ''), v.classList.remove('on'), f.roll)) {
-      let S = d(f.roll);
-      (t.querySelector('.mg-dlg-log').append(S.el), S.el.scrollIntoView({ block: 'end' }), await S.play());
+    (box || build(),
+      (box.hidden = !1),
+      box.classList.remove('fuera'),
+      ui.root.classList.add('con-dialogo'),
+      ui.hud?.dim?.(!0));
+    for (let line of box.querySelectorAll('.mg-dlg-line.actual')) line.classList.replace('actual', 'pasada');
+    ((box.querySelector('.mg-dlg-name').textContent = node.speaker || ''),
+      (box.querySelector('.mg-dlg-title').textContent = node.title || ''),
+      box.setAttribute('aria-label', node.speaker ? `Conversaci\xF3n con ${node.speaker}` : 'Narraci\xF3n'),
+      showPortrait(node));
+    let optsList = box.querySelector('.mg-dlg-opts');
+    if (((optsList.innerHTML = ''), optsList.classList.remove('on'), node.roll)) {
+      let rollBox = rollWidget(node.roll);
+      (box.querySelector('.mg-dlg-log').append(rollBox.el),
+        rollBox.el.scrollIntoView({ block: 'end' }),
+        await rollBox.play());
     }
-    let x = u(
-        `actual${f.speaker ? '' : ' narracion'}`,
-        `<p class="mg-p">${richText(f.text || '').replace(/<\/p><p class="mg-p">/g, '</p><p class="mg-p">')}</p>`,
+    let line = addLine(
+        `actual${node.speaker ? '' : ' narracion'}`,
+        `<p class="mg-p">${richText(node.text || '').replace(/<\/p><p class="mg-p">/g, '</p><p class="mg-p">')}</p>`,
       ),
-      g = t.querySelector('.mg-dlg-log'),
-      y = c(x, x.innerHTML),
-      w = setInterval(() => (g.scrollTop = g.scrollHeight), 80),
-      k,
-      T = new Promise((S) => (k = S));
+      log = box.querySelector('.mg-dlg-log'),
+      typing = typewrite(line, line.innerHTML),
+      scroller = setInterval(() => (log.scrollTop = log.scrollHeight), 80),
+      resolveAnswer,
+      answer = new Promise((resolve) => (resolveAnswer = resolve));
     return (
-      (a = { node: f, resolve: k, finish: y.finish, opts: [] }),
-      y.done.then(() => {
-        (clearInterval(w), (g.scrollTop = g.scrollHeight), p(f));
+      (pending = { node, resolve: resolveAnswer, finish: typing.finish, opts: [] }),
+      typing.done.then(() => {
+        (clearInterval(scroller), (log.scrollTop = log.scrollHeight), showOptions(node));
       }),
-      await T
+      await answer
     );
   }
-  function p(f) {
-    let v = t.querySelector('.mg-dlg-opts');
-    v.innerHTML = '';
-    let x = f.options?.length ? f.options : [{ text: 'Continuar', kind: 'continue' }];
-    ((a.opts = []),
-      x.forEach((g, y) => {
-        let w = elem('li'),
-          k = elem(`button.mg-dlg-opt${g.kind ? '.k-' + g.kind : ''}`, {
-            disabled: !!g.disabled,
-            'data-n': y + 1,
+  function showOptions(node) {
+    let list = box.querySelector('.mg-dlg-opts');
+    list.innerHTML = '';
+    let options = node.options?.length ? node.options : [{ text: 'Continuar', kind: 'continue' }];
+    ((pending.opts = []),
+      options.forEach((option, index) => {
+        let item = elem('li'),
+          button = elem(`button.mg-dlg-opt${option.kind ? '.k-' + option.kind : ''}`, {
+            disabled: !!option.disabled,
+            'data-n': index + 1,
           }),
-          T = g.tag ? `<span class="mg-dlg-tag">${escapeHtml(g.tag)}</span> ` : '',
-          E = iz[g.tone];
-        ((k.innerHTML = `<span class="mg-dlg-n">${y + 1}.</span><span class="mg-dlg-t">${T}${richText(g.text)}${g.disabled && g.reason ? ` <small>(${escapeHtml(g.reason)})</small>` : ''}</span>${E ? `<span class="mg-dlg-tone" title="${escapeHtml(E[1])}">${iconHtml(E[0])}</span>` : ''}`),
-          g.hint && setTip(k, g.hint),
-          k.addEventListener('click', () => m(y)),
-          w.append(k),
-          v.append(w),
-          a.opts.push(k));
+          tagHtml = option.tag ? `<span class="mg-dlg-tag">${escapeHtml(option.tag)}</span> ` : '',
+          tone = TONES[option.tone];
+        ((button.innerHTML = `<span class="mg-dlg-n">${index + 1}.</span><span class="mg-dlg-t">${tagHtml}${richText(option.text)}${option.disabled && option.reason ? ` <small>(${escapeHtml(option.reason)})</small>` : ''}</span>${tone ? `<span class="mg-dlg-tone" title="${escapeHtml(tone[1])}">${iconHtml(tone[0])}</span>` : ''}`),
+          option.hint && setTip(button, option.hint),
+          button.addEventListener('click', () => pick(index)),
+          item.append(button),
+          list.append(item),
+          pending.opts.push(button));
       }),
-      requestAnimationFrame(() => v.classList.add('on')),
+      requestAnimationFrame(() => list.classList.add('on')),
       matchMedia('(pointer: coarse)').matches ||
-        a.opts.find((g) => !g.disabled)?.focus({ preventScroll: !0 }));
+        pending.opts.find((button) => !button.disabled)?.focus({ preventScroll: !0 }));
   }
-  function m(f) {
-    if (!a || !a.opts[f] || a.opts[f].disabled) return;
-    let v = a.node,
-      x = (v.options || [])[f],
-      g = a.resolve;
-    (x &&
-      x.kind !== 'continue' &&
-      u(
+  function pick(index) {
+    if (!pending || !pending.opts[index] || pending.opts[index].disabled) return;
+    let node = pending.node,
+      option = (node.options || [])[index],
+      resolve = pending.resolve;
+    (option &&
+      option.kind !== 'continue' &&
+      addLine(
         'jugador',
-        `<p class="mg-p">${x.tag ? `<span class="mg-dlg-tag">${escapeHtml(x.tag)}</span> ` : ''}${richText(x.text)}</p>`,
+        `<p class="mg-p">${option.tag ? `<span class="mg-dlg-tag">${escapeHtml(option.tag)}</span> ` : ''}${richText(option.text)}</p>`,
       ),
-      (t.querySelector('.mg-dlg-opts').innerHTML = ''),
-      (a = null),
-      g(f),
-      x?.kind === 'end' || (!v.options?.length && v.end) ? _() : (n = setTimeout(() => _(), 1500)));
+      (box.querySelector('.mg-dlg-opts').innerHTML = ''),
+      (pending = null),
+      resolve(index),
+      option?.kind === 'end' || (!node.options?.length && node.end)
+        ? close()
+        : (closeTimer = setTimeout(() => close(), 1500)));
   }
-  function _() {
-    if ((clearTimeout(n), !(!t || t.hidden))) {
-      if (a) {
-        let f = a.resolve;
-        ((a = null), f(-1));
+  function close() {
+    if ((clearTimeout(closeTimer), !(!box || box.hidden))) {
+      if (pending) {
+        let resolve = pending.resolve;
+        ((pending = null), resolve(-1));
       }
-      (t.classList.add('fuera'),
-        o.root.classList.remove('con-dialogo'),
-        o.hud?.dim?.(!1),
+      (box.classList.add('fuera'),
+        ui.root.classList.remove('con-dialogo'),
+        ui.hud?.dim?.(!1),
         setTimeout(() => {
-          t.classList.contains('fuera') &&
-            ((t.hidden = !0), (t.querySelector('.mg-dlg-log').innerHTML = ''), (s.length = 0));
+          box.classList.contains('fuera') &&
+            ((box.hidden = !0), (box.querySelector('.mg-dlg-log').innerHTML = ''), (history.length = 0));
         }, 260));
     }
   }
-  function b(f) {
-    if (!t || t.hidden) return !1;
-    if (/^[1-9]$/.test(f.key) && a && t.querySelector('.mg-dlg-line.escribiendo')) return (a.finish(), !0);
-    if (/^[1-9]$/.test(f.key) && a?.opts?.length) {
-      let v = Number(f.key) - 1;
-      if (a.opts[v]) return (m(v), !0);
+  function key(ev) {
+    if (!box || box.hidden) return !1;
+    if (/^[1-9]$/.test(ev.key) && pending && box.querySelector('.mg-dlg-line.escribiendo'))
+      return (pending.finish(), !0);
+    if (/^[1-9]$/.test(ev.key) && pending?.opts?.length) {
+      let index = Number(ev.key) - 1;
+      if (pending.opts[index]) return (pick(index), !0);
     }
-    if (f.key === ' ' || f.key === 'Enter') {
-      if (a && t.querySelector('.mg-dlg-line.escribiendo')) return (a.finish(), !0);
+    if (ev.key === ' ' || ev.key === 'Enter') {
+      if (pending && box.querySelector('.mg-dlg-line.escribiendo')) return (pending.finish(), !0);
       if (document.activeElement?.classList.contains('mg-dlg-opt')) return !1;
-      if (a?.opts?.length === 1) return (m(0), !0);
+      if (pending?.opts?.length === 1) return (pick(0), !0);
     }
-    if ((f.key === 'ArrowDown' || f.key === 'ArrowUp') && a?.opts?.length) {
-      let v = a.opts.indexOf(document.activeElement),
-        x = a.opts.length;
-      return (a.opts[(v + (f.key === 'ArrowDown' ? 1 : x - 1) + x) % x]?.focus(), !0);
+    if ((ev.key === 'ArrowDown' || ev.key === 'ArrowUp') && pending?.opts?.length) {
+      let index = pending.opts.indexOf(document.activeElement),
+        count = pending.opts.length;
+      return (pending.opts[(index + (ev.key === 'ArrowDown' ? 1 : count - 1) + count) % count]?.focus(), !0);
     }
     return !1;
   }
-  return { show: h, close: _, key: b, isOpen: () => !!t && !t.hidden && !t.classList.contains('fuera') };
+  return { show, close, key, isOpen: () => !!box && !box.hidden && !box.classList.contains('fuera') };
 }
-const iz = {
+const TONES = {
   amable: ['hearts', 'Amable'],
   sarcastico: ['laugh', 'Sarc\xE1stico'],
   frio: ['frost', 'Fr\xEDo'],
