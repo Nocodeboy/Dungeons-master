@@ -9,6 +9,7 @@
 //   "Explore/update/o"   anclas encadenadas (cada una se busca dentro de la anterior)
 //   "update/t#2"         el 2.º enlace llamado `t` dentro de `update` (orden del código, desde 1)
 //   "render#2/o"         la 2.ª ancla llamada `render`
+//   "Tk/o"               `o` dentro de la IIFE `const Tk = (() => { … })()`
 //
 // Un ancla es una función o clase con nombre: declaración, expresión con nombre, método o
 // propiedad de clase u objeto, `const x = () => …` o `a.x = function …`. Dentro de una tanda todas
@@ -35,6 +36,7 @@
 //   --tolerante   salta las claves que no resuelven si el nombre nuevo ya existe en su sitio
 //                 (para volver a aplicar un mapa ya aplicado en parte); los imports se propagan igual
 //   --anadir F    si todo va bien, añade la tanda aplicada al final de la lista del archivo F
+//   --abreviar F,G deja «{x: x}» como «{x}» en esos archivos aunque no se renombre nada en ellos
 //   --sin-formato no pasa prettier a los archivos escritos (por defecto sí: 110 columnas, comillas simples)
 //   --listar      muestra los enlaces del archivo con una clave válida para cada uno
 //   --minificados con --listar, solo los nombres de 1–3 caracteres o con aspecto de minificado
@@ -138,6 +140,8 @@ function anclasDe(ast) {
         break;
       case 'VariableDeclarator':
         if (n.id.type === 'Identifier' && esFuncionOClase(n.init) && !n.init.id) { nombre = n.id.name; nodo = n.init; }
+        // IIFE: const X = (() => { … })()
+        else if (n.id.type === 'Identifier' && n.init?.type === 'CallExpression' && esFuncionOClase(n.init.callee) && !n.init.callee.id) { nombre = n.id.name; nodo = n.init.callee; }
         break;
       case 'AssignmentExpression':
         if (esFuncionOClase(n.right) && !n.right.id) {
@@ -325,6 +329,7 @@ function aplicarTanda(tanda, opciones) {
     return estado.get(abs);
   };
 
+  for (const a of opciones.abreviar ?? []) estadoDe(path.join(SRC, normalizarArchivo(a))).abreviar = true;
   const errores = [], avisos = [], exportsRenombrados = [];
   for (const [archivo, mapa] of Object.entries(tanda)) {
     const abs = path.join(SRC, normalizarArchivo(archivo));
@@ -426,6 +431,14 @@ function aplicarTanda(tanda, opciones) {
       const ni = izq.name ?? JSON.stringify(izq.value), nd = der.name ?? JSON.stringify(der.value);
       cambios.push([s.start, s.end, ni === nd ? ni : `${ni} as ${nd}`]);
     }
+    // Propiedades «{x: x}» o «{x: x = d}» que no eran abreviadas en el original: quedan «{x}».
+    // Solo en los archivos donde se renombran enlaces (o con --abreviar), no en los de otras áreas.
+    const colapsables = new Map();
+    if (A.renombres.size || A.abreviar) recorrer(A.ast.program, (n) => {
+      if (n.type !== 'ObjectProperty' || n.computed || n.key.type !== 'Identifier') return;
+      const v = n.value.type === 'AssignmentPattern' ? n.value.left : n.value;
+      if (v.type === 'Identifier' && !A.abreviadas.has(v)) colapsables.set(v, n);
+    });
     recorrer(A.ast.program, (n, padre) => {
       if (n.type !== 'Identifier' || enSpecifier.has(n)) return;
       if (padre && (padre.type === 'ImportSpecifier' || padre.type === 'ExportSpecifier')) {
@@ -444,6 +457,8 @@ function aplicarTanda(tanda, opciones) {
       }
       const viejo = A.orig.get(n);
       if (viejo === undefined) throw new Error(`${rel(A.abs)}: nodo nuevo sin posición (babel reestructuró el AST)`);
+      const prop = colapsables.get(n);
+      if (prop && prop.key.name === n.name) { cambios.push([prop.key.start, n.end, n.name]); return; }
       if (viejo === n.name) return;
       const clave = A.abreviadas.get(n);
       cambios.push([n.start, n.end, clave !== undefined ? `${clave}: ${n.name}` : n.name]);
@@ -510,11 +525,11 @@ if (opcion('--listar')) {
   process.exit(0);
 }
 
-const rutaMapa = args.find((a) => !a.startsWith('--') && a !== valor('--area') && a !== valor('--anadir'));
+const rutaMapa = args.find((a) => !a.startsWith('--') && ![valor('--area'), valor('--anadir'), valor('--abreviar')].includes(a));
 if (!rutaMapa) { console.error('Uso: node tools/renombrar.mjs <mapa.json> [--seco] [--area a,b] [--tolerante] [--anadir F] | --listar <archivo>'); process.exit(2); }
 const contenido = JSON.parse(fs.readFileSync(rutaMapa, 'utf8'));
 const tandas = Array.isArray(contenido) ? contenido : [contenido];
-const opciones = { tolerante: opcion('--tolerante'), area: valor('--area')?.split(',').map((x) => x.replace(/\/$/, '')) };
+const opciones = { tolerante: opcion('--tolerante'), area: valor('--area')?.split(',').map((x) => x.replace(/\/$/, '')), abreviar: valor('--abreviar')?.split(',') };
 let total = 0;
 for (const [i, tanda] of tandas.entries()) {
   const r = aplicarTanda(tanda, opciones);
