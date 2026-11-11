@@ -1,5 +1,10 @@
 // actors/animals.js
-// Reconstruido de publicado/juego.js (módulo __esm «bv»). Nombres locales aún minificados.
+// Reconstruido de publicado/juego.js (módulo __esm «bv»).
+//
+// Animales (assets/animals/*.json): carga y clona el modelo, lo tiñe y escala a su altura, crea
+// por código los clips de andar y comer de los de granja que no los traen y devuelve un Character.
+// wander da un comportamiento de pasto (reposo, comer, paseos cortos y huida). Lo usan index.js
+// (makeAnimal, makeMonster para lobos y caballos), portraits.js y la exploración (wander).
 
 import {
   AnimationClip,
@@ -13,126 +18,147 @@ import {
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { loadGLTF } from '../assets.js';
 import { Character } from './character.js';
-import { WILD_ANIMAL_CLIPS, FARM_ANIMAL_CLIPS } from './anims.js';
+import { QUADRUPED_CLIPS, FARM_ANIMAL_CLIPS } from './anims.js';
 import { seededRandom } from './appearance.js';
 import { addRimLight } from './materials.js';
 
-function uu(o) {
-  return ANIMAL_DEFS[o] ? o : Qz[o] || null;
+/** Especie de ANIMAL_DEFS para un id (también acepta los alias en inglés de ANIMAL_ALIASES); null si no hay. */
+function resolveAnimalKind(kind) {
+  return ANIMAL_DEFS[kind] ? kind : ANIMAL_ALIASES[kind] || null;
 }
-function eL(o, e) {
-  let t = {};
-  o.traverse((l) => {
-    l.isBone && (t[l.name.replace(/_\d+$/, '')] = l);
+/** Añade a los clips de un animal de granja «Walk» (patas en diagonal) y «Eating» (cuello abajo) hechos por código. */
+function addFarmClips(model, clips) {
+  let bones = {};
+  model.traverse((obj) => {
+    obj.isBone && (bones[obj.name.replace(/_\d+$/, '')] = obj);
   });
-  let a = new Map(e),
-    n = (l, c, d) => l.quaternion.clone().multiply(new Quaternion().setFromAxisAngle(c, d)),
-    s = new Vector3(1, 0, 0),
-    i = (l, c, d, u = 16) => {
-      let h = [],
-        p = [];
-      for (let m = 0; m <= u; m++) {
-        let _ = (m / u) * d;
-        (h.push(_), p.push(...c(_ / d).toArray()));
+  let out = new Map(clips),
+    rotated = (bone, axis, angle) =>
+      bone.quaternion.clone().multiply(new Quaternion().setFromAxisAngle(axis, angle)),
+    xAxis = new Vector3(1, 0, 0),
+    track = (bone, fn, dur, steps = 16) => {
+      let times = [],
+        values = [];
+      for (let k = 0; k <= steps; k++) {
+        let t = (k / steps) * dur;
+        (times.push(t), values.push(...fn(t / dur).toArray()));
       }
-      return new QuaternionKeyframeTrack(`${l.name}.quaternion`, h, p);
+      return new QuaternionKeyframeTrack(`${bone.name}.quaternion`, times, values);
     },
-    r = [
+    gaitPhases = [
       ['FrontUpLeg_L', 0],
       ['BackUpLeg_R', 0],
       ['FrontUpLeg_R', 0.5],
       ['BackUpLeg_L', 0.5],
     ];
-  if (t.FrontUpLeg_L) {
-    let c = [];
-    for (let [h, p] of r) {
-      let m = t[h];
-      m && c.push(i(m, (b) => n(m, s, Math.sin((b + p) * Math.PI * 2) * 0.45), 0.9));
-      let _ = t[h.replace('Up', 'Low')];
-      _ && c.push(i(_, (b) => n(_, s, Math.max(0, Math.sin((b + p + 0.25) * Math.PI * 2)) * -0.5), 0.9));
+  if (bones.FrontUpLeg_L) {
+    let walkTracks = [];
+    for (let [name, phase] of gaitPhases) {
+      let upper = bones[name];
+      upper &&
+        walkTracks.push(
+          track(upper, (f) => rotated(upper, xAxis, Math.sin((f + phase) * Math.PI * 2) * 0.45), 0.9),
+        );
+      let lower = bones[name.replace('Up', 'Low')];
+      lower &&
+        walkTracks.push(
+          track(
+            lower,
+            (f) => rotated(lower, xAxis, Math.max(0, Math.sin((f + phase + 0.25) * Math.PI * 2)) * -0.5),
+            0.9,
+          ),
+        );
     }
-    (t.Head && c.push(i(t.Head, (h) => n(t.Head, s, Math.sin(h * Math.PI * 4) * 0.06), 0.9)),
-      a.set('Walk', new AnimationClip('Walk', 0.9, c)));
-    let d = [],
-      u = 3;
-    (t.Neck &&
-      d.push(
-        i(
-          t.Neck,
-          (h) =>
-            n(
-              t.Neck,
-              s,
-              (0.8 - Math.abs(Math.sin(h * Math.PI)) * 0.1) * Math.min(1, Math.sin(h * Math.PI) * 4),
+    (bones.Head &&
+      walkTracks.push(
+        track(bones.Head, (f) => rotated(bones.Head, xAxis, Math.sin(f * Math.PI * 4) * 0.06), 0.9),
+      ),
+      out.set('Walk', new AnimationClip('Walk', 0.9, walkTracks)));
+    let eatTracks = [],
+      eatDur = 3;
+    (bones.Neck &&
+      eatTracks.push(
+        track(
+          bones.Neck,
+          (f) =>
+            rotated(
+              bones.Neck,
+              xAxis,
+              (0.8 - Math.abs(Math.sin(f * Math.PI)) * 0.1) * Math.min(1, Math.sin(f * Math.PI) * 4),
             ),
-          u,
+          eatDur,
           24,
         ),
       ),
-      t.Head &&
-        d.push(
-          i(
-            t.Head,
-            (h) =>
-              n(t.Head, s, Math.sin(h * Math.PI * 10) * 0.08 + 0.2 * Math.min(1, Math.sin(h * Math.PI) * 4)),
-            u,
+      bones.Head &&
+        eatTracks.push(
+          track(
+            bones.Head,
+            (f) =>
+              rotated(
+                bones.Head,
+                xAxis,
+                Math.sin(f * Math.PI * 10) * 0.08 + 0.2 * Math.min(1, Math.sin(f * Math.PI) * 4),
+              ),
+            eatDur,
             24,
           ),
         ),
-      d.length && a.set('Eating', new AnimationClip('Eating', u, d)));
+      eatTracks.length && out.set('Eating', new AnimationClip('Eating', eatDur, eatTracks)));
   }
-  return a;
+  return out;
 }
-async function gv(o, { index: e = 0, tint: t = null } = {}) {
-  let a = uu(o);
-  if (!a) throw new Error(`animal desconocido: ${o}`);
-  let n = ANIMAL_DEFS[a],
-    s = await loadGLTF(`assets/animals/${n.file}.json`),
-    i = clone(s.scene),
-    r = seededRandom(e * 31 + a.length),
-    l = { ...(n.tint || {}), ...(t || {}) },
-    c = 0.9 + r() * 0.2;
+/** Crea un animal animado de la especie `kind`; `index` varía tamaño y tono, `tint` cambia colores por material. */
+async function buildAnimal(kind, { index = 0, tint = null } = {}) {
+  let id = resolveAnimalKind(kind);
+  if (!id) throw new Error(`animal desconocido: ${kind}`);
+  let def = ANIMAL_DEFS[id],
+    gltf = await loadGLTF(`assets/animals/${def.file}.json`),
+    model = clone(gltf.scene),
+    rand = seededRandom(index * 31 + id.length),
+    tints = { ...(def.tint || {}), ...(tint || {}) },
+    shade = 0.9 + rand() * 0.2;
   if (
-    (i.traverse((x) => {
-      if (!x.isMesh) return;
-      ((x.castShadow = !0),
-        (x.receiveShadow = !0),
-        (x.frustumCulled = !1),
-        (x.material = x.material.clone()));
-      let g = l[x.material.name];
-      (g && x.material.color.set(g),
-        /Eye/.test(x.material.name) || x.material.color.multiplyScalar(c),
-        (x.material.roughness = 0.85),
-        (x.material.metalness = 0),
-        addRimLight(x.material));
+    (model.traverse((obj) => {
+      if (!obj.isMesh) return;
+      ((obj.castShadow = !0),
+        (obj.receiveShadow = !0),
+        (obj.frustumCulled = !1),
+        (obj.material = obj.material.clone()));
+      let color = tints[obj.material.name];
+      (color && obj.material.color.set(color),
+        /Eye/.test(obj.material.name) || obj.material.color.multiplyScalar(shade),
+        (obj.material.roughness = 0.85),
+        (obj.material.metalness = 0),
+        addRimLight(obj.material));
     }),
-    !mv.has(a))
+    !boundsCache.has(id))
   ) {
-    let x = new Box3().setFromObject(s.scene, !0);
-    mv.set(a, x);
+    let box = new Box3().setFromObject(gltf.scene, !0);
+    boundsCache.set(id, box);
   }
-  let d = mv.get(a),
-    u = (n.height / Math.max(0.01, d.max.y - d.min.y)) * (0.95 + r() * 0.1),
-    h = new Group();
-  (h.add(i), i.scale.multiplyScalar(u), (i.position.y = -d.min.y * u));
-  let p = new Group();
-  ((p.name = `animal_${a}`),
-    p.add(h),
-    p.updateMatrixWorld(!0),
-    i.traverse((x) => {
-      x.isSkinnedMesh &&
-        (x.skeleton.update(),
-        x.computeBoundingSphere(),
-        (x.boundingSphere.radius *= 1.8),
-        (x.frustumCulled = !0));
+  let box = boundsCache.get(id),
+    scale = (def.height / Math.max(0.01, box.max.y - box.min.y)) * (0.95 + rand() * 0.1),
+    holder = new Group();
+  (holder.add(model), model.scale.multiplyScalar(scale), (model.position.y = -box.min.y * scale));
+  let root = new Group();
+  ((root.name = `animal_${id}`),
+    root.add(holder),
+    root.updateMatrixWorld(!0),
+    model.traverse((obj) => {
+      obj.isSkinnedMesh &&
+        (obj.skeleton.update(),
+        obj.computeBoundingSphere(),
+        (obj.boundingSphere.radius *= 1.8),
+        (obj.frustumCulled = !0));
     }));
-  let m = new AnimationMixer(i),
-    _ = new Map(s.animations.map((x) => [x.name, x]));
-  n.farm && !n.bird && (_ = eL(i, _));
-  let b = n.farm
+  let mixer = new AnimationMixer(model),
+    clips = new Map(gltf.animations.map((clip) => [clip.name, clip]));
+  def.farm && !def.bird && (clips = addFarmClips(model, clips));
+  let anims = def.farm
       ? {
           ...FARM_ANIMAL_CLIPS,
-          ...(n.bird
+          ...(def.bird
             ? {
                 walk: ['Walk'],
                 eat: ['Yes', 'Idle'],
@@ -143,70 +169,78 @@ async function gv(o, { index: e = 0, tint: t = null } = {}) {
               }
             : {}),
         }
-      : WILD_ANIMAL_CLIPS,
-    f = i.getObjectByName('Head') || i.getObjectByName('Head_1') || null,
-    v = new Character({
-      id: a,
+      : QUADRUPED_CLIPS,
+    head = model.getObjectByName('Head') || model.getObjectByName('Head_1') || null,
+    character = new Character({
+      id,
       kind: 'animal',
-      root: p,
-      model: h,
-      mixer: m,
-      clips: _,
-      anims: b,
-      head: f,
-      height: n.height,
-      radius: n.height * 0.45,
-      gait: { walk: n.height * 0.9, run: n.height * 3.6, sprint: n.height * 3.6 },
+      root,
+      model: holder,
+      mixer,
+      clips,
+      anims,
+      head,
+      height: def.height,
+      radius: def.height * 0.45,
+      gait: { walk: def.height * 0.9, run: def.height * 3.6, sprint: def.height * 3.6 },
     });
   return (
-    (v.speed = n.height > 1.2 ? 1.1 : 0.7),
-    (v.userData.kind = a),
-    v.play('idle', 0),
-    v.current && (v.current.time = r() * v.current.getClip().duration),
-    v
+    (character.speed = def.height > 1.2 ? 1.1 : 0.7),
+    (character.userData.kind = id),
+    character.play('idle', 0),
+    character.current && (character.current.time = rand() * character.current.getClip().duration),
+    character
   );
 }
-function wander(o, e, { radius: t = 1.2, seed: a = 1, speed: n } = {}) {
-  let s = seededRandom(a),
-    i = { mode: 'idle', t: 1 + s() * 4, home: e.clone(), radius: t },
-    r = ['idle', 'eat', 'idle_alt', 'eat'];
+/**
+ * Comportamiento de pasto para un animal en `home`: alterna reposo, comer y paseos dentro de `radius`.
+ * Devuelve {update(dt), flee(desde)}; flee lo hace correr 6 m en dirección contraria.
+ */
+function wander(animal, home, { radius = 1.2, seed = 1, speed } = {}) {
+  let rand = seededRandom(seed),
+    state = { mode: 'idle', t: 1 + rand() * 4, home: home.clone(), radius },
+    idles = ['idle', 'eat', 'idle_alt', 'eat'];
   return (
-    o.root.position.copy(e),
-    (o.root.rotation.y = s() * Math.PI * 2),
-    o.play(r[Math.floor(s() * r.length)]),
+    animal.root.position.copy(home),
+    (animal.root.rotation.y = rand() * Math.PI * 2),
+    animal.play(idles[Math.floor(rand() * idles.length)]),
     {
-      update(l) {
-        if (((i.t -= l), i.mode === 'walk')) {
-          (!o.path.length || i.t <= 0) &&
-            ((o.path = []),
-            (i.mode = 'idle'),
-            (i.t = 3 + s() * 6),
-            o.play(r[Math.floor(s() * r.length)], 0.4));
+      update(dt) {
+        if (((state.t -= dt), state.mode === 'walk')) {
+          (!animal.path.length || state.t <= 0) &&
+            ((animal.path = []),
+            (state.mode = 'idle'),
+            (state.t = 3 + rand() * 6),
+            animal.play(idles[Math.floor(rand() * idles.length)], 0.4));
           return;
         }
-        if (!(i.t > 0))
-          if (i.radius > 0.1 && s() < 0.5) {
-            let c = s() * Math.PI * 2,
-              d = 0.3 + s() * i.radius;
-            ((i.mode = 'walk'),
-              (i.t = 9),
-              (o.speed = n ?? o.speed),
-              o.walkTo([i.home.clone().add(new Vector3(Math.cos(c) * d, 0, Math.sin(c) * d))], null, {
-                anim: 'walk',
-              }));
-          } else ((i.t = 3 + s() * 6), o.play(r[Math.floor(s() * r.length)], 0.4));
+        if (!(state.t > 0))
+          if (state.radius > 0.1 && rand() < 0.5) {
+            let ang = rand() * Math.PI * 2,
+              dist = 0.3 + rand() * state.radius;
+            ((state.mode = 'walk'),
+              (state.t = 9),
+              (animal.speed = speed ?? animal.speed),
+              animal.walkTo(
+                [state.home.clone().add(new Vector3(Math.cos(ang) * dist, 0, Math.sin(ang) * dist))],
+                null,
+                {
+                  anim: 'walk',
+                },
+              ));
+          } else ((state.t = 3 + rand() * 6), animal.play(idles[Math.floor(rand() * idles.length)], 0.4));
       },
-      flee(l) {
-        let c = o.root.position.clone().sub(l);
-        ((c.y = 0), c.lengthSq() < 1e-4 && c.set(1, 0, 0));
-        let d = o.root.position.clone().addScaledVector(c.normalize(), 6);
-        (i.home.copy(d), (i.radius = 0.8), (i.mode = 'walk'), (i.t = 10));
-        let u = o.speed;
-        ((o.speed = u * 2.5),
-          o.walkTo(
-            [d],
+      flee(from) {
+        let away = animal.root.position.clone().sub(from);
+        ((away.y = 0), away.lengthSq() < 1e-4 && away.set(1, 0, 0));
+        let target = animal.root.position.clone().addScaledVector(away.normalize(), 6);
+        (state.home.copy(target), (state.radius = 0.8), (state.mode = 'walk'), (state.t = 10));
+        let baseSpeed = animal.speed;
+        ((animal.speed = baseSpeed * 2.5),
+          animal.walkTo(
+            [target],
             () => {
-              o.speed = u;
+              animal.speed = baseSpeed;
             },
             { anim: 'run' },
           ));
@@ -214,6 +248,7 @@ function wander(o, e, { radius: t = 1.2, seed: a = 1, speed: n } = {}) {
     }
   );
 }
+/** Especies de animal: archivo del modelo, altura (m) y si es de granja o ave. */
 const ANIMAL_DEFS = {
   oveja: { file: 'oveja', height: 0.85, farm: !0 },
   cerdo: { file: 'cerdo', height: 0.62, farm: !0 },
@@ -228,7 +263,8 @@ const ANIMAL_DEFS = {
   lobo: { file: 'lobo', height: 0.9 },
   mastin: { file: 'mastin', height: 0.85 },
 };
-const Qz = {
+/** Ids en inglés (de reglas o niveles) → especie. */
+const ANIMAL_ALIASES = {
   sheep: 'oveja',
   pig: 'cerdo',
   chicken: 'gallina',
@@ -259,6 +295,6 @@ const ANIMAL_KINDS = [
   'lobo',
   'mastin',
 ];
-const mv = new Map();
+const boundsCache = new Map();
 
-export { ANIMAL_DEFS, ANIMAL_KINDS, gv, uu, wander };
+export { ANIMAL_DEFS, ANIMAL_KINDS, buildAnimal, resolveAnimalKind, wander };

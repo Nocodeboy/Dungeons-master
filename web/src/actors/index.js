@@ -6,7 +6,7 @@ import { heroLook } from './look.js';
 import { allTexturesReady } from './materials.js';
 import { MONSTER_DEFS } from './monsters.js';
 import { makeGiantSpider } from './beasts.js';
-import { uu, gv } from './animals.js';
+import { resolveAnimalKind, buildAnimal } from './animals.js';
 import { companionLook, npcLook, COMPANIONS } from './companions.js';
 import { vT, yT } from './portraits.js';
 import './preview.js';
@@ -54,7 +54,7 @@ async function makeMonster(o, { index: e = 0 } = {}) {
       makeMonster('goblin_minion', { index: e })
     );
   if (t.type === 'spider') a = await makeGiantSpider({ index: e });
-  else if (t.type === 'animal') a = await gv(t.kind, { index: e });
+  else if (t.type === 'animal') a = await buildAnimal(t.kind, { index: e });
   else {
     let n = t.look(e);
     ((n.id = n.id || o), (a = await buildHumanoid(n)));
@@ -62,10 +62,10 @@ async function makeMonster(o, { index: e = 0 } = {}) {
   return ((a.kind = 'monster'), (a.id = o), (a.userData.monster = o), a.setStance?.('combat'), a);
 }
 async function makeAnimal(o, e = {}) {
-  return gv(o, e);
+  return buildAnimal(o, e);
 }
 function hasAnimal(o) {
-  return !!uu(o);
+  return !!resolveAnimalKind(o);
 }
 async function portrait(o, e = {}) {
   return yT(o, e, {

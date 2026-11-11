@@ -243,8 +243,8 @@ const RACE_CLIPS = {
     cheer: ['K_Cheer', 'K_Taunt'],
   },
 };
-/** Clips de los animales salvajes (lobos, ciervos…; modelos de Quaternius). */
-const WILD_ANIMAL_CLIPS = {
+/** Clips de los cuadrúpedos que no son de granja (caballo, vaca, lobo, ciervo…; modelos de Quaternius). */
+const QUADRUPED_CLIPS = {
   idle: ['Idle', 'Idle_2'],
   idle_combat: ['Idle_2', 'Idle'],
   idle_alt: ['Idle_2_HeadLow', 'Idle_Headlow', 'Idle_2'],
@@ -274,7 +274,7 @@ export {
   LOOPING_ANIMS,
   CLIP_ALIASES,
   GRIP_CLIPS,
-  WILD_ANIMAL_CLIPS,
+  QUADRUPED_CLIPS,
   ANIM_CLIPS,
   FARM_ANIMAL_CLIPS,
   ANIM_FALLBACK,

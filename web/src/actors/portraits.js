@@ -16,7 +16,7 @@ import {
 import { allTexturesReady, rimUniforms } from './materials.js';
 import { COMPANIONS, NPC_LOOKS } from './companions.js';
 import { MONSTER_DEFS } from './monsters.js';
-import { uu } from './animals.js';
+import { resolveAnimalKind } from './animals.js';
 
 function vT(o) {
   nL = o;
@@ -111,7 +111,7 @@ async function lL(o, e) {
         ? e.makeNpc({ id: t })
         : MONSTER_DEFS[t]
           ? e.makeMonster(t)
-          : uu(t)
+          : resolveAnimalKind(t)
             ? e.makeAnimal(t)
             : e.makeNpc({ id: t });
   }
