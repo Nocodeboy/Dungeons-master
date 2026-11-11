@@ -14,7 +14,7 @@ import {
   TorusGeometry,
   Vector3,
 } from 'three';
-import { _e, Et, G } from './geometry.js';
+import { paint, mergeParts, mat } from './geometry.js';
 
 function I2(o) {
   let e = [],
@@ -195,13 +195,13 @@ function H2(o, e, t = 1) {
       let l = s[0];
       (r.translate(-l.x, -l.y, -l.z), r.scale(t, t, t), r.translate(l.x, l.y, l.z));
     }
-    a.push(_e(r, { color: e, vary: 0.08 }));
+    a.push(paint(r, { color: e, vary: 0.08 }));
     for (let l = 1; l < 3; l++) {
       let c = l / 4,
         d = new CatmullRomCurve3(s).getPointAt(c);
     }
   }
-  return Et(a);
+  return mergeParts(a);
 }
 function N2(o) {
   let e = o === 'grandes',
@@ -209,13 +209,13 @@ function N2(o) {
   for (let a of [-1, 1]) {
     let n = new ConeGeometry(e ? 0.0075 : 0.005, e ? 0.032 : 0.02, 6);
     t.push(
-      _e(n, {
+      paint(n, {
         color: '#efe6cc',
-        matrix: G.mul(G.T(a * 0.024, e ? 0.008 : 0.004, 0.096), G.R(-12, 0, a * -12)),
+        matrix: mat.mul(mat.T(a * 0.024, e ? 0.008 : 0.004, 0.096), mat.R(-12, 0, a * -12)),
       }),
     );
   }
-  return Et(t);
+  return mergeParts(t);
 }
 function F2(o, e) {
   let t = [];
@@ -226,9 +226,14 @@ function F2(o, e) {
         i = Math.cos(n) * 0.1 - 0.02,
         r = 0.05 - a * 0.004;
       t.push(
-        _e(new ConeGeometry(0.012, r, 4), {
+        paint(new ConeGeometry(0.012, r, 4), {
           color: e,
-          matrix: G.mul(G.T(0, s, i), G.R(-Math.cos(n) * 60 - 40, 0, 0), G.T(0, r / 2, 0), G.S(0.5, 1, 1.6)),
+          matrix: mat.mul(
+            mat.T(0, s, i),
+            mat.R(-Math.cos(n) * 60 - 40, 0, 0),
+            mat.T(0, r / 2, 0),
+            mat.S(0.5, 1, 1.6),
+          ),
         }),
       );
     }
@@ -236,18 +241,18 @@ function F2(o, e) {
     for (let a of [-1, 1])
       for (let n = 0; n < 4; n++)
         t.push(
-          _e(new ConeGeometry(0.01, 0.07 - n * 0.008, 4), {
+          paint(new ConeGeometry(0.01, 0.07 - n * 0.008, 4), {
             color: e,
-            matrix: G.mul(
-              G.T(a * 0.07, 0.03 + n * 0.03, -0.04),
-              G.R(0, 0, a * -(70 + n * 8)),
-              G.R(-25, 0, 0),
-              G.T(0, 0.03, 0),
-              G.S(0.4, 1, 1.4),
+            matrix: mat.mul(
+              mat.T(a * 0.07, 0.03 + n * 0.03, -0.04),
+              mat.R(0, 0, a * -(70 + n * 8)),
+              mat.R(-25, 0, 0),
+              mat.T(0, 0.03, 0),
+              mat.S(0.4, 1, 1.4),
             ),
           }),
         );
-  return Et(t);
+  return mergeParts(t);
 }
 function O2(o, e, { length: t = 1, tip: a = !0 } = {}) {
   let n = o,
@@ -259,15 +264,15 @@ function O2(o, e, { length: t = 1, tip: a = !0 } = {}) {
       jt(n.x + 0.04, n.y - 0.78 * s, n.z - 0.32 * s),
       jt(n.x - 0.08 * s, n.y - 0.86 * s, n.z - 0.2 * s),
     ],
-    r = [_e(hi(i, 0.03, 0.008, { radial: 7, segs: 18, closed: !1 }), { color: e })];
+    r = [paint(hi(i, 0.03, 0.008, { radial: 7, segs: 18, closed: !1 }), { color: e })];
   if (a) {
     let l = i[i.length - 1],
       c = new Shape();
     (c.moveTo(0, -0.01), c.lineTo(0.035, 0.03), c.lineTo(0, 0.08), c.lineTo(-0.035, 0.03));
     let d = new ExtrudeGeometry(c, { depth: 0.008, bevelEnabled: !1 });
-    r.push(_e(d, { color: e, matrix: G.mul(G.T(l.x, l.y, l.z), G.R(0, 60, 100)) }));
+    r.push(paint(d, { color: e, matrix: mat.mul(mat.T(l.x, l.y, l.z), mat.R(0, 60, 100)) }));
   }
-  return Et(r);
+  return mergeParts(r);
 }
 function B2(o) {
   return (e) => {

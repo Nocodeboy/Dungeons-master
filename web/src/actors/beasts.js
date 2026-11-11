@@ -17,7 +17,7 @@ import {
   Vector3,
 } from 'three';
 import { x2 } from './materials.js';
-import { _e, Et, G } from './geometry.js';
+import { paint, mergeParts, mat } from './geometry.js';
 import { hi } from './sculpt.js';
 import { Character } from './character.js';
 import { Yn } from './appearance.js';
@@ -25,7 +25,7 @@ import { Yn } from './appearance.js';
 function Kz(o) {
   let e = [],
     t = new SphereGeometry(0.32, 14, 10);
-  (t.scale(0.95, 0.62, 1.15), e.push(_e(t, { color: o.body, vary: 0.12 })));
+  (t.scale(0.95, 0.62, 1.15), e.push(paint(t, { color: o.body, vary: 0.12 })));
   let a = [
     [0.06, 0.12, 0.33, 0.05],
     [-0.06, 0.12, 0.33, 0.05],
@@ -37,16 +37,18 @@ function Kz(o) {
     [-0.16, 0.1, 0.24, 0.022],
   ];
   for (let [s, i, r, l] of a)
-    e.push(_e(new SphereGeometry(l, 8, 6), { color: o.eyes, metal: 0.4, glow: 0.8, matrix: G.T(s, i, r) }));
+    e.push(
+      paint(new SphereGeometry(l, 8, 6), { color: o.eyes, metal: 0.4, glow: 0.8, matrix: mat.T(s, i, r) }),
+    );
   for (let s of [-1, 1])
     (e.push(
-      _e(new SphereGeometry(0.075, 8, 6), {
+      paint(new SphereGeometry(0.075, 8, 6), {
         color: o.body,
-        matrix: G.mul(G.T(s * 0.08, -0.04, 0.36), G.S(0.9, 1.1, 1.2)),
+        matrix: mat.mul(mat.T(s * 0.08, -0.04, 0.36), mat.S(0.9, 1.1, 1.2)),
       }),
     ),
       e.push(
-        _e(
+        paint(
           hi([Ma(s * 0.08, -0.1, 0.42), Ma(s * 0.07, -0.2, 0.44), Ma(s * 0.03, -0.25, 0.39)], 0.022, 0.003, {
             radial: 6,
             segs: 6,
@@ -56,7 +58,7 @@ function Kz(o) {
       ));
   for (let s of [-1, 1])
     e.push(
-      _e(
+      paint(
         hi([Ma(s * 0.16, -0.02, 0.3), Ma(s * 0.22, 0.04, 0.45), Ma(s * 0.2, -0.08, 0.55)], 0.03, 0.018, {
           radial: 6,
           segs: 6,
@@ -71,19 +73,19 @@ function Kz(o) {
       l = Ma(Math.cos(i) * Math.sin(r) * 0.3, Math.cos(r) * 0.2, Math.sin(i) * Math.sin(r) * 0.36),
       c = new Quaternion().setFromUnitVectors(Ma(0, 1, 0), l.clone().normalize());
     e.push(
-      _e(new ConeGeometry(0.008, 0.07, 3), {
+      paint(new ConeGeometry(0.008, 0.07, 3), {
         color: o.hair,
         matrix: new Matrix4().compose(l, c, Ma(1, 1, 1)),
       }),
     );
   }
-  return Et(e);
+  return mergeParts(e);
 }
 function Jz(o) {
   let e = [],
     t = new SphereGeometry(0.5, 18, 14);
   (t.scale(0.92, 0.78, 1.18), t.translate(0, 0.12, -0.55));
-  let a = _e(t, { color: o.body, vary: 0.1 }),
+  let a = paint(t, { color: o.body, vary: 0.1 }),
     n = a.attributes.position,
     s = a.attributes.color,
     i = new Color(o.body),
@@ -102,9 +104,9 @@ function Jz(o) {
   }
   (e.push(a),
     e.push(
-      _e(new ConeGeometry(0.06, 0.12, 6), {
+      paint(new ConeGeometry(0.06, 0.12, 6), {
         color: o.leg,
-        matrix: G.mul(G.T(0, 0.05, -1.13), G.R(-90, 0, 0)),
+        matrix: mat.mul(mat.T(0, 0.05, -1.13), mat.R(-90, 0, 0)),
       }),
     ));
   let l = Yn(91);
@@ -122,33 +124,33 @@ function Jz(o) {
         .normalize(),
       m = new Quaternion().setFromUnitVectors(Ma(0, 1, 0), p);
     e.push(
-      _e(new ConeGeometry(0.01, 0.09, 3), {
+      paint(new ConeGeometry(0.01, 0.09, 3), {
         color: o.hair,
         matrix: new Matrix4().compose(h, m, Ma(1, 1, 1)),
       }),
     );
   }
-  return Et(e);
+  return mergeParts(e);
 }
 function fv(o, e, t, a, n) {
   let s = [Ma(0, 0, 0), Ma(0, o * 0.5, 0), Ma(0, o, 0)],
-    i = [_e(hi(s, e, t, { radial: 7, segs: 4, closed: !0 }), { color: a.leg, vary: 0.08 })];
-  (i.push(_e(new SphereGeometry(e * 1.15, 7, 5), { color: a.leg })),
+    i = [paint(hi(s, e, t, { radial: 7, segs: 4, closed: !0 }), { color: a.leg, vary: 0.08 })];
+  (i.push(paint(new SphereGeometry(e * 1.15, 7, 5), { color: a.leg })),
     n &&
       i.push(
-        _e(new CylinderGeometry(t * 1.12, t * 1.12, o * 0.18, 7, 1, !0), {
+        paint(new CylinderGeometry(t * 1.12, t * 1.12, o * 0.18, 7, 1, !0), {
           color: a.mark,
-          matrix: G.T(0, o * 0.86, 0),
+          matrix: mat.T(0, o * 0.86, 0),
         }),
       ));
   for (let r = 0; r < 6; r++)
     i.push(
-      _e(new ConeGeometry(0.006, 0.05, 3), {
+      paint(new ConeGeometry(0.006, 0.05, 3), {
         color: a.hair,
-        matrix: G.mul(G.T(0, o * (0.2 + r * 0.12), 0), G.R(0, r * 70, 55), G.T(0, e * 0.9, 0)),
+        matrix: mat.mul(mat.T(0, o * (0.2 + r * 0.12), 0), mat.R(0, r * 70, 55), mat.T(0, e * 0.9, 0)),
       }),
     );
-  return Et(i);
+  return mergeParts(i);
 }
 function du(o, e) {
   let t = o.attributes.position.count,
@@ -187,7 +189,7 @@ async function cT({ index: o = 0, scale: e = 1 } = {}) {
     (u.push(du(fv(n[0], 0.045, 0.035, a, !0), 3 + y * 3)),
       u.push(du(fv(n[1], 0.034, 0.024, a, !0), 4 + y * 3)),
       u.push(du(fv(n[2], 0.022, 0.01, a, !1), 5 + y * 3)));
-  let h = Et(u),
+  let h = mergeParts(u),
     p = x2(),
     m = new SkinnedMesh(h, p),
     _ = new Group();

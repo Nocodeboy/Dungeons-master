@@ -16,7 +16,7 @@ import {
   Vector3,
 } from 'three';
 import { loadGLTF } from '../assets.js';
-import { _e, Et, G } from './geometry.js';
+import { paint, mergeParts, mat } from './geometry.js';
 import { hi } from './sculpt.js';
 
 function _z(o) {
@@ -98,7 +98,7 @@ function Lo(o, e, t, a, { knob: n = 1.7, flat: s = 1 } = {}) {
       u = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), e.clone().sub(o).normalize());
     return (
       d.applyMatrix4(new Matrix4().compose(o, u, new Vector3(1, 1, 1))),
-      _e(d, { color: a, vary: 0.12 })
+      paint(d, { color: a, vary: 0.12 })
     );
   }
   let r = [
@@ -115,7 +115,10 @@ function Lo(o, e, t, a, { knob: n = 1.7, flat: s = 1 } = {}) {
     l = new LatheGeometry(r, 7);
   l.scale(1, 1, s);
   let c = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), e.clone().sub(o).normalize());
-  return (l.applyMatrix4(new Matrix4().compose(o, c, new Vector3(1, 1, 1))), _e(l, { color: a, vary: 0.12 }));
+  return (
+    l.applyMatrix4(new Matrix4().compose(o, c, new Vector3(1, 1, 1))),
+    paint(l, { color: a, vary: 0.12 })
+  );
 }
 function $2(o, e = {}) {
   let t = (u) => o.get(u).getWorldPosition(new Vector3()),
@@ -155,9 +158,9 @@ function $2(o, e = {}) {
       .lerp(t('spine_03'), 0.45)
       .add(new Vector3(0, -0.04, -0.09));
     i(
-      _e(new CircleGeometry(0.06, 3), {
+      paint(new CircleGeometry(0.06, 3), {
         color: n,
-        matrix: G.mul(G.T(_.x, _.y, _.z), G.R(0, 180, u === 'l' ? 15 : -15)),
+        matrix: mat.mul(mat.T(_.x, _.y, _.z), mat.R(0, 180, u === 'l' ? 15 : -15)),
       }),
       'spine_03',
     );
@@ -180,9 +183,9 @@ function $2(o, e = {}) {
         `calf_${u}`,
       ),
       i(
-        _e(new SphereGeometry(0.022, 6, 4), {
+        paint(new SphereGeometry(0.022, 6, 4), {
           color: a,
-          matrix: G.mul(G.T(b.x, b.y + 0.01, b.z + 0.035), G.S(1, 1.2, 0.6)),
+          matrix: mat.mul(mat.T(b.x, b.y + 0.01, b.z + 0.035), mat.S(1, 1.2, 0.6)),
         }),
         `calf_${u}`,
       ));
@@ -206,9 +209,9 @@ function $2(o, e = {}) {
             `ball_${u}`,
           ));
     i(
-      _e(new SphereGeometry(0.03, 6, 4), {
+      paint(new SphereGeometry(0.03, 6, 4), {
         color: a,
-        matrix: G.mul(G.T(f.x, f.y - 0.04, f.z - 0.035), G.S(0.8, 0.7, 1.1)),
+        matrix: mat.mul(mat.T(f.x, f.y - 0.04, f.z - 0.035), mat.S(0.8, 0.7, 1.1)),
       }),
       `foot_${u}`,
     );
@@ -224,11 +227,11 @@ function $2(o, e = {}) {
           .lerp(p, (_ + 0.5) / m)
           .add(new Vector3(0, 0, -0.03)),
         f = r[u].startsWith('neck') ? 0.014 : 0.019;
-      (i(_e(new CylinderGeometry(f, f, 0.022, 7), { color: a, matrix: G.T(b.x, b.y, b.z) }), r[u]),
+      (i(paint(new CylinderGeometry(f, f, 0.022, 7), { color: a, matrix: mat.T(b.x, b.y, b.z) }), r[u]),
         i(
-          _e(new ConeGeometry(0.008, 0.035, 4), {
+          paint(new ConeGeometry(0.008, 0.035, 4), {
             color: n,
-            matrix: G.mul(G.T(b.x, b.y - 0.008, b.z - 0.025), G.R(-110, 0, 0)),
+            matrix: mat.mul(mat.T(b.x, b.y - 0.008, b.z - 0.025), mat.R(-110, 0, 0)),
           }),
           r[u],
         ));
@@ -237,12 +240,12 @@ function $2(o, e = {}) {
   let l = t('pelvis');
   for (let u of [-1, 1])
     (i(
-      _e(new SphereGeometry(0.075, 8, 5, 0, Math.PI, 0, Math.PI * 0.75), {
+      paint(new SphereGeometry(0.075, 8, 5, 0, Math.PI, 0, Math.PI * 0.75), {
         color: a,
-        matrix: G.mul(
-          G.T(l.x + u * 0.075, l.y + 0.02, l.z - 0.01),
-          G.R(0, u * 90 + 180, 0),
-          G.S(1, 0.85, 0.35),
+        matrix: mat.mul(
+          mat.T(l.x + u * 0.075, l.y + 0.02, l.z - 0.01),
+          mat.R(0, u * 90 + 180, 0),
+          mat.S(1, 0.85, 0.35),
         ),
       }),
       'pelvis',
@@ -258,9 +261,9 @@ function $2(o, e = {}) {
         'pelvis',
       ));
   i(
-    _e(new ConeGeometry(0.04, 0.11, 6), {
+    paint(new ConeGeometry(0.04, 0.11, 6), {
       color: n,
-      matrix: G.mul(G.T(l.x, l.y - 0.03, l.z - 0.05), G.R(180, 0, 0)),
+      matrix: mat.mul(mat.T(l.x, l.y - 0.03, l.z - 0.05), mat.R(180, 0, 0)),
     }),
     'pelvis',
   );
@@ -282,14 +285,14 @@ function $2(o, e = {}) {
       ((x[0].z = b - _ * 0.75),
         (x[0].x = v * 0.015),
         i(
-          _e(hi(x, 0.007, 0.005, { radial: 5, segs: 8, closed: !1, flat: 0.6 }), { color: a, vary: 0.1 }),
+          paint(hi(x, 0.007, 0.005, { radial: 5, segs: 8, closed: !1, flat: 0.6 }), { color: a, vary: 0.1 }),
           f,
         ));
     }
   }
   if (
     (i(
-      _e(new BoxGeometry(0.03, 0.17, 0.012), { color: a, matrix: G.T(c.x, c.y - 0.02, c.z + 0.1) }),
+      paint(new BoxGeometry(0.03, 0.17, 0.012), { color: a, matrix: mat.T(c.x, c.y - 0.02, c.z + 0.1) }),
       'spine_03',
     ),
     e.pieces)
@@ -297,7 +300,7 @@ function $2(o, e = {}) {
     let u = t('Head'),
       h = (e.pieces.headScale || 0.2) * (e.headScale ?? 1),
       p = e.skull === 'mago' ? 'kk_craneo_mago' : 'kk_craneo',
-      m = G.mul(G.T(u.x, u.y - 0.055, u.z + 0.005), G.S(h));
+      m = mat.mul(mat.T(u.x, u.y - 0.055, u.z + 0.005), mat.S(h));
     (i(rc(e.pieces, p, { matrix: m, tint: e.color ? a.clone().multiplyScalar(1.25) : null }), 'Head'),
       i(
         rc(e.pieces, 'kk_mandibula', { matrix: m, tint: e.color ? a.clone().multiplyScalar(1.25) : null }),
@@ -317,7 +320,7 @@ function W2(o, e, { y0: t, y1: a, w: n = 0.3 } = {}) {
       u = Math.atan2(l.getZ(c), l.getX(c));
     l.setY(c, l.getY(c) - Math.max(0, Math.sin(u * 5) * 0.06 * d));
   }
-  return (r.computeVertexNormals(), Et([_e(r, { color: e, vary: 0.25 })]));
+  return (r.computeVertexNormals(), mergeParts([paint(r, { color: e, vary: 0.25 })]));
 }
 let tv = null;
 

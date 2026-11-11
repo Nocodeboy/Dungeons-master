@@ -3,6 +3,8 @@
 // Uso (desde web/):
 //   node tools/renombrar.mjs renombres/actores.json [--seco] [--estricto] [--area src/actors/] [--solo a.js,b.js]
 //   node tools/renombrar.mjs --listar src/actors/anims.js      (árbol de ámbitos con sus enlaces)
+//   node tools/renombrar.mjs --listar src/actors/anims.js --detalle [--todos]
+//                         (una línea por enlace con aspecto minificado: su clave exacta y su código)
 //
 // Formato del mapa: { "src/actors/anims.js": { "Hb": "BONE_ALIASES", "play/e": "name", ... }, ... }
 //   - "nombre"            enlace del ámbito del programa (nivel superior del archivo).
@@ -253,6 +255,26 @@ function listar(ruta) {
     return segs.join('/');
   };
   const regiones = [info.programa, ...info.regiones];
+  if (opcion('--detalle')) {
+    // Una línea por enlace: clave exacta para el mapa, línea y código de esa línea.
+    const lineas = info.codigo.split('\n');
+    const minificado = (n) => opcion('--todos') || /^[A-Za-z_$][\w$]?$|^[A-Za-z_$]\d[\w$]?$|^[A-Z][a-z]$|^[a-z][A-Z]$/.test(n);
+    for (const r of regiones) {
+      const bs = (porRegion.get(r) || []).filter((b) => b.kind !== 'module');
+      const ruta = r.isProgram() ? '' : rutaRegion(r) + '/';
+      const cuenta = {};
+      for (const b of bs.sort((a, b) => a.identifier.start - b.identifier.start)) {
+        const n = b.identifier.name;
+        const tot = bs.filter((x) => x.identifier.name === n).length;
+        cuenta[n] = (cuenta[n] || 0) + 1;
+        if (!minificado(n)) continue;
+        const linea = info.codigo.slice(0, b.identifier.start).split('\n').length;
+        const clave = ruta + n + (tot > 1 ? '#' + cuenta[n] : '');
+        console.log(`${clave.padEnd(28)} l.${String(linea).padEnd(5)}${lineas[linea - 1].trim().slice(0, 100)}`);
+      }
+    }
+    return;
+  }
   for (const r of regiones) {
     const bs = porRegion.get(r);
     if (!bs) continue;

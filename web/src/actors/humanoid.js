@@ -16,27 +16,27 @@ import { c2, d2, Gb, u2, h2, Vb, jb } from './rig.js';
 import { y2 } from './materials.js';
 import { I2, H2, N2, F2, O2, B2, q2, U2, j2, G2 } from './sculpt.js';
 import {
-  _e,
-  Et,
-  Kb,
-  Ff,
-  Jb,
-  w2,
-  T2,
-  M2,
-  E2,
-  S2,
-  k2,
-  A2,
-  R2,
-  Zb,
-  C2,
-  P2,
-  z2,
-  L2,
-  D2,
-  Qb,
-  G,
+  paint,
+  mergeParts,
+  gearPalette,
+  weaponGeometry,
+  shieldGeometry,
+  quiverGeometry,
+  luteGeometry,
+  backpackGeometry,
+  glassesGeometry,
+  bookGeometry,
+  pouchGeometry,
+  pauldronGeometry,
+  breastplateGeometry,
+  cylinderBetween,
+  headwearGeometry,
+  robeGeometry,
+  capeGeometry,
+  mantleGeometry,
+  beltGeometry,
+  tabardGeometry,
+  mat,
 } from './geometry.js';
 import { Character } from './character.js';
 import { ANIM_CLIPS, GRIP_CLIPS, RACE_CLIPS } from './anims.js';
@@ -136,7 +136,7 @@ async function buildHumanoid(o) {
   }
   let p = h.getWorldPosition(new Vector3()).y,
     m = tn(s, 'Head'),
-    _ = Kb(o),
+    _ = gearPalette(o),
     b = o.colors || {},
     f = y2(
       a,
@@ -291,7 +291,7 @@ async function buildHumanoid(o) {
     let { heroLook: ce } = await import('./look.js'),
       ke = ce(we, { prefer: ie === 'ranged' ? 'ranged' : 'melee' });
     ie === 'none' && ((ke.gear.main = null), (ke.gear.off = null));
-    let Qe = await oT(ke, s, Kb(ke), x, m),
+    let Qe = await oT(ke, s, gearPalette(ke), x, m),
       N = Vb(i, [...D, ...Qe], c, r, s, X);
     for (let L of J) (r.remove(L), L.geometry.dispose());
     J = N.meshes;
@@ -467,7 +467,7 @@ async function oT(o, e, t, a, n) {
       if (d.bone === 'Head') {
         let h = (c.headScale || 0.2) * (o.undead?.headScale ?? 1);
         ((u = rc(c, d.name, {
-          matrix: G.mul(G.T(n.x, n.y - 0.055, n.z + 0.005), G.S(h)),
+          matrix: mat.mul(mat.T(n.x, n.y - 0.055, n.z + 0.005), mat.S(h)),
           metal: d.name === 'kk_casco' ? 0.6 : 0,
         })),
           u && i(u, 'Head'));
@@ -480,7 +480,7 @@ async function oT(o, e, t, a, n) {
           _ = p ? 0.48 : d.name === 'kk_baston' ? 1.6 : 0.75;
         if ((u.scale(_ / m, _ / m, _ / m), p)) {
           let f = tn(e, 'lowerarm_l').lerp(tn(e, 'hand_l'), 0.45);
-          (u.applyMatrix4(G.mul(G.T(f.x, f.y + 0.07, f.z), G.R(-90, 0, 0), G.R(0, 0, 90))),
+          (u.applyMatrix4(mat.mul(mat.T(f.x, f.y + 0.07, f.z), mat.R(-90, 0, 0), mat.R(0, 0, 90))),
             i(u, 'lowerarm_l'));
         } else (u.applyMatrix4(gripMatrix(e, d.hand)), i(u, `hand_${d.hand}`));
       }
@@ -499,7 +499,7 @@ async function oT(o, e, t, a, n) {
 function gripMatrix(o, e) {
   let t = tn(o, `hand_${e}`),
     a = e === 'r' ? -1 : 1;
-  return G.mul(G.T(t.x + a * 0.088, t.y - 0.028, t.z - 0.004), G.R(90, 0, 0), G.R(0, a * 90, 0));
+  return mat.mul(mat.T(t.x + a * 0.088, t.y - 0.028, t.z - 0.004), mat.R(90, 0, 0), mat.R(0, a * 90, 0));
 }
 function jz(o, e) {
   let t = sT(o),
@@ -526,47 +526,50 @@ function Gz(o, e, t, a, n, s, i) {
     c = (g) => tn(e, `hand_${g}`),
     d = (g, y = new Matrix4()) => gripMatrix(e, g).multiply(y),
     u = (g, y, w) => {
-      let k = Ff(g, t);
+      let k = weaponGeometry(g, t);
       k && (k.applyMatrix4(d(y, w)), a(k, `hand_${y}`));
     };
   if ((r.main && u(r.main, 'r'), r.off && u(r.off, 'l'), r.shield)) {
-    let g = Jb(r.shield, t),
+    let g = shieldGeometry(r.shield, t),
       y = tn(e, 'lowerarm_l'),
       w = c('l'),
       k = y.clone().lerp(w, 0.45);
-    (g.applyMatrix4(G.mul(G.T(k.x, k.y + 0.07, k.z), G.R(-90, 0, 0), G.R(0, 0, 90))), a(g, 'lowerarm_l'));
+    (g.applyMatrix4(mat.mul(mat.T(k.x, k.y + 0.07, k.z), mat.R(-90, 0, 0), mat.R(0, 0, 90))),
+      a(g, 'lowerarm_l'));
   }
   let h = tn(e, 'spine_03'),
     p = h.z - (l ? 0.15 : 0.17);
   for (let g of r.back || []) {
     let y = null;
     (g === 'carcaj'
-      ? ((y = w2(t)), y.applyMatrix4(G.mul(G.T(0.08, h.y - 0.3, p - 0.04), G.R(0, 0, -25))))
+      ? ((y = quiverGeometry(t)), y.applyMatrix4(mat.mul(mat.T(0.08, h.y - 0.3, p - 0.04), mat.R(0, 0, -25))))
       : g === 'laud'
-        ? ((y = T2(t)), y.applyMatrix4(G.mul(G.T(-0.04, h.y - 0.15, p - 0.07), G.R(0, 180, 35))))
+        ? ((y = luteGeometry(t)),
+          y.applyMatrix4(mat.mul(mat.T(-0.04, h.y - 0.15, p - 0.07), mat.R(0, 180, 35))))
         : g === 'mochila'
-          ? ((y = M2(t)), y.applyMatrix4(G.T(0, h.y - 0.12, p - 0.1)))
+          ? ((y = backpackGeometry(t)), y.applyMatrix4(mat.T(0, h.y - 0.12, p - 0.1)))
           : g.startsWith('escudo:')
-            ? ((y = Jb(g.slice(7), t)), y.applyMatrix4(G.mul(G.T(0, h.y - 0.05, p - 0.03), G.R(0, 180, 0))))
+            ? ((y = shieldGeometry(g.slice(7), t)),
+              y.applyMatrix4(mat.mul(mat.T(0, h.y - 0.05, p - 0.03), mat.R(0, 180, 0))))
             : g.startsWith('arma:') &&
-              ((y = Ff(g.slice(5), t)),
-              y && y.applyMatrix4(G.mul(G.T(0.02, h.y - 0.05, p - 0.06), G.R(0, 0, 155)))),
+              ((y = weaponGeometry(g.slice(5), t)),
+              y && y.applyMatrix4(mat.mul(mat.T(0.02, h.y - 0.05, p - 0.06), mat.R(0, 0, 155)))),
       y && a(y, 'spine_03'));
   }
   let m = tn(e, 'pelvis'),
     _ = m.y + (l ? 0.1 : 0.08);
   if (r.book) {
-    let g = S2(t);
-    (g.applyMatrix4(G.mul(G.T(l ? 0.19 : 0.18, _ - 0.1, 0), G.R(0, 90, 8))), a(g, 'pelvis'));
+    let g = bookGeometry(t);
+    (g.applyMatrix4(mat.mul(mat.T(l ? 0.19 : 0.18, _ - 0.1, 0), mat.R(0, 90, 8))), a(g, 'pelvis'));
   }
   if (r.pouch) {
-    let g = k2(t);
-    (g.applyMatrix4(G.T(l ? -0.17 : -0.16, _ - 0.08, 0.05)), a(g, 'pelvis'));
+    let g = pouchGeometry(t);
+    (g.applyMatrix4(mat.T(l ? -0.17 : -0.16, _ - 0.08, 0.05)), a(g, 'pelvis'));
   }
   if (r.sheath) {
-    let g = Ff(r.sheath, t);
+    let g = weaponGeometry(r.sheath, t);
     g &&
-      (g.applyMatrix4(G.mul(G.T(l ? 0.2 : 0.19, _ - 0.05, -0.04), G.R(0, 0, 180), G.R(-18, 0, 0))),
+      (g.applyMatrix4(mat.mul(mat.T(l ? 0.2 : 0.19, _ - 0.05, -0.04), mat.R(0, 0, 180), mat.R(-18, 0, 0))),
       a(g, 'pelvis'));
   }
   let b = tn(e, 'upperarm_l'),
@@ -577,7 +580,7 @@ function Gz(o, e, t, a, n, s, i) {
       [1, b],
       [-1, f],
     ]) {
-      let k = A2(y, w.clone().add(an(-y * 0.02, 0.02, 0.01)), t, { size: g });
+      let k = pauldronGeometry(y, w.clone().add(an(-y * 0.02, 0.02, 0.01)), t, { size: g });
       n.push({
         geometry: k,
         material: s,
@@ -592,7 +595,7 @@ function Gz(o, e, t, a, n, s, i) {
     let g = l
         ? { y: h.y - 0.02, w: 0.19, h: 0.25, front: 0.175, back: 0.155, cz: -0 }
         : { y: h.y + 0.02, w: 0.215, h: 0.26, front: 0.155, back: 0.175, cz: -0.01 },
-      y = R2(g, t, { plate: r.breastplate !== 'coraza' });
+      y = breastplateGeometry(g, t, { plate: r.breastplate !== 'coraza' });
     n.push({
       geometry: y,
       material: s,
@@ -612,7 +615,7 @@ function Gz(o, e, t, a, n, s, i) {
       let y = tn(e, `lowerarm_${g}`),
         w = c(g);
       a(
-        Zb(y.clone().lerp(w, 0.25), y.clone().lerp(w, 0.92), 0.043, 0.037, t, {
+        cylinderBetween(y.clone().lerp(w, 0.25), y.clone().lerp(w, 0.92), 0.043, 0.037, t, {
           color: r.bracers === 'cuero' ? t.leather : null,
           metal: r.bracers === 'cuero' ? 0 : 1,
         }),
@@ -624,7 +627,7 @@ function Gz(o, e, t, a, n, s, i) {
       let y = tn(e, `calf_${g}`),
         w = tn(e, `foot_${g}`);
       a(
-        Zb(
+        cylinderBetween(
           y
             .clone()
             .lerp(w, 0.05)
@@ -642,9 +645,9 @@ function Gz(o, e, t, a, n, s, i) {
     }
   let v = { x: i.x, y: i.y + 0.1, z: i.z + 0.005, r: l ? 0.098 : 0.104 },
     x = r.helmet || r.hat;
-  if ((x && a(C2(x, v, t), 'Head'), r.robe)) {
+  if ((x && a(headwearGeometry(x, v, t), 'Head'), r.robe)) {
     let g = m.y + 0.13,
-      y = P2({
+      y = robeGeometry({
         yTop: g,
         yBottom: r.robe === 'corta' ? 0.48 : 0.07,
         rTop: l ? 0.215 : 0.205,
@@ -660,7 +663,7 @@ function Gz(o, e, t, a, n, s, i) {
     let g = r.tabardColor || t.cloth1,
       y = r.breastplate ? 0.075 : 0.022,
       w = h.y + (l ? 0.1 : 0.12);
-    for (let k of Qb({
+    for (let k of tabardGeometry({
       g: l ? 'f' : 'm',
       top: w,
       hip: m.y + 0.02,
@@ -673,31 +676,31 @@ function Gz(o, e, t, a, n, s, i) {
       n.push({ geometry: k.geometry, material: s, weights: k.weights });
     if (r.emblem) {
       let k = (l ? 0.16 : 0.13) + y + 0.004,
-        T = _e(new CircleGeometry(0.055, 14), {
+        T = paint(new CircleGeometry(0.055, 14), {
           color: t.gold,
           metal: 0.8,
-          matrix: G.T(0, h.y - (l ? 0.08 : 0.06), k),
+          matrix: mat.T(0, h.y - (l ? 0.08 : 0.06), k),
         }),
         E = [];
       for (let S = 0; S < 8; S++)
         E.push(
-          _e(new ConeGeometry(0.014, 0.05, 3), {
+          paint(new ConeGeometry(0.014, 0.05, 3), {
             color: t.gold,
             metal: 0.8,
-            matrix: G.mul(
-              G.T(0, h.y - (l ? 0.08 : 0.06), k),
-              G.R(0, 0, S * 45),
-              G.T(0, 0.075, 0),
-              G.S(1, 1, 0.2),
+            matrix: mat.mul(
+              mat.T(0, h.y - (l ? 0.08 : 0.06), k),
+              mat.R(0, 0, S * 45),
+              mat.T(0, 0.075, 0),
+              mat.S(1, 1, 0.2),
             ),
           }),
         );
-      n.push({ geometry: Et([T, ...E]), material: s, bone: 'spine_03' });
+      n.push({ geometry: mergeParts([T, ...E]), material: s, bone: 'spine_03' });
     }
   }
   if (r.cape) {
     let g = h.z - (l ? 0.18 : 0.2),
-      y = z2({
+      y = capeGeometry({
         y0: h.y + 0.13,
         y1: r.cape === 'corta' ? m.y - 0.1 : 0.2,
         w0: 0.36,
@@ -708,15 +711,15 @@ function Gz(o, e, t, a, n, s, i) {
         back: !0,
       });
     n.push({ geometry: y, material: s, weights: Vz(h.y, m.y) });
-    let w = _e(new TorusGeometry(0.2, 0.012, 4, 14, Math.PI), {
+    let w = paint(new TorusGeometry(0.2, 0.012, 4, 14, Math.PI), {
       color: r.capeColor || t.cloth1,
-      matrix: G.mul(G.T(0, h.y + 0.13, h.z - 0.03), G.R(90, 0, 0), G.S(1.05, 0.9, 1)),
+      matrix: mat.mul(mat.T(0, h.y + 0.13, h.z - 0.03), mat.R(90, 0, 0), mat.S(1.05, 0.9, 1)),
     });
     n.push({ geometry: w, material: s, bone: 'spine_03' });
   }
   if (r.mantle) {
     let g = r.mantle === 'hojas',
-      y = L2({
+      y = mantleGeometry({
         y: h.y + 0.12,
         rx: l ? 0.17 : 0.19,
         rz: l ? 0.13 : 0.14,
@@ -735,7 +738,7 @@ function Gz(o, e, t, a, n, s, i) {
     });
   }
   if (r.apron)
-    for (let g of Qb({
+    for (let g of tabardGeometry({
       g: l ? 'f' : 'm',
       top: h.y - 0.02,
       hip: m.y + 0.02,
@@ -749,24 +752,27 @@ function Gz(o, e, t, a, n, s, i) {
     }))
       n.push({ geometry: g.geometry, material: s, weights: g.weights });
   if (r.chain) {
-    let g = _e(new TorusGeometry(l ? 0.1 : 0.115, 0.007, 4, 18, Math.PI), {
+    let g = paint(new TorusGeometry(l ? 0.1 : 0.115, 0.007, 4, 18, Math.PI), {
       color: t.gold,
       metal: 1,
-      matrix: G.mul(G.T(0, h.y + 0.08, h.z + (l ? 0.06 : 0.05)), G.R(180, 0, 0), G.R(-62, 0, 0)),
+      matrix: mat.mul(mat.T(0, h.y + 0.08, h.z + (l ? 0.06 : 0.05)), mat.R(180, 0, 0), mat.R(-62, 0, 0)),
     });
     a(
-      Et([
+      mergeParts([
         g,
-        _e(new CylinderGeometry(0.025, 0.025, 0.008, 10), {
+        paint(new CylinderGeometry(0.025, 0.025, 0.008, 10), {
           color: t.gold,
           metal: 1,
-          matrix: G.mul(G.T(0, h.y - 0.03, h.z + (l ? 0.17 : 0.155)), G.R(90, 0, 0)),
+          matrix: mat.mul(mat.T(0, h.y - 0.03, h.z + (l ? 0.17 : 0.155)), mat.R(90, 0, 0)),
         }),
       ]),
       'spine_03',
     );
   }
-  if ((r.glasses && a(E2({ x: i.x, y: i.y + 0.098, z: i.z + (l ? 0.1 : 0.112) }, t), 'Head'), r.necklace)) {
+  if (
+    (r.glasses && a(glassesGeometry({ x: i.x, y: i.y + 0.098, z: i.z + (l ? 0.1 : 0.112) }, t), 'Head'),
+    r.necklace)
+  ) {
     let g = tn(e, 'neck_01'),
       y = [];
     for (let w = 0; w < 9; w++) {
@@ -775,22 +781,25 @@ function Gz(o, e, t, a, n, s, i) {
         E = g.z + Math.cos(k) * (l ? 0.07 : 0.08) + 0.01,
         S = g.y - 0.06 - Math.cos(k) * 0.03;
       y.push(
-        _e(new ConeGeometry(0.008, 0.04, 5), {
+        paint(new ConeGeometry(0.008, 0.04, 5), {
           color: '#e8dcc0',
-          matrix: G.mul(G.T(T, S, E), G.R(180, 0, 0), G.T(0, 0.015, 0)),
+          matrix: mat.mul(mat.T(T, S, E), mat.R(180, 0, 0), mat.T(0, 0.015, 0)),
         }),
       );
     }
     (y.push(
-      _e(new TorusGeometry(0.085, 0.004, 4, 16), {
+      paint(new TorusGeometry(0.085, 0.004, 4, 16), {
         color: '#3a2a1c',
-        matrix: G.mul(G.T(0, g.y - 0.05, g.z + 0.01), G.R(75, 0, 0)),
+        matrix: mat.mul(mat.T(0, g.y - 0.05, g.z + 0.01), mat.R(75, 0, 0)),
       }),
     ),
-      a(Et(y), 'spine_03'));
+      a(mergeParts(y), 'spine_03'));
   }
   r.sash &&
-    a(D2({ y: _, rx: l ? 0.15 : 0.16, rz: l ? 0.12 : 0.13, cz: m.z + 0, P: t, color: r.sash }), 'pelvis');
+    a(
+      beltGeometry({ y: _, rx: l ? 0.15 : 0.16, rz: l ? 0.12 : 0.13, cz: m.z + 0, P: t, color: r.sash }),
+      'pelvis',
+    );
 }
 function iT(o) {
   return (e) => {
