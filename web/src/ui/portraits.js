@@ -11,7 +11,7 @@ import {
   WebGLRenderer,
 } from 'three';
 import { makeCharacter as Fs } from '../actors/character.js';
-import { hc } from '../actors/roster.js';
+import { LEGACY_PARTY as hc } from '../actors/roster.js';
 import { legacyHeroDef as Tv } from '../actors/hero-stage.js';
 
 function AT(o, e) {

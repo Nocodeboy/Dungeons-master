@@ -1,5 +1,10 @@
 // actors/roster.js
-// Reconstruido de publicado/juego.js (módulo __esm «Qf»). Nombres locales aún minificados.
+// Reconstruido de publicado/juego.js (módulo __esm «Qf»).
+//
+// Grupo inicial en el formato antiguo de personaje (modelos KayKit Ranger/Peasant con pelo, tinte,
+// recoloreado y armas enganchadas a huesos): datos de presentación de Brenna, Pip, Ilyra y Odvar
+// (papel, PG, CA, color, posición en la posada y objetos). Lo usan combat/units.js,
+// explore/actors.js y ui/portraits.js como respaldo y para datos de ficha.
 
 import {
   CylinderGeometry,
@@ -10,27 +15,29 @@ import {
   SphereGeometry,
 } from 'three';
 
-function gL() {
-  let o = new Group(),
-    e = new MeshStandardMaterial({ color: 5978914, roughness: 0.8 }),
-    t = new Mesh(new CylinderGeometry(0.018, 0.022, 1.55, 8), e);
-  ((t.position.y = 0.35), o.add(t));
-  let a = new Mesh(new SphereGeometry(0.04, 10, 8), e);
-  ((a.position.y = 1.12), o.add(a));
-  let n = new Mesh(
+/** Bastón con pomo y gema azul (arma de Odvar en la definición antigua). */
+function makeStaffProp() {
+  let group = new Group(),
+    woodMat = new MeshStandardMaterial({ color: 5978914, roughness: 0.8 }),
+    shaft = new Mesh(new CylinderGeometry(0.018, 0.022, 1.55, 8), woodMat);
+  ((shaft.position.y = 0.35), group.add(shaft));
+  let knob = new Mesh(new SphereGeometry(0.04, 10, 8), woodMat);
+  ((knob.position.y = 1.12), group.add(knob));
+  let gem = new Mesh(
     new OctahedronGeometry(0.035),
     new MeshStandardMaterial({ color: 10475775, emissive: 3837904, emissiveIntensity: 2.2, roughness: 0.2 }),
   );
   return (
-    (n.position.y = 1.18),
-    o.add(n),
-    o.traverse((s) => {
-      s.isMesh && (s.castShadow = !0);
+    (gem.position.y = 1.18),
+    group.add(gem),
+    group.traverse((obj) => {
+      obj.isMesh && (obj.castShadow = !0);
     }),
-    o
+    group
   );
 }
-const hc = [
+/** Compañeros en el formato antiguo de makeCharacter (con sus datos de ficha). */
+const LEGACY_PARTY = [
   {
     id: 'brenna',
     name: 'Brenna Halvard',
@@ -125,9 +132,9 @@ const hc = [
     pos: [2.25, 2.75],
     lookAt: 'maren',
     anim: 'Idle_Loop',
-    attach: [{ make: gL, bone: 'hand_r', scale: 1, pos: [0, 0.06, 0.02], rot: [0, 0, -90] }],
+    attach: [{ make: makeStaffProp, bone: 'hand_r', scale: 1, pos: [0, 0.06, 0.02], rot: [0, 0, -90] }],
     items: ['Bast\xF3n', 'Daga', 'Libro de conjuros', 'Saquito de componentes', 'Poci\xF3n de curaci\xF3n'],
   },
 ];
 
-export { hc };
+export { LEGACY_PARTY };

@@ -13,7 +13,7 @@ import {
   Vector3,
 } from 'three';
 import { makeCharacter as Fs } from '../actors/character.js';
-import { hc } from '../actors/roster.js';
+import { LEGACY_PARTY as hc } from '../actors/roster.js';
 
 function q1(o, e = 1.4) {
   o.traverse((t) => {
