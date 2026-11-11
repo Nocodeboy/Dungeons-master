@@ -23,8 +23,8 @@ import {
   TorusGeometry,
   Vector3,
 } from 'three';
-import { pa, S1, hr, gn } from './kit.js';
-import { Fo } from './materials.js';
+import { hasPiece, isFlatMaterial, pieceMesh, MeshMerger } from './kit.js';
+import { standardMaterial } from './materials.js';
 import { cellToWorld, degToRad } from './grid.js';
 import { Le } from './ground.js';
 
@@ -32,15 +32,15 @@ function mo() {
   return (
     a0 ||
     ((a0 = {
-      wood: Fo({ color: 8016438, roughness: 0.8 }),
-      dark: Fo({ color: 3876889, roughness: 0.9 }),
-      iron: Fo({ color: 4538684, roughness: 0.5, metalness: 0.7 }),
-      brass: Fo({ color: 13146696, roughness: 0.35, metalness: 0.85 }),
-      stone: Fo({ color: 9275261, roughness: 0.95 }),
-      stoneDark: Fo({ color: 6117458, roughness: 0.95 }),
-      paper: Fo({ color: 15524552, roughness: 1 }),
+      wood: standardMaterial({ color: 8016438, roughness: 0.8 }),
+      dark: standardMaterial({ color: 3876889, roughness: 0.9 }),
+      iron: standardMaterial({ color: 4538684, roughness: 0.5, metalness: 0.7 }),
+      brass: standardMaterial({ color: 13146696, roughness: 0.35, metalness: 0.85 }),
+      stone: standardMaterial({ color: 9275261, roughness: 0.95 }),
+      stoneDark: standardMaterial({ color: 6117458, roughness: 0.95 }),
+      paper: standardMaterial({ color: 15524552, roughness: 1 }),
       hole: new MeshBasicMaterial({ color: 328707 }),
-      cloth: Fo({ color: 6965806, roughness: 1 }),
+      cloth: standardMaterial({ color: 6965806, roughness: 1 }),
       rune: new MeshStandardMaterial({
         color: 2760728,
         emissive: 16742960,
@@ -443,11 +443,11 @@ function I9(o) {
 function nk(o, e, t) {
   o.updateMatrixWorld(!0);
   let a = new Matrix4().copy(o.matrixWorld).invert(),
-    n = new gn({ contactH: 0.5, contactMin: 0.6, metal: !1 }),
+    n = new MeshMerger({ contactH: 0.5, contactMin: 0.6, metal: !1 }),
     s = [];
   if (
     (o.traverse((i) => {
-      if (!(i === o || !i.isMesh || !S1(i.material))) {
+      if (!(i === o || !i.isMesh || !isFlatMaterial(i.material))) {
         for (let r = i; r && r !== o; r = r.parent) if (e.has(r)) return;
         s.push(i);
       }
@@ -494,13 +494,13 @@ function ok(o) {
           (g.rotation.y = (((v.id.length * 37) % 50) - 25) * 0.01));
         break;
       case 'cache': {
-        if (((g = new Group()), pa('sack'))) {
-          let y = hr('sack');
+        if (((g = new Group()), hasPiece('sack'))) {
+          let y = pieceMesh('sack');
           (y.scale.setScalar(0.8), g.add(y));
         }
-        if (pa('Pebble_Round_4'))
+        if (hasPiece('Pebble_Round_4'))
           for (let y = 0; y < 3; y++) {
-            let w = hr('Pebble_Round_4');
+            let w = pieceMesh('Pebble_Round_4');
             (w.position.set(0.25 + y * 0.1, 0, -0.15 + y * 0.12), w.scale.setScalar(1.5), g.add(w));
           }
         break;
@@ -508,10 +508,10 @@ function ok(o) {
       case 'loot': {
         if (
           ((g = new Group()),
-          pa('q_bag') && g.add(hr('q_bag')),
-          pa('skull') && /peregrin|restos/i.test(v.name || ''))
+          hasPiece('q_bag') && g.add(pieceMesh('q_bag')),
+          hasPiece('skull') && /peregrin|restos/i.test(v.name || ''))
         ) {
-          let y = hr('skull');
+          let y = pieceMesh('skull');
           (y.position.set(0.35, 0, 0.1), g.add(y));
         }
         break;
@@ -540,7 +540,8 @@ function ok(o) {
       }
       case 'stairs':
         /up|subir|arriba/i.test(v.id) || (v.to || '').includes(':merrowick')
-          ? ((g = pa('stairs') ? hr('stairs') : ak()), pa('stairs') && g.scale.setScalar(0.6))
+          ? ((g = hasPiece('stairs') ? pieceMesh('stairs') : ak()),
+            hasPiece('stairs') && g.scale.setScalar(0.6))
           : (g = ak());
         break;
       case 'trap': {

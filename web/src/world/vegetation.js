@@ -11,8 +11,8 @@ import {
   MeshStandardMaterial,
   Vector3,
 } from 'three';
-import { pa, ur, Gm, xt, gn } from './kit.js';
-import { Zn } from './materials.js';
+import { hasPiece, pieceBounds, instancePiece, composeMatrix, MeshMerger } from './kit.js';
+import { worldMaterial } from './materials.js';
 import { Le } from './ground.js';
 import { cellToWorld, worldToCell, neighbors, HEX_SIZE } from './grid.js';
 import { fs } from './water.js';
@@ -73,7 +73,7 @@ function NH() {
   if (!C1) {
     let o = new MeshStandardMaterial({ vertexColors: !0, roughness: 0.9, side: DoubleSide });
     ((o.name = 'Briznas'),
-      (C1 = Zn(o, {
+      (C1 = worldMaterial(o, {
         wind: 0.05,
         windRef: 0.35,
         squash: !0,
@@ -97,10 +97,10 @@ function H3(o) {
       (D.has(M) || D.set(M, []), D.get(M).push(R));
     },
     m = new Map(),
-    _ = (D) => (m.has(D) || m.set(D, ur(D)), m.get(D)),
+    _ = (D) => (m.has(D) || m.set(D, pieceBounds(D)), m.get(D)),
     b = (D, M, R, A, P, I = !1) => {
       let U = a.heightAt(M, R) - 0.05,
-        j = xt(M, U, R, n() * Math.PI * 2, A),
+        j = composeMatrix(M, U, R, n() * Math.PI * 2, A),
         X = _(D),
         J = {
           m: j,
@@ -148,8 +148,8 @@ function H3(o) {
       b(U, R, A, 0.85 + n() * 0.45, P < 5);
     }
   for (let [D, M] of u) {
-    let R = s.level < 2 && pa(`${D}_lod`) ? `${D}_lod` : D,
-      A = Gm(
+    let R = s.level < 2 && hasPiece(`${D}_lod`) ? `${D}_lod` : D,
+      A = instancePiece(
         R,
         M.map((P) => P.m),
         { fade: !0, cast: !0, finish: { windRef: M[0].h, wind: 0.16 } },
@@ -160,9 +160,9 @@ function H3(o) {
       M.forEach((P, I) => l.push({ pos: P.pos, h: P.h, r: P.r, attr: A.userData.fade, i: I, kind: 'tree' })));
   }
   for (let [D, M] of h) {
-    let R = pa(`${D}_lod`) ? `${D}_lod` : D,
+    let R = hasPiece(`${D}_lod`) ? `${D}_lod` : D,
       A = M.some((I) => I.fadeable),
-      P = Gm(
+      P = instancePiece(
         R,
         M.map((I) => I.m),
         { fade: A, cast: s.level === 2, finish: { windRef: M[0].h, wind: 0.14 } },
@@ -190,15 +190,15 @@ function H3(o) {
             : 'Bush_Common',
       P = d.x + (n() - 0.5) * 0.3,
       I = d.z + (n() - 0.5) * 0.3;
-    if ((z[A].push(xt(P, a.heightAt(P, I) - 0.05, I, n() * 6.28, 0.95 + n() * 0.35)), n() < 0.7)) {
+    if ((z[A].push(composeMatrix(P, a.heightAt(P, I) - 0.05, I, n() * 6.28, 0.95 + n() * 0.35)), n() < 0.7)) {
       let U = d.x + (n() - 0.5) * 1,
         j = d.z + (n() - 0.5) * 1;
-      z.Bush_Common.push(xt(U, a.heightAt(U, j) - 0.05, j, n() * 6.28, 0.55 + n() * 0.25));
+      z.Bush_Common.push(composeMatrix(U, a.heightAt(U, j) - 0.05, j, n() * 6.28, 0.55 + n() * 0.25));
     }
   });
   for (let [D, M] of Object.entries(z)) {
     if (!M.length) continue;
-    let R = Gm(D, M, { cast: !0, finish: { wind: 0.04, windRef: 1 } });
+    let R = instancePiece(D, M, { cast: !0, finish: { wind: 0.04, windRef: 1 } });
     (e.add(R), c.push(R));
   }
   return (i !== 'crypt' && i !== 'inn' && c.push(...OH(o)), { occluders: l, groups: c });
@@ -221,13 +221,15 @@ function FH(o, e) {
         x = a.noise(h * 0.32 + 11, p * 0.32 - 4);
       if (v > -0.14 && v < 0.24) {
         if (n() > 0.18 + x * 1.1) continue;
-        let g = xt(h, Math.min(a.heightAt(h, p), fs) - 0.04, p, n() * 6.28, 0.9 + n() * 0.5);
+        let g = composeMatrix(h, Math.min(a.heightAt(h, p), fs) - 0.04, p, n() * 6.28, 0.9 + n() * 0.5);
         n() < 0.3 ? e.waterplant.push(g) : e.Grass_Wispy_Tall.push(g.scale(c.set(1, 1.5 + n() * 0.6, 1)));
       } else
         v > 0.3 &&
           v < 0.75 &&
           n() < 0.05 * l * (1 + x * 2) &&
-          e[n() < 0.6 ? 'waterlily' : 'waterlily_b'].push(xt(h, fs + 0.012, p, n() * 6.28, 0.7 + n() * 0.6));
+          e[n() < 0.6 ? 'waterlily' : 'waterlily_b'].push(
+            composeMatrix(h, fs + 0.012, p, n() * 6.28, 0.7 + n() * 0.6),
+          );
     }
 }
 function OH(o) {
@@ -274,7 +276,7 @@ function OH(o) {
         (S > 0.45 || M > 0.35) &&
           n() < 0.035 &&
           u[n() < 0.5 ? 'Pebble_Round_1' : n() < 0.5 ? 'Pebble_Round_4' : 'Pebble_Square_3'].push(
-            xt(k, P, T, n() * 6.28, 0.8 + n() * 0.8),
+            composeMatrix(k, P, T, n() * 6.28, 0.8 + n() * 0.8),
           );
         continue;
       }
@@ -284,7 +286,7 @@ function OH(o) {
       if (n() > Math.min(1, I + U) * (b ? 0.75 + (1 - A) * 0.25 : 0.9)) continue;
       if (n() < (b ? 0.035 : 0.045)) {
         let Z = 0.8 + n() * 0.5,
-          K = xt(k, P, T, n() * 6.28, Z);
+          K = composeMatrix(k, P, T, n() * 6.28, Z);
         if (b) {
           let ve = n();
           ve < 0.45
@@ -313,7 +315,7 @@ function OH(o) {
         continue;
       }
       let J = `${Math.floor(k / c)},${Math.floor(T / c)}|0`;
-      (d.has(J) || d.set(J, []), d.get(J).push(xt(k, P - 0.02, T, n() * 6.28, 0.85 + n() * 0.5)));
+      (d.has(J) || d.set(J, []), d.get(J).push(composeMatrix(k, P - 0.02, T, n() * 6.28, 0.85 + n() * 0.5)));
     }
   let f = [],
     v = NH();
@@ -330,14 +332,14 @@ function OH(o) {
       f.push(T));
   }
   FH(o, u);
-  let x = new gn({
+  let x = new MeshMerger({
     contactH: 0.3,
     contactMin: 0.7,
     cast: !1,
     finish: { squash: !0, wind: 0.05, windRef: 0.6 },
     groundAt: (y, w) => a.heightAt(y, w),
   });
-  for (let [y, w] of Object.entries(u)) for (let k of w) pa(y) && x.add(y, k);
+  for (let [y, w] of Object.entries(u)) for (let k of w) hasPiece(y) && x.add(y, k);
   let g = x.build('detalle');
   for (let y of g.children) y.castShadow = !1;
   return (e.add(g), f.push(g), f);

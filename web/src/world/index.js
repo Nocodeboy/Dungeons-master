@@ -2,8 +2,8 @@
 // Reconstruido de publicado/juego.js (módulo __esm «ck»). Nombres locales aún minificados.
 
 import { Box3, Group, MathUtils, Raycaster, Vector3 } from 'three';
-import { T3, gn } from './kit.js';
-import { No } from './materials.js';
+import { loadKits, MeshMerger } from './kit.js';
+import { worldUniforms } from './materials.js';
 import { TIMES, Vm } from './times.js';
 import { Le, Ym } from './ground.js';
 import { H3 } from './vegetation.js';
@@ -34,7 +34,7 @@ async function buildLevel(
   ((!c || ['B', 'H', 'f'].some((L) => p.has(L))) && _.push('aldea'),
     (!c || ['T', 'r', 'b'].some((L) => p.has(L))) && _.push('naturaleza'),
     (r || (!l && p.has('#')) || m.some((L) => U9.has(L))) && _.push('mazmorra'),
-    await T3(_));
+    await loadKits(_));
   let b = new Group();
   ((b.name = `nivel:${e.id}`), o.add(b));
   let f = new Ym(h, e, { ambient: i, quality: t, seed: d, margin: c ? 3 : 12 }),
@@ -45,7 +45,7 @@ async function buildLevel(
     y = new o0(b, { quality: t, ambient: i }),
     w = { scene: b, map: h, level: e, ground: f, rnd: u, quality: t, ambient: i, fx: y, sky: g };
   f.paintTiles();
-  let k = new gn({
+  let k = new MeshMerger({
     fade: !0,
     contactH: 1.4,
     contactMin: 0.42,
@@ -320,8 +320,8 @@ async function buildLevel(
     },
     update(L, O, B) {
       if (
-        ((No.uTime.value = O),
-        (No.uSquash.value += ((K ? 0.45 : 1) - No.uSquash.value) * Math.min(1, L * 3)),
+        ((worldUniforms.uTime.value = O),
+        (worldUniforms.uSquash.value += ((K ? 0.45 : 1) - worldUniforms.uSquash.value) * Math.min(1, L * 3)),
         f.uniforms && (f.uniforms.uGrid.value += (ve - f.uniforms.uGrid.value) * Math.min(1, L * 5)),
         B)
       ) {
@@ -347,7 +347,7 @@ async function buildLevel(
           Ce = Math.abs(be - $.target) < 0.01 ? $.target : be;
         (($.cur = Ce),
           $.kind === 'building'
-            ? No.uBld.value[$.idx].set(Ce, Ce)
+            ? worldUniforms.uBld.value[$.idx].set(Ce, Ce)
             : $.attr && (($.attr.array[$.i] = Ce), ($.attr.needsUpdate = !0)),
           Ce === $.target && $.target === 1 && ($.target = null));
       }
@@ -366,7 +366,7 @@ async function buildLevel(
       });
       for (let O of L) O.dispose();
       (f.dispose(), y.dispose(), g.dispose());
-      for (let O of No.uBld.value) O.set(1, 1);
+      for (let O of worldUniforms.uBld.value) O.set(1, 1);
     },
   };
   if (a?.flag)

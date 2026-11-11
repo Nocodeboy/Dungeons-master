@@ -1,5 +1,8 @@
-// world/kit.js
-// Reconstruido de publicado/juego.js (módulo __esm «pr»). Nombres locales aún minificados.
+// world/kit.js — piezas glTF de los kits del mundo (assets/world/aldea, naturaleza, atrezo y
+// assets/dungeon/mazmorra): carga, despiece en {geo, mat} con la transformación horneada,
+// instanciado con fundido y `MeshMerger`, que funde geometría estática por material con AO de contacto
+// en un atributo y colores de vértice. Reconstruido de publicado/juego.js (módulo __esm «pr»).
+// Lo usan index.js, buildings.js, crypt.js, interiors.js, procedural.js, props.js y vegetation.js.
 
 import {
   Box3,
@@ -19,199 +22,237 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadGLTF } from '../assets.js';
-import { Zn, v3 } from './materials.js';
+import { worldMaterial, worldDepthMaterial } from './materials.js';
 
-async function T3(o) {
+/** Carga los kits nombrados (claves de `KIT_FILES`) y registra sus piezas y materiales. */
+async function loadKits(names) {
   await Promise.all(
-    o.map(async (e) => {
-      if (T1.has(e)) return;
-      let t = await loadGLTF(CH[e]);
-      t.scene.updateMatrixWorld(!0);
-      let a = new Map();
-      for (let n of t.scene.children) a.set(n.name, n);
-      (t.scene.traverse((n) => {
-        if (n.isMesh) for (let s of [].concat(n.material)) M1.has(s.name) || M1.set(s.name, s);
+    names.map(async (name) => {
+      if (kits.has(name)) return;
+      let gltf = await loadGLTF(KIT_FILES[name]);
+      gltf.scene.updateMatrixWorld(!0);
+      let pieces = new Map();
+      for (let child of gltf.scene.children) pieces.set(child.name, child);
+      (gltf.scene.traverse((node) => {
+        if (node.isMesh)
+          for (let mat of [].concat(node.material))
+            kitMaterials.has(mat.name) || kitMaterials.set(mat.name, mat);
       }),
-        T1.set(e, a));
+        kits.set(name, pieces));
     }),
   );
 }
-function M3(o) {
-  for (let [, e] of T1) if (e.has(o)) return e.get(o);
+/** Nodo raíz de la pieza `name` en cualquier kit cargado, o null. */
+function findPiece(name) {
+  for (let [, pieces] of kits) if (pieces.has(name)) return pieces.get(name);
   return null;
 }
-function pa(o) {
-  return !!M3(o);
+/** ¿Existe la pieza `name` en algún kit cargado? */
+function hasPiece(name) {
+  return !!findPiece(name);
 }
-function zH(o) {
-  if (o.array instanceof Float32Array && !o.normalized && !o.isInterleavedBufferAttribute) return o.clone();
-  let e = new Float32Array(o.count * o.itemSize);
-  for (let t = 0; t < o.count; t++)
-    for (let a = 0; a < o.itemSize; a++)
-      e[t * o.itemSize + a] = o.getComponent
-        ? o.getComponent(t, a)
-        : [o.getX(t), o.getY(t), o.getZ(t), o.getW(t)][a];
-  return new BufferAttribute(e, o.itemSize);
+/** Copia un atributo como Float32 no normalizado y no entrelazado. */
+function toFloatAttribute(attr) {
+  if (attr.array instanceof Float32Array && !attr.normalized && !attr.isInterleavedBufferAttribute)
+    return attr.clone();
+  let array = new Float32Array(attr.count * attr.itemSize);
+  for (let i = 0; i < attr.count; i++)
+    for (let c = 0; c < attr.itemSize; c++)
+      array[i * attr.itemSize + c] = attr.getComponent
+        ? attr.getComponent(i, c)
+        : [attr.getX(i), attr.getY(i), attr.getZ(i), attr.getW(i)][c];
+  return new BufferAttribute(array, attr.itemSize);
 }
-function x3(o, e) {
-  let t = new BufferGeometry();
-  for (let a of ['position', 'normal', 'uv', 'color']) {
-    let n = o.getAttribute(a);
-    n && t.setAttribute(a, zH(n));
+/** Geometría con posición/normal/uv/color y la matriz aplicada (invierte caras si refleja). */
+function bakeGeometry(src, matrix) {
+  let geo = new BufferGeometry();
+  for (let name of ['position', 'normal', 'uv', 'color']) {
+    let attr = src.getAttribute(name);
+    attr && geo.setAttribute(name, toFloatAttribute(attr));
   }
   if (
-    (t.getAttribute('uv') ||
-      t.setAttribute('uv', new BufferAttribute(new Float32Array(t.getAttribute('position').count * 2), 2)),
-    t.getAttribute('normal') || t.computeVertexNormals(),
-    o.index && t.setIndex(Array.from(o.index.array)),
-    t.applyMatrix4(e),
-    e.determinant() < 0 && t.index)
+    (geo.getAttribute('uv') ||
+      geo.setAttribute(
+        'uv',
+        new BufferAttribute(new Float32Array(geo.getAttribute('position').count * 2), 2),
+      ),
+    geo.getAttribute('normal') || geo.computeVertexNormals(),
+    src.index && geo.setIndex(Array.from(src.index.array)),
+    geo.applyMatrix4(matrix),
+    matrix.determinant() < 0 && geo.index)
   ) {
-    let a = t.index.array;
-    for (let n = 0; n < a.length; n += 3) [a[n + 1], a[n + 2]] = [a[n + 2], a[n + 1]];
+    let index = geo.index.array;
+    for (let k = 0; k < index.length; k += 3) [index[k + 1], index[k + 2]] = [index[k + 2], index[k + 1]];
   }
-  return (t.computeBoundingBox(), t.computeBoundingSphere(), t);
+  return (geo.computeBoundingBox(), geo.computeBoundingSphere(), geo);
 }
-function dr(o) {
-  if (_1.has(o)) return _1.get(o);
-  let e = M3(o);
-  if (!e) return (_3.has(o) || console.warn('[mundo] pieza desconocida', o), _3.add(o), []);
-  let t = new Matrix4().copy(e.matrixWorld).invert(),
-    a = [];
+/**
+ * Partes de una pieza como [{geo, mat, name}] relativas a su raíz (una por material). Cacheado.
+ * Avisa una vez por consola si la pieza no existe.
+ */
+function pieceParts(name) {
+  if (partsCache.has(name)) return partsCache.get(name);
+  let root = findPiece(name);
+  if (!root)
+    return (
+      missingPieces.has(name) || console.warn('[mundo] pieza desconocida', name),
+      missingPieces.add(name),
+      []
+    );
+  let inverse = new Matrix4().copy(root.matrixWorld).invert(),
+    parts = [];
   if (
-    (e.traverse((n) => {
-      if (!n.isMesh) return;
-      let s = Array.isArray(n.material) ? n.material : [n.material],
-        i = new Matrix4().multiplyMatrices(t, n.matrixWorld);
-      if (s.length === 1) a.push({ geo: x3(n.geometry, i), mat: w3(s[0]), name: n.name });
+    (root.traverse((node) => {
+      if (!node.isMesh) return;
+      let mats = Array.isArray(node.material) ? node.material : [node.material],
+        matrix = new Matrix4().multiplyMatrices(inverse, node.matrixWorld);
+      if (mats.length === 1)
+        parts.push({ geo: bakeGeometry(node.geometry, matrix), mat: kitMaterial(mats[0]), name: node.name });
       else
-        for (let r of n.geometry.groups) {
-          let l = n.geometry.clone();
-          (l.setIndex(Array.from(n.geometry.index.array.slice(r.start, r.start + r.count))),
-            a.push({ geo: x3(l, i), mat: w3(s[r.materialIndex]), name: n.name }));
+        for (let group of node.geometry.groups) {
+          let geo = node.geometry.clone();
+          (geo.setIndex(Array.from(node.geometry.index.array.slice(group.start, group.start + group.count))),
+            parts.push({
+              geo: bakeGeometry(geo, matrix),
+              mat: kitMaterial(mats[group.materialIndex]),
+              name: node.name,
+            }));
         }
     }),
-    /^Bush_/.test(o))
+    /^Bush_/.test(name))
   ) {
-    let n = M1.get('Leaves_NormalTree');
-    for (let s of a)
-      if (s.mat.name === 'Leaves_TwistedTree' && n) {
-        let i = s.mat.clone();
-        ((i.name = 'Leaves_Bush'), (i.map = n.map), i.color.set(14214832), (s.mat = i));
+    let leafMat = kitMaterials.get('Leaves_NormalTree');
+    for (let part of parts)
+      if (part.mat.name === 'Leaves_TwistedTree' && leafMat) {
+        let mat = part.mat.clone();
+        ((mat.name = 'Leaves_Bush'), (mat.map = leafMat.map), mat.color.set(14214832), (part.mat = mat));
       }
   }
-  return (_1.set(o, a), a);
+  return (partsCache.set(name, parts), parts);
 }
-function w3(o) {
-  if (w1.has(o.uuid)) return w1.get(o.uuid);
-  let e = o.clone();
-  e.name = o.name;
-  let t = PH[o.name];
+/** Copia ajustada de un material del kit (tinte, anisotropía, doble cara, vidrio de ventana). */
+function kitMaterial(src) {
+  if (kitMaterialCache.has(src.uuid)) return kitMaterialCache.get(src.uuid);
+  let mat = src.clone();
+  mat.name = src.name;
+  let tint = KIT_TINTS[src.name];
   return (
-    t && e.color.multiply(new Color(t)),
-    e.map && (e.map.anisotropy = 4),
-    (e.alphaTest > 0 || e.transparent) && (e.side = DoubleSide),
-    e.name === 'MI_WindowGlass' &&
-      ((e.transparent = !1),
-      (e.opacity = 1),
-      e.color.setRGB(0.12, 0.09, 0.07),
-      (e.emissive = new Color(16754768)),
-      (e.emissiveIntensity = 0),
-      (e.roughness = 0.25),
-      (e.userData.window = !0)),
-    (e.metalness = Math.min(e.metalness, 0.2)),
-    w1.set(o.uuid, e),
-    e
+    tint && mat.color.multiply(new Color(tint)),
+    mat.map && (mat.map.anisotropy = 4),
+    (mat.alphaTest > 0 || mat.transparent) && (mat.side = DoubleSide),
+    mat.name === 'MI_WindowGlass' &&
+      ((mat.transparent = !1),
+      (mat.opacity = 1),
+      mat.color.setRGB(0.12, 0.09, 0.07),
+      (mat.emissive = new Color(16754768)),
+      (mat.emissiveIntensity = 0),
+      (mat.roughness = 0.25),
+      (mat.userData.window = !0)),
+    (mat.metalness = Math.min(mat.metalness, 0.2)),
+    kitMaterialCache.set(src.uuid, mat),
+    mat
   );
 }
-function ur(o) {
-  let e = new Box3();
-  for (let t of dr(o)) e.union(t.geo.boundingBox);
-  return e;
+/** Caja envolvente de una pieza en su espacio local. */
+function pieceBounds(name) {
+  let box = new Box3();
+  for (let part of pieceParts(name)) box.union(part.geo.boundingBox);
+  return box;
 }
-function E1(o, e = {}) {
-  let t = o.name || '',
-    a = { ...e };
+/** Opciones de `worldMaterial` según el tipo de material (hojas, hierba, corteza). */
+function finishFor(mat, opts = {}) {
+  let name = mat.name || '',
+    cfg = { ...opts };
   return (
-    /^Leaves|^Leaf/.test(t)
-      ? Object.assign(a, { wind: e.wind ?? 0.22, upNormal: 0.45 })
-      : /Grass|Flowers/.test(t)
-        ? Object.assign(a, { wind: e.wind ?? 0.06, upNormal: 0.8, contact: null })
-        : /^Bark/.test(t) && Object.assign(a, { wind: e.wind != null ? e.wind * 0.35 : 0.06 }),
-    a
+    /^Leaves|^Leaf/.test(name)
+      ? Object.assign(cfg, { wind: opts.wind ?? 0.22, upNormal: 0.45 })
+      : /Grass|Flowers/.test(name)
+        ? Object.assign(cfg, { wind: opts.wind ?? 0.06, upNormal: 0.8, contact: null })
+        : /^Bark/.test(name) && Object.assign(cfg, { wind: opts.wind != null ? opts.wind * 0.35 : 0.06 }),
+    cfg
   );
 }
-function Gm(o, e, t = {}) {
-  let a = new Group();
-  if (((a.name = `inst:${o}`), !e.length)) return a;
-  let n = dr(o),
-    s = t.fade ? new Float32Array(e.length).fill(1) : null,
-    i = s ? new InstancedBufferAttribute(s, 1) : null;
-  i && i.setUsage(DynamicDrawUsage);
-  for (let r of n) {
-    let l = E1(r.mat, { fade: t.fade ? 'instance' : null, ...(t.finish || {}) }),
-      c = Zn(r.mat, l),
-      d = r.geo.clone();
-    i && d.setAttribute('aFade', i);
-    let u = new InstancedMesh(d, c, e.length);
-    for (let h = 0; h < e.length; h++) u.setMatrixAt(h, e[h]);
-    ((u.instanceMatrix.needsUpdate = !0),
-      (u.castShadow = t.cast ?? !0),
-      (u.receiveShadow = t.receive ?? !0),
-      l.wind > 0 && u.castShadow && (u.customDepthMaterial = v3(r.mat, l)),
-      u.computeBoundingSphere(),
-      u.computeBoundingBox(),
-      a.add(u));
+/**
+ * Grupo de `InstancedMesh` (uno por parte) de la pieza `name` en las matrices dadas. Con
+ * `opts.fade` añade el atributo `aFade` (en `group.userData.fade`) para fundir instancias.
+ */
+function instancePiece(name, matrices, opts = {}) {
+  let group = new Group();
+  if (((group.name = `inst:${name}`), !matrices.length)) return group;
+  let parts = pieceParts(name),
+    fades = opts.fade ? new Float32Array(matrices.length).fill(1) : null,
+    fadeAttr = fades ? new InstancedBufferAttribute(fades, 1) : null;
+  fadeAttr && fadeAttr.setUsage(DynamicDrawUsage);
+  for (let part of parts) {
+    let cfg = finishFor(part.mat, { fade: opts.fade ? 'instance' : null, ...(opts.finish || {}) }),
+      mat = worldMaterial(part.mat, cfg),
+      geo = part.geo.clone();
+    fadeAttr && geo.setAttribute('aFade', fadeAttr);
+    let mesh = new InstancedMesh(geo, mat, matrices.length);
+    for (let k = 0; k < matrices.length; k++) mesh.setMatrixAt(k, matrices[k]);
+    ((mesh.instanceMatrix.needsUpdate = !0),
+      (mesh.castShadow = opts.cast ?? !0),
+      (mesh.receiveShadow = opts.receive ?? !0),
+      cfg.wind > 0 && mesh.castShadow && (mesh.customDepthMaterial = worldDepthMaterial(part.mat, cfg)),
+      mesh.computeBoundingSphere(),
+      mesh.computeBoundingBox(),
+      group.add(mesh));
   }
-  return ((a.userData.fade = i), a);
+  return ((group.userData.fade = fadeAttr), group);
 }
-function S1(o) {
+/** ¿Es un material liso sin texturas, sustituible por el material de colores de vértice? */
+function isFlatMaterial(mat) {
   return (
-    !!o &&
-    o.isMeshStandardMaterial &&
-    !o.map &&
-    !o.normalMap &&
-    !o.transparent &&
-    !o.alphaTest &&
-    !(o.emissiveIntensity > 0 && o.emissive && o.emissive.getHex() !== 0) &&
-    !o.userData?.window
+    !!mat &&
+    mat.isMeshStandardMaterial &&
+    !mat.map &&
+    !mat.normalMap &&
+    !mat.transparent &&
+    !mat.alphaTest &&
+    !(mat.emissiveIntensity > 0 && mat.emissive && mat.emissive.getHex() !== 0) &&
+    !mat.userData?.window
   );
 }
-function xt(o, e, t, a = 0, n = 1, s = new Matrix4()) {
-  let i = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), a),
-    r = typeof n == 'number' ? new Vector3(n, n, n) : n;
-  return s.compose(new Vector3(o, e, t), i, r);
+/** Matriz de posición (x, y, z), giro en Y y escala (número o Vector3). */
+function composeMatrix(x, y, z, rotY = 0, scale = 1, out = new Matrix4()) {
+  let quat = new Quaternion().setFromAxisAngle(new Vector3(0, 1, 0), rotY),
+    scl = typeof scale == 'number' ? new Vector3(scale, scale, scale) : scale;
+  return out.compose(new Vector3(x, y, z), quat, scl);
 }
-function hr(o, e = {}) {
-  let t = new Group();
-  t.name = o;
-  for (let a of dr(o)) {
-    let n = new Mesh(a.geo, Zn(a.mat, { ...E1(a.mat, {}), ...e }));
-    ((n.castShadow = !0), (n.receiveShadow = !0), t.add(n));
+/** Grupo de mallas sueltas (no fundidas) de una pieza, con sombras. */
+function pieceMesh(name, opts = {}) {
+  let group = new Group();
+  group.name = name;
+  for (let part of pieceParts(name)) {
+    let mesh = new Mesh(part.geo, worldMaterial(part.mat, { ...finishFor(part.mat, {}), ...opts }));
+    ((mesh.castShadow = !0), (mesh.receiveShadow = !0), group.add(mesh));
   }
-  return t;
+  return group;
 }
-function Hu(o) {
+/** Sustituye la transmisión de los materiales de vidrio por transparencia simple. */
+function fixGlass(root) {
   return (
-    o.traverse((e) => {
-      if (e.isMesh)
-        for (let t of Array.isArray(e.material) ? e.material : [e.material])
-          t.transmission > 0 &&
-            ((t.transmission = 0),
-            (t.transparent = !0),
-            (t.opacity = Math.min(t.opacity, 0.45)),
-            (t.depthWrite = !1));
+    root.traverse((node) => {
+      if (node.isMesh)
+        for (let mat of Array.isArray(node.material) ? node.material : [node.material])
+          mat.transmission > 0 &&
+            ((mat.transmission = 0),
+            (mat.transparent = !0),
+            (mat.opacity = Math.min(mat.opacity, 0.45)),
+            (mat.depthWrite = !1));
     }),
-    o
+    root
   );
 }
-const CH = {
+/** Archivos de cada kit. */
+const KIT_FILES = {
   aldea: 'assets/world/aldea.json',
   naturaleza: 'assets/world/naturaleza.json',
   atrezo: 'assets/world/atrezo.json',
   mazmorra: 'assets/dungeon/mazmorra.json',
 };
-const PH = {
+/** Tintes que se multiplican al color de algunos materiales del kit. */
+const KIT_TINTS = {
   MI_Vine: 13623456,
   Leaves_NormalTree: 15265476,
   Leaves: 15790296,
@@ -221,104 +262,140 @@ const PH = {
   Rocks: 14078148,
   PathRocks: 14209216,
 };
-const T1 = new Map();
-const _1 = new Map();
-const M1 = new Map();
-const _3 = new Set();
-const w1 = new Map();
-const E3 = new MeshStandardMaterial({ color: 16777215, roughness: 0.85, metalness: 0, vertexColors: !0 });
-E3.name = 'plano';
-const S3 = new MeshStandardMaterial({ color: 16777215, roughness: 0.45, metalness: 0.7, vertexColors: !0 });
-S3.name = 'plano_metal';
-const gn = class {
+/** Kits cargados: nombre → Map(nombre de pieza → nodo). */
+const kits = new Map();
+const partsCache = new Map();
+const kitMaterials = new Map();
+const missingPieces = new Set();
+const kitMaterialCache = new Map();
+/** Materiales de colores de vértice que sustituyen a los lisos al fundir (`isFlatMaterial`). */
+const flatMaterial = new MeshStandardMaterial({
+  color: 16777215,
+  roughness: 0.85,
+  metalness: 0,
+  vertexColors: !0,
+});
+flatMaterial.name = 'plano';
+const flatMetalMaterial = new MeshStandardMaterial({
+  color: 16777215,
+  roughness: 0.45,
+  metalness: 0.7,
+  vertexColors: !0,
+});
+flatMetalMaterial.name = 'plano_metal';
+/**
+ * Acumula geometría estática por material y la funde en pocas mallas (`build`). Hornea en cada
+ * vértice la AO de contacto (`aAO`, por altura sobre `groundAt`), el índice de edificio para el
+ * fundido (`aBld`) y el tinte como color de vértice. `view(defaults)` da una vista con opciones fijas.
+ */
+const MeshMerger = class {
   constructor({
-    fade: e = !1,
-    contactH: t = 1,
-    contactMin: a = 0.5,
-    groundAt: n = null,
-    cast: s = !0,
-    finish: i = null,
-    metal: r = !0,
+    fade = !1,
+    contactH = 1,
+    contactMin = 0.5,
+    groundAt = null,
+    cast = !0,
+    finish = null,
+    metal = !0,
   } = {}) {
-    ((this.finish = i),
-      (this.metal = r),
-      (this.fade = e),
-      (this.contactH = t),
-      (this.contactMin = a),
-      (this.groundAt = n),
-      (this.cast = s),
+    ((this.finish = finish),
+      (this.metal = metal),
+      (this.fade = fade),
+      (this.contactH = contactH),
+      (this.contactMin = contactMin),
+      (this.groundAt = groundAt),
+      (this.cast = cast),
       (this.byMat = new Map()));
   }
-  add(e, t, a = {}) {
-    for (let n of dr(e)) this.addGeometry(n.geo, n.mat, t, a);
+  add(name, matrix, opts = {}) {
+    for (let part of pieceParts(name)) this.addGeometry(part.geo, part.mat, matrix, opts);
   }
-  view(e) {
+  view(defaults) {
     return {
-      add: (t, a, n = {}) => this.add(t, a, { ...e, ...n }),
-      addGeometry: (t, a, n, s = {}) => this.addGeometry(t, a, n, { ...e, ...s }),
+      add: (name, matrix, opts = {}) => this.add(name, matrix, { ...defaults, ...opts }),
+      addGeometry: (geo, mat, matrix, opts = {}) =>
+        this.addGeometry(geo, mat, matrix, { ...defaults, ...opts }),
     };
   }
-  addGeometry(e, t, a, n = {}) {
-    let s = e.clone();
-    if ((s.applyMatrix4(a), a.determinant() < 0 && s.index)) {
-      let v = s.index.array;
-      for (let x = 0; x < v.length; x += 3) [v[x + 1], v[x + 2]] = [v[x + 2], v[x + 1]];
+  addGeometry(geo, mat, matrix, opts = {}) {
+    let copy = geo.clone();
+    if ((copy.applyMatrix4(matrix), matrix.determinant() < 0 && copy.index)) {
+      let idx = copy.index.array;
+      for (let j = 0; j < idx.length; j += 3) [idx[j + 1], idx[j + 2]] = [idx[j + 2], idx[j + 1]];
     }
-    let i = s.getAttribute('position'),
-      r = i.count,
-      l = new Float32Array(r),
-      c = n.groundY ?? 0,
-      d = n.contactH ?? this.contactH,
-      u = n.contactMin ?? this.contactMin;
-    for (let v = 0; v < r; v++) {
-      let x = i.getY(v) - (this.groundAt ? this.groundAt(i.getX(v), i.getZ(v)) : c),
-        g = Math.min(1, Math.max(0, x / d));
-      l[v] = u + (1 - u) * (g * g * (3 - 2 * g));
+    let pos = copy.getAttribute('position'),
+      count = pos.count,
+      ao = new Float32Array(count),
+      groundY = opts.groundY ?? 0,
+      contactH = opts.contactH ?? this.contactH,
+      contactMin = opts.contactMin ?? this.contactMin;
+    for (let k = 0; k < count; k++) {
+      let height = pos.getY(k) - (this.groundAt ? this.groundAt(pos.getX(k), pos.getZ(k)) : groundY),
+        ramp = Math.min(1, Math.max(0, height / contactH));
+      ao[k] = contactMin + (1 - contactMin) * (ramp * ramp * (3 - 2 * ramp));
     }
-    (s.setAttribute('aAO', new BufferAttribute(l, 1)),
+    (copy.setAttribute('aAO', new BufferAttribute(ao, 1)),
       this.fade &&
-        s.setAttribute(
+        copy.setAttribute(
           'aBld',
-          new BufferAttribute(new Float32Array(r).fill((n.bld ?? 0) + (n.roof ? 0.5 : 0)), 1),
+          new BufferAttribute(new Float32Array(count).fill((opts.bld ?? 0) + (opts.roof ? 0.5 : 0)), 1),
         ));
-    let h = null,
-      p = !!t.vertexColors;
-    S1(t) && ((h = t.color), (t = this.metal && t.metalness > 0.4 ? S3 : E3));
-    let m = n.tints?.[t.name] || n.tint || h || null,
-      _ = p && s.getAttribute('color'),
-      b = new Float32Array(r * 3).fill(1);
-    if (_) {
-      let v = s.getAttribute('color');
-      for (let x = 0; x < r; x++)
-        ((b[x * 3] = v.getX(x)), (b[x * 3 + 1] = v.getY(x)), (b[x * 3 + 2] = v.getZ(x)));
+    let baseColor = null,
+      hasColors = !!mat.vertexColors;
+    isFlatMaterial(mat) &&
+      ((baseColor = mat.color), (mat = this.metal && mat.metalness > 0.4 ? flatMetalMaterial : flatMaterial));
+    let tint = opts.tints?.[mat.name] || opts.tint || baseColor || null,
+      srcColors = hasColors && copy.getAttribute('color'),
+      colors = new Float32Array(count * 3).fill(1);
+    if (srcColors) {
+      let src = copy.getAttribute('color');
+      for (let j = 0; j < count; j++)
+        ((colors[j * 3] = src.getX(j)), (colors[j * 3 + 1] = src.getY(j)), (colors[j * 3 + 2] = src.getZ(j)));
     }
-    if (m) for (let v = 0; v < r; v++) ((b[v * 3] *= m.r), (b[v * 3 + 1] *= m.g), (b[v * 3 + 2] *= m.b));
-    s.setAttribute('color', new BufferAttribute(b, 3));
-    let f = t.uuid + (n.matKey || '');
-    (this.byMat.has(f) || this.byMat.set(f, { mat: t, geos: [], cast: n.cast ?? this.cast }),
-      this.byMat.get(f).geos.push((s.index, s)));
+    if (tint)
+      for (let k = 0; k < count; k++)
+        ((colors[k * 3] *= tint.r), (colors[k * 3 + 1] *= tint.g), (colors[k * 3 + 2] *= tint.b));
+    copy.setAttribute('color', new BufferAttribute(colors, 3));
+    let key = mat.uuid + (opts.matKey || '');
+    (this.byMat.has(key) || this.byMat.set(key, { mat, geos: [], cast: opts.cast ?? this.cast }),
+      this.byMat.get(key).geos.push((copy.index, copy)));
   }
-  build(e = 'fundido') {
-    let t = new Group();
-    t.name = e;
-    for (let [, { mat: a, geos: n, cast: s }] of this.byMat) {
-      let r = n.every((d) => d.index) ? n : n.map((d) => (d.index ? d.toNonIndexed() : d)),
-        l = mergeGeometries(r, !1);
-      if (!l) continue;
-      let c = new Mesh(
-        l,
-        Zn(a, {
-          ...E1(a, {}),
+  build(name = 'fundido') {
+    let group = new Group();
+    group.name = name;
+    for (let [, { mat, geos, cast }] of this.byMat) {
+      let list = geos.every((g) => g.index) ? geos : geos.map((g) => (g.index ? g.toNonIndexed() : g)),
+        merged = mergeGeometries(list, !1);
+      if (!merged) continue;
+      let mesh = new Mesh(
+        merged,
+        worldMaterial(mat, {
+          ...finishFor(mat, {}),
           ...(this.finish || {}),
           contact: 'attr',
           fade: this.fade ? 'building' : null,
           vcol: !0,
         }),
       );
-      ((c.castShadow = s), (c.receiveShadow = !0), (c.name = a.name), l.computeBoundingSphere(), t.add(c));
+      ((mesh.castShadow = cast),
+        (mesh.receiveShadow = !0),
+        (mesh.name = mat.name),
+        merged.computeBoundingSphere(),
+        group.add(mesh));
     }
-    return t;
+    return group;
   }
 };
 
-export { Gm, Hu, S1, T3, dr, gn, hr, pa, ur, xt };
+export {
+  instancePiece,
+  fixGlass,
+  isFlatMaterial,
+  loadKits,
+  pieceParts,
+  MeshMerger,
+  pieceMesh,
+  hasPiece,
+  pieceBounds,
+  composeMatrix,
+};

@@ -26,8 +26,8 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
-import { pa, ur, xt, Hu } from './kit.js';
-import { Fo } from './materials.js';
+import { hasPiece, pieceBounds, composeMatrix, fixGlass } from './kit.js';
+import { standardMaterial } from './materials.js';
 import { z3, Le } from './ground.js';
 import { cellToWorld, neighbors, HEX_SIZE, cellKey, degToRad } from './grid.js';
 import { loadGLTF, loadProp, pbrMaterial } from '../assets.js';
@@ -48,10 +48,10 @@ async function J3(o) {
     },
     h = (f, v, x, g = 0, y = 1, w = null) => {
       let [k, T] = Uu(f);
-      if (!pa(k)) return !1;
+      if (!hasPiece(k)) return !1;
       let E = w ?? n.heightAt(v, x),
         S = Array.isArray(y) ? new Vector3(y[0] * T, y[1] * T, y[2] * T) : y * T;
-      return (r.add(k, xt(v, E, x, g, S)), !0);
+      return (r.add(k, composeMatrix(v, E, x, g, S)), !0);
     };
   for (let f of a.props || []) {
     if (f.foot != null) continue;
@@ -71,7 +71,9 @@ async function J3(o) {
       y9(o, v, x, g, f.scale || 1);
       continue;
     }
-    (X3.has(f.key) ? u(f.key, xt(v, n.heightAt(v, x), x, g, f.scale || 1)) : h(f.key, v, x, g, f.scale || 1),
+    (X3.has(f.key)
+      ? u(f.key, composeMatrix(v, n.heightAt(v, x), x, g, f.scale || 1))
+      : h(f.key, v, x, g, f.scale || 1),
       n.blob(Le.ao, v, x, 0.9, 0.35));
   }
   for (let f of a.decor || []) {
@@ -84,14 +86,14 @@ async function J3(o) {
         for (let T = 0; T < 4; T++) {
           let E = c.x - 0.6 + k * 0.4 + (s() - 0.5) * 0.12,
             S = c.z - 0.55 + T * 0.37 + (s() - 0.5) * 0.12;
-          u('wheat', xt(E, n.heightAt(E, S), S, s() * 6.28, 0.55 + s() * 0.25));
+          u('wheat', composeMatrix(E, n.heightAt(E, S), S, s() * 6.28, 0.55 + s() * 0.25));
         }
       continue;
     }
     if (D1.has(f.key) || u9(o, f, v, x, g, u)) continue;
     if (f.key.startsWith('ph:')) {
       try {
-        let k = Hu(await loadProp(f.key.slice(3)));
+        let k = fixGlass(await loadProp(f.key.slice(3)));
         (k.position.set(v, n.heightAt(v, x) + (f.y || 0), x),
           (k.rotation.y = g),
           k.scale.setScalar(f.scale || 1),
@@ -102,10 +104,10 @@ async function J3(o) {
       }
       continue;
     }
-    let y = f.on ? ur(Uu(f.on)[0]).max.y * (f.onScale ?? 1) : null,
+    let y = f.on ? pieceBounds(Uu(f.on)[0]).max.y * (f.onScale ?? 1) : null,
       w = f.y != null ? n.heightAt(v, x) + f.y : y != null ? n.heightAt(v, x) + y : null;
     X3.has(f.key)
-      ? u(f.key, xt(v, n.heightAt(v, x), x, g, (f.scale || 1) * (0.9 + s() * 0.2)))
+      ? u(f.key, composeMatrix(v, n.heightAt(v, x), x, g, (f.scale || 1) * (0.9 + s() * 0.2)))
       : h(f.key, v, x, g, f.scale || 1, w);
   }
   if (o.webs.length) {
@@ -150,7 +152,7 @@ async function J3(o) {
             E = c.z + (s() - 0.5) * 1.3;
           u(
             s() < 0.5 ? 'Pebble_Round_2' : 'Pebble_Square_1',
-            xt(T, n.heightAt(T, E), E, s() * 6.28, 1 + s() * 1.5),
+            composeMatrix(T, n.heightAt(T, E), E, s() * 6.28, 1 + s() * 1.5),
           );
         }
         break;
@@ -224,7 +226,7 @@ async function J3(o) {
               r.addGeometry(
                 A,
                 w.blocks,
-                xt(M, n.heightAt(M, R) - 0.05, R, Math.atan2(z, D) + (s() - 0.5) * 0.1),
+                composeMatrix(M, n.heightAt(M, R) - 0.05, R, Math.atan2(z, D) + (s() - 0.5) * 0.1),
                 { contactH: 0.25, contactMin: 0.75 },
               ));
           }
@@ -257,7 +259,7 @@ async function J3(o) {
   }
   for (let [f, v] of d) {
     let [x] = Uu(f);
-    if (pa(x)) for (let g of v) r.add(x, g, { cast: f === 'pumpkin' || f === 'wheat' || f === 'corn' });
+    if (hasPiece(x)) for (let g of v) r.add(x, g, { cast: f === 'pumpkin' || f === 'wheat' || f === 'corn' });
   }
   return { dynamic: b };
 }
@@ -273,11 +275,15 @@ function u9(o, e, t, a, n, s) {
         let m = (p / 9) * Math.PI * 2,
           _ = new DodecahedronGeometry(0.16, 0);
         (_.scale(1.25, 0.75, 1),
-          l.addGeometry(_, u.stone, xt(t + Math.cos(m) * 0.55, d + 0.08, a + Math.sin(m) * 0.55, c() * 6)));
+          l.addGeometry(
+            _,
+            u.stone,
+            composeMatrix(t + Math.cos(m) * 0.55, d + 0.08, a + Math.sin(m) * 0.55, c() * 6),
+          ));
       }
       for (let p = 0; p < 4; p++) {
         let m = new CylinderGeometry(0.06, 0.07, 0.8, 7).rotateZ(Math.PI / 2 - 0.25);
-        l.addGeometry(m, u.darkPlank, xt(t, d + 0.13, a, (p * Math.PI) / 4));
+        l.addGeometry(m, u.darkPlank, composeMatrix(t, d + 0.13, a, (p * Math.PI) / 4));
       }
       let h = new Vector3(t, d + 0.15, a);
       return (
@@ -316,7 +322,12 @@ function u9(o, e, t, a, n, s) {
       let u = new MeshStandardMaterial({ color: 6966838, roughness: 0.9 }),
         h = (e.length || 2) * HEX_SIZE * 0.5,
         p = (g, y, w) =>
-          xt(t + Math.cos(n) * g + Math.sin(n) * w, d + y, a - Math.sin(n) * g + Math.cos(n) * w, n);
+          composeMatrix(
+            t + Math.cos(n) * g + Math.sin(n) * w,
+            d + y,
+            a - Math.sin(n) * g + Math.cos(n) * w,
+            n,
+          );
       for (let g of [-h, h]) {
         let y = new CylinderGeometry(0.045, 0.06, 1.95, 6).translate(0, 0.97, 0);
         (l.addGeometry(y, u, p(g, 0, 0)),
@@ -350,7 +361,11 @@ function u9(o, e, t, a, n, s) {
       for (let h = 0; h < 4; h++) {
         let p = new SphereGeometry(0.16 + c() * 0.06, 10, 8);
         (p.scale(1, 1.3, 1),
-          l.addGeometry(p, u, xt(t + (c() - 0.5) * 0.4, d + 0.16, a + (c() - 0.5) * 0.4, c() * 6)));
+          l.addGeometry(
+            p,
+            u,
+            composeMatrix(t + (c() - 0.5) * 0.4, d + 0.16, a + (c() - 0.5) * 0.4, c() * 6),
+          ));
       }
       return !0;
     }
@@ -359,7 +374,7 @@ function u9(o, e, t, a, n, s) {
           Math.floor(c() * 3)
         ],
         h = Math.max(d, -0.2) - 0.02;
-      return (pa(u) && l.add(u, xt(t, h, a, n, (e.scale || 1) * 1.3)), !0);
+      return (hasPiece(u) && l.add(u, composeMatrix(t, h, a, n, (e.scale || 1) * 1.3)), !0);
     }
     default:
       return !1;
@@ -405,7 +420,7 @@ function h9() {
   );
 }
 function p9() {
-  return ((Y3 ??= Fo({ color: 15262412, roughness: 0.5, name: 'huevos' })), Y3);
+  return ((Y3 ??= standardMaterial({ color: 15262412, roughness: 0.5, name: 'huevos' })), Y3);
 }
 function f9(o, e, t, a, n) {
   let s = o.rnd,
@@ -469,18 +484,18 @@ function Z3(o, e, t) {
     i = 1.4 + a() * 1.8,
     r = o.ground.heightAt(t.x, t.z),
     l = H1(new CylinderGeometry(0.55, 0.62, 0.35, 8), 1.2, 0.35 / 2);
-  (l.translate(0, 0.17, 0), n.addGeometry(l, s.blocks, xt(t.x, r, t.z, a() * 6.28)));
+  (l.translate(0, 0.17, 0), n.addGeometry(l, s.blocks, composeMatrix(t.x, r, t.z, a() * 6.28)));
   let c = H1(new CylinderGeometry(0.36, 0.42, i, 10, 3), 1, i / 2),
     d = c.getAttribute('position');
   for (let u = 0; u < d.count; u++) d.getY(u) > i / 2 - 0.01 && d.setY(u, d.getY(u) - Math.random() * 0.45);
   if (
     (c.computeVertexNormals(),
     c.translate(0, i / 2 + 0.35, 0),
-    n.addGeometry(c, s.blocks, xt(t.x, r, t.z, a() * 6.28, 1)),
+    n.addGeometry(c, s.blocks, composeMatrix(t.x, r, t.z, a() * 6.28, 1)),
     a() < 0.5)
   ) {
     let u = H1(new CylinderGeometry(0.38, 0.38, 0.7, 10), 1, 0.35).rotateZ(Math.PI / 2);
-    (u.translate(0, 0.36, 0), n.addGeometry(u, s.blocks, xt(t.x + 1, r, t.z + 0.4, a() * 6.28)));
+    (u.translate(0, 0.36, 0), n.addGeometry(u, s.blocks, composeMatrix(t.x + 1, r, t.z + 0.4, a() * 6.28)));
   }
 }
 function H1(o, e, t) {
@@ -581,7 +596,7 @@ function g9(o, e, t) {
         T.translate(0, k / 2, 0);
         let E = new ConeGeometry(0.11, 0.32, 7);
         E.translate(0, k + 0.16, 0);
-        let S = xt(y, n.heightAt(y, w) - 0.05, w, _() * 6, 1).multiply(
+        let S = composeMatrix(y, n.heightAt(y, w) - 0.05, w, _() * 6, 1).multiply(
           new Matrix4().makeRotationZ((_() - 0.5) * 0.12),
         );
         (s.addGeometry(T, m.darkPlank, S), s.addGeometry(E, m.plank, S));
@@ -591,7 +606,7 @@ function g9(o, e, t) {
     return;
   }
   let [h] = Uu(t),
-    p = pa(h) ? ur(h).max.x - ur(h).min.x : 2;
+    p = hasPiece(h) ? pieceBounds(h).max.x - pieceBounds(h).min.x : 2;
   for (let [m, _] of r) {
     if (c.has(cellKey(...m) + cellKey(..._))) continue;
     (cellToWorld(...m, d), cellToWorld(..._, u));
@@ -600,7 +615,7 @@ function g9(o, e, t) {
       v = Math.atan2(-(u.z - d.z), u.x - d.x),
       x = d.distanceTo(u),
       g = new Vector3((x / p) * 1.02, 1, 1);
-    (s.add(h, xt(b, n.heightAt(b, f), f, v, g)), n.blob(Le.path, b, f, 0.7, 0.12));
+    (s.add(h, composeMatrix(b, n.heightAt(b, f), f, v, g)), n.blob(Le.path, b, f, 0.7, 0.12));
   }
 }
 function b9(o, e, t, a, n, s) {
@@ -612,25 +627,29 @@ function b9(o, e, t, a, n, s) {
   for (let u = 0; u < d; u++) {
     let h = -n / 2 + (u + 0.5) * (n / d),
       p = new BoxGeometry(s * (0.94 + l() * 0.06), 0.07, (n / d) * 0.86);
-    i.addGeometry(p, r.plank, xt(e, c, t, a).multiply(xt((l() - 0.5) * 0.04, 0, h, (l() - 0.5) * 0.06)));
+    i.addGeometry(
+      p,
+      r.plank,
+      composeMatrix(e, c, t, a).multiply(composeMatrix((l() - 0.5) * 0.04, 0, h, (l() - 0.5) * 0.06)),
+    );
   }
   for (let u of [-1, 1]) {
     i.addGeometry(
       new BoxGeometry(0.12, 0.1, n + 0.3),
       r.darkPlank,
-      xt(e, c - 0.06, t, a).multiply(xt(u * s * 0.36, 0, 0)),
+      composeMatrix(e, c - 0.06, t, a).multiply(composeMatrix(u * s * 0.36, 0, 0)),
     );
     let h = Math.floor(n / 1.1) + 1;
     for (let p = 0; p < h; p++) {
       let m = -n / 2 + (p * n) / (h - 1),
         _ = new BoxGeometry(0.1, 1.15, 0.1);
       (_.translate(0, 0.35, 0),
-        i.addGeometry(_, r.darkPlank, xt(e, c, t, a).multiply(xt(u * s * 0.5, 0, m))));
+        i.addGeometry(_, r.darkPlank, composeMatrix(e, c, t, a).multiply(composeMatrix(u * s * 0.5, 0, m))));
     }
     i.addGeometry(
       new BoxGeometry(0.08, 0.08, n),
       r.plank,
-      xt(e, c + 0.9, t, a).multiply(xt(u * s * 0.5, 0, 0)),
+      composeMatrix(e, c + 0.9, t, a).multiply(composeMatrix(u * s * 0.5, 0, 0)),
     );
   }
 }
@@ -640,11 +659,12 @@ function v9(o, e, t, a, n) {
     r = o.rnd,
     l = o.ground.heightAt(e, t),
     c = new CylinderGeometry(2.4 * n, 2.6 * n, 0.12, 8);
-  (c.translate(0, 0.06, 0), s.addGeometry(c, i.blocks, xt(e, l, t, a)));
+  (c.translate(0, 0.06, 0), s.addGeometry(c, i.blocks, composeMatrix(e, l, t, a)));
   let d = new CylinderGeometry(2.8 * n, 3 * n, 0.06, 8);
-  (d.translate(0, 0.03, 0), s.addGeometry(d, i.blocks, xt(e, l, t, a)));
+  (d.translate(0, 0.03, 0), s.addGeometry(d, i.blocks, composeMatrix(e, l, t, a)));
   let u = new BoxGeometry(1.2, 0.9, 0.7);
-  (u.translate(0, 0.75, 0), s.addGeometry(u, i.blocks, xt(e, l, t, a).multiply(xt(0, 0, -0.9))));
+  (u.translate(0, 0.75, 0),
+    s.addGeometry(u, i.blocks, composeMatrix(e, l, t, a).multiply(composeMatrix(0, 0, -0.9))));
   for (let m = 0; m < 6; m++) {
     let _ = (m / 6) * Math.PI * 2 + 0.3,
       b = m % 2 === 0 ? 0.6 + r() * 1 : 2.4 + r() * 0.6,
@@ -653,25 +673,28 @@ function v9(o, e, t, a, n) {
       s.addGeometry(
         f,
         i.stone,
-        xt(e, l, t, a).multiply(xt(Math.cos(_) * 1.9 * n, 0, Math.sin(_) * 1.9 * n)),
+        composeMatrix(e, l, t, a).multiply(composeMatrix(Math.cos(_) * 1.9 * n, 0, Math.sin(_) * 1.9 * n)),
       ));
   }
   let h = new CylinderGeometry(0.55, 0.55, 0.07, 20).rotateX(Math.PI / 2 - 0.35);
   (h.translate(0.6, 0.35, 0.6),
     s.addGeometry(
       h,
-      Fo({ color: 11569232, roughness: 0.45, metalness: 0.7, name: 'disco_alba' }),
-      xt(e, l, t, a),
+      standardMaterial({ color: 11569232, roughness: 0.45, metalness: 0.7, name: 'disco_alba' }),
+      composeMatrix(e, l, t, a),
     ));
   let p = o.ground;
   if (
     (p.blob(Le.ao, e, t, 3.2, 0.55),
     p.blob(Le.litter, e, t, 3.5, 0.6),
     p.blob(Le.pave, e, t, 2.6, 0.7),
-    pa('Prop_Brick1'))
+    hasPiece('Prop_Brick1'))
   )
     for (let m = 0; m < 8; m++)
-      s.add(`Prop_Brick${1 + (m % 4)}`, xt(e + (r() - 0.5) * 5, l, t + (r() - 0.5) * 5, r() * 6.28, 1.4));
+      s.add(
+        `Prop_Brick${1 + (m % 4)}`,
+        composeMatrix(e + (r() - 0.5) * 5, l, t + (r() - 0.5) * 5, r() * 6.28, 1.4),
+      );
 }
 function y9(o, e, t, a, n) {
   let s = o.static,
@@ -687,14 +710,17 @@ function y9(o, e, t, a, n) {
   for (let [c, d, u] of l) {
     if (i() < 0.2) continue;
     let h = i() < 0.5 ? 'Wall_UnevenBrick_Window_Thin_Round' : 'Wall_UnevenBrick_Straight';
-    if (!pa(h)) continue;
-    let p = xt(e, r - 0.3 - i() * 0.4, t, a).multiply(
-      xt(c * n, 0, d * n, u, new Vector3(1, 0.4 + i() * 0.45, 1)),
+    if (!hasPiece(h)) continue;
+    let p = composeMatrix(e, r - 0.3 - i() * 0.4, t, a).multiply(
+      composeMatrix(c * n, 0, d * n, u, new Vector3(1, 0.4 + i() * 0.45, 1)),
     );
     s.add(h, p);
   }
   for (let c = 0; c < 7; c++)
-    s.add(`Prop_Brick${1 + (c % 4)}`, xt(e + (i() - 0.5) * 5, r, t + (i() - 0.5) * 5, i() * 6.28, 1.5));
+    s.add(
+      `Prop_Brick${1 + (c % 4)}`,
+      composeMatrix(e + (i() - 0.5) * 5, r, t + (i() - 0.5) * 5, i() * 6.28, 1.5),
+    );
   o.ground.blob(Le.pave, e, t, 2.6, 0.55);
 }
 async function x9(o, e, t) {

@@ -2,8 +2,8 @@
 // Reconstruido de publicado/juego.js (módulo __esm «ik»). Nombres locales aún minificados.
 
 import { Group, InstancedMesh, Matrix4, Mesh, Vector3 } from 'three';
-import { pa, dr } from './kit.js';
-import { Zn } from './materials.js';
+import { hasPiece, pieceParts } from './kit.js';
+import { worldMaterial } from './materials.js';
 import { HEX_SIZE, ROW_STEP } from './grid.js';
 
 const H9 = [
@@ -131,7 +131,7 @@ const n0 = class {
   pick() {
     let e = this.rnd() * 100;
     for (let [t, a] of this.ctx?.ambient === 'crypt' ? H9 : N9)
-      if (((e -= a), e < 0)) return pa(t) ? t : 'wall';
+      if (((e -= a), e < 0)) return hasPiece(t) ? t : 'wall';
     return 'wall';
   }
   addSegment(e, t, a) {
@@ -171,10 +171,10 @@ const n0 = class {
     this.meshes = new Map();
     for (let [t, a] of e) {
       let n = [];
-      for (let s of dr(t)) {
+      for (let s of pieceParts(t)) {
         let i = new InstancedMesh(
           s.geo,
-          Zn(s.mat, { contact: 'local', contactH: 1.2, contactMin: 0.45 }),
+          worldMaterial(s.mat, { contact: 'local', contactH: 1.2, contactMin: 0.45 }),
           a.length,
         );
         ((i.castShadow = !0), (i.receiveShadow = !0), (i.frustumCulled = !1), this.group.add(i), n.push(i));
@@ -191,11 +191,11 @@ const n0 = class {
         s = a.normal,
         i = ((Math.floor((n.x * 7) / HEX_SIZE + (n.z * 13) / HEX_SIZE) % 9) + 9) % 9;
       if (this.torches) {
-        if (i === 0 && t < 14 && pa('torch_wall')) {
+        if (i === 0 && t < 14 && hasPiece('torch_wall')) {
           t++;
           let r = new Group();
-          for (let u of dr('torch_wall')) {
-            let h = new Mesh(u.geo, Zn(u.mat, {}));
+          for (let u of pieceParts('torch_wall')) {
+            let h = new Mesh(u.geo, worldMaterial(u.mat, {}));
             ((h.castShadow = !1), r.add(h));
           }
           (r.scale.setScalar(0.42),
@@ -228,9 +228,9 @@ const n0 = class {
             }));
           let d = n.clone().addScaledVector(s, 1.2);
           e.ground.blob(6, d.x, d.z, 3.2, 0.85);
-        } else if (i === 4 && pa('banner_thin')) {
+        } else if (i === 4 && hasPiece('banner_thin')) {
           let r = new Group();
-          for (let l of dr('banner_thin')) r.add(new Mesh(l.geo, Zn(l.mat, {})));
+          for (let l of pieceParts('banner_thin')) r.add(new Mesh(l.geo, worldMaterial(l.mat, {})));
           (r.scale.setScalar(0.42),
             r.position
               .copy(n)

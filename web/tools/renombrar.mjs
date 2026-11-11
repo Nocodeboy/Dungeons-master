@@ -233,19 +233,31 @@ function esDescendiente(scope, ancestro) {
 function nombresOriginales(ast) {
   const orig = new Map();
   const abreviadas = [];
+  const largas = []; // `{ clave: valor }` que pueden quedar como `{ clave }`
   const especificadores = [];
   traverse(ast, {
     Identifier(p) { orig.set(p.node, p.node.name); },
-    ObjectProperty(p) { if (p.node.shorthand) abreviadas.push(p.node); },
+    ObjectProperty(p) {
+      const n = p.node;
+      if (n.shorthand) abreviadas.push(n);
+      else if (!n.computed && t.isIdentifier(n.key) && (t.isIdentifier(n.value) || (t.isAssignmentPattern(n.value) && t.isIdentifier(n.value.left)))) largas.push(n);
+    },
     ImportSpecifier(p) { especificadores.push(p.node); },
     ExportSpecifier(p) { especificadores.push(p.node); },
   });
-  return { orig, abreviadas, especificadores };
+  return { orig, abreviadas, largas, especificadores };
 }
 
-function empalmar(codigo, ast, { orig, abreviadas, especificadores }) {
+function empalmar(codigo, ast, { orig, abreviadas, largas, especificadores }) {
   const cambios = [];
   const hechos = new Set();
+  // `{ fade: e = 1 }` con e → fade queda `{ fade = 1 }` (misma semántica, forma abreviada).
+  for (const prop of largas) {
+    const v = t.isAssignmentPattern(prop.value) ? prop.value.left : prop.value;
+    if (v.name === orig.get(v) || v.name !== prop.key.name) continue;
+    hechos.add(v); hechos.add(prop.key);
+    cambios.push([prop.key.start, v.end, v.name]);
+  }
   for (const prop of abreviadas) {
     const v = t.isAssignmentPattern(prop.value) ? prop.value.left : prop.value;
     hechos.add(v); hechos.add(prop.key);
@@ -255,7 +267,14 @@ function empalmar(codigo, ast, { orig, abreviadas, especificadores }) {
     const [a, b] = e.type === 'ImportSpecifier' ? [e.imported, e.local] : [e.local, e.exported];
     if (!t.isIdentifier(a) || !t.isIdentifier(b)) continue;
     const unido = a.start === b.start; // `{ x }` sin `as`
-    if (!unido) continue; // con `as` cada parte se trata como identificador suelto
+    if (!unido) {
+      // `{ x as y }`: si las dos partes acaban con el mismo nombre, queda `{ x }`.
+      if ((a.name !== orig.get(a) || b.name !== orig.get(b)) && a.name === b.name) {
+        hechos.add(a); hechos.add(b);
+        cambios.push([a.start, b.end, a.name]);
+      }
+      continue; // si no, cada parte se trata como identificador suelto
+    }
     hechos.add(a); hechos.add(b);
     if (a.name !== orig.get(a) || b.name !== orig.get(b)) {
       cambios.push([a.start, a.end, a.name === b.name ? a.name : `${a.name} as ${b.name}`]);

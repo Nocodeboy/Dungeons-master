@@ -20,8 +20,8 @@ import {
   Vector3,
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { pa, ur, xt, hr } from './kit.js';
-import { Zn } from './materials.js';
+import { hasPiece, pieceBounds, composeMatrix, pieceMesh } from './kit.js';
+import { worldMaterial } from './materials.js';
 import { Le } from './ground.js';
 import { cellToWorld, worldToCell, HEX_SIZE, cellKey, degToRad } from './grid.js';
 
@@ -138,7 +138,7 @@ function UH(o, e, t, a, n, s) {
   i
     ? (o.put(m, 0, a, t / 2, 0, { roof: !0 }), o.put(m, 0, a, -t / 2, Math.PI, { roof: !0 }))
     : (o.put(m, e / 2, a, 0, Math.PI / 2, { roof: !0 }), o.put(m, -e / 2, a, 0, -Math.PI / 2, { roof: !0 }));
-  let _ = ur(u),
+  let _ = pieceBounds(u),
     b = _.max.y,
     f = _.max.x;
   if (((s.roofTop = a + b), n.chimney)) {
@@ -198,7 +198,7 @@ function U3(o) {
     (i.setAttribute('color', new BufferAttribute(l, 3)), e.push(i));
   });
   let t = mergeGeometries(e, !1),
-    a = Zn(
+    a = worldMaterial(
       new MeshStandardMaterial({ vertexColors: !0, roughness: 0.9, side: DoubleSide, name: 'giratorio' }),
       { contact: null },
     ),
@@ -390,7 +390,7 @@ function VH(o) {
 }
 function B3(o, e) {
   let { merger: t, rnd: a, ground: n } = o,
-    s = xt(e.center.x, n.heightAt(e.center.x, e.center.z), e.center.z, e.ry);
+    s = composeMatrix(e.center.x, n.heightAt(e.center.x, e.center.z), e.center.z, e.ry);
   e.base = s;
   let i = new Color(O3[Math.floor(a() * O3.length)]).multiplyScalar(1.4);
   (e.key === 'house_blue' && i.set(6259888), e.key === 'house_green' && i.set(6983760));
@@ -506,15 +506,15 @@ function B3(o, e) {
             : a() < 0.5
               ? 'Door_1_Round'
               : 'Door_4_Flat';
-    if (pa(b) && !e.doorObj) {
+    if (hasPiece(b) && !e.doorObj) {
       let f = new Matrix4()
         .makeRotationY(_.ry)
         .setPosition(_.x, _.y, _.z)
         .multiply(new Matrix4().makeTranslation(-0.55, 0, -0.08));
       r.merger.add(b, new Matrix4().multiplyMatrices(s, f), { bld: e.idx, tints: r.tints });
     }
-    if (pa(b) && e.doorObj) {
-      let f = hr(b, { fade: null });
+    if (hasPiece(b) && e.doorObj) {
+      let f = pieceMesh(b, { fade: null });
       f.traverse((g) => {
         g.isMesh && (g.castShadow = !1);
       });
@@ -528,10 +528,10 @@ function B3(o, e) {
         (e.doorLeaf = x),
         e.dynamic.push(v));
     }
-    if (pa(b)) {
+    if (hasPiece(b)) {
       e.doorWorld = r.world(_.x, 0, _.z + 0.6);
       let f = new Vector3(_.x + 0.95, _.y + 2.35, _.z + 0.3);
-      pa('q_lantern') &&
+      hasPiece('q_lantern') &&
         a() < 0.85 &&
         (r.put('q_lantern', f.x, f.y - 0.35, _.z + 0.44, _.ry),
         e.lamps.push({
@@ -616,9 +616,12 @@ function WH(o, e, t, a) {
   u.colorSpace = SRGBColorSpace;
   let h = new Mesh(
     new PlaneGeometry(0.85, 0.64),
-    Zn(new MeshStandardMaterial({ map: u, roughness: 0.8, side: DoubleSide, name: 'cartel_posada' }), {
-      contact: null,
-    }),
+    worldMaterial(
+      new MeshStandardMaterial({ map: u, roughness: 0.8, side: DoubleSide, name: 'cartel_posada' }),
+      {
+        contact: null,
+      },
+    ),
   );
   (h.position.copy(t.world(i, 2.45, s.z + 1.12)),
     (h.rotation.y = e.ry + s.ry + Math.PI / 2),
@@ -858,14 +861,14 @@ const P1 = class {
       (this.l = new Matrix4()));
   }
   put(e, t, a, n, s = 0, { roof: i = !1, s: r = 1, sx: l = null, sy: c = null, sz: d = null } = {}) {
-    if (!pa(e)) return;
+    if (!hasPiece(e)) return;
     let u = new Vector3(l ?? r, c ?? r, d ?? r);
-    (xt(t, a, n, s, u, this.l),
+    (composeMatrix(t, a, n, s, u, this.l),
       this.m.multiplyMatrices(this.base, this.l),
       this.merger.add(e, this.m, { bld: this.bld, roof: i, tints: this.tints }));
   }
   geo(e, t, a, n, s, i = 0, { roof: r = !1, s: l = 1 } = {}) {
-    (xt(a, n, s, i, l, this.l),
+    (composeMatrix(a, n, s, i, l, this.l),
       this.m.multiplyMatrices(this.base, this.l),
       this.merger.addGeometry(e, t, this.m, { bld: this.bld, roof: r }));
   }

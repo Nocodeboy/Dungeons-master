@@ -1,10 +1,18 @@
-// world/materials.js
-// Reconstruido de publicado/juego.js (módulo __esm «wi»). Nombres locales aún minificados.
+// world/materials.js — materiales del mundo con el shader parcheado: balanceo por viento, oclusión
+// de contacto con el suelo (AO por altura o por atributo), fundido por tramado Bayer (instancias y
+// edificios que tapan la cámara) y normales hacia arriba para follaje. Los uniformes compartidos
+// (`worldUniforms`: tiempo, viento, aplastado, fundido de edificios) los actualiza world/index.js.
+// Reconstruido de publicado/juego.js (módulo __esm «wi»). Lo usan casi todos los módulos de world/.
 
 import { Color, MeshDepthMaterial, MeshStandardMaterial, RGBADepthPacking, Vector2 } from 'three';
 
-function Zn(o, e = {}) {
-  let t = {
+/**
+ * Copia `base` y le aplica el parche de shader según `opts` (wind, windRef, fade: null|'instance'|
+ * 'building', contact: 'local'|'attr'|null, contactH, contactMin, squash, upNormal, tint, vcol).
+ * Cachea por material y opciones.
+ */
+function worldMaterial(base, opts = {}) {
+  let cfg = {
       wind: 0,
       windRef: 3,
       fade: null,
@@ -15,62 +23,68 @@ function Zn(o, e = {}) {
       upNormal: 0,
       tint: null,
       vcol: !1,
-      ...e,
+      ...opts,
     },
-    a = `${o.uuid}|${t.wind}|${t.windRef}|${t.fade}|${t.contact}|${t.contactH}|${t.contactMin}|${t.squash}|${t.upNormal}|${t.tint}|${t.vcol}`;
-  if (kc.has(a)) return kc.get(a);
-  let n = o.clone();
+    key = `${base.uuid}|${cfg.wind}|${cfg.windRef}|${cfg.fade}|${cfg.contact}|${cfg.contactH}|${cfg.contactMin}|${cfg.squash}|${cfg.upNormal}|${cfg.tint}|${cfg.vcol}`;
+  if (materialCache.has(key)) return materialCache.get(key);
+  let mat = base.clone();
   return (
-    (n.name = o.name),
-    (n.userData = { ...o.userData }),
-    t.vcol && (n.vertexColors = !0),
-    t.tint != null && (n.color = n.color.clone().multiply(new Color(t.tint))),
-    y3(n, t),
-    kc.set(a, n),
-    n
+    (mat.name = base.name),
+    (mat.userData = { ...base.userData }),
+    cfg.vcol && (mat.vertexColors = !0),
+    cfg.tint != null && (mat.color = mat.color.clone().multiply(new Color(cfg.tint))),
+    patchShader(mat, cfg),
+    materialCache.set(key, mat),
+    mat
   );
 }
-function v3(o, e) {
-  let t = `depth|${o.uuid}|${e.wind}|${e.windRef}|${e.squash}`;
-  if (kc.has(t)) return kc.get(t);
-  let a = new MeshDepthMaterial({
+/** Material de profundidad para sombras que reproduce el balanceo por viento de `base`. */
+function worldDepthMaterial(base, cfg) {
+  let key = `depth|${base.uuid}|${cfg.wind}|${cfg.windRef}|${cfg.squash}`;
+  if (materialCache.has(key)) return materialCache.get(key);
+  let mat = new MeshDepthMaterial({
     depthPacking: RGBADepthPacking,
-    map: o.map || null,
-    alphaTest: o.alphaTest || 0,
+    map: base.map || null,
+    alphaTest: base.alphaTest || 0,
   });
-  return (y3(a, { ...e, fade: null, contact: null, depthOnly: !0 }), kc.set(t, a), a);
+  return (
+    patchShader(mat, { ...cfg, fade: null, contact: null, depthOnly: !0 }),
+    materialCache.set(key, mat),
+    mat
+  );
 }
-function y3(o, e) {
-  let t = `mdg|${e.wind > 0}|${e.fade}|${e.contact}|${e.squash}|${e.upNormal > 0}|${!!e.depthOnly}`,
-    a = o.customProgramCacheKey?.bind(o);
-  ((o.onBeforeCompile = (n) => {
-    ((n.uniforms.uTime = No.uTime),
-      (n.uniforms.uWind = No.uWind),
-      (n.uniforms.uSquash = No.uSquash),
-      (n.uniforms.uWindAmp = { value: e.wind }),
-      (n.uniforms.uWindRef = { value: e.windRef }),
-      (n.uniforms.uContact = { value: new Vector2(e.contactH, e.contactMin) }),
-      (n.uniforms.uUpN = { value: e.upNormal }),
-      e.fade === 'building' && (n.uniforms.uBld = No.uBld));
-    let s = `uniform float uTime; uniform float uWind; uniform float uSquash; uniform float uWindAmp; uniform float uWindRef;
+/** Instala el `onBeforeCompile` del parche y su clave de caché de programa. */
+function patchShader(mat, cfg) {
+  let cacheKey = `mdg|${cfg.wind > 0}|${cfg.fade}|${cfg.contact}|${cfg.squash}|${cfg.upNormal > 0}|${!!cfg.depthOnly}`,
+    baseCacheKey = mat.customProgramCacheKey?.bind(mat);
+  ((mat.onBeforeCompile = (shader) => {
+    ((shader.uniforms.uTime = worldUniforms.uTime),
+      (shader.uniforms.uWind = worldUniforms.uWind),
+      (shader.uniforms.uSquash = worldUniforms.uSquash),
+      (shader.uniforms.uWindAmp = { value: cfg.wind }),
+      (shader.uniforms.uWindRef = { value: cfg.windRef }),
+      (shader.uniforms.uContact = { value: new Vector2(cfg.contactH, cfg.contactMin) }),
+      (shader.uniforms.uUpN = { value: cfg.upNormal }),
+      cfg.fade === 'building' && (shader.uniforms.uBld = worldUniforms.uBld));
+    let decls = `uniform float uTime; uniform float uWind; uniform float uSquash; uniform float uWindAmp; uniform float uWindRef;
 uniform vec2 uContact; uniform float uUpN;
 varying float vMdgAO; varying float vMdgFade;
 `;
-    (e.fade === 'instance' &&
-      (s += `attribute float aFade;
+    (cfg.fade === 'instance' &&
+      (decls += `attribute float aFade;
 `),
-      e.fade === 'building' &&
-        (s += `attribute float aBld; uniform vec2 uBld[64];
+      cfg.fade === 'building' &&
+        (decls += `attribute float aBld; uniform vec2 uBld[64];
 `),
-      e.contact === 'attr' &&
-        (s += `attribute float aAO;
+      cfg.contact === 'attr' &&
+        (decls += `attribute float aAO;
 `));
-    let i = '';
-    (e.squash &&
-      (i += `transformed.y *= uSquash;
+    let body = '';
+    (cfg.squash &&
+      (body += `transformed.y *= uSquash;
 `),
-      e.wind > 0 &&
-        (i += `{
+      cfg.wind > 0 &&
+        (body += `{
   #ifdef USE_INSTANCING
     vec3 org = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
   #else
@@ -87,48 +101,48 @@ varying float vMdgAO; varying float vMdgFade;
   transformed.z += sw2 * k * 0.7;
 }
 `),
-      e.depthOnly ||
-        (e.contact === 'local'
-          ? (i += `vMdgAO = mix(uContact.y, 1.0, smoothstep(0.0, uContact.x, position.y));
+      cfg.depthOnly ||
+        (cfg.contact === 'local'
+          ? (body += `vMdgAO = mix(uContact.y, 1.0, smoothstep(0.0, uContact.x, position.y));
 `)
-          : e.contact === 'attr'
-            ? (i += `vMdgAO = aAO;
+          : cfg.contact === 'attr'
+            ? (body += `vMdgAO = aAO;
 `)
-            : (i += `vMdgAO = 1.0;
+            : (body += `vMdgAO = 1.0;
 `),
-        e.fade === 'instance'
-          ? (i += `vMdgFade = aFade;
+        cfg.fade === 'instance'
+          ? (body += `vMdgFade = aFade;
 `)
-          : e.fade === 'building'
-            ? (i += `{ int bi = int(floor(aBld + 0.01)); vec2 bf = uBld[bi]; vMdgFade = fract(aBld) > 0.25 ? bf.y : bf.x; }
+          : cfg.fade === 'building'
+            ? (body += `{ int bi = int(floor(aBld + 0.01)); vec2 bf = uBld[bi]; vMdgFade = fract(aBld) > 0.25 ? bf.y : bf.x; }
 `)
-            : (i += `vMdgFade = 1.0;
+            : (body += `vMdgFade = 1.0;
 `)),
-      (n.vertexShader = n.vertexShader
+      (shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
           `#include <common>
-${s}`,
+${decls}`,
         )
         .replace(
           '#include <begin_vertex>',
           `#include <begin_vertex>
-${i}`,
+${body}`,
         )),
-      e.upNormal > 0 &&
-        !e.depthOnly &&
-        (n.vertexShader = n.vertexShader.replace(
+      cfg.upNormal > 0 &&
+        !cfg.depthOnly &&
+        (shader.vertexShader = shader.vertexShader.replace(
           '#include <beginnormal_vertex>',
           `#include <beginnormal_vertex>
 objectNormal = normalize(mix(objectNormal, vec3(0.0, 1.0, 0.0), uUpN));`,
         )),
-      e.depthOnly ||
-        (n.fragmentShader = n.fragmentShader
+      cfg.depthOnly ||
+        (shader.fragmentShader = shader.fragmentShader
           .replace(
             '#include <common>',
             `#include <common>
 varying float vMdgAO; varying float vMdgFade;
-${RH}`,
+${BAYER_GLSL}`,
           )
           .replace(
             '#include <clipping_planes_fragment>',
@@ -141,22 +155,25 @@ if (vMdgFade < 0.999 && mdgBayer(gl_FragCoord.xy) > vMdgFade) discard;`,
 reflectedLight.indirectDiffuse *= vMdgAO; reflectedLight.directDiffuse *= mix(1.0, vMdgAO, 0.6);`,
           )));
   }),
-    (o.customProgramCacheKey = () => t + (a ? a() : '')),
-    (o.needsUpdate = !0));
+    (mat.customProgramCacheKey = () => cacheKey + (baseCacheKey ? baseCacheKey() : '')),
+    (mat.needsUpdate = !0));
 }
-function Fo(o, e = {}) {
-  return Zn(new MeshStandardMaterial({ roughness: 0.9, metalness: 0, ...o }), e);
+/** `MeshStandardMaterial` mate (roughness 0,9) ya parcheado con `worldMaterial`. */
+function standardMaterial(params, opts = {}) {
+  return worldMaterial(new MeshStandardMaterial({ roughness: 0.9, metalness: 0, ...params }), opts);
 }
-const No = {
+/** Uniformes compartidos por todos los materiales parcheados. `uBld`: fundido de 64 edificios. */
+const worldUniforms = {
   uTime: { value: 0 },
   uWind: { value: 1 },
   uSquash: { value: 1 },
   uBld: { value: Array.from({ length: 64 }, () => new Vector2(1, 1)) },
 };
-const RH = `
+/** Umbral de tramado (ruido de gradiente entrelazado) para el fundido por descarte. */
+const BAYER_GLSL = `
 float mdgBayer(vec2 p){
   return fract(52.9829189 * fract(dot(floor(p), vec2(0.06711056, 0.00583715))));
 }`;
-const kc = new Map();
+const materialCache = new Map();
 
-export { Fo, No, Zn, v3 };
+export { standardMaterial, worldUniforms, worldMaterial, worldDepthMaterial };

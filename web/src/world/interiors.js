@@ -19,7 +19,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { loadProp, pbrMaterial } from '../assets.js';
-import { Hu, gn } from './kit.js';
+import { fixGlass, MeshMerger } from './kit.js';
 import { Le } from './ground.js';
 import { cellToWorld, HEX_SIZE, HEX_RADIUS, cellKey, degToRad } from './grid.js';
 
@@ -211,8 +211,8 @@ async function $3(o) {
   }
   let k = {};
   for (let [E, S] of Object.entries(g)) {
-    let z = new gn({ contactH: 0.8, contactMin: 0.72, groundAt: () => 0, finish: { wind: 0 } }),
-      D = new gn({ contactH: 0.5, contactMin: 0.7, groundAt: () => 0, finish: { wind: 0 } }),
+    let z = new MeshMerger({ contactH: 0.8, contactMin: 0.72, groundAt: () => 0, finish: { wind: 0 } }),
+      D = new MeshMerger({ contactH: 0.5, contactMin: 0.7, groundAt: () => 0, finish: { wind: 0 } }),
       M = w(S),
       R = S.u0 - Ba,
       A = S.u1 + Ba,
@@ -288,7 +288,7 @@ async function $3(o) {
     }
     for (let K of J.children) K.castShadow = !1;
     (d.add(X, J), (J.visible = !1));
-    let Z = new gn({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
+    let Z = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
     k[E] = { s: S, full: X, cut: J, lamps: [], extra: Z };
   }
   for (let E of v) {
@@ -389,7 +389,7 @@ async function i9(o, e, t, a, n, s) {
     { ground: r, fx: l } = o,
     c = s.z0,
     d = a.x,
-    u = new gn({ contactH: 0.6, contactMin: 0.8, groundAt: () => 0, finish: { wind: 0 } });
+    u = new MeshMerger({ contactH: 0.6, contactMin: 0.8, groundAt: () => 0, finish: { wind: 0 } });
   for (let m of [-1.05, 1.05]) Ft(i, e.stone, 0.5, 1.2, 0.62, d + m, 0, c + 0.31, 0, 1.4);
   (Ft(i, e.soot, 1.62, 1.2, 0.04, d, 0, c + 0.02),
     Ft(i, e.slate, 1.6, 0.06, 0.6, d, 0, c + 0.3, 0, 1),
@@ -424,7 +424,7 @@ async function i9(o, e, t, a, n, s) {
     r.blob(Le.light, d, c + 1.6, 3.4, 1),
     r.blob(Le.ao, d, c + 0.3, 1.2, 0.5));
   try {
-    let m = Hu(await loadProp('bull_head'));
+    let m = fixGlass(await loadProp('bull_head'));
     (m.scale.setScalar(1.55),
       m.position.set(d, 2.05, c + 0.52),
       m.traverse((_) => {
@@ -458,7 +458,7 @@ function r9(o, e, t, a, n) {
     Ft(s, e.barTop, 0.8, 0.08, c + 0.2, i, 1, d, 0, 1.4),
     Ft(s, e.soot, 0.6, 0.12, c, i + 0.02, 0, d));
   for (let m = r + 0.25; m < l; m += 0.48) Ft(s, e.timber, 0.04, 0.82, 0.09, i + 0.29, 0.1, m, 0, 1);
-  let u = new gn({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
+  let u = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
   for (let [m, _] of [
     [0.3, 0.3],
     [0.5, -0.6],
@@ -502,7 +502,7 @@ function l9(o, e, t, a, n, s) {
   }
   (h.length && i.addGeometry(mergeGeometries(h), e.green, new Matrix4()),
     p.length && i.addGeometry(mergeGeometries(p), e.amber, new Matrix4()));
-  let m = new gn({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
+  let m = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } });
   for (let _ of [1.48, 2.06]) {
     Ft(m, e.barTop, 0.32, 0.05, c, u + 0.18, _, d, 0, 1.4);
     for (let b of [r + 0.3, d, l - 0.3]) Ft(m, e.iron, 0.05, 0.16, 0.05, u + 0.06, _ - 0.16, b);
@@ -549,7 +549,7 @@ function c9(o, e, t, a, n, s, i) {
   (x.rotateX(Math.atan2(h, p)),
     x.translate(c - l / 2 + 0.05, h / 2 + 0.9, (d + u) / 2),
     r.addGeometry(x, e.timber, new Matrix4()));
-  let g = new gn({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } }),
+  let g = new MeshMerger({ contactH: 0.1, contactMin: 1, finish: { wind: 0 } }),
     y = (u + s.z0) / 2;
   (Ft(g, e.soot, 0.04, 2, 0.9, s.x1 - 0.02, h, y),
     Ft(g, e.timber, 0.12, 0.14, 1.15, s.x1 - 0.05, h + 2, y, 0, 1));
@@ -560,7 +560,7 @@ async function d9(o, e, t, a, n) {
   let s = o.static;
   Ft(s, e.timber, a.x1 - a.x0 + 2 * Ba, 0.26, 0.24, (a.x0 + a.x1) / 2, n - 0.36, t.z, 0, 1.5);
   try {
-    let r = Hu(await loadProp('lantern_chandelier_01'));
+    let r = fixGlass(await loadProp('lantern_chandelier_01'));
     (r.scale.setScalar(1.15),
       r.position.set(t.x, n - 0.48, t.z),
       r.traverse((l) => {

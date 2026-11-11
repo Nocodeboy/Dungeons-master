@@ -34,7 +34,7 @@ import {
   HEX_SIZE,
   cellKey,
 } from './grid.js';
-import { No } from './materials.js';
+import { worldUniforms } from './materials.js';
 
 function z3(o, e = !0) {
   return Bu(`assets/tex/${o}.webp`, e);
@@ -596,7 +596,7 @@ const Ym = class {
       },
       uWet: { value: 1 },
       uClouds: { value: 0 },
-      uTime: No.uTime,
+      uTime: worldUniforms.uTime,
     };
     for (let [f, v] of Object.entries(i))
       ((this.uniforms[`t_${f}`] = { value: v.d }),
