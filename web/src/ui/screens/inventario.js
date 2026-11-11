@@ -2,10 +2,10 @@
 // Reconstruido de publicado/juego.js (módulo __esm «zT»). Nombres locales aún minificados.
 
 import { iconHtml, escapeHtml, elem, makeButton, faceBadge, signed } from '../dom.js';
-import { screenFrame, es } from '../modal.js';
-import { sa } from '../tooltip.js';
-import { mi, Zi, Gr } from '../items.js';
-import { su, as, ns } from '../labels.js';
+import { screenFrame, makeTabs } from '../modal.js';
+import { setTip } from '../tooltip.js';
+import { rarityClass, itemIcon, itemTip } from '../items.js';
+import { RARITIES, ITEM_KINDS, CLASS_ICONS } from '../labels.js';
 
 function opcionesInventario() {
   return { width: '78rem', height: '48rem' };
@@ -30,7 +30,7 @@ function pantallaInventario(o, e, t, a) {
         let P = s().members[A] || {};
         return { id: A, label: String(P.name || A).split(' ')[0], cls: P.class };
       }),
-    p = es(
+    p = makeTabs(
       h().map((A) => ({ id: A.id, html: m(A) })),
       i,
       (A) => {
@@ -38,10 +38,10 @@ function pantallaInventario(o, e, t, a) {
       },
     );
   function m(A) {
-    return `<span class="mg-memtab">${faceBadge(t.portrait(A.id), { id: A.id, name: A.label, ic: ns[A.cls] || 'person' }).outerHTML}<span>${escapeHtml(A.label)}</span></span>`;
+    return `<span class="mg-memtab">${faceBadge(t.portrait(A.id), { id: A.id, name: A.label, ic: CLASS_ICONS[A.cls] || 'person' }).outerHTML}<span>${escapeHtml(A.label)}</span></span>`;
   }
   ((u.tabs.hidden = !1), u.tabs.append(p));
-  let _ = es(
+  let _ = makeTabs(
       [
         { id: 'equipo', label: 'Equipo', icon: 'armor' },
         { id: 'detalle', label: 'Detalle', icon: 'info' },
@@ -79,9 +79,9 @@ function pantallaInventario(o, e, t, a) {
           'aria-pressed': String(r?.where === 'slot' && r.key === I),
           'aria-label': `${U}: ${J ? 'vac\xEDo' : X.name}`,
         });
-      (J ? Z.classList.add('vacio') : Z.classList.add(...[mi(X)].filter(Boolean)),
-        (Z.innerHTML = `${iconHtml(J ? j : Zi(X))}<span class="mg-slot-n">${escapeHtml(J ? '' : X.name)}</span><span class="mg-slot-l">${escapeHtml(U)}</span>`),
-        J || sa(Z, Gr(t, X)),
+      (J ? Z.classList.add('vacio') : Z.classList.add(...[rarityClass(X)].filter(Boolean)),
+        (Z.innerHTML = `${iconHtml(J ? j : itemIcon(X))}<span class="mg-slot-n">${escapeHtml(J ? '' : X.name)}</span><span class="mg-slot-l">${escapeHtml(U)}</span>`),
+        J || setTip(Z, itemTip(t, X)),
         Z.addEventListener('click', () => {
           Z._dragged ||
             ((r = { where: 'slot', key: I }),
@@ -118,7 +118,7 @@ function pantallaInventario(o, e, t, a) {
       [A.speed_text || '', 'Velocidad', 'Velocidad'],
     ]) {
       let Z = elem('span.mg-stat', elem('b.mg-num', String(j ?? '\u2014')), elem('span', X));
-      (sa(Z, J), I.append(Z));
+      (setTip(Z, J), I.append(Z));
     }
     P.append(I);
     let U = elem('div.mg-inv-atk');
@@ -149,11 +149,14 @@ function pantallaInventario(o, e, t, a) {
     let I = n.call('item_info', { id: P.id, unid: !!P.unid }),
       U = I && !I.error ? I : {};
     A.append(
-      elem(`div.mg-item-name.${mi(P) || 'mg-r-comun'}`, P.label && P.where !== 'slot' ? P.label : P.name),
+      elem(
+        `div.mg-item-name.${rarityClass(P) || 'mg-r-comun'}`,
+        P.label && P.where !== 'slot' ? P.label : P.name,
+      ),
     );
     let j = [
-      as[U.kind || P.kind] || '',
-      U.rarity_name || su[P.rarity]?.[0] || '',
+      ITEM_KINDS[U.kind || P.kind] || '',
+      U.rarity_name || RARITIES[P.rarity]?.[0] || '',
       U.attune ? 'requiere sinton\xEDa' : '',
     ]
       .filter(Boolean)
@@ -320,10 +323,10 @@ function pantallaInventario(o, e, t, a) {
           'aria-pressed': String(r?.where === 'bag' && r.i === U),
           'aria-label': `${I.name}${I.n > 1 ? `, ${I.n}` : ''}`,
         }),
-        X = mi(I);
+        X = rarityClass(I);
       (X && j.classList.add(X),
-        (j.innerHTML = `${iconHtml(Zi(I))}<span class="mg-tile-n">${escapeHtml(I.name)}</span>${I.n > 1 ? `<span class="mg-badge">${escapeHtml(I.n)}</span>` : ''}`),
-        sa(j, Gr(t, I)),
+        (j.innerHTML = `${iconHtml(itemIcon(I))}<span class="mg-tile-n">${escapeHtml(I.name)}</span>${I.n > 1 ? `<span class="mg-badge">${escapeHtml(I.n)}</span>` : ''}`),
+        setTip(j, itemTip(t, I)),
         j.addEventListener('click', () => {
           j._dragged ||
             ((r = { where: 'bag', i: U }),
@@ -359,7 +362,7 @@ function pantallaInventario(o, e, t, a) {
                 : !1,
         K = (ge) => {
           if (!j && Math.hypot(ge.clientX - U[0], ge.clientY - U[1]) > 7) {
-            ((j = elem('div.mg-ghost', { html: iconHtml(Zi(P.item)) })), document.body.append(j));
+            ((j = elem('div.mg-ghost', { html: iconHtml(itemIcon(P.item)) })), document.body.append(j));
             for (let oe of J()) Z(oe) && oe.classList.add('blanco');
             t.tips.hide();
           }

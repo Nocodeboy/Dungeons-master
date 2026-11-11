@@ -2,9 +2,16 @@
 // Reconstruido de publicado/juego.js (módulo __esm «qT»). Nombres locales aún minificados.
 
 import { iconHtml, escapeHtml, elem, makeButton, faceBadge, signed } from '../dom.js';
-import { screenFrame, es } from '../modal.js';
-import { sa } from '../tooltip.js';
-import { Kw, Jw, nu, ou, Df, ns } from '../labels.js';
+import { screenFrame, makeTabs } from '../modal.js';
+import { setTip } from '../tooltip.js';
+import {
+  ABILITY_NAMES,
+  ABILITY_ABBR,
+  ABILITY_HINTS,
+  conditionName,
+  SPELL_ROLES,
+  CLASS_ICONS,
+} from '../labels.js';
 
 function opcionesGrupo() {
   return { width: '80rem', height: '50rem' };
@@ -26,10 +33,10 @@ function pantallaGrupo(o, e, t, a) {
         return [];
       }
     })(),
-    d = es(
+    d = makeTabs(
       r.map((p) => ({
         id: p.id,
-        html: `<span class="mg-memtab">${faceBadge(t.portrait(p.id), { id: p.id, name: p.name, ic: ns[p.class] || 'person' }).outerHTML}<span>${escapeHtml(p.short_name || String(p.name).split(' ')[0])}</span></span>`,
+        html: `<span class="mg-memtab">${faceBadge(t.portrait(p.id), { id: p.id, name: p.name, ic: CLASS_ICONS[p.class] || 'person' }).outerHTML}<span>${escapeHtml(p.short_name || String(p.name).split(' ')[0])}</span></span>`,
       })),
       l,
       (p) => {
@@ -57,7 +64,7 @@ function pantallaGrupo(o, e, t, a) {
       faceBadge(t.portrait(p.id), {
         id: p.id,
         name: p.name,
-        ic: ns[p.class] || 'person',
+        ic: CLASS_ICONS[p.class] || 'person',
         cls: 'mg-sheet-face',
       }),
     );
@@ -107,7 +114,7 @@ function pantallaGrupo(o, e, t, a) {
     let x = elem('div.mg-stats'),
       g = (D, M, R) => {
         let A = elem('span.mg-stat', elem('b.mg-num', String(D)), elem('span', M));
-        (sa(A, R), x.append(A));
+        (setTip(A, R), x.append(A));
       };
     (g(p.ac, 'CA', {
       title: 'Clase de Armadura',
@@ -128,14 +135,14 @@ function pantallaGrupo(o, e, t, a) {
     for (let [D, M] of Object.entries(p.abilities || {})) {
       let R = elem(
         `span.mg-ab${M.save_prof ? '.prim' : ''}`,
-        elem('span.mg-ab-n', Jw[D] || M.short || D.toUpperCase()),
+        elem('span.mg-ab-n', ABILITY_ABBR[D] || M.short || D.toUpperCase()),
         elem('span.mg-ab-v.mg-num', String(M.score)),
         elem('span.mg-ab-m', signed(M.mod)),
         elem(`span.mg-ab-s${M.save_prof ? '.prof' : ''}`, `Salv. ${signed(M.save)}`),
       );
-      (sa(R, {
-        title: Kw[D] || M.name || D,
-        body: nu[D] || '',
+      (setTip(R, {
+        title: ABILITY_NAMES[D] || M.name || D,
+        body: ABILITY_HINTS[D] || '',
         foot: M.save_prof ? 'Competente en sus salvaciones.' : '',
       }),
         y.append(R));
@@ -163,7 +170,7 @@ function pantallaGrupo(o, e, t, a) {
       ),
     ),
       (p.conditions || []).length &&
-        m.append(elem('p.mg-magia', (p.conditions || []).map(ou).join(' \xB7 '))));
+        m.append(elem('p.mg-magia', (p.conditions || []).map(conditionName).join(' \xB7 '))));
     let k = elem('div.mg-col');
     k.append(elem('h3.mg-sec', 'Habilidades'));
     let T = elem('div.mg-skill-list');
@@ -175,7 +182,7 @@ function pantallaGrupo(o, e, t, a) {
         elem('small', D.ability_short || ''),
         elem('b.mg-num', signed(D.mod)),
       );
-      (sa(M, {
+      (setTip(M, {
         title: D.name,
         sub: D.ability_short,
         body: D.expert
@@ -195,7 +202,7 @@ function pantallaGrupo(o, e, t, a) {
           elem('b', M.name),
           elem('span', `${M.to_hit_text ?? signed(M.to_hit)} \xB7 ${M.damage}`),
         );
-        (sa(R, {
+        (setTip(R, {
           title: M.name,
           body:
             [
@@ -239,11 +246,11 @@ function pantallaGrupo(o, e, t, a) {
         let R = elem('div.mg-cr-chips');
         for (let A of M || []) {
           let P = elem('span.mg-chip', { html: `${iconHtml(A.icon || 'magic')}${escapeHtml(A.name)}` });
-          (sa(P, {
+          (setTip(P, {
             title: A.name,
             sub: `${A.level ? `Nivel ${A.level}` : 'Truco'}${A.school_name ? ` \xB7 ${A.school_name}` : ''}`,
             body: A.desc || '',
-            tags: (A.tags || []).map((I) => Df[I]).filter(Boolean),
+            tags: (A.tags || []).map((I) => SPELL_ROLES[I]).filter(Boolean),
           }),
             R.append(P));
         }

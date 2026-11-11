@@ -15,14 +15,14 @@ import {
   injectStyle,
   isTyping,
 } from './dom.js';
-import { screenFrame, Tf } from './modal.js';
-import { sa, bw } from './tooltip.js';
-import { yw, Wi, Xi } from './dice.js';
+import { screenFrame, ScreenStack } from './modal.js';
+import { setTip, createTooltip } from './tooltip.js';
+import { installDiceDefs, makeDie, rollDie } from './dice.js';
 import { createRulesBridge } from './rules-mock.js';
 import { createDialog } from './dialog.js';
 import { createHud } from './hud.js';
 import { AT } from './portraits.js';
-import { Ib } from './labels.js';
+import { GAME_HINTS } from './labels.js';
 
 function bD() {
   let o = (n) => `url("data:image/svg+xml,${encodeURIComponent(n.replace(/\s+/g, ' '))}")`,
@@ -45,10 +45,10 @@ function createUI(o) {
     injectStyle('mg-screens', menuCss),
     injectStyle('mg-hud', hudCss),
     injectStyle('mg-creator', creatorCss),
-    yw());
+    installDiceDefs());
   let t = elem('div.mg-toasts', { role: 'status', 'aria-live': 'polite' });
   e.append(t);
-  let a = bw(e),
+  let a = createTooltip(e),
     n = createRulesBridge(o),
     s = new Map(),
     i = new Set(),
@@ -60,7 +60,7 @@ function createUI(o) {
       game: o,
       ready: Promise.all([loadIcons(), document.fonts?.ready?.catch(() => null)]).then(() => !0),
       button: makeButton,
-      tip: sa,
+      tip: setTip,
       icon: iconHtml,
       toast(v, x = 'info') {
         let g = { info: 'info', bien: 'check', mal: 'close', botin: 'coins' }[x] || 'info',
@@ -80,7 +80,7 @@ function createUI(o) {
         let g = [].concat(v.d20 ?? []),
           y = v.kept ?? (g.length > 1 ? (v.mode > 0 || v.adv ? Math.max(...g) : Math.min(...g)) : g[0]),
           w = elem('div.mg-toast.mg-rolltoast'),
-          k = g.map(() => Wi(20, '', { size: 'sm' })),
+          k = g.map(() => makeDie(20, '', { size: 'sm' })),
           T = v.name || o.store.cp?.members?.[v.who]?.name?.split(' ')[0] || '',
           E = elem('div.mg-roll-txt');
         E.innerHTML = `<b>${escapeHtml(x || v.label || 'Tirada')}${T ? ` \xB7 ${escapeHtml(T)}` : ''}</b><span></span>`;
@@ -90,7 +90,7 @@ function createUI(o) {
         );
         (w.append(...k, E, S),
           t.append(w),
-          await Promise.all(k.map((D, M) => Xi(D, g[M], { ms: 650 + M * 120 }))),
+          await Promise.all(k.map((D, M) => rollDie(D, g[M], { ms: 650 + M * 120 }))),
           g.length > 1 && k.forEach((D, M) => g[M] !== y && D.classList.add('descartado')));
         let z = Number(v.mod || 0);
         return (
@@ -131,7 +131,7 @@ function createUI(o) {
           : y || w.classList.add('indet');
         let k = g.querySelector('.mg-carga-consejo');
         if (!k.textContent) {
-          let T = () => (k.textContent = Ib[Math.floor(Math.random() * Ib.length)]);
+          let T = () => (k.textContent = GAME_HINTS[Math.floor(Math.random() * GAME_HINTS.length)]);
           (T(), clearInterval(l._tipTimer), (l._tipTimer = setInterval(T, 6e3)));
         }
       },
@@ -258,7 +258,7 @@ function createUI(o) {
         );
       },
     },
-    c = new Tf(l, o);
+    c = new ScreenStack(l, o);
   ((l.layers = c),
     (l.frame = screenFrame),
     (l.keys = {

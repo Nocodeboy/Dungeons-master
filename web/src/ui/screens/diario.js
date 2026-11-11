@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «VT»). Nombres locales aún minificados.
 
 import { iconHtml, escapeHtml, richText, elem, makeButton } from '../dom.js';
-import { screenFrame, es } from '../modal.js';
+import { screenFrame, makeTabs } from '../modal.js';
 
 function opcionesDiario() {
   return { width: '64rem', height: '44rem' };
@@ -21,7 +21,7 @@ function pantallaDiario(o, e, t, a) {
   let l = r.filter((f) => !['done', 'completed', 'failed'].includes(f.state)),
     c = r.filter((f) => ['done', 'completed', 'failed'].includes(f.state)),
     d = e.quest || l[0]?.id || c[0]?.id || null,
-    u = es(
+    u = makeTabs(
       [
         { id: 'misiones', label: 'Misiones', icon: 'scroll', badge: l.length || '' },
         { id: 'notas', label: 'Notas', icon: 'quill' },

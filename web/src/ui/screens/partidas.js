@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «kv»). Nombres locales aún minificados.
 
 import { iconHtml, escapeHtml, elem, makeButton, formatDuration, formatDate } from '../dom.js';
-import { screenFrame, es } from '../modal.js';
+import { screenFrame, makeTabs } from '../modal.js';
 
 function opcionesPartidas() {
   return { width: '52rem', height: '44rem' };
@@ -15,7 +15,7 @@ function pantallaPartidas(o, e, t, a) {
       ic: s === 'guardar' ? 'save' : 'load',
     });
   if ((i.body.classList.add('mg-fill'), n.cp)) {
-    let h = es(
+    let h = makeTabs(
       [
         { id: 'guardar', label: 'Guardar', icon: 'save' },
         { id: 'cargar', label: 'Cargar', icon: 'load' },

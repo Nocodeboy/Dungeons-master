@@ -4,169 +4,179 @@
 import { iconHtml, escapeHtml, elem, iconButton } from './dom.js';
 
 function screenFrame(
-  o,
-  { title: e, sub: t = '', ic: a = '', extra: n = null, closeLabel: s = 'Cerrar', noClose: i = !1 } = {},
+  screen,
+  { title, sub = '', ic: icon = '', extra = null, closeLabel = 'Cerrar', noClose = !1 } = {},
 ) {
-  let { el: r, close: l } = o,
-    c = elem('header.mg-screen-head');
-  a && c.insertAdjacentHTML('beforeend', iconHtml(a, 'mg-head-ico'));
-  let d = elem('h2.mg-h2', e);
-  ((d.id = `t-${o.name}-${Math.random().toString(36).slice(2, 7)}`),
-    r.setAttribute('aria-labelledby', d.id),
-    c.append(d));
-  let u = elem('span.mg-sub', t);
-  c.append(u);
-  let h = elem('span.mg-grow');
-  (c.append(h),
-    n && c.append(n),
-    i ||
-      c.append(
-        iconButton('close', `${s} (Esc)`, { onclick: () => l(null), cls: 'mg-cerrar mg-ibtn--plain' }),
-      ));
-  let p = elem('div.mg-screen-tabs'),
-    m = elem('div.mg-screen-body'),
-    _ = elem('footer.mg-screen-foot');
-  return (
-    r.append(c, p, m, _),
-    (p.hidden = !0),
-    (_.hidden = !0),
-    (r.style.gridTemplateRows = 'auto auto minmax(0, 1fr) auto'),
-    [c, p, m, _].forEach((b, f) => (b.style.gridRow = String(f + 1))),
-    { head: c, tabs: p, body: m, foot: _, title: d, sub: u, extra: h }
-  );
-}
-function es(o, e, t, { cls: a = '' } = {}) {
-  let n = elem(`div.mg-tabs${a ? '.' + a : ''}`, { role: 'tablist' }),
-    s = () => {
-      n.innerHTML = '';
-      for (let i of o) {
-        let r = elem('button.mg-tab', {
-          role: 'tab',
-          'aria-selected': String(i.id === e),
-          'data-id': i.id,
-          title: i.title || null,
-        });
-        ((r.innerHTML = `${i.icon ? iconHtml(i.icon) : ''}${i.html ?? `<span>${escapeHtml(i.label)}</span>`}${i.badge ? `<span class="mg-badge">${escapeHtml(i.badge)}</span>` : ''}`),
-          r.addEventListener('click', () => {
-            e !== i.id && ((e = i.id), s(), t(i.id));
-          }),
-          n.append(r));
-      }
-    };
-  return (
-    s(),
-    n.addEventListener('keydown', (i) => {
-      if (i.key !== 'ArrowRight' && i.key !== 'ArrowLeft') return;
-      let r = o.findIndex((c) => c.id === e),
-        l = o[(r + (i.key === 'ArrowRight' ? 1 : o.length - 1)) % o.length];
-      ((e = l.id),
-        s(),
-        t(l.id),
-        n.querySelector(`[data-id="${CSS.escape(l.id)}"]`)?.focus(),
-        i.preventDefault());
-    }),
-    (n.set = (i) => {
-      ((e = i), s());
-    }),
-    (n.update = (i) => {
-      ((o = i), s());
-    }),
-    n
-  );
-}
-function Mf(o, e, t, { label: a = '' } = {}) {
-  let n = elem('div.mg-seg', { role: 'group', 'aria-label': a || null }),
-    s = () => {
-      n.innerHTML = '';
-      for (let [i, r] of o) {
-        let l = elem('button', { 'aria-pressed': String(i === e) }, r);
-        (l.addEventListener('click', () => {
-          ((e = i), s(), t(i));
+  let { el, close } = screen,
+    head = elem('header.mg-screen-head');
+  icon && head.insertAdjacentHTML('beforeend', iconHtml(icon, 'mg-head-ico'));
+  let heading = elem('h2.mg-h2', title);
+  ((heading.id = `t-${screen.name}-${Math.random().toString(36).slice(2, 7)}`),
+    el.setAttribute('aria-labelledby', heading.id),
+    head.append(heading));
+  let subtitle = elem('span.mg-sub', sub);
+  head.append(subtitle);
+  let spacer = elem('span.mg-grow');
+  (head.append(spacer),
+    extra && head.append(extra),
+    noClose ||
+      head.append(
+        iconButton('close', `${closeLabel} (Esc)`, {
+          onclick: () => close(null),
+          cls: 'mg-cerrar mg-ibtn--plain',
         }),
-          n.append(l));
+      ));
+  let tabs = elem('div.mg-screen-tabs'),
+    body = elem('div.mg-screen-body'),
+    foot = elem('footer.mg-screen-foot');
+  return (
+    el.append(head, tabs, body, foot),
+    (tabs.hidden = !0),
+    (foot.hidden = !0),
+    (el.style.gridTemplateRows = 'auto auto minmax(0, 1fr) auto'),
+    [head, tabs, body, foot].forEach((row, index) => (row.style.gridRow = String(index + 1))),
+    { head, tabs, body, foot, title: heading, sub: subtitle, extra: spacer }
+  );
+}
+function makeTabs(tabs, active, onChange, { cls = '' } = {}) {
+  let bar = elem(`div.mg-tabs${cls ? '.' + cls : ''}`, { role: 'tablist' }),
+    render = () => {
+      bar.innerHTML = '';
+      for (let tab of tabs) {
+        let button = elem('button.mg-tab', {
+          role: 'tab',
+          'aria-selected': String(tab.id === active),
+          'data-id': tab.id,
+          title: tab.title || null,
+        });
+        ((button.innerHTML = `${tab.icon ? iconHtml(tab.icon) : ''}${tab.html ?? `<span>${escapeHtml(tab.label)}</span>`}${tab.badge ? `<span class="mg-badge">${escapeHtml(tab.badge)}</span>` : ''}`),
+          button.addEventListener('click', () => {
+            active !== tab.id && ((active = tab.id), render(), onChange(tab.id));
+          }),
+          bar.append(button));
       }
     };
-  return (s(), n);
+  return (
+    render(),
+    bar.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'ArrowRight' && ev.key !== 'ArrowLeft') return;
+      let index = tabs.findIndex((tab) => tab.id === active),
+        next = tabs[(index + (ev.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+      ((active = next.id),
+        render(),
+        onChange(next.id),
+        bar.querySelector(`[data-id="${CSS.escape(next.id)}"]`)?.focus(),
+        ev.preventDefault());
+    }),
+    (bar.set = (id) => {
+      ((active = id), render());
+    }),
+    (bar.update = (list) => {
+      ((tabs = list), render());
+    }),
+    bar
+  );
 }
-const k6 =
+function makeSegmented(options, current, onChange, { label = '' } = {}) {
+  let group = elem('div.mg-seg', { role: 'group', 'aria-label': label || null }),
+    render = () => {
+      group.innerHTML = '';
+      for (let [id, text] of options) {
+        let button = elem('button', { 'aria-pressed': String(id === current) }, text);
+        (button.addEventListener('click', () => {
+          ((current = id), render(), onChange(id));
+        }),
+          group.append(button));
+      }
+    };
+  return (render(), group);
+}
+const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-const Tf = class {
-  constructor(e, t) {
-    ((this.ui = e), (this.game = t), (this.stack = []));
+const ScreenStack = class {
+  constructor(ui, game) {
+    ((this.ui = ui), (this.game = game), (this.stack = []));
   }
   get top() {
     return this.stack[this.stack.length - 1] || null;
   }
-  isOpen(e) {
-    return this.stack.some((t) => t.name === e);
+  isOpen(name) {
+    return this.stack.some((entry) => entry.name === name);
   }
-  open(e, t, { modal: a = !1, full: n = !0, width: s, height: i, cls: r = '', auto: l = !1 } = {}) {
-    let c = elem(`div.mg-layer${n ? '.mg-full' : ''}`, { role: 'presentation', 'data-capa': e }),
-      d = elem(`section.mg-screen.mg-panel.mg-orn${a ? '.mg-modal' : ''}${l ? '.mg-screen--auto' : ''}`, {
-        role: 'dialog',
-        'aria-modal': 'true',
-        tabindex: '-1',
-        class: r || null,
-      });
-    (s && d.style.setProperty('--ancho', s), i && d.style.setProperty('--alto', i), c.append(d));
-    let u = document.activeElement,
-      h,
-      p = new Promise((b) => (h = b)),
-      m = { name: e, layer: c, panel: d, prevFocus: u, hooks: {}, closed: !1 },
-      _ = (b = null) => {
-        if (!m.closed) {
-          m.closed = !0;
+  open(name, build, { modal = !1, full = !0, width, height, cls = '', auto = !1 } = {}) {
+    let layer = elem(`div.mg-layer${full ? '.mg-full' : ''}`, { role: 'presentation', 'data-capa': name }),
+      panel = elem(
+        `section.mg-screen.mg-panel.mg-orn${modal ? '.mg-modal' : ''}${auto ? '.mg-screen--auto' : ''}`,
+        {
+          role: 'dialog',
+          'aria-modal': 'true',
+          tabindex: '-1',
+          class: cls || null,
+        },
+      );
+    (width && panel.style.setProperty('--ancho', width),
+      height && panel.style.setProperty('--alto', height),
+      layer.append(panel));
+    let prevFocus = document.activeElement,
+      settle,
+      done = new Promise((resolve) => (settle = resolve)),
+      entry = { name, layer, panel, prevFocus, hooks: {}, closed: !1 },
+      close = (result = null) => {
+        if (!entry.closed) {
+          entry.closed = !0;
           try {
-            m.hooks.dispose?.();
-          } catch (f) {
-            console.error('[interfaz] cerrar', e, f);
+            entry.hooks.dispose?.();
+          } catch (err) {
+            console.error('[interfaz] cerrar', name, err);
           }
-          ((this.stack = this.stack.filter((f) => f !== m)),
-            c.classList.add('cierra'),
-            setTimeout(() => c.remove(), 170),
-            this.game.bus?.emit('ui:close', { name: e }),
-            u && document.contains(u) && u.focus?.({ preventScroll: !0 }),
-            h(b));
+          ((this.stack = this.stack.filter((item) => item !== entry)),
+            layer.classList.add('cierra'),
+            setTimeout(() => layer.remove(), 170),
+            this.game.bus?.emit('ui:close', { name }),
+            prevFocus && document.contains(prevFocus) && prevFocus.focus?.({ preventScroll: !0 }),
+            settle(result));
         }
       };
-    ((m.close = _),
-      c.addEventListener('pointerdown', (b) => {
-        b.target === c && a && m.hooks.dismissable !== !1 && _(null);
+    ((entry.close = close),
+      layer.addEventListener('pointerdown', (ev) => {
+        ev.target === layer && modal && entry.hooks.dismissable !== !1 && close(null);
       }),
-      this.stack.push(m),
-      this.ui.root.append(c));
+      this.stack.push(entry),
+      this.ui.root.append(layer));
     try {
-      m.hooks = t({ el: d, layer: c, close: _, name: e }) || {};
-    } catch (b) {
-      (console.error('[interfaz] pantalla', e, b),
-        (d.innerHTML = `<div class="mg-screen-body"><div class="mg-vacio">${iconHtml('info')}No se ha podido abrir esta pantalla.<br><small>${escapeHtml(b.message)}</small></div></div>`),
-        d.append(elem('div.mg-screen-foot', this.ui.button('Cerrar', { onclick: () => _(null) }))));
+      entry.hooks = build({ el: panel, layer, close, name }) || {};
+    } catch (err) {
+      (console.error('[interfaz] pantalla', name, err),
+        (panel.innerHTML = `<div class="mg-screen-body"><div class="mg-vacio">${iconHtml('info')}No se ha podido abrir esta pantalla.<br><small>${escapeHtml(err.message)}</small></div></div>`),
+        panel.append(elem('div.mg-screen-foot', this.ui.button('Cerrar', { onclick: () => close(null) }))));
     }
     return (
-      this.game.bus?.emit('ui:open', { name: e }),
+      this.game.bus?.emit('ui:open', { name }),
       requestAnimationFrame(() => {
-        (d.querySelector('[autofocus]') || d).focus?.({ preventScroll: !0 });
+        (panel.querySelector('[autofocus]') || panel).focus?.({ preventScroll: !0 });
       }),
-      p
+      done
     );
   }
-  key(e) {
-    let t = this.top;
-    if (!t) return !1;
-    if (t.hooks.onKey && t.hooks.onKey(e) === !0) return !0;
-    if (e.key === 'Escape') return (t.hooks.onEscape ? t.hooks.onEscape() : t.close(null), !0);
-    if (e.key === 'Tab') {
-      let a = [...t.panel.querySelectorAll(k6)].filter((s) => s.offsetParent !== null);
-      if (!a.length) return !1;
-      let n = a.indexOf(document.activeElement);
-      if (e.shiftKey && n <= 0) return (a[a.length - 1].focus(), !0);
-      if (!e.shiftKey && n === a.length - 1) return (a[0].focus(), !0);
+  key(ev) {
+    let top = this.top;
+    if (!top) return !1;
+    if (top.hooks.onKey && top.hooks.onKey(ev) === !0) return !0;
+    if (ev.key === 'Escape') return (top.hooks.onEscape ? top.hooks.onEscape() : top.close(null), !0);
+    if (ev.key === 'Tab') {
+      let focusables = [...top.panel.querySelectorAll(FOCUSABLE)].filter(
+        (node) => node.offsetParent !== null,
+      );
+      if (!focusables.length) return !1;
+      let index = focusables.indexOf(document.activeElement);
+      if (ev.shiftKey && index <= 0) return (focusables[focusables.length - 1].focus(), !0);
+      if (!ev.shiftKey && index === focusables.length - 1) return (focusables[0].focus(), !0);
     }
     return !1;
   }
   closeAll() {
-    for (let e of [...this.stack].reverse()) e.close(null);
+    for (let entry of [...this.stack].reverse()) entry.close(null);
   }
 };
 
-export { Mf, Tf, es, screenFrame };
+export { makeSegmented, ScreenStack, makeTabs, screenFrame };

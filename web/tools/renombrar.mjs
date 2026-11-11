@@ -256,12 +256,18 @@ function planificar(mapa, espacios) {
     if (texto == null) { errores.push(`${f}: no está en ${mapa._base}`); continue; }
     const base = analizarCodigo(texto);
     const deseados = new Map();
-    for (const [clave, nuevo] of Object.entries(mapa[f])) {
+    // Precedencia: primero las claves con «*» (de menos a más anclas) y luego las concretas, que
+    // pueden corregir lo que dijo una «*». Dos claves concretas no pueden chocar.
+    const concretas = new Set();
+    const ordenadas = Object.entries(mapa[f]).sort(([a], [b]) => ordenClave(a) - ordenClave(b));
+    for (const [clave, nuevo] of ordenadas) {
       if (!/^[A-Za-z_$][\w$]*$/.test(nuevo) || RESERVADAS.has(nuevo)) { errores.push(`${f}: nombre no válido «${nuevo}» (${clave})`); continue; }
       try {
         for (const idx of resolverClave(base, clave)) {
           const previo = deseados.get(idx);
-          if (previo && previo !== nuevo) errores.push(`${f}: «${clave}» choca con otra clave (${previo} / ${nuevo})`);
+          const estrella = clave.endsWith('*');
+          if (!estrella && concretas.has(idx) && previo !== nuevo) errores.push(`${f}: «${clave}» choca con otra clave (${previo} / ${nuevo})`);
+          if (!estrella) concretas.add(idx);
           deseados.set(idx, nuevo);
         }
       } catch (e) {
@@ -284,6 +290,8 @@ function planificar(mapa, espacios) {
   }
   return { plan, exportes, errores };
 }
+
+const ordenClave = (c) => (c.endsWith('*') ? c.split('/').length : 1000);
 
 // Añade a los ficheros del área los renombres de imports abreviados de módulos con exports nuevos.
 function deseadosDeImports(f, base, deseados, exportes) {
@@ -480,7 +488,8 @@ function listar(rutaMapa, f, todosLosEnlaces) {
   const base = analizarCodigo(texto);
   const actual = analizarCodigo(fs.readFileSync(abs(f), 'utf8'));
   const deseados = new Map();
-  for (const [clave, nuevo] of Object.entries(mapa[f] || {})) for (const idx of resolverClave(base, clave)) deseados.set(idx, nuevo);
+  for (const [clave, nuevo] of Object.entries(mapa[f] || {}).sort(([a], [b]) => ordenClave(a) - ordenClave(b)))
+    for (const idx of resolverClave(base, clave)) deseados.set(idx, nuevo);
   const lineas = actual.codigo.split('\n');
   let pend = 0;
   for (const e of base.enlaces) {
@@ -550,7 +559,9 @@ function medir(rutaMapa) {
     const base = texto != null ? analizarCodigo(texto) : null;
     const actual = analizarCodigo(fs.readFileSync(abs(f), 'utf8'));
     const deseados = new Map();
-    if (base) for (const [clave, nuevo] of Object.entries(mapa[f] || {})) for (const idx of resolverClave(base, clave)) deseados.set(idx, nuevo);
+    if (base)
+      for (const [clave, nuevo] of Object.entries(mapa[f] || {}).sort(([a], [b]) => ordenClave(a) - ordenClave(b)))
+        for (const idx of resolverClave(base, clave)) deseados.set(idx, nuevo);
     let t = 0, l = 0;
     for (const e of actual.enlaces) {
       const orig = base?.enlaces[e.idx]?.nombre ?? e.nombre;

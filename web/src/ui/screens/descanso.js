@@ -3,8 +3,8 @@
 
 import { iconHtml, escapeHtml, richText, elem, makeButton, faceBadge, plural } from '../dom.js';
 import { screenFrame } from '../modal.js';
-import { Wi, Xi } from '../dice.js';
-import { ns } from '../labels.js';
+import { makeDie, rollDie } from '../dice.js';
+import { CLASS_ICONS } from '../labels.js';
 
 function opcionesDescanso() {
   return { width: '46rem', auto: !0, full: !0 };
@@ -91,7 +91,9 @@ function pantallaDescanso(o, e, t, a) {
       b[g.id] = Math.min(w.cur, Math.ceil(Math.max(0, k) / T));
       let E = elem('div.mg-rest-row', { 'data-id': g.id }),
         S = Math.max(0, g.hp) / Math.max(1, g.max_hp);
-      (E.append(faceBadge(t.portrait(g.id), { id: g.id, name: g.name, ic: ns[g.class] || 'person' })),
+      (E.append(
+        faceBadge(t.portrait(g.id), { id: g.id, name: g.name, ic: CLASS_ICONS[g.class] || 'person' }),
+      ),
         E.append(
           elem(
             'div.who',
@@ -141,9 +143,9 @@ function pantallaDescanso(o, e, t, a) {
           D = (n._lastParty || []).find((P) => P.id === T),
           M = Number(String(E.die || D?.hit_dice?.die || 8).replace(/^d/i, '')) || 8,
           R = E.rolls || Array.from({ length: E.dice || 0 }, () => ''),
-          A = R.map(() => Wi(M, '', { size: 'sm' }));
+          A = R.map(() => makeDie(M, '', { size: 'sm' }));
         (z.append(...A),
-          await Promise.all(A.map((P, I) => Xi(P, R[I] === '' ? '' : R[I], { ms: 450 + I * 90 }))),
+          await Promise.all(A.map((P, I) => rollDie(P, R[I] === '' ? '' : R[I], { ms: 450 + I * 90 }))),
           E.healed
             ? z.append(elem('span.mg-rest-res', `+${E.healed} PG`))
             : E.dice || z.append(elem('span.mg-dim.mg-small', 'No gasta dados.')));

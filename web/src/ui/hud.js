@@ -3,8 +3,8 @@
 
 import { Vector3 } from 'three';
 import { iconHtml, escapeHtml, richText, elem, faceBadge } from './dom.js';
-import { ou, ns } from './labels.js';
-import { sa } from './tooltip.js';
+import { conditionName, CLASS_ICONS } from './labels.js';
+import { setTip } from './tooltip.js';
 
 function createHud(o, e) {
   let t = { select: new Set(), action: new Set(), portrait: new Set() },
@@ -53,7 +53,7 @@ function createHud(o, e) {
     let [I, U, j, X, J] = P,
       Z = elem('button.mg-hud-act', { 'data-kind': I, 'aria-label': `${U} (${X})` });
     ((Z.innerHTML = `${iconHtml(j)}<span class="mg-hud-act-l">${escapeHtml(U)}</span><span class="mg-key">${escapeHtml(X)}</span>`),
-      sa(Z, () => ({ title: U, body: J, foot: `Atajo: ${X}` })),
+      setTip(Z, () => ({ title: U, body: J, foot: `Atajo: ${X}` })),
       Z.addEventListener('click', () => b(I)),
       r.append(Z),
       (d[I] = Z));
@@ -61,7 +61,7 @@ function createHud(o, e) {
   (d.stealth.setAttribute('aria-pressed', 'false'), d.run.setAttribute('aria-pressed', 'false'));
   let m = elem('button.mg-hud-all', { 'aria-label': 'Seleccionar a todo el grupo' });
   ((m.innerHTML = `${iconHtml('meeple')}<span>Todos</span>`),
-    sa(m, { title: 'Todo el grupo', body: 'Selecciona a todos para moveros juntos.', foot: 'Atajo: G' }),
+    setTip(m, { title: 'Todo el grupo', body: 'Selecciona a todos para moveros juntos.', foot: 'Atajo: G' }),
     m.addEventListener('click', () => b('select_all')));
   let _ = {
     inventory: () => o.open('inventario', { who: u }),
@@ -129,7 +129,7 @@ function createHud(o, e) {
         I.leader && X.classList.add('lider'));
       let J = faceBadge(I.portrait || o.portrait(I.id), {
           name: I.name,
-          ic: ns[I.class] || 'person',
+          ic: CLASS_ICONS[I.class] || 'person',
           cls: 'mg-hud-face',
         }),
         Z = J.querySelector('img');
@@ -140,19 +140,19 @@ function createHud(o, e) {
           `<span class="mg-hud-ca" title="Clase de Armadura">${escapeHtml(I.ac)}</span>
          <span class="mg-hud-pj-d"><b>${escapeHtml(String(I.name || '').split(' ')[0])}</b>
          <span class="mg-hp${U <= 0.3 && I.hp > 0 ? ' bajo' : ''}"><span class="mg-hp-fill" style="width:${U * 100}%"></span>${I.temp_hp ? `<span class="mg-hp-temp" style="width:${Math.min(100, (I.temp_hp / I.max_hp) * 100)}%"></span>` : ''}<span class="mg-hp-txt">${I.dead ? 'Muerto' : I.hp <= 0 ? 'Ca\xEDdo' : `${I.hp}/${I.max_hp}`}</span></span>
-         <span class="mg-hud-cond">${(I.conditions || []).map((ge) => escapeHtml(ou(ge))).join(' \xB7 ')}</span></span>`,
+         <span class="mg-hud-cond">${(I.conditions || []).map((ge) => escapeHtml(conditionName(ge))).join(' \xB7 ')}</span></span>`,
         ),
         X.setAttribute(
           'aria-label',
           `${I.name}, ${I.hp} de ${I.max_hp} puntos de golpe${I.id === u ? ', seleccionado' : ''}`,
         ),
-        sa(X, () => ({
+        setTip(X, () => ({
           title: I.name,
           sub: `${I.species_name || ''} \xB7 ${I.class_name || ''} ${I.level ? `\xB7 nivel ${I.level}` : ''}`,
           body: `CA ${I.ac} \xB7 PG ${I.hp}/${I.max_hp}${I.temp_hp ? ` (+${I.temp_hp} temporales)` : ''}${
             I.conditions?.length
               ? `
-*${I.conditions.map(ou).join(', ')}*`
+*${I.conditions.map(conditionName).join(', ')}*`
               : ''
           }`,
           foot: 'Clic: seleccionar \xB7 Doble clic: ficha',

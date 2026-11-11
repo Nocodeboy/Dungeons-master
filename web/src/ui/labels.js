@@ -1,7 +1,7 @@
 // ui/labels.js
 // Reconstruido de publicado/juego.js (módulo __esm «os»). Nombres locales aún minificados.
 
-const Kw = {
+const ABILITY_NAMES = {
   str: 'Fuerza',
   dex: 'Destreza',
   con: 'Constituci\xF3n',
@@ -9,9 +9,16 @@ const Kw = {
   wis: 'Sabidur\xEDa',
   cha: 'Carisma',
 };
-const Jw = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
-const Zw = { str: 'muscle', dex: 'agility', con: 'heart', int: 'brain', wis: 'owl', cha: 'charisma' };
-const nu = {
+const ABILITY_ABBR = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
+const ABILITY_ICONS = {
+  str: 'muscle',
+  dex: 'agility',
+  con: 'heart',
+  int: 'brain',
+  wis: 'owl',
+  cha: 'charisma',
+};
+const ABILITY_HINTS = {
   str: 'Potencia f\xEDsica: ataques con armas pesadas, Atletismo y cargar peso.',
   dex: 'Agilidad y reflejos: armas sutiles y a distancia, Clase de Armadura, iniciativa y Sigilo.',
   con: 'Aguante: puntos de golpe a cada nivel y mantener la concentraci\xF3n en los conjuros.',
@@ -19,7 +26,7 @@ const nu = {
   wis: 'Percepci\xF3n e intuici\xF3n: conjuros de cl\xE9rigo, druida y explorador, Percepci\xF3n y Perspicacia.',
   cha: 'Presencia y voluntad: conjuros de bardo, hechicero, brujo y palad\xEDn, y convencer a la gente.',
 };
-const rz = {
+const CONDITION_NAMES = {
   prone: 'Derribado',
   incapacitated: 'Incapacitado',
   unconscious: 'Inconsciente',
@@ -35,8 +42,8 @@ const rz = {
   charmed: 'Hechizado',
   exhaustion: 'Agotado',
 };
-const ou = (o) => rz[o] || o;
-const Df = {
+const conditionName = (id) => CONDITION_NAMES[id] || id;
+const SPELL_ROLES = {
   damage: ['Da\xF1o', 't-dano'],
   control: ['Control', 't-control'],
   heal: ['Curaci\xF3n', 't-cura'],
@@ -54,7 +61,7 @@ const Df = {
   social: ['Social', 't-apoyo'],
   ritual: ['Ritual', 't-explora'],
 };
-const Qw = [
+const EQUIP_SLOTS = [
   ['main', 'Mano principal', 'sword'],
   ['off', 'Mano secundaria', 'shield'],
   ['armor', 'Armadura', 'armor'],
@@ -66,16 +73,16 @@ const Qw = [
   ['boots', 'Botas', 'boots'],
   ['ammo', 'Munici\xF3n', 'quiver'],
 ];
-const Wq = Object.fromEntries(Qw.map(([o, e]) => [o, e]));
-const Xq = Object.fromEntries(Qw.map(([o, , e]) => [o, e]));
-const su = {
+const SLOT_LABELS = Object.fromEntries(EQUIP_SLOTS.map(([slot, label]) => [slot, label]));
+const SLOT_ICONS = Object.fromEntries(EQUIP_SLOTS.map(([slot, , icon]) => [slot, icon]));
+const RARITIES = {
   common: ['Com\xFAn', 'mg-r-comun'],
   uncommon: ['Poco com\xFAn', 'mg-r-poco'],
   rare: ['Raro', 'mg-r-raro'],
   very_rare: ['Muy raro', 'mg-r-muy'],
   legendary: ['Legendario', 'mg-r-leyenda'],
 };
-const as = {
+const ITEM_KINDS = {
   weapon: 'Arma',
   armor: 'Armadura',
   shield: 'Escudo',
@@ -91,7 +98,7 @@ const as = {
   key: 'Llave',
   quest: 'Objeto de misi\xF3n',
 };
-const e2 = {
+const ITEM_KIND_ICONS = {
   weapon: 'sword',
   armor: 'armor',
   shield: 'shield',
@@ -111,7 +118,7 @@ const e2 = {
   boots: 'boots',
   gloves: 'gauntlets',
 };
-const ns = {
+const CLASS_ICONS = {
   barbarian: 'rage',
   bard: 'lyre',
   cleric: 'ankh',
@@ -125,7 +132,7 @@ const ns = {
   warlock: 'eldritch',
   wizard: 'book',
 };
-const t2 = {
+const SPECIES_ICONS = {
   human: 'footsteps',
   elf: 'elf_ear',
   half_elf: 'faerie',
@@ -138,7 +145,7 @@ const t2 = {
   orc: 'rage',
   tiefling: 'horns',
 };
-const a2 = {
+const BACKGROUND_ICONS = {
   acolyte: 'ankh',
   criminal: 'lockpick',
   sage: 'open_book',
@@ -152,7 +159,7 @@ const a2 = {
   merchant: 'scales',
   sailor: 'compass',
 };
-const Ib = [
+const GAME_HINTS = [
   'Los compa\xF1eros opinan de lo que haces. Si su aprobaci\xF3n cae demasiado, se marchan.',
   'Un descanso corto cura con los dados de golpe; el largo lo devuelve todo, pero pasa la noche.',
   'Los objetos m\xE1gicos llegan sin identificar. Un descanso corto basta para saber qu\xE9 son.',
@@ -163,4 +170,18 @@ const Ib = [
   'Al pasar el rat\xF3n (o mantener el dedo) sobre un conjuro, rasgo u objeto ver\xE1s qu\xE9 hace.',
 ];
 
-export { Df, Ib, Jw, Kw, Zw, a2, as, e2, ns, nu, ou, su, t2 };
+export {
+  SPELL_ROLES,
+  GAME_HINTS,
+  ABILITY_ABBR,
+  ABILITY_NAMES,
+  ABILITY_ICONS,
+  BACKGROUND_ICONS,
+  ITEM_KINDS,
+  ITEM_KIND_ICONS,
+  CLASS_ICONS,
+  ABILITY_HINTS,
+  conditionName,
+  RARITIES,
+  SPECIES_ICONS,
+};

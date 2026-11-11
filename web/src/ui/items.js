@@ -2,33 +2,41 @@
 // Reconstruido de publicado/juego.js (módulo __esm «tm»). Nombres locales aún minificados.
 
 import './dom.js';
-import { su, as, e2 } from './labels.js';
+import { RARITIES, ITEM_KINDS, ITEM_KIND_ICONS } from './labels.js';
 
-function mi(o) {
-  return o ? (o.unid ? 'mg-r-sinid' : su[o.rarity]?.[1] || (o.magic ? 'mg-r-poco' : '')) : '';
+function rarityClass(item) {
+  return item
+    ? item.unid
+      ? 'mg-r-sinid'
+      : RARITIES[item.rarity]?.[1] || (item.magic ? 'mg-r-poco' : '')
+    : '';
 }
-function Zi(o) {
-  return o?.icon || e2[o?.kind] || 'bag';
+function itemIcon(item) {
+  return item?.icon || ITEM_KIND_ICONS[item?.kind] || 'bag';
 }
-function Gr(o, e) {
+function itemTip(ui, item) {
   return () => {
-    if (!e?.id) return null;
-    let t = o.R.call('item_info', { id: e.id, unid: !!e.unid }),
-      a = t && !t.error ? t : { name: e.name, desc: '' },
-      n = [as[a.kind] || '', a.rarity_name || su[a.rarity]?.[0] || '', a.attune ? 'requiere sinton\xEDa' : '']
+    if (!item?.id) return null;
+    let info = ui.R.call('item_info', { id: item.id, unid: !!item.unid }),
+      data = info && !info.error ? info : { name: item.name, desc: '' },
+      sub = [
+        ITEM_KINDS[data.kind] || '',
+        data.rarity_name || RARITIES[data.rarity]?.[0] || '',
+        data.attune ? 'requiere sinton\xEDa' : '',
+      ]
         .filter(Boolean)
         .join(' \xB7 '),
-      s = a.lines?.length ? a.lines : a.desc ? [a.desc] : [];
+      lines = data.lines?.length ? data.lines : data.desc ? [data.desc] : [];
     return {
-      title: e.unid ? e.name || a.name : a.name || e.name,
-      sub: e.unid ? 'Sin identificar: un descanso corto basta para saber qu\xE9 es.' : n,
-      body: s.join(`
+      title: item.unid ? item.name || data.name : data.name || item.name,
+      sub: item.unid ? 'Sin identificar: un descanso corto basta para saber qu\xE9 es.' : sub,
+      body: lines.join(`
 `),
-      tags: (a.props || []).map((i) => [i, '']),
+      tags: (data.props || []).map((prop) => [prop, '']),
       foot: [
-        a.price ? `Valor ${a.price} po` : '',
-        a.weight ? `${String(a.weight).replace('.', ',')} lb` : '',
-        e.n > 1 ? `\xD7${e.n}` : '',
+        data.price ? `Valor ${data.price} po` : '',
+        data.weight ? `${String(data.weight).replace('.', ',')} lb` : '',
+        item.n > 1 ? `\xD7${item.n}` : '',
       ]
         .filter(Boolean)
         .join(' \xB7 '),
@@ -36,4 +44,4 @@ function Gr(o, e) {
   };
 }
 
-export { Gr, Zi, mi };
+export { itemTip, itemIcon, rarityClass };

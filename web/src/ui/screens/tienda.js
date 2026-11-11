@@ -2,10 +2,10 @@
 // Reconstruido de publicado/juego.js (módulo __esm «IT»). Nombres locales aún minificados.
 
 import { iconHtml, escapeHtml, elem, makeButton, faceBadge } from '../dom.js';
-import { screenFrame, es } from '../modal.js';
-import { sa } from '../tooltip.js';
-import { mi, Zi, Gr } from '../items.js';
-import { as } from '../labels.js';
+import { screenFrame, makeTabs } from '../modal.js';
+import { setTip } from '../tooltip.js';
+import { rarityClass, itemIcon, itemTip } from '../items.js';
+import { ITEM_KINDS } from '../labels.js';
 
 function opcionesTienda() {
   return { width: '76rem', height: '46rem' };
@@ -22,7 +22,7 @@ function pantallaTienda(o, e, t, a) {
     h = screenFrame(o, { title: 'Tienda', ic: 'shop' }),
     p = elem('span.mg-gold');
   h.head.insertBefore(p, h.head.querySelector('.mg-cerrar'));
-  let m = es(
+  let m = makeTabs(
       [
         { id: 'comprar', label: 'Comprar', icon: 'coins' },
         { id: 'detalle', label: 'Detalle', icon: 'info' },
@@ -52,11 +52,11 @@ function pantallaTienda(o, e, t, a) {
     let P = elem(`button.mg-shop-row${R === 'buy' && M.can_afford === !1 ? '.caro' : ''}`, {
         'aria-pressed': String(l?.side === R && l.i === A),
       }),
-      I = mi(M),
+      I = rarityClass(M),
       U = R === 'buy' ? (M.unlimited || M.n < 0 ? '' : `${M.n} en venta`) : M.n > 1 ? `\xD7${M.n}` : '';
     return (
-      (P.innerHTML = `${iconHtml(Zi(M))}<span style="min-width:0"><b class="${I}">${escapeHtml(M.name)}</b><small>${escapeHtml([as[M.kind] || '', U].filter(Boolean).join(' \xB7 '))}</small></span><span class="precio">${escapeHtml(M.price)}${iconHtml('coins')}</span>`),
-      sa(P, Gr(t, M)),
+      (P.innerHTML = `${iconHtml(itemIcon(M))}<span style="min-width:0"><b class="${I}">${escapeHtml(M.name)}</b><small>${escapeHtml([ITEM_KINDS[M.kind] || '', U].filter(Boolean).join(' \xB7 '))}</small></span><span class="precio">${escapeHtml(M.price)}${iconHtml('coins')}</span>`),
+      setTip(P, itemTip(t, M)),
       P.addEventListener('click', () => {
         ((l = { side: R, i: A }),
           (c = 1),
@@ -103,7 +103,7 @@ function pantallaTienda(o, e, t, a) {
           elem('b.mg-h3', r?.name || ''),
           elem(
             'div.mg-dim.mg-small',
-            'Compra: ' + (r?.buys_kinds || []).map((K) => (as[K] || K).toLowerCase()).join(', '),
+            'Compra: ' + (r?.buys_kinds || []).map((K) => (ITEM_KINDS[K] || K).toLowerCase()).join(', '),
           ),
         ),
       ),
@@ -120,9 +120,11 @@ function pantallaTienda(o, e, t, a) {
     }
     let U = n.call('item_info', { id: I.id, unid: !!I.unid }),
       j = U && !U.error ? U : {};
-    (P.append(elem(`div.mg-item-name.${mi(I) || 'mg-r-comun'}`, I.name)),
-      (j.rarity_name || as[j.kind]) &&
-        P.append(elem('div.mg-item-kind', [as[j.kind], j.rarity_name].filter(Boolean).join(' \xB7 '))),
+    (P.append(elem(`div.mg-item-name.${rarityClass(I) || 'mg-r-comun'}`, I.name)),
+      (j.rarity_name || ITEM_KINDS[j.kind]) &&
+        P.append(
+          elem('div.mg-item-kind', [ITEM_KINDS[j.kind], j.rarity_name].filter(Boolean).join(' \xB7 ')),
+        ),
       (j.props || []).length &&
         P.append(elem('div.mg-item-props', ...j.props.map((K) => elem('span.mg-chip', K)))),
       P.append(

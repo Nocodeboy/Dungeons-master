@@ -3,53 +3,55 @@
 
 import { escapeHtml, elem, sleep, reducedMotion } from './dom.js';
 
-function yw() {
+function installDiceDefs() {
   if (document.getElementById('mg-dados-defs')) return;
-  let o = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  ((o.id = 'mg-dados-defs'),
-    o.setAttribute('width', '0'),
-    o.setAttribute('height', '0'),
-    o.setAttribute('aria-hidden', 'true'),
-    (o.style.position = 'absolute'),
-    (o.innerHTML = `<defs>
+  let svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  ((svg.id = 'mg-dados-defs'),
+    svg.setAttribute('width', '0'),
+    svg.setAttribute('height', '0'),
+    svg.setAttribute('aria-hidden', 'true'),
+    (svg.style.position = 'absolute'),
+    (svg.innerHTML = `<defs>
     <linearGradient id="mg-dado-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e7c4"/><stop offset=".55" stop-color="#dcc292"/><stop offset="1" stop-color="#a98a58"/></linearGradient>
     <linearGradient id="mg-dado-crit" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3b8"/><stop offset=".5" stop-color="#f2c650"/><stop offset="1" stop-color="#b7862a"/></linearGradient>
     <linearGradient id="mg-dado-pifia" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#c8584a"/><stop offset=".6" stop-color="#8e2a20"/><stop offset="1" stop-color="#5a1610"/></linearGradient>
   </defs>`),
-    document.body.append(o));
+    document.body.append(svg));
 }
-function Wi(o = 20, e = '', { size: t = '', title: a } = {}) {
-  let n = vw[o] || vw[20],
-    s = elem(`span.mg-die${t ? `.mg-die--${t}` : ''}`, {
+function makeDie(sides = 20, value = '', { size = '', title } = {}) {
+  let shape = DIE_SHAPES[sides] || DIE_SHAPES[20],
+    die = elem(`span.mg-die${size ? `.mg-die--${size}` : ''}`, {
       role: 'img',
-      'aria-label': a || `d${o}${e !== '' ? `: ${e}` : ''}`,
+      'aria-label': title || `d${sides}${value !== '' ? `: ${value}` : ''}`,
     });
   return (
-    (s.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true"><polygon class="cara" points="${n.cara}"/>${n.facetas ? `<path class="faceta" d="${n.facetas}"/>` : ''}<polygon class="brillo" points="${n.cara.split(' ').slice(0, 2).join(' ')} 50,50"/></svg><b>${escapeHtml(e)}</b>`),
-    (s.dataset.sides = o),
-    s
+    (die.innerHTML = `<svg viewBox="0 0 100 100" aria-hidden="true"><polygon class="cara" points="${shape.cara}"/>${shape.facetas ? `<path class="faceta" d="${shape.facetas}"/>` : ''}<polygon class="brillo" points="${shape.cara.split(' ').slice(0, 2).join(' ')} 50,50"/></svg><b>${escapeHtml(value)}</b>`),
+    (die.dataset.sides = sides),
+    die
   );
 }
-async function Xi(o, e, { ms: t = 900, crit: a, fumble: n } = {}) {
-  let s = Number(o.dataset.sides) || 20,
-    i = o.querySelector('b');
-  if ((o.classList.remove('crit', 'pifia', 'cae'), !reducedMotion())) {
-    o.classList.add('rueda');
-    let r = performance.now(),
-      l = 45;
-    for (; performance.now() - r < t;)
-      ((i.textContent = 1 + Math.floor(Math.random() * s)), await sleep(l), (l = Math.min(140, l * 1.12)));
-    o.classList.remove('rueda');
+async function rollDie(die, value, { ms = 900, crit, fumble } = {}) {
+  let sides = Number(die.dataset.sides) || 20,
+    face = die.querySelector('b');
+  if ((die.classList.remove('crit', 'pifia', 'cae'), !reducedMotion())) {
+    die.classList.add('rueda');
+    let start = performance.now(),
+      delay = 45;
+    for (; performance.now() - start < ms;)
+      ((face.textContent = 1 + Math.floor(Math.random() * sides)),
+        await sleep(delay),
+        (delay = Math.min(140, delay * 1.12)));
+    die.classList.remove('rueda');
   }
-  ((i.textContent = e),
-    o.setAttribute('aria-label', `d${s}: ${e}`),
-    o.offsetWidth,
-    o.classList.add('cae'),
-    (a ?? (s === 20 && Number(e) === 20)) && o.classList.add('crit'),
-    (n ?? (s === 20 && Number(e) === 1)) && o.classList.add('pifia'),
+  ((face.textContent = value),
+    die.setAttribute('aria-label', `d${sides}: ${value}`),
+    die.offsetWidth,
+    die.classList.add('cae'),
+    (crit ?? (sides === 20 && Number(value) === 20)) && die.classList.add('crit'),
+    (fumble ?? (sides === 20 && Number(value) === 1)) && die.classList.add('pifia'),
     await sleep(reducedMotion() ? 0 : 380));
 }
-const vw = {
+const DIE_SHAPES = {
   4: { cara: '50,6 95,88 5,88', facetas: '' },
   6: { cara: '14,10 86,10 92,16 92,84 86,90 14,90 8,84 8,16', facetas: 'M20,20 L80,20 L80,80 L20,80 Z' },
   8: {
@@ -72,4 +74,4 @@ const vw = {
   },
 };
 
-export { Wi, Xi, yw };
+export { makeDie, rollDie, installDiceDefs };

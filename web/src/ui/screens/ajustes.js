@@ -2,7 +2,7 @@
 // Reconstruido de publicado/juego.js (módulo __esm «YT»). Nombres locales aún minificados.
 
 import { elem, makeButton } from '../dom.js';
-import { screenFrame, Mf } from '../modal.js';
+import { screenFrame, makeSegmented } from '../modal.js';
 
 function opcionesAjustes() {
   return { width: '58rem', height: '46rem' };
@@ -72,7 +72,7 @@ function pantallaAjustes(o, e, t, a) {
   (u(
     v,
     'Velocidad del texto',
-    Mf(
+    makeSegmented(
       [
         [0.5, 'Lenta'],
         [1, 'Normal'],
@@ -89,7 +89,7 @@ function pantallaAjustes(o, e, t, a) {
     u(
       v,
       'Tama\xF1o de la interfaz',
-      Mf(
+      makeSegmented(
         [
           [1, 'Normal'],
           [1.15, 'Grande'],
@@ -148,7 +148,7 @@ function pantallaAjustes(o, e, t, a) {
   u(
     y,
     'Calidad',
-    Mf(
+    makeSegmented(
       [
         ['auto', 'Autom\xE1tica'],
         ['baja', 'Baja'],

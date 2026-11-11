@@ -2,9 +2,9 @@
 // Reconstruido de publicado/juego.js (módulo __esm «sm»). Nombres locales aún minificados.
 
 import { iconHtml, escapeHtml, richText, elem, makeButton, iconButton, signed } from './dom.js';
-import { sa } from './tooltip.js';
-import { Wi, Xi } from './dice.js';
-import { Zw, nu, Df, t2, a2 } from './labels.js';
+import { setTip } from './tooltip.js';
+import { makeDie, rollDie } from './dice.js';
+import { ABILITY_ICONS, ABILITY_HINTS, SPELL_ROLES, SPECIES_ICONS, BACKGROUND_ICONS } from './labels.js';
 import { om, zv, JT, Pv } from './creator-look.js';
 
 function WL(o) {
@@ -122,7 +122,9 @@ function buildCreator(o, e, t) {
           'data-k': `${De.id}`,
         });
       ((V.innerHTML = `${rt ? `<span class="mg-card-ico">${iconHtml(rt)}</span>` : ''}<span class="mg-card-t">${escapeHtml(De.name)}</span>${be(De) ? `<span class="mg-card-s">${escapeHtml(be(De))}</span>` : ''}${ze ? ze(De) : ''}`),
-        Ce ? sa(V, Ce(De)) : De.desc && be(De) !== De.desc && sa(V, { title: De.name, body: De.desc }),
+        Ce
+          ? setTip(V, Ce(De))
+          : De.desc && be(De) !== De.desc && setTip(V, { title: De.name, body: De.desc }),
         V.addEventListener('click', () => L(De)),
         W.append(V));
     }
@@ -136,7 +138,7 @@ function buildCreator(o, e, t) {
         { 'aria-pressed': String(A($)), disabled: !P($) && !A($), 'data-k': `${$.id}` },
         $.name ?? $.label,
       );
-      ($.desc && sa(ee, { title: $.name, body: $.desc }),
+      ($.desc && setTip(ee, { title: $.name, body: $.desc }),
         ee.addEventListener('click', () => L($)),
         B.append(ee));
     }
@@ -185,7 +187,10 @@ function buildCreator(o, e, t) {
       species(N) {
         let L = elem('div.mg-col');
         (L.append(
-          I(N.cards, (B) => R('species', B.id), { ic: (B) => t2[B.id] || B.icon || 'person', min: '10rem' }),
+          I(N.cards, (B) => R('species', B.id), {
+            ic: (B) => SPECIES_ICONS[B.id] || B.icon || 'person',
+            min: '10rem',
+          }),
         ),
           N.lineages &&
             (L.append(j(N.lineages.label)),
@@ -259,7 +264,7 @@ function buildCreator(o, e, t) {
           O = elem('div.mg-col');
         O.append(
           I(N.cards, (be) => R('background', be.id), {
-            ic: (be) => a2[be.id] || be.icon || 'scroll',
+            ic: (be) => BACKGROUND_ICONS[be.id] || be.icon || 'scroll',
             min: '11rem',
           }),
         );
@@ -337,7 +342,7 @@ function buildCreator(o, e, t) {
           let ee = elem('div.mg-cr-rolls');
           ee.append(elem('span.mg-sc.mg-dim', 'Tiradas:'));
           let be = N.rolls.map((Ce) => {
-            let ze = Wi(6, Ce, { size: 'sm', title: `4d6: ${Ce}` });
+            let ze = makeDie(6, Ce, { size: 'sm', title: `4d6: ${Ce}` });
             return (ze.style.setProperty('--d', '2.5rem'), ze);
           });
           (ee.append(...be),
@@ -349,7 +354,7 @@ function buildCreator(o, e, t) {
                   R('reroll', !0);
                   let Ce = [...k.querySelectorAll('.mg-cr-rolls .mg-die')];
                   await Promise.all(
-                    Ce.map((ze, W) => Xi(ze, ze.querySelector('b').textContent, { ms: 500 + W * 60 })),
+                    Ce.map((ze, W) => rollDie(ze, ze.querySelector('b').textContent, { ms: 500 + W * 60 })),
                   );
                 },
               }),
@@ -366,10 +371,10 @@ function buildCreator(o, e, t) {
           '<span class="th">Caracter\xEDstica</span><span class="th"></span><span class="th">Base</span><span class="th"></span><span class="th c-bonus">Trasfondo</span><span class="th">Total</span>';
         for (let ee of N.rows || []) {
           let be = elem(`span.mg-cr-abname${ee.primary ? '.prim' : ''}`);
-          ((be.innerHTML = `${iconHtml(Zw[ee.id] || 'star')}<span>${escapeHtml(ee.name)}${ee.primary ? ' <span class="estrella" title="Importante para tu clase">\u2605</span>' : ''}</span>`),
-            sa(be, {
+          ((be.innerHTML = `${iconHtml(ABILITY_ICONS[ee.id] || 'star')}<span>${escapeHtml(ee.name)}${ee.primary ? ' <span class="estrella" title="Importante para tu clase">\u2605</span>' : ''}</span>`),
+            setTip(be, {
               title: ee.name,
-              body: nu[ee.id] || '',
+              body: ABILITY_HINTS[ee.id] || '',
               foot: ee.primary ? '\u2605 Importante para tu clase.' : '',
             }));
           let Ce = makeButton('\u2212', {
@@ -775,7 +780,7 @@ function buildCreator(o, e, t) {
       ['Inic.', O.initiative_text, 'Iniciativa'],
     ]) {
       let F = elem('span.mg-stat', elem('b.mg-num', String(rt ?? '\u2014')), elem('span', De));
-      (sa(F, V), B.append(F));
+      (setTip(F, V), B.append(F));
     }
     let $ = elem('div.mg-cr-abs');
     for (let [De, rt] of Object.entries(O.abilities || {})) {
@@ -785,7 +790,7 @@ function buildCreator(o, e, t) {
         elem('span.mg-ab-v.mg-num', String(rt.score)),
         elem('span.mg-ab-m', signed(rt.mod)),
       );
-      (sa(V, { title: rt.name, body: nu[De] || '' }), $.append(V));
+      (setTip(V, { title: rt.name, body: ABILITY_HINTS[De] || '' }), $.append(V));
     }
     g.append(
       elem('div.mg-cr-name', O.name || i.name || 'Tu h\xE9roe'),
@@ -891,7 +896,7 @@ const $L = {
   ritual: 'Ritual',
 };
 const QT = {
-  ...Df,
+  ...SPELL_ROLES,
   aoe: ['\xC1rea', 't-dano'],
   save: ['Salvaci\xF3n', 't-control'],
   ranged: ['A distancia', 't-dano'],

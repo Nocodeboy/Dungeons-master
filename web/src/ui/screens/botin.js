@@ -3,9 +3,9 @@
 
 import { iconHtml, escapeHtml, elem, makeButton } from '../dom.js';
 import { screenFrame } from '../modal.js';
-import { sa } from '../tooltip.js';
-import { mi, Zi, Gr } from '../items.js';
-import { as } from '../labels.js';
+import { setTip } from '../tooltip.js';
+import { rarityClass, itemIcon, itemTip } from '../items.js';
+import { ITEM_KINDS } from '../labels.js';
 
 function opcionesBotin() {
   return { modal: !0, full: !0, width: '38rem', auto: !0 };
@@ -85,9 +85,9 @@ function pantallaBotin(o, e, t, a) {
     }
     for (let y of r) {
       let w = elem(`div.mg-loot-row${y.taken ? '.cogido' : ''}`),
-        k = mi(y);
-      ((w.innerHTML = `${iconHtml(Zi(y))}<span><b class="${k}">${escapeHtml(y.name)}${y.n > 1 ? ` \xD7${escapeHtml(y.n)}` : ''}</b><small>${escapeHtml(y.unid ? 'Sin identificar' : as[y.kind] || '')}${y.taken ? ` \xB7 para ${escapeHtml(String(s?.members?.[y.to]?.name || 'el grupo').split(' ')[0])}` : ''}</small></span><span></span>`),
-        sa(w, Gr(t, y)),
+        k = rarityClass(y);
+      ((w.innerHTML = `${iconHtml(itemIcon(y))}<span><b class="${k}">${escapeHtml(y.name)}${y.n > 1 ? ` \xD7${escapeHtml(y.n)}` : ''}</b><small>${escapeHtml(y.unid ? 'Sin identificar' : ITEM_KINDS[y.kind] || '')}${y.taken ? ` \xB7 para ${escapeHtml(String(s?.members?.[y.to]?.name || 'el grupo').split(' ')[0])}` : ''}</small></span><span></span>`),
+        setTip(w, itemTip(t, y)),
         y.taken
           ? w.insertAdjacentHTML('beforeend', iconHtml('check', 'mg-bien'))
           : w.append(makeButton('Coger', { size: 'sm', onclick: () => _(y) })),

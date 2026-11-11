@@ -2,8 +2,8 @@
 // Reconstruido de publicado/juego.js (módulo __esm «Yw»). Nombres locales aún minificados.
 
 import { iconHtml, escapeHtml, richText, elem, faceBadge, signed, sleep, reducedMotion } from './dom.js';
-import { Wi, Xi } from './dice.js';
-import { sa } from './tooltip.js';
+import { makeDie, rollDie } from './dice.js';
+import { setTip } from './tooltip.js';
 
 function createDialog(o, e) {
   let t = null,
@@ -87,7 +87,7 @@ function createDialog(o, e) {
     let v = f.who ? r(f.who) : '',
       x = Array.isArray(f.d20) ? f.d20 : [f.d20],
       g = elem('div.mg-roll.mg-dlg-roll'),
-      y = x.map((D) => Wi(20, '', { size: 'sm' })),
+      y = x.map((D) => makeDie(20, '', { size: 'sm' })),
       w = f.adv || f.mode > 0,
       k = f.dis || f.mode < 0,
       T = f.kept ?? (x.length > 1 ? (w && !k ? Math.max(...x) : k && !w ? Math.min(...x) : x[0]) : x[0]),
@@ -120,7 +120,7 @@ function createDialog(o, e) {
       play: async () => {
         if (
           ((E.style.opacity = '0'),
-          await Promise.all(y.map((D, M) => Xi(D, x[M], { ms: 700 + M * 120 }))),
+          await Promise.all(y.map((D, M) => rollDie(D, x[M], { ms: 700 + M * 120 }))),
           x.length > 1)
         ) {
           let D = x.indexOf(T);
@@ -193,7 +193,7 @@ function createDialog(o, e) {
           T = g.tag ? `<span class="mg-dlg-tag">${escapeHtml(g.tag)}</span> ` : '',
           E = iz[g.tone];
         ((k.innerHTML = `<span class="mg-dlg-n">${y + 1}.</span><span class="mg-dlg-t">${T}${richText(g.text)}${g.disabled && g.reason ? ` <small>(${escapeHtml(g.reason)})</small>` : ''}</span>${E ? `<span class="mg-dlg-tone" title="${escapeHtml(E[1])}">${iconHtml(E[0])}</span>` : ''}`),
-          g.hint && sa(k, g.hint),
+          g.hint && setTip(k, g.hint),
           k.addEventListener('click', () => m(y)),
           w.append(k),
           v.append(w),
