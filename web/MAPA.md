@@ -266,6 +266,7 @@ Resultados del 11 nov (capturas en `tools/salida/capturas/`, no versionado; `com
 | `web/dist/` (código de `src/`) | hasta el combate e1 | sin errores; Merrowick a los 104 s, combate a los 394 s |
 | paso 3 (three desde npm, fichero único) | hasta Merrowick | sin errores |
 | paso 4 (datos extraídos, fichero único) | hasta Merrowick | sin errores |
+| `web/dist/` | `--hasta victoria` (`?autocombate&autonivel&turbo`) | sin errores; la IA gana e1 en la ronda 6 (a los 1279 s) y sale la narración posterior |
 
 En todas aparece el mismo único aviso de consola, del controlador de SwiftShader (`KHR_parallel_shader_compile extension not supported`). Las capturas coinciden salvo lo que depende del azar con tiempos (nombre por defecto del héroe, tiradas de iniciativa).
 
