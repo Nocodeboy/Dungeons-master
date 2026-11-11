@@ -14,3 +14,5 @@
 ## Fallos y código sospechoso (sin arreglar)
 
 - `story/data.js`: las claves de `DIALOG_FILES` son las originales y los nombres de archivo de `datos/historia/dialogos/` se dedujeron por el lugar donde ocurren, así que no coinciden (`sedge` → `elderhal.json`, `elderhal` → `santuario.json`, `kesh` → `odvar.json`, `runes` → `kesh.json`). No es un fallo; solo puede despistar.
+- `story/runner.js`, `takeItem`: si `has_item` funciona pero `inv_drop` solo quita una parte, el paso manual de después vuelve a empezar con la cantidad completa (`remaining = count`) en vez de con lo que falta (`toDrop`), así que puede quitar de más. Solo ocurre cuando falla `cp_take` (que el núcleo publicado no tiene) y `inv_drop` falla a medias.
+- `story/runner.js`, efecto `unset`: emite «flag:set» con `old: true` fijo, aunque la bandera valiera otra cosa.

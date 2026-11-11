@@ -1,52 +1,65 @@
-// story/runner.js
-// Reconstruido de publicado/juego.js (módulo __esm «mE»). Nombres locales aún minificados.
+// story/runner.js — Motor de flujos de historia (clase StoryRunner, base de Story).
+// Ejecuta diálogos de datos/historia/dialogos/: nodos con texto, intervenciones de compañeros («say»),
+// redirecciones, opciones (con condiciones, coste, tono, pruebas de habilidad y plantillas «each») y efectos
+// («do»/«then», ver actions.js). Los efectos que abren otra cosa (combate, tienda, descanso, viaje, nivel,
+// contratar, epílogo) se aplazan hasta cerrar el diálogo. También lleva la aprobación de los compañeros, las
+// misiones, el diario, el oro y los objetos, llamando al núcleo de reglas (cp_*) con alternativas en JS si
+// falla. Es el contexto de evaluación de conditions.js y text.js. Lo extiende story/story.js.
 
 import { conditionAtoms, evalCondition } from './conditions.js';
 import { conditionTag, formatText, SKILL_NAMES, SKILL_ABILITIES, ABILITY_NAMES } from './text.js';
 import { parseEffect, rollDice, DEFERRED_EFFECTS } from './actions.js';
 
-function DD(o) {
-  let e = [];
-  for (let t of o) {
-    let a = String(t).trim(),
-      n = /^\*[^*]+\*$/.test(a);
-    n && (a = a.slice(1, -1));
-    for (let s of a.split(/\n{2,}/)) {
-      if (((s = s.trim()), !s)) continue;
-      let i = (s.match(/\*/g) || []).length;
-      (n || (!i && !s.startsWith('\xAB'))
-        ? (s = `*${s.replace(/^\*+|\*+$/g, '')}*`)
-        : i % 2 && (s = s.startsWith('*') ? `${s}*` : `*${s}`),
-        e.push(s));
+/** Parte las líneas en párrafos y pone en cursiva («*…*») la narración (lo que no empieza por «). */
+function narrationParagraphs(lines) {
+  let out = [];
+  for (let line of lines) {
+    let text = String(line).trim(),
+      wholeItalic = /^\*[^*]+\*$/.test(text);
+    wholeItalic && (text = text.slice(1, -1));
+    for (let para of text.split(/\n{2,}/)) {
+      if (((para = para.trim()), !para)) continue;
+      let stars = (para.match(/\*/g) || []).length;
+      (wholeItalic || (!stars && !para.startsWith('\xAB'))
+        ? (para = `*${para.replace(/^\*+|\*+$/g, '')}*`)
+        : stars % 2 && (para = para.startsWith('*') ? `${para}*` : `*${para}`),
+        out.push(para));
     }
   }
-  return e;
+  return out;
 }
-function ID(o) {
-  return String(o)
+/** Cierra los asteriscos de cursiva que quedan sin pareja en cada párrafo. */
+function balanceAsterisks(text) {
+  return String(text)
     .split(/\n{2,}/)
-    .map((e) => {
-      if (!((e.match(/\*/g) || []).length % 2)) return e;
-      let a = e.trim();
-      return a.startsWith('*') ? `${a}*` : `*${a}`;
+    .map((para) => {
+      if (!((para.match(/\*/g) || []).length % 2)) return para;
+      let trimmed = para.trim();
+      return trimmed.startsWith('*') ? `${trimmed}*` : `*${trimmed}`;
     }).join(`
 
 `);
 }
-const bi = ['brenna', 'pip', 'ilyra', 'odvar'];
-const fE = 4;
-const HD = 20;
-const ND = ['amable', 'sarcastico', 'frio'];
-const _u = { text: 'Continuar', kind: 'continue' };
-const FD = (o, e, t) => Math.max(e, Math.min(t, o));
-const Ln = (o) => (o == null ? [] : Array.isArray(o) ? o : [o]);
+/** Compañeros de historia (los mercenarios no cuentan). */
+const COMPANION_IDS = ['brenna', 'pip', 'ilyra', 'odvar'];
+/** Tamaño máximo del grupo. */
+const MAX_PARTY = 4;
+/** Precio de un mercenario por nivel del grupo (po). */
+const HIRE_PRICE_PER_LEVEL = 20;
+/** Tonos de respuesta que se cuentan en st.tone (los usa el narrador). */
+const TONES = ['amable', 'sarcastico', 'frio'];
+/** Opción única «Continuar». */
+const CONTINUE_OPTION = { text: 'Continuar', kind: 'continue' };
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const toList = (value) => (value == null ? [] : Array.isArray(value) ? value : [value]);
+/** Motor de diálogos y efectos de historia sobre la campaña del núcleo (game.store.cp). */
 const StoryRunner = class {
-  constructor(e, t, a = {}) {
-    ((this.game = e),
-      (this.data = t),
-      (this.dialogs = t.dialogs || {}),
-      (this.now = a.now || (() => (typeof performance < 'u' ? performance.now() : Date.now()))),
-      (this.rnd = a.random || Math.random),
+  constructor(game, data, opts = {}) {
+    ((this.game = game),
+      (this.data = data),
+      (this.dialogs = data.dialogs || {}),
+      (this.now = opts.now || (() => (typeof performance < 'u' ? performance.now() : Date.now()))),
+      (this.rnd = opts.random || Math.random),
       (this.active = null),
       (this.ctx = {}),
       (this.stealthNow = () => !!this._stealth),
@@ -68,9 +81,10 @@ const StoryRunner = class {
   get cp() {
     return this.game.store?.cp || null;
   }
+  /** Estado de historia de la partida (cp.story), con todos sus apartados creados. */
   get st() {
-    let e = this.cp;
-    if (!e)
+    let cp = this.cp;
+    if (!cp)
       return {
         quests: {},
         approval: {},
@@ -87,10 +101,10 @@ const StoryRunner = class {
         tips: {},
         codex: {},
       };
-    e.story ??= {};
-    let t = e.story;
-    t.v ??= 1;
-    for (let a of [
+    cp.story ??= {};
+    let st = cp.story;
+    st.v ??= 1;
+    for (let key of [
       'quests',
       'approval',
       'decisions',
@@ -106,31 +120,35 @@ const StoryRunner = class {
       'tips',
       'codex',
     ])
-      t[a] ??= {};
-    for (let a of bi) t.approval[a] === void 0 && (t.approval[a] = this.data.companions?.[a]?.start ?? 0);
-    return t;
+      st[key] ??= {};
+    for (let id of COMPANION_IDS) st.approval[id] === void 0 && (st.approval[id] = this.data.companions?.[id]?.start ?? 0);
+    return st;
   }
-  log(...e) {
-    this.debug.log?.(e.join(' '));
+  log(...parts) {
+    this.debug.log?.(parts.join(' '));
   }
-  flag(e) {
-    return this.cp?.flags?.[e];
+  /** Valor de una bandera. */
+  flag(name) {
+    return this.cp?.flags?.[name];
   }
-  setFlag(e, t = !0) {
-    this.cp && (this.store.setFlag(e, t), this.log('flag', e, '=', JSON.stringify(t)));
+  /** Pone una bandera (a través del store, que emite «flag:set»). */
+  setFlag(name, value = !0) {
+    this.cp && (this.store.setFlag(name, value), this.log('flag', name, '=', JSON.stringify(value)));
   }
+  /** Hoja del héroe (o del primer miembro). */
   hero() {
-    let e = this.cp;
-    return e?.members?.hero || (e?.party?.[0] ? e.members?.[e.party[0]] : null) || {};
+    let cp = this.cp;
+    return cp?.members?.hero || (cp?.party?.[0] ? cp.members?.[cp.party[0]] : null) || {};
   }
   party() {
     return this.cp?.party || [];
   }
-  inParty(e) {
-    return this.party().includes(e) && !this.isDead(e);
+  /** ¿Está en el grupo y vivo? */
+  inParty(id) {
+    return this.party().includes(id) && !this.isDead(id);
   }
-  isDead(e) {
-    return !!this.cp?.state?.[e]?.dead;
+  isDead(id) {
+    return !!this.cp?.state?.[id]?.dead;
   }
   partySize() {
     return this.party().length;
@@ -144,528 +162,566 @@ const StoryRunner = class {
   day() {
     return this.cp?.day ?? 1;
   }
+  /** Nivel actual (del contexto del diálogo, de la exploración o de la partida). */
   levelId() {
     return this.ctx?.level || this.game.explore?.level?.id || this.cp?.location?.level || '';
   }
   get vars() {
     return this.st.vars;
   }
-  itemCount(e) {
-    let t = 0;
-    for (let a of this.party()) {
-      let n = this.cp.members?.[a];
-      if (n) {
-        t += Number(n.items?.[e] || 0);
-        for (let s of n.pack || []) s?.id === e && t++;
-        n.ammo && e in n.ammo && (t += Number(n.ammo[e] || 0));
+  /** Unidades de un objeto entre todo el grupo (objetos, mochila y munición). */
+  itemCount(item) {
+    let count = 0;
+    for (let id of this.party()) {
+      let member = this.cp.members?.[id];
+      if (member) {
+        count += Number(member.items?.[item] || 0);
+        for (let entry of member.pack || []) entry?.id === item && count++;
+        member.ammo && item in member.ammo && (count += Number(member.ammo[item] || 0));
       }
     }
-    return t;
+    return count;
   }
-  approval(e) {
-    return this.st.approval[e] ?? 0;
+  approval(id) {
+    return this.st.approval[id] ?? 0;
   }
-  seen(e) {
-    return this.st.seen[e] || 0;
+  seen(key) {
+    return this.st.seen[key] || 0;
   }
-  tried(e) {
-    return this.st.tried[e];
+  tried(key) {
+    return this.st.tried[key];
   }
-  knows(e, t) {
-    return !!this.st.codex?.[e]?.[t];
+  knows(kind, id) {
+    return !!this.st.codex?.[kind]?.[id];
   }
-  quest(e) {
-    return this.questState(e);
+  quest(id) {
+    return this.questState(id);
   }
-  test(e, t = this.ctx) {
-    if (e == null || e === '') return !0;
-    let a = this.ctx;
-    this.ctx = t || {};
+  /** Evalúa una condición con `ctx` como contexto («ctx:x»); los errores cuentan como falso. */
+  test(cond, ctx = this.ctx) {
+    if (cond == null || cond === '') return !0;
+    let prevCtx = this.ctx;
+    this.ctx = ctx || {};
     try {
-      return evalCondition(e, this);
-    } catch (n) {
-      return (console.warn('[historia] condici\xF3n:', e, n.message), !1);
+      return evalCondition(cond, this);
+    } catch (err) {
+      return (console.warn('[historia] condici\xF3n:', cond, err.message), !1);
     } finally {
-      this.ctx = a;
+      this.ctx = prevCtx;
     }
   }
-  text(e) {
-    return Array.isArray(e)
-      ? e
-          .filter((t) => typeof t == 'string' || this.test(t.if))
-          .map((t) => formatText(typeof t == 'string' ? t : t.text, this))
+  /** Texto con plantillas: cadena, {if, text} o lista de ellos (une los que se cumplen). */
+  text(value) {
+    return Array.isArray(value)
+      ? value
+          .filter((part) => typeof part == 'string' || this.test(part.if))
+          .map((part) => formatText(typeof part == 'string' ? part : part.text, this))
           .filter(Boolean).join(`
 
 `)
-      : e && typeof e == 'object'
-        ? this.test(e.if)
-          ? formatText(e.text, this)
+      : value && typeof value == 'object'
+        ? this.test(value.if)
+          ? formatText(value.text, this)
           : ''
-        : formatText(e, this);
+        : formatText(value, this);
   }
-  companion(e) {
-    let t = this.data.companions?.[e],
-      a = this.cp?.members?.[e];
+  /** Nombre corto, completo y título de un compañero. */
+  companion(id) {
+    let def = this.data.companions?.[id],
+      member = this.cp?.members?.[id];
     return {
-      id: e,
-      name: t?.short || a?.name?.split(' ')[0] || e,
-      full: t?.name || a?.name || e,
-      title: t?.title || a?.title || '',
+      id,
+      name: def?.short || member?.name?.split(' ')[0] || id,
+      full: def?.name || member?.name || id,
+      title: def?.title || member?.title || '',
     };
   }
-  name(e) {
-    return e === 'hero'
+  /** Nombre para mostrar de cualquier miembro. */
+  name(id) {
+    return id === 'hero'
       ? this.hero().name || 'T\xFA'
-      : bi.includes(e)
-        ? this.companion(e).name
-        : this.cp?.members?.[e]?.name || e;
+      : COMPANION_IDS.includes(id)
+        ? this.companion(id).name
+        : this.cp?.members?.[id]?.name || id;
   }
-  rules(e, t) {
-    let a = this.game.api;
+  /** Llama al núcleo de reglas; nunca lanza: devuelve {error} si falla. */
+  rules(op, args) {
+    let api = this.game.api;
     try {
-      let n;
+      let res;
       return (
-        a?.call
-          ? (n = a.call(e, t))
+        api?.call
+          ? (res = api.call(op, args))
           : this.game.rules
-            ? (n = this.game.rules(e, t))
-            : (n = { error: 'sin n\xFAcleo' }),
-        n || { error: 'sin respuesta' }
+            ? (res = this.game.rules(op, args))
+            : (res = { error: 'sin n\xFAcleo' }),
+        res || { error: 'sin respuesta' }
       );
-    } catch (n) {
-      return { error: String(n?.message || n) };
+    } catch (err) {
+      return { error: String(err?.message || err) };
     }
   }
-  applyCp(e) {
-    e?.cp && !e.error && this.store.set(e.cp);
+  /** Si la respuesta trae campaña, la guarda en el store. */
+  applyCp(res) {
+    res?.cp && !res.error && this.store.set(res.cp);
   }
-  questState(e) {
-    let t = this.data.quests?.[e];
-    return t
-      ? t.fail && this.test(t.fail, {})
+  /** Estado de una misión según sus condiciones: none, active, done o failed. */
+  questState(id) {
+    let quest = this.data.quests?.[id];
+    return quest
+      ? quest.fail && this.test(quest.fail, {})
         ? 'failed'
-        : t.done && this.test(t.done, {})
+        : quest.done && this.test(quest.done, {})
           ? 'done'
-          : this.test(t.start, {})
+          : this.test(quest.start, {})
             ? 'active'
             : 'none'
       : 'none';
   }
+  /** Misiones visibles para el diario (activas primero, luego las principales). */
   quests() {
-    let e = [];
-    for (let [t, a] of Object.entries(this.data.quests || {})) {
-      let n = this.questState(t);
-      if (n === 'none') continue;
-      let s = (a.steps || [])
-          .filter((r) => this.test(r.show ?? a.start, {}))
-          .map((r) => ({
-            id: r.id,
-            text: this.text(r.text),
-            done: r.done ? this.test(r.done, {}) : !1,
-            optional: !!r.optional,
+    let list = [];
+    for (let [id, quest] of Object.entries(this.data.quests || {})) {
+      let state = this.questState(id);
+      if (state === 'none') continue;
+      let steps = (quest.steps || [])
+          .filter((step) => this.test(step.show ?? quest.start, {}))
+          .map((step) => ({
+            id: step.id,
+            text: this.text(step.text),
+            done: step.done ? this.test(step.done, {}) : !1,
+            optional: !!step.optional,
           })),
-        i = (a.outcomes || []).find((r) => this.test(r.if, {}));
-      e.push({
-        id: t,
-        name: a.name,
-        main: !!a.main,
-        state: n,
-        desc: this.text(a.desc),
-        steps: s,
-        outcome: n === 'active' ? null : i ? this.text(i.text) : null,
+        outcome = (quest.outcomes || []).find((candidate) => this.test(candidate.if, {}));
+      list.push({
+        id,
+        name: quest.name,
+        main: !!quest.main,
+        state,
+        desc: this.text(quest.desc),
+        steps,
+        outcome: state === 'active' ? null : outcome ? this.text(outcome.text) : null,
       });
     }
-    return e.sort(
-      (t, a) =>
-        (t.state === 'active' ? 0 : 1) - (a.state === 'active' ? 0 : 1) ||
-        (a.main ? 1 : 0) - (t.main ? 1 : 0),
+    return list.sort(
+      (x, y) =>
+        (x.state === 'active' ? 0 : 1) - (y.state === 'active' ? 0 : 1) ||
+        (y.main ? 1 : 0) - (x.main ? 1 : 0),
     );
   }
+  /** Apunta pasos y cambios de estado de las misiones (avisos, diario y «quest:update»). */
   syncQuests() {
     if (!this.cp) return;
-    let e = this.st;
-    for (let [t, a] of Object.entries(this.data.quests || {})) {
-      let n = this.questState(t),
-        s = (e.quests[t] ??= { state: 'none', steps: {} });
-      for (let r of a.steps || [])
-        !r.id ||
-          s.steps[r.id] ||
-          !r.done ||
-          n === 'none' ||
-          (this.test(r.done, {}) &&
-            ((s.steps[r.id] = this.day()),
-            r.journal && this.journal(this.text(r.journal), `${t}.${r.id}`),
-            this.game.bus?.emit('quest:update', { id: t, state: n, step: r.id })));
-      if (s.state === n) continue;
-      let i = s.state;
+    let st = this.st;
+    for (let [id, quest] of Object.entries(this.data.quests || {})) {
+      let state = this.questState(id),
+        saved = (st.quests[id] ??= { state: 'none', steps: {} });
+      for (let step of quest.steps || [])
+        !step.id ||
+          saved.steps[step.id] ||
+          !step.done ||
+          state === 'none' ||
+          (this.test(step.done, {}) &&
+            ((saved.steps[step.id] = this.day()),
+            step.journal && this.journal(this.text(step.journal), `${id}.${step.id}`),
+            this.game.bus?.emit('quest:update', { id, state, step: step.id })));
+      if (saved.state === state) continue;
+      let old = saved.state;
       if (
-        ((s.state = n),
-        this.game.bus?.emit('quest:update', { id: t, state: n, step: null, old: i }),
-        n === 'active' && i === 'none')
+        ((saved.state = state),
+        this.game.bus?.emit('quest:update', { id, state, step: null, old }),
+        state === 'active' && old === 'none')
       )
-        (this.toast(`Misi\xF3n nueva: ${a.name}`, 'info'),
-          a.journal && this.journal(this.text(a.journal), `${t}.start`));
-      else if (n === 'done') {
-        this.toast(`Misi\xF3n completada: ${a.name}`, 'bien');
-        let r = (a.outcomes || []).find((l) => this.test(l.if, {}));
-        r?.journal && this.journal(this.text(r.journal), `${t}.end`);
+        (this.toast(`Misi\xF3n nueva: ${quest.name}`, 'info'),
+          quest.journal && this.journal(this.text(quest.journal), `${id}.start`));
+      else if (state === 'done') {
+        this.toast(`Misi\xF3n completada: ${quest.name}`, 'bien');
+        let outcome = (quest.outcomes || []).find((candidate) => this.test(candidate.if, {}));
+        outcome?.journal && this.journal(this.text(outcome.journal), `${id}.end`);
       } else
-        n === 'failed' &&
-          (this.toast(`Misi\xF3n fallida: ${a.name}`, 'mal'),
-          a.failJournal && this.journal(this.text(a.failJournal), `${t}.fail`));
+        state === 'failed' &&
+          (this.toast(`Misi\xF3n fallida: ${quest.name}`, 'mal'),
+          quest.failJournal && this.journal(this.text(quest.failJournal), `${id}.fail`));
     }
   }
-  journal(e, t = null) {
-    if (!this.cp || !e) return;
-    let a = t || e.slice(0, 60);
-    this.st.journal[a] ||
-      ((this.st.journal[a] = this.day()),
+  /** Añade una entrada al diario una sola vez (por `key` o por el principio del texto). */
+  journal(text, key = null) {
+    if (!this.cp || !text) return;
+    let entryKey = key || text.slice(0, 60);
+    this.st.journal[entryKey] ||
+      ((this.st.journal[entryKey] = this.day()),
       (this.cp.journal ??= []),
-      this.cp.journal.includes(e) || this.cp.journal.push(e),
-      this.game.bus?.emit('journal:add', { text: e, key: a }));
+      this.cp.journal.includes(text) || this.cp.journal.push(text),
+      this.game.bus?.emit('journal:add', { text, key: entryKey }));
   }
-  approve(e, t, { silent: a = !1 } = {}) {
-    if (!t) return;
-    let n = e === 'all' ? bi.filter((s) => this.inParty(s)) : [e];
-    for (let s of n) {
-      if (!bi.includes(s) || this.flag(`${s}_left`) || (s === 'ilyra' && this.flag('ilyra_dead'))) continue;
-      let i = this.st,
-        r = FD((i.approval[s] ?? 0) + t, -100, 100);
-      ((i.approval[s] = r),
-        this.game.bus?.emit('approval', { who: s, delta: t, value: r }),
-        this.log('aprobaci\xF3n', s, t > 0 ? `+${t}` : t, '\u2192', r),
-        this.inParty(s) &&
-          !a &&
+  /** Cambia la aprobación de un compañero (o de todos, «all»); a −50 o menos, se irá del grupo. */
+  approve(who, delta, { silent = !1 } = {}) {
+    if (!delta) return;
+    let ids = who === 'all' ? COMPANION_IDS.filter((id) => this.inParty(id)) : [who];
+    for (let id of ids) {
+      if (!COMPANION_IDS.includes(id) || this.flag(`${id}_left`) || (id === 'ilyra' && this.flag('ilyra_dead'))) continue;
+      let st = this.st,
+        value = clamp((st.approval[id] ?? 0) + delta, -100, 100);
+      ((st.approval[id] = value),
+        this.game.bus?.emit('approval', { who: id, delta, value }),
+        this.log('aprobaci\xF3n', id, delta > 0 ? `+${delta}` : delta, '\u2192', value),
+        this.inParty(id) &&
+          !silent &&
           this.toast(
-            `${this.companion(s).name} ${t > 0 ? 'lo aprueba' : 'no lo aprueba'}.`,
-            t > 0 ? 'bien' : 'mal',
+            `${this.companion(id).name} ${delta > 0 ? 'lo aprueba' : 'no lo aprueba'}.`,
+            delta > 0 ? 'bien' : 'mal',
           ),
-        r <= -50 &&
-          this.inParty(s) &&
-          !this._pendingLeave?.includes(s) &&
-          (this._pendingLeave ??= []).push(s));
+        value <= -50 &&
+          this.inParty(id) &&
+          !this._pendingLeave?.includes(id) &&
+          (this._pendingLeave ??= []).push(id));
     }
   }
-  mood(e) {
-    let t = this.approval(e);
-    return t >= 60
+  /** Ánimo de un compañero según su aprobación. */
+  mood(id) {
+    let value = this.approval(id);
+    return value >= 60
       ? 'Leal'
-      : t >= 25
+      : value >= 25
         ? 'Amistoso'
-        : t > -10
+        : value > -10
           ? 'Neutral'
-          : t > -35
+          : value > -35
             ? 'Molesto'
             : 'A punto de irse';
   }
+  /** Compañeros conocidos con su aprobación y estado (pantalla de grupo). */
   companions() {
-    return bi
-      .filter((e) => this.cp?.members?.[e] || this.flag(`${e}_joined`))
-      .map((e) => ({
-        id: e,
-        name: this.companion(e).full,
-        approval: this.approval(e),
-        mood: this.mood(e),
-        inParty: this.inParty(e),
-        waiting: !!this.flag(`${e}_waiting`),
-        left: !!this.flag(`${e}_left`),
+    return COMPANION_IDS
+      .filter((id) => this.cp?.members?.[id] || this.flag(`${id}_joined`))
+      .map((id) => ({
+        id,
+        name: this.companion(id).full,
+        approval: this.approval(id),
+        mood: this.mood(id),
+        inParty: this.inParty(id),
+        waiting: !!this.flag(`${id}_waiting`),
+        left: !!this.flag(`${id}_left`),
       }));
   }
-  async recruit(e) {
-    if (this.inParty(e) || !this.cp) return !0;
-    if (this.party().length >= fE) {
-      let a = this.party().filter((r) => r !== 'hero' && bi.includes(r)),
-        n = this.mercs(),
-        s = a.map((r) => ({ text: `Que ${this.companion(r).name} espere en la posada de Merrowick.` }));
-      for (let r of n) s.push({ text: `Despedir a ${this.memberName(r)}, que se pag\xF3 por adelantado.` });
-      s.push({ text: `Que ${this.companion(e).name} espere en la posada de Merrowick.` });
-      let i = await this.show({
+  /** Une un compañero; si el grupo está lleno, pregunta quién espera en la posada. */
+  async recruit(id) {
+    if (this.inParty(id) || !this.cp) return !0;
+    if (this.party().length >= MAX_PARTY) {
+      let companions = this.party().filter((memberId) => memberId !== 'hero' && COMPANION_IDS.includes(memberId)),
+        mercs = this.mercs(),
+        options = companions.map((memberId) => ({ text: `Que ${this.companion(memberId).name} espere en la posada de Merrowick.` }));
+      for (let merc of mercs) options.push({ text: `Despedir a ${this.memberName(merc)}, que se pag\xF3 por adelantado.` });
+      options.push({ text: `Que ${this.companion(id).name} espere en la posada de Merrowick.` });
+      let choice = await this.show({
         speaker: '',
         text: '*El grupo est\xE1 completo: como mucho viaj\xE1is cuatro. Alguien tendr\xE1 que esperar en la posada del Toro Dormido.*',
-        options: s,
+        options,
       });
-      if (i >= a.length && i < a.length + n.length) await this.fireMerc(n[i - a.length]);
+      if (choice >= companions.length && choice < companions.length + mercs.length) await this.fireMerc(mercs[choice - companions.length]);
       else {
-        let r = a[i];
-        if (!r)
+        let other = companions[choice];
+        if (!other)
           return (
-            this.setFlag(`${e}_waiting`, !0),
-            this.toast(`${this.companion(e).name} os esperar\xE1 en la posada.`, 'info'),
+            this.setFlag(`${id}_waiting`, !0),
+            this.toast(`${this.companion(id).name} os esperar\xE1 en la posada.`, 'info'),
             !1
           );
-        await this.sendToInn(r);
+        await this.sendToInn(other);
       }
     }
-    let t = this.rules('cp_recruit', { cp: this.cp, id: e });
-    if (t?.error || t?.ok === !1) {
-      t?.reason && console.warn('[historia] cp_recruit:', t.reason);
-      let a = this.cp;
-      ((a.members[e] ??= { ...(this.data.partySheets?.[e] || { name: this.companion(e).full }), id: e }),
-        a.party.includes(e) || a.party.push(e),
-        (a.state ??= {}),
-        (a.state[e] ??= { hp: 10, dead: !1 }),
-        this.store.set(a));
-    } else this.applyCp(t);
-    (this.setFlag(`${e}_joined`, !0), this.flag(`${e}_waiting`) && this.setFlag(`${e}_waiting`, !1));
+    let res = this.rules('cp_recruit', { cp: this.cp, id });
+    if (res?.error || res?.ok === !1) {
+      res?.reason && console.warn('[historia] cp_recruit:', res.reason);
+      let cp = this.cp;
+      ((cp.members[id] ??= { ...(this.data.partySheets?.[id] || { name: this.companion(id).full }), id }),
+        cp.party.includes(id) || cp.party.push(id),
+        (cp.state ??= {}),
+        (cp.state[id] ??= { hp: 10, dead: !1 }),
+        this.store.set(cp));
+    } else this.applyCp(res);
+    (this.setFlag(`${id}_joined`, !0), this.flag(`${id}_waiting`) && this.setFlag(`${id}_waiting`, !1));
     try {
-      this.game.explore?.addCompanion?.(e);
-    } catch (a) {
-      console.warn(a);
+      this.game.explore?.addCompanion?.(id);
+    } catch (err) {
+      console.warn(err);
     }
     return (
-      this.game.bus?.emit('companion:join', { id: e }),
-      this.toast(`${this.companion(e).full} se une al grupo.`, 'bien'),
+      this.game.bus?.emit('companion:join', { id }),
+      this.toast(`${this.companion(id).full} se une al grupo.`, 'bien'),
       !0
     );
   }
-  async dismiss(e, { left: t = !1 } = {}) {
-    if (!this.party().includes(e)) return;
-    let a = this.rules('cp_dismiss', { cp: this.cp, id: e });
-    if (a?.error) {
-      let n = this.cp;
-      ((n.party = n.party.filter((s) => s !== e)), this.store.set(n));
-    } else this.applyCp(a);
+  /** Saca a un miembro del grupo (`left`: se marcha para siempre). */
+  async dismiss(id, { left = !1 } = {}) {
+    if (!this.party().includes(id)) return;
+    let res = this.rules('cp_dismiss', { cp: this.cp, id });
+    if (res?.error) {
+      let cp = this.cp;
+      ((cp.party = cp.party.filter((member) => member !== id)), this.store.set(cp));
+    } else this.applyCp(res);
     try {
-      this.game.explore?.removeCompanion?.(e);
-    } catch (n) {
-      console.warn(n);
+      this.game.explore?.removeCompanion?.(id);
+    } catch (err) {
+      console.warn(err);
     }
-    (t && this.setFlag(`${e}_left`, !0), this.game.bus?.emit('companion:leave', { id: e, left: t }));
+    (left && this.setFlag(`${id}_left`, !0), this.game.bus?.emit('companion:leave', { id, left }));
   }
+  /** Precio de un mercenario. */
   hirePrice() {
-    return HD * Math.max(1, this.level());
+    return HIRE_PRICE_PER_LEVEL * Math.max(1, this.level());
   }
-  isMerc(e) {
-    return e !== 'hero' && !bi.includes(e) && (!!this.cp?.members?.[e]?.mercenary || /^merc_/.test(e));
+  /** ¿Es un mercenario? */
+  isMerc(id) {
+    return id !== 'hero' && !COMPANION_IDS.includes(id) && (!!this.cp?.members?.[id]?.mercenary || /^merc_/.test(id));
   }
   mercs() {
-    return this.party().filter((e) => this.isMerc(e));
+    return this.party().filter((id) => this.isMerc(id));
   }
-  memberName(e) {
-    return this.cp?.members?.[e]?.name || this.companion(e)?.name || e;
+  memberName(id) {
+    return this.cp?.members?.[id]?.name || this.companion(id)?.name || id;
   }
+  /** Contrata un mercenario con el creador («creador» en modo mercenario); devuelve su id o null. */
   async hire() {
-    let e = this.game.ui,
-      t = this.hirePrice();
+    let ui = this.game.ui,
+      price = this.hirePrice();
     if (!this.cp) return null;
-    if (this.party().length >= fE)
+    if (this.party().length >= MAX_PARTY)
       return (this.toast('El grupo est\xE1 completo: como mucho viaj\xE1is cuatro.', 'mal'), null);
-    if (this.gold() < t) return (this.toast(`Un mercenario cuesta ${t} po y no os llega.`, 'mal'), null);
-    if (!(typeof e?.has == 'function' ? e.has('creador') : !!e?.open))
+    if (this.gold() < price) return (this.toast(`Un mercenario cuesta ${price} po y no os llega.`, 'mal'), null);
+    if (!(typeof ui?.has == 'function' ? ui.has('creador') : !!ui?.open))
       return (this.toast('No hay creador de mercenarios en esta versi\xF3n.', 'mal'), null);
-    let n = new Set(this.party()),
-      s = null;
+    let before = new Set(this.party()),
+      result = null;
     try {
-      s = await e.open('creador', { mode: 'mercenario', title: 'Nuevo mercenario', price: t });
-    } catch (r) {
-      if (r?.abort) throw r;
-      console.warn('[historia] creador de mercenarios:', r);
+      result = await ui.open('creador', { mode: 'mercenario', title: 'Nuevo mercenario', price });
+    } catch (err) {
+      if (err?.abort) throw err;
+      console.warn('[historia] creador de mercenarios:', err);
     }
-    let i = this.party().find((r) => !n.has(r));
-    if (!s || !i) return null;
-    (await this.gainGold(-t),
+    let newId = this.party().find((id) => !before.has(id));
+    if (!result || !newId) return null;
+    (await this.gainGold(-price),
       (this.st.vars.mercs_hired = (Number(this.st.vars.mercs_hired) || 0) + 1),
       this.journal(
-        `Contratamos a ${this.memberName(i)} en el tabl\xF3n del Toro Dormido por ${t} piezas de oro.`,
-        `merc.${i}`,
+        `Contratamos a ${this.memberName(newId)} en el tabl\xF3n del Toro Dormido por ${price} piezas de oro.`,
+        `merc.${newId}`,
       ));
     try {
-      await this.game.explore?.addCompanion?.(i);
-    } catch (r) {
-      console.warn(r);
+      await this.game.explore?.addCompanion?.(newId);
+    } catch (err) {
+      console.warn(err);
     }
-    return i;
+    return newId;
   }
-  async fireMerc(e) {
-    if (!this.isMerc(e) || !this.party().includes(e)) return !1;
-    let t = this.memberName(e);
-    await this.dismiss(e);
-    let a = this.cp;
+  /** Despide a un mercenario y lo borra de la campaña. */
+  async fireMerc(id) {
+    if (!this.isMerc(id) || !this.party().includes(id)) return !1;
+    let name = this.memberName(id);
+    await this.dismiss(id);
+    let cp = this.cp;
     return (
-      delete a.members?.[e],
-      a.state && delete a.state[e],
-      this.store.set?.(a),
-      this.toast(`${t} recoge sus cosas y se despide.`, 'info'),
+      delete cp.members?.[id],
+      cp.state && delete cp.state[id],
+      this.store.set?.(cp),
+      this.toast(`${name} recoge sus cosas y se despide.`, 'info'),
       !0
     );
   }
-  async sendToInn(e) {
-    (await this.dismiss(e),
-      this.setFlag(`${e}_waiting`, !0),
-      this.toast(`${this.companion(e).name} os esperar\xE1 en la posada.`, 'info'));
+  /** Manda a un compañero a esperar en la posada de Merrowick. */
+  async sendToInn(id) {
+    (await this.dismiss(id),
+      this.setFlag(`${id}_waiting`, !0),
+      this.toast(`${this.companion(id).name} os esperar\xE1 en la posada.`, 'info'));
   }
+  /** Despide a los compañeros pendientes de irse (aprobación muy baja). */
   async flushLeaves() {
-    let e = this._pendingLeave || [];
+    let pending = this._pendingLeave || [];
     this._pendingLeave = [];
-    for (let t of e) {
-      if (!this.inParty(t)) continue;
-      let a = this.data.companions?.[t];
+    for (let id of pending) {
+      if (!this.inParty(id)) continue;
+      let def = this.data.companions?.[id];
       (await this.show({
-        speaker: this.companion(t).full,
-        title: this.companion(t).title,
-        who: t,
-        portrait: await this.portrait(t),
-        text: this.text(a?.leave || '\xABHasta aqu\xED he llegado.\xBB'),
+        speaker: this.companion(id).full,
+        title: this.companion(id).title,
+        who: id,
+        portrait: await this.portrait(id),
+        text: this.text(def?.leave || '\xABHasta aqu\xED he llegado.\xBB'),
         options: [{ text: 'Dejarle marchar.', kind: 'end' }],
       }),
-        await this.dismiss(t, { left: !0 }),
-        this.toast(`${this.companion(t).name} ha dejado el grupo.`, 'mal'));
+        await this.dismiss(id, { left: !0 }),
+        this.toast(`${this.companion(id).name} ha dejado el grupo.`, 'mal'));
     }
   }
-  decide(e, t) {
-    let a = this.st;
-    if (a.decisions[e] === t) return;
-    ((a.decisions[e] = t), this.setFlag(e, t), this.game.bus?.emit('decision', { id: e, choice: t }));
-    let n = t === !0 ? e : `${e}=${t}`;
-    for (let s of Ln(this.data.reactions?.[n]))
-      (s.if && !this.test(s.if, {})) ||
-        (this.approve(s.who, s.delta || 0, { silent: !0 }),
-        this.inParty(s.who) &&
-          s.text &&
-          this._pendingReactions.push({ who: s.who, text: s.text, delta: s.delta || 0 }));
+  /** Registra una decisión y aplica las reacciones de los compañeros (datos reactions). */
+  decide(id, choice) {
+    let st = this.st;
+    if (st.decisions[id] === choice) return;
+    ((st.decisions[id] = choice), this.setFlag(id, choice), this.game.bus?.emit('decision', { id, choice }));
+    let key = choice === !0 ? id : `${id}=${choice}`;
+    for (let reaction of toList(this.data.reactions?.[key]))
+      (reaction.if && !this.test(reaction.if, {})) ||
+        (this.approve(reaction.who, reaction.delta || 0, { silent: !0 }),
+        this.inParty(reaction.who) &&
+          reaction.text &&
+          this._pendingReactions.push({ who: reaction.who, text: reaction.text, delta: reaction.delta || 0 }));
   }
+  /** Muestra las reacciones de los compañeros pendientes. */
   async flushReactions() {
-    let e = this._pendingReactions.splice(0);
-    for (let t of e) {
-      let a = this.companion(t.who);
+    let pending = this._pendingReactions.splice(0);
+    for (let reaction of pending) {
+      let companion = this.companion(reaction.who);
       (await this.show({
-        speaker: a.name,
-        title: a.title,
-        who: t.who,
-        portrait: await this.portrait(t.who),
-        text: this.text(t.text),
-        options: [_u],
+        speaker: companion.name,
+        title: companion.title,
+        who: reaction.who,
+        portrait: await this.portrait(reaction.who),
+        text: this.text(reaction.text),
+        options: [CONTINUE_OPTION],
       }),
-        t.delta &&
+        reaction.delta &&
           this.toast(
-            `${a.name} ${t.delta > 0 ? 'lo aprueba' : 'no lo aprueba'}.`,
-            t.delta > 0 ? 'bien' : 'mal',
+            `${companion.name} ${reaction.delta > 0 ? 'lo aprueba' : 'no lo aprueba'}.`,
+            reaction.delta > 0 ? 'bien' : 'mal',
           ));
     }
   }
-  toast(e, t = 'info') {
+  toast(text, kind = 'info') {
     try {
-      this.game.ui?.toast?.(e, t);
+      this.game.ui?.toast?.(text, kind);
     } catch {}
   }
-  async portrait(e) {
-    if (!e) return null;
-    if (this._portraits.has(e)) return this._portraits.get(e);
-    let t = null;
+  /** Retrato de un personaje (game.portrait), cacheado. */
+  async portrait(id) {
+    if (!id) return null;
+    if (this._portraits.has(id)) return this._portraits.get(id);
+    let img = null;
     try {
-      let a = this.game.portrait || this.game.ui?.portrait;
-      typeof a == 'function' && (t = (await a(e)) || null);
+      let render = this.game.portrait || this.game.ui?.portrait;
+      typeof render == 'function' && (img = (await render(id)) || null);
     } catch {
-      t = null;
+      img = null;
     }
-    return (t && this._portraits.set(e, t), t);
+    return (img && this._portraits.set(id, img), img);
   }
-  async show(e) {
-    let t = this.game.ui,
-      a = e.options?.length ? e.options : [_u],
-      n = { speaker: '', title: '', portrait: null, ...e, options: a };
-    typeof n.text == 'string' && n.text.includes('*') && (n.text = ID(n.text));
-    let s = a.filter((c) => c.kind === 'check').length,
-      i = a.filter((c) => c.kind === 'special').length,
-      r = a.filter((c) => c.tone).length;
-    (s || i || r) && this.game.bus?.emit('story:options', { checks: s, specials: i, tones: r });
-    let l = 0;
+  /**
+   * Muestra una pieza de diálogo con sus opciones (game.ui.dialog).
+   * @returns {Promise<number>} índice de la opción elegida
+   */
+  async show(spec) {
+    let ui = this.game.ui,
+      options = spec.options?.length ? spec.options : [CONTINUE_OPTION],
+      view = { speaker: '', title: '', portrait: null, ...spec, options };
+    typeof view.text == 'string' && view.text.includes('*') && (view.text = balanceAsterisks(view.text));
+    let checks = options.filter((opt) => opt.kind === 'check').length,
+      specials = options.filter((opt) => opt.kind === 'special').length,
+      tones = options.filter((opt) => opt.tone).length;
+    (checks || specials || tones) && this.game.bus?.emit('story:options', { checks, specials, tones });
+    let choice = 0;
     try {
-      l = Number(await t.dialog(n));
-    } catch (c) {
-      if (c?.abort) throw c;
-      (console.warn('[historia] ui.dialog:', c), (l = a.length - 1));
+      choice = Number(await ui.dialog(view));
+    } catch (err) {
+      if (err?.abort) throw err;
+      (console.warn('[historia] ui.dialog:', err), (choice = options.length - 1));
     }
-    return ((l >= 0 && l < a.length) || (l = a.length - 1), l);
+    return ((choice >= 0 && choice < options.length) || (choice = options.length - 1), choice);
   }
-  async narrateLines(e, { title: t = '', last: a = null } = {}) {
-    let n = Ln(e)
-      .map((i) => this.text(i))
+  /** Muestra líneas de narración como una sola pieza. */
+  async narrateLines(lines, { title = '', last = null } = {}) {
+    let texts = toList(lines)
+      .map((line) => this.text(line))
       .filter(Boolean);
-    if (!n.length) return;
-    let s = DD(n).join(`
+    if (!texts.length) return;
+    let text = narrationParagraphs(texts).join(`
 
 `);
-    await this.show({ speaker: '', title: t, text: s, options: [a || _u] });
+    await this.show({ speaker: '', title, text, options: [last || CONTINUE_OPTION] });
   }
-  has(e) {
-    return !!this.dialogs[e];
+  /** ¿Existe el diálogo? */
+  has(id) {
+    return !!this.dialogs[id];
   }
-  pickStart(e, t) {
-    for (let a of Ln(e.start)) {
-      if (typeof a == 'string') return a;
-      if (this.test(a.if, t)) return a.goto;
+  /** Nodo inicial del diálogo según sus condiciones de inicio. */
+  pickStart(dialog, ctx) {
+    for (let start of toList(dialog.start)) {
+      if (typeof start == 'string') return start;
+      if (this.test(start.if, ctx)) return start.goto;
     }
-    return Object.keys(e.nodes || {})[0];
+    return Object.keys(dialog.nodes || {})[0];
   }
-  async run(e, t = {}, a = null) {
-    let n = this.dialogs[e];
-    if (!n || !this.cp) return !1;
+  /**
+   * Ejecuta un diálogo completo (nodo a nodo, máximo 200) y después los efectos aplazados.
+   * Un nodo «@dialogo.nodo» salta a otro diálogo.
+   * @returns {Promise<boolean>} false si no existe, no hay partida o ya hay otro abierto
+   */
+  async run(id, ctx = {}, startNode = null) {
+    let dialog = this.dialogs[id];
+    if (!dialog || !this.cp) return !1;
     if (this.active)
       return (
-        console.warn(`[historia] ya hay una conversaci\xF3n abierta (${this.active}); ignoro ${e}`),
+        console.warn(`[historia] ya hay una conversaci\xF3n abierta (${this.active}); ignoro ${id}`),
         !1
       );
-    ((this.active = e),
-      (this.ctx = { ...t, level: t.level || this.levelId() }),
+    ((this.active = id),
+      (this.ctx = { ...ctx, level: ctx.level || this.levelId() }),
       (this._proceed = !1),
-      this.game.bus?.emit('dialog:open', { id: e, npc: n.npc || e, important: !!(n.important ?? n.camp) }));
+      this.game.bus?.emit('dialog:open', { id, npc: dialog.npc || id, important: !!(dialog.important ?? dialog.camp) }));
     try {
       this.game.explore?.busy?.(!0);
     } catch {}
-    let s = a || this.pickStart(n, this.ctx),
-      i,
-      r = 0;
+    let nodeId = startNode || this.pickStart(dialog, this.ctx),
+      roll,
+      guard = 0;
     try {
-      for (; s && s !== 'end' && r++ < 200;) {
-        if (s.startsWith('@')) {
-          let [x, g] = s.slice(1).split('.');
-          if (((n = this.dialogs[x]), !n)) break;
-          s = g || this.pickStart(n, this.ctx);
+      for (; nodeId && nodeId !== 'end' && guard++ < 200;) {
+        if (nodeId.startsWith('@')) {
+          let [dialogId, nodeRef] = nodeId.slice(1).split('.');
+          if (((dialog = this.dialogs[dialogId]), !dialog)) break;
+          nodeId = nodeRef || this.pickStart(dialog, this.ctx);
           continue;
         }
-        let c = n.nodes?.[s];
-        if (!c) {
-          console.warn(`[historia] nodo inexistente ${n.id}.${s}`);
+        let node = dialog.nodes?.[nodeId];
+        if (!node) {
+          console.warn(`[historia] nodo inexistente ${dialog.id}.${nodeId}`);
           break;
         }
-        let d = `${n.id}.${s}`;
-        ((this._at = d), (this.st.seen[d] = (this.st.seen[d] || 0) + 1));
-        let u = Ln(c.redirect).find((x) => this.test(x.if));
-        if (u) {
-          s = u.goto;
+        let nodeKey = `${dialog.id}.${nodeId}`;
+        ((this._at = nodeKey), (this.st.seen[nodeKey] = (this.st.seen[nodeKey] || 0) + 1));
+        let redirect = toList(node.redirect).find((rule) => this.test(rule.if));
+        if (redirect) {
+          nodeId = redirect.goto;
           continue;
         }
-        let h = await this.apply(c.do);
-        if (h.end) break;
-        if (h.goto) {
-          s = h.goto;
+        let result = await this.apply(node.do);
+        if (result.end) break;
+        if (result.goto) {
+          nodeId = result.goto;
           continue;
         }
-        let p = await this.pieces(n, c),
-          m = h.deferredEnd ? [] : this.options(n, s, c);
-        for (let x = 0; x < p.length - 1; x++)
-          (await this.show({ ...p[x], roll: x === 0 ? i : void 0, options: [_u] }), (i = void 0));
-        let _ = p[p.length - 1] || { speaker: '', text: '' };
-        if (!m.length) {
-          let x = h.deferredEnd ? null : c.next,
-            g = x ? _u : { text: c.endText || 'Continuar', kind: 'end' };
-          (await this.show({ ..._, roll: p.length === 1 ? i : void 0, options: [g] }),
-            (i = void 0),
-            await this.apply(c.then),
+        let pieces = await this.pieces(dialog, node),
+          options = result.deferredEnd ? [] : this.options(dialog, nodeId, node);
+        for (let k = 0; k < pieces.length - 1; k++)
+          (await this.show({ ...pieces[k], roll: k === 0 ? roll : void 0, options: [CONTINUE_OPTION] }), (roll = void 0));
+        let last = pieces[pieces.length - 1] || { speaker: '', text: '' };
+        if (!options.length) {
+          let nextId = result.deferredEnd ? null : node.next,
+            endOption = nextId ? CONTINUE_OPTION : { text: node.endText || 'Continuar', kind: 'end' };
+          (await this.show({ ...last, roll: pieces.length === 1 ? roll : void 0, options: [endOption] }),
+            (roll = void 0),
+            await this.apply(node.then),
             await this.flushReactions(),
-            (s = x || 'end'));
+            (nodeId = nextId || 'end'));
           continue;
         }
-        let b = await this.show({ ..._, roll: p.length === 1 ? i : void 0, options: m.map((x) => x.view) });
-        ((i = void 0), await this.apply(c.then));
-        let f = m[b],
-          v = await this.choose(n, s, f);
-        if ((await this.flushReactions(), v.end)) break;
-        ((i = v.roll), (s = v.goto));
+        let choice = await this.show({ ...last, roll: pieces.length === 1 ? roll : void 0, options: options.map((opt) => opt.view) });
+        ((roll = void 0), await this.apply(node.then));
+        let picked = options[choice],
+          outcome = await this.choose(dialog, nodeId, picked);
+        if ((await this.flushReactions(), outcome.end)) break;
+        ((roll = outcome.roll), (nodeId = outcome.goto));
       }
     } finally {
-      ((this.active = null), (this.ctx = {}), this.game.bus?.emit('dialog:close', { id: e }));
+      ((this.active = null), (this.ctx = {}), this.game.bus?.emit('dialog:close', { id }));
       try {
         this.game.explore?.busy?.(!1);
       } catch {}
@@ -673,388 +729,404 @@ const StoryRunner = class {
     (await this.flushReactions(), await this.flushLeaves(), this.syncQuests());
     try {
       this._needRefresh && this.game.explore?.refresh?.();
-    } catch (c) {
-      console.warn(c);
+    } catch (err) {
+      console.warn(err);
     }
     this._needRefresh = !1;
-    let l = this._deferred.splice(0);
-    for (let c of l) await this.runDeferred(c);
+    let deferred = this._deferred.splice(0);
+    for (let deferredEffect of deferred) await this.runDeferred(deferredEffect);
     return (this.syncQuests(), !0);
   }
-  async pieces(e, t) {
-    let a = [],
-      n = t.who || null,
-      s = n ? this.companion(n).name : t.speaker !== void 0 ? t.speaker : e.speaker,
-      i = !n && t.speaker === '',
-      r = n ? this.companion(n).title : t.title !== void 0 ? t.title : i ? '' : e.title,
-      l = n || t.portrait || e.portrait || e.npc || e.id,
-      c = this.text(t.text),
-      d = c
+  /** Piezas de un nodo: intervenciones «before», el texto del nodo y las «after». */
+  async pieces(dialog, node) {
+    let out = [],
+      who = node.who || null,
+      speaker = who ? this.companion(who).name : node.speaker !== void 0 ? node.speaker : dialog.speaker,
+      silent = !who && node.speaker === '',
+      title = who ? this.companion(who).title : node.title !== void 0 ? node.title : silent ? '' : dialog.title,
+      portraitId = who || node.portrait || dialog.portrait || dialog.npc || dialog.id,
+      text = this.text(node.text),
+      main = text
         ? {
-            speaker: this.text(s || ''),
-            title: this.text(r || ''),
-            who: n || void 0,
-            npc: !n && s ? l : void 0,
-            portrait: s ? await this.portrait(l) : null,
-            text: c,
+            speaker: this.text(speaker || ''),
+            title: this.text(title || ''),
+            who: who || void 0,
+            npc: !who && speaker ? portraitId : void 0,
+            portrait: speaker ? await this.portrait(portraitId) : null,
+            text,
           }
         : null,
-      u = [],
-      h = [];
-    for (let p of Ln(t.say)) {
-      if (!this.inParty(p.who) || !this.test(p.if)) continue;
-      let m = this.companion(p.who),
-        _ = {
-          speaker: m.name,
-          title: m.title,
-          who: p.who,
-          portrait: await this.portrait(p.who),
-          text: this.text(p.text),
+      before = [],
+      after = [];
+    for (let line of toList(node.say)) {
+      if (!this.inParty(line.who) || !this.test(line.if)) continue;
+      let companion = this.companion(line.who),
+        piece = {
+          speaker: companion.name,
+          title: companion.title,
+          who: line.who,
+          portrait: await this.portrait(line.who),
+          text: this.text(line.text),
         },
-        b = p.at === 'before' ? u : h;
-      if ((b.push(_), p.approve)) for (let [f, v] of Object.entries(p.approve)) this.approve(f, v);
-      p.reply && d && b.push({ ...d, text: this.text(p.reply) });
+        bucket = line.at === 'before' ? before : after;
+      if ((bucket.push(piece), line.approve)) for (let [companionId, delta] of Object.entries(line.approve)) this.approve(companionId, delta);
+      line.reply && main && bucket.push({ ...main, text: this.text(line.reply) });
     }
     return (
-      a.push(...u),
-      d && a.push(d),
-      a.push(...h),
-      a.length || a.push({ speaker: '', text: '\u2026' }),
-      a
+      out.push(...before),
+      main && out.push(main),
+      out.push(...after),
+      out.length || out.push({ speaker: '', text: '\u2026' }),
+      out
     );
   }
-  checkSpec(e) {
-    if (!e) return null;
-    if (typeof e == 'string') {
-      let [t, a, n] = e.split(':');
-      return { skill: t, dc: Number(a), who: n || 'hero' };
+  /** Prueba de una opción: «habilidad:CD[:quien]» u objeto. */
+  checkSpec(spec) {
+    if (!spec) return null;
+    if (typeof spec == 'string') {
+      let [skill, dc, who] = spec.split(':');
+      return { skill, dc: Number(dc), who: who || 'hero' };
     }
-    return { who: 'hero', ...e };
+    return { who: 'hero', ...spec };
   }
-  dcOf(e) {
-    let t = Number(e.dc ?? 10);
-    for (let a of Ln(e.easier)) this.test(a.if) && (t = Math.min(t, Number(a.dc)));
-    for (let a of Ln(e.harder)) this.test(a.if) && (t = Math.max(t, Number(a.dc)));
-    return t;
+  /** CD de una prueba con sus ajustes «easier»/«harder» condicionales. */
+  dcOf(spec) {
+    let dc = Number(spec.dc ?? 10);
+    for (let mod of toList(spec.easier)) this.test(mod.if) && (dc = Math.min(dc, Number(mod.dc)));
+    for (let mod of toList(spec.harder)) this.test(mod.if) && (dc = Math.max(dc, Number(mod.dc)));
+    return dc;
   }
-  costOf(e) {
-    if (!e.cost) return 0;
-    if (typeof e.cost == 'number') return e.cost;
-    let t = /^party\*(\d+)$/.exec(String(e.cost));
-    return t ? this.partySize() * Number(t[1]) : Number(e.cost) || 0;
+  /** Coste en oro de una opción («party*N»: N por miembro). */
+  costOf(option) {
+    if (!option.cost) return 0;
+    if (typeof option.cost == 'number') return option.cost;
+    let match = /^party\*(\d+)$/.exec(String(option.cost));
+    return match ? this.partySize() * Number(match[1]) : Number(option.cost) || 0;
   }
-  options(e, t, a) {
-    let n = [],
-      s = a.optionsFrom ? e.nodes?.[a.optionsFrom] : a,
-      i = a.optionsFrom || t;
+  /** Opciones visibles de un nodo con su etiqueta ([Habilidad CD], [Mago], [N po]…). */
+  options(dialog, nodeId, node) {
+    let out = [],
+      source = node.optionsFrom ? dialog.nodes?.[node.optionsFrom] : node,
+      sourceId = node.optionsFrom || nodeId;
     return (
-      Ln(s?.options)
-        .flatMap((l, c) =>
-          l.each
-            ? this.eachOf(l.each).map((d) => ({
-                ...this.bindEach(l, d),
-                key: `${l.key || `${e.id}.${i}.${c}`}.${d.id}`,
+      toList(source?.options)
+        .flatMap((opt, index) =>
+          opt.each
+            ? this.eachOf(opt.each).map((item) => ({
+                ...this.bindEach(opt, item),
+                key: `${opt.key || `${dialog.id}.${sourceId}.${index}`}.${item.id}`,
               }))
-            : [{ ...l, key: l.key || `${e.id}.${i}.${c}` }],
+            : [{ ...opt, key: opt.key || `${dialog.id}.${sourceId}.${index}` }],
         )
-        .forEach((l) => {
-          let c = l.key,
-            d = this.checkSpec(l.check);
+        .forEach((opt) => {
+          let key = opt.key,
+            check = this.checkSpec(opt.check);
           if (
-            (d && d.who && !['hero', 'best', 'group'].includes(d.who) && !this.inParty(d.who)) ||
-            !this.test(l.if)
+            (check && check.who && !['hero', 'best', 'group'].includes(check.who) && !this.inParty(check.who)) ||
+            !this.test(opt.if)
           )
             return;
-          let u = this.costOf(l);
-          if (u && this.gold() < u) return;
-          let h = l.price === 'hire' ? this.hirePrice() : Number(l.price) || 0;
+          let cost = this.costOf(opt);
+          if (cost && this.gold() < cost) return;
+          let price = opt.price === 'hire' ? this.hirePrice() : Number(opt.price) || 0;
           if (
-            (h && this.gold() < h) ||
-            ((l.once || (d && l.once !== !1)) && (this.st.once[c] || this.st.tried[c]))
+            (price && this.gold() < price) ||
+            ((opt.once || (check && opt.once !== !1)) && (this.st.once[key] || this.st.tried[key]))
           )
             return;
-          let p = l.tag || null,
-            m = l.end ? 'end' : null;
-          if (d) {
-            let b = d.skill
-              ? SKILL_NAMES[d.skill] || d.skill
-              : d.ability
-                ? ABILITY_NAMES[d.ability]
-                : d.save
-                  ? `Salvaci\xF3n de ${ABILITY_NAMES[d.save]}`
+          let tag = opt.tag || null,
+            kind = opt.end ? 'end' : null;
+          if (check) {
+            let skillName = check.skill
+              ? SKILL_NAMES[check.skill] || check.skill
+              : check.ability
+                ? ABILITY_NAMES[check.ability]
+                : check.save
+                  ? `Salvaci\xF3n de ${ABILITY_NAMES[check.save]}`
                   : '?';
-            ((p = `[${d.who === 'hero' || d.who === 'best' ? '' : d.who === 'group' ? 'Grupo \xB7 ' : `${this.companion(d.who).name} \xB7 `}${b} CD ${this.dcOf(d)}]`),
-              (m = 'check'));
-          } else if (!p && typeof l.special == 'string') ((p = `[${l.special}]`), (m = 'special'));
-          else if (!p && l.if && l.special !== !1) {
-            for (let b of conditionAtoms(l.if)) {
-              let f = conditionTag(b);
-              if (f && !l.if.startsWith('!')) {
-                p = f;
+            ((tag = `[${check.who === 'hero' || check.who === 'best' ? '' : check.who === 'group' ? 'Grupo \xB7 ' : `${this.companion(check.who).name} \xB7 `}${skillName} CD ${this.dcOf(check)}]`),
+              (kind = 'check'));
+          } else if (!tag && typeof opt.special == 'string') ((tag = `[${opt.special}]`), (kind = 'special'));
+          else if (!tag && opt.if && opt.special !== !1) {
+            for (let atom of conditionAtoms(opt.if)) {
+              let atomTag = conditionTag(atom);
+              if (atomTag && !opt.if.startsWith('!')) {
+                tag = atomTag;
                 break;
               }
             }
-            p && (m = 'special');
+            tag && (kind = 'special');
           }
-          (l.special && l.special !== !0 && !p && (p = `[${l.special}]`),
-            l.special && !d && (m = 'special'),
-            (u || h) && (p = `${p ? p + ' ' : ''}[${u || h} po]`),
-            l.free && (p = `${p ? p + ' ' : ''}[${l.free}]`));
-          let _ = { text: this.text(l.text), tag: p, kind: m };
-          (l.tone && ND.includes(l.tone) && (_.tone = l.tone),
-            n.push({ ...l, key: c, spec: d, view: _, cost: u }));
+          (opt.special && opt.special !== !0 && !tag && (tag = `[${opt.special}]`),
+            opt.special && !check && (kind = 'special'),
+            (cost || price) && (tag = `${tag ? tag + ' ' : ''}[${cost || price} po]`),
+            opt.free && (tag = `${tag ? tag + ' ' : ''}[${opt.free}]`));
+          let view = { text: this.text(opt.text), tag, kind };
+          (opt.tone && TONES.includes(opt.tone) && (view.tone = opt.tone),
+            out.push({ ...opt, key, spec: check, view, cost }));
         }),
-      n
+      out
     );
   }
-  eachOf(e) {
-    return e === 'merc'
-      ? this.mercs().map((t) => ({ id: t, name: this.memberName(t) }))
-      : e === 'companion'
+  /** Elementos de una opción plantilla («merc» o «companion»). */
+  eachOf(kind) {
+    return kind === 'merc'
+      ? this.mercs().map((id) => ({ id, name: this.memberName(id) }))
+      : kind === 'companion'
         ? this.party()
-            .filter((t) => bi.includes(t))
-            .map((t) => ({ id: t, name: this.companion(t).name }))
+            .filter((id) => COMPANION_IDS.includes(id))
+            .map((id) => ({ id, name: this.companion(id).name }))
         : [];
   }
-  bindEach(e, t) {
-    let a = (i) =>
-        typeof i == 'string'
-          ? i.replace(/\{each:id\}/g, t.id).replace(/\{each:name\}/g, t.name)
-          : Array.isArray(i)
-            ? i.map(a)
-            : i && typeof i == 'object'
-              ? Object.fromEntries(Object.entries(i).map(([r, l]) => [r, a(l)]))
-              : i,
-      { each: n, ...s } = e;
-    return a(s);
+  /** Copia la opción sustituyendo {each:id} y {each:name}. */
+  bindEach(option, item) {
+    let bind = (value) =>
+        typeof value == 'string'
+          ? value.replace(/\{each:id\}/g, item.id).replace(/\{each:name\}/g, item.name)
+          : Array.isArray(value)
+            ? value.map(bind)
+            : value && typeof value == 'object'
+              ? Object.fromEntries(Object.entries(value).map(([key, v]) => [key, bind(v)]))
+              : value,
+      { each, ...rest } = option;
+    return bind(rest);
   }
-  async choose(e, t, a) {
-    let n = this.st;
+  /** Aplica la opción elegida (tono, coste, aprobación, efectos, prueba) y devuelve {goto} o {end}. */
+  async choose(dialog, nodeId, option) {
+    let st = this.st;
     if (
-      (a.tone && (n.tone[a.tone] = (n.tone[a.tone] || 0) + 1),
-      a.once && (n.once[a.key] = 1),
-      a.cost && (await this.gainGold(-this.costOf(a))),
-      a.approve)
+      (option.tone && (st.tone[option.tone] = (st.tone[option.tone] || 0) + 1),
+      option.once && (st.once[option.key] = 1),
+      option.cost && (await this.gainGold(-this.costOf(option))),
+      option.approve)
     )
-      for (let [i, r] of Object.entries(a.approve)) this.approve(i, r);
-    let s = await this.apply(a.do);
-    if (s.end || s.deferredEnd) return { end: !0 };
-    if (s.goto) return { goto: s.goto };
-    if (a.spec) {
-      let i = await this.check(a.spec);
-      n.tried[a.key] = i.success ? 'ok' : 'fail';
-      let r = i.success ? a.success : a.failure,
-        l = await this.apply(i.success ? a.onSuccess : a.onFailure);
-      return l.end || l.deferredEnd ? { end: !0, roll: i } : { goto: l.goto || r || 'end', roll: i };
+      for (let [who, delta] of Object.entries(option.approve)) this.approve(who, delta);
+    let result = await this.apply(option.do);
+    if (result.end || result.deferredEnd) return { end: !0 };
+    if (result.goto) return { goto: result.goto };
+    if (option.spec) {
+      let roll = await this.check(option.spec);
+      st.tried[option.key] = roll.success ? 'ok' : 'fail';
+      let next = roll.success ? option.success : option.failure,
+        after = await this.apply(roll.success ? option.onSuccess : option.onFailure);
+      return after.end || after.deferredEnd ? { end: !0, roll } : { goto: after.goto || next || 'end', roll };
     }
-    return a.end ? { end: !0 } : { goto: a.goto || 'end' };
+    return option.end ? { end: !0 } : { goto: option.goto || 'end' };
   }
-  async check(e) {
-    e = this.checkSpec(e);
-    let t = this.cp,
-      a = this.dcOf(e),
-      n = e.adv ? this.test(e.adv) : !1,
-      s = e.dis ? this.test(e.dis) : !1,
-      i = e.who || 'hero',
-      r;
-    if (i === 'group') {
-      let l = this.rules('group_check', { cp: t, skill: e.skill, dc: a });
-      if (!l?.error && l?.results)
-        r = {
-          ...(l.results.slice().sort((d, u) => u.total - d.total)[0] || {}),
+  /**
+   * Tira una prueba (núcleo `check`/`group_check`/`best`, o tirada propia si falla) y emite «story:roll».
+   * `who`: un id, «hero», «best» (el mejor del grupo) o «group» (prueba de grupo).
+   */
+  async check(spec) {
+    spec = this.checkSpec(spec);
+    let cp = this.cp,
+      dc = this.dcOf(spec),
+      adv = spec.adv ? this.test(spec.adv) : !1,
+      dis = spec.dis ? this.test(spec.dis) : !1,
+      who = spec.who || 'hero',
+      roll;
+    if (who === 'group') {
+      let res = this.rules('group_check', { cp, skill: spec.skill, dc });
+      if (!res?.error && res?.results)
+        roll = {
+          ...(res.results.slice().sort((x, y) => y.total - x.total)[0] || {}),
           who: 'Grupo',
-          label: `${SKILL_NAMES[e.skill] || e.skill} (grupo)`,
-          dc: a,
-          success: !!l.success,
-          group: l.results,
+          label: `${SKILL_NAMES[spec.skill] || spec.skill} (grupo)`,
+          dc,
+          success: !!res.success,
+          group: res.results,
         };
       else {
-        let c = this.party()
-            .filter((h) => !this.isDead(h))
-            .map((h) => this.fallbackCheck(h, e, a, n, s)),
-          d = c.filter((h) => h.success).length * 2 >= c.length;
-        r = {
-          ...(c.slice().sort((h, p) => p.total - h.total)[0] || {}),
+        let rolls = this.party()
+            .filter((id) => !this.isDead(id))
+            .map((id) => this.fallbackCheck(id, spec, dc, adv, dis)),
+          success = rolls.filter((entry) => entry.success).length * 2 >= rolls.length;
+        roll = {
+          ...(rolls.slice().sort((x, y) => y.total - x.total)[0] || {}),
           who: 'Grupo',
-          label: `${SKILL_NAMES[e.skill] || e.skill} (grupo)`,
-          dc: a,
-          success: d,
-          group: c,
+          label: `${SKILL_NAMES[spec.skill] || spec.skill} (grupo)`,
+          dc,
+          success,
+          group: rolls,
           provisional: !0,
         };
       }
     } else {
-      if (i === 'best') {
-        let c = e.skill ? this.rules('best', { cp: t, skill: e.skill }) : { error: 'sin habilidad' };
-        if (!c?.error && c?.who) i = c.who;
+      if (who === 'best') {
+        let best = spec.skill ? this.rules('best', { cp, skill: spec.skill }) : { error: 'sin habilidad' };
+        if (!best?.error && best?.who) who = best.who;
         else {
-          let d = -99;
-          for (let u of this.party()) {
-            if (this.isDead(u)) continue;
-            let h = this.fallbackMod(u, e);
-            h > d && ((d = h), (i = u));
+          let bestMod = -99;
+          for (let id of this.party()) {
+            if (this.isDead(id)) continue;
+            let mod = this.fallbackMod(id, spec);
+            mod > bestMod && ((bestMod = mod), (who = id));
           }
-          i === 'best' && (i = 'hero');
+          who === 'best' && (who = 'hero');
         }
       }
-      let l = { cp: t, who: i, dc: a, adv: n, dis: s };
-      (e.skill ? (l.skill = e.skill) : e.ability ? (l.ability = e.ability) : e.save && (l.save = e.save),
-        e.tool && (l.tool = e.tool),
-        (r = this.rules('check', l)),
-        (r?.error || typeof r?.total != 'number') && (r = this.fallbackCheck(i, e, a, n, s)),
-        (r = { ...r, id: i, who: r.who && r.who !== i ? r.who : this.name(i) }));
+      let args = { cp, who, dc, adv, dis };
+      (spec.skill ? (args.skill = spec.skill) : spec.ability ? (args.ability = spec.ability) : spec.save && (args.save = spec.save),
+        spec.tool && (args.tool = spec.tool),
+        (roll = this.rules('check', args)),
+        (roll?.error || typeof roll?.total != 'number') && (roll = this.fallbackCheck(who, spec, dc, adv, dis)),
+        (roll = { ...roll, id: who, who: roll.who && roll.who !== who ? roll.who : this.name(who) }));
     }
     return (
-      (r.dc = a),
-      (r.label ||= e.skill ? SKILL_NAMES[e.skill] : e.ability ? ABILITY_NAMES[e.ability] : `Salvaci\xF3n de ${ABILITY_NAMES[e.save]}`),
+      (roll.dc = dc),
+      (roll.label ||= spec.skill ? SKILL_NAMES[spec.skill] : spec.ability ? ABILITY_NAMES[spec.ability] : `Salvaci\xF3n de ${ABILITY_NAMES[spec.save]}`),
       this.debug.rollMode === 'success' &&
-        !r.success &&
-        Object.assign(r, { success: !0, total: Math.max(r.total ?? 0, a), forced: !0 }),
+        !roll.success &&
+        Object.assign(roll, { success: !0, total: Math.max(roll.total ?? 0, dc), forced: !0 }),
       this.debug.rollMode === 'failure' &&
-        r.success &&
-        Object.assign(r, { success: !1, total: Math.min(r.total ?? 0, a - 1), forced: !0 }),
-      this.log('tirada', r.who, r.label, `${r.total} vs CD ${a}`, r.success ? '\xE9xito' : 'fallo'),
-      this.game.bus?.emit('story:roll', { roll: r }),
-      r
+        roll.success &&
+        Object.assign(roll, { success: !1, total: Math.min(roll.total ?? 0, dc - 1), forced: !0 }),
+      this.log('tirada', roll.who, roll.label, `${roll.total} vs CD ${dc}`, roll.success ? '\xE9xito' : 'fallo'),
+      this.game.bus?.emit('story:roll', { roll }),
+      roll
     );
   }
-  fallbackMod(e, t) {
-    let a = this.cp?.members?.[e] || {},
-      n = t.skill ? SKILL_ABILITIES[t.skill] : t.ability || t.save,
-      s = Number(a.final_abilities?.[n] ?? (a.abilities?.[n] ?? 10) + Number(a.bg_bonus?.[n] ?? 0)),
-      i = Math.floor((s - 10) / 2),
-      r = 2 + Math.floor((Math.max(1, this.level()) - 1) / 4);
+  /** Modificador aproximado de un miembro (característica + competencia/pericia) sin el núcleo. */
+  fallbackMod(id, spec) {
+    let member = this.cp?.members?.[id] || {},
+      ability = spec.skill ? SKILL_ABILITIES[spec.skill] : spec.ability || spec.save,
+      score = Number(member.final_abilities?.[ability] ?? (member.abilities?.[ability] ?? 10) + Number(member.bg_bonus?.[ability] ?? 0)),
+      mod = Math.floor((score - 10) / 2),
+      prof = 2 + Math.floor((Math.max(1, this.level()) - 1) / 4);
     return (
-      t.skill && Ln(a.skills).includes(t.skill) && (i += Ln(a.expertise).includes(t.skill) ? r * 2 : r),
-      i
+      spec.skill && toList(member.skills).includes(spec.skill) && (mod += toList(member.expertise).includes(spec.skill) ? prof * 2 : prof),
+      mod
     );
   }
-  fallbackCheck(e, t, a, n, s) {
-    let i = this.fallbackMod(e, t),
-      r = 1 + Math.floor(this.rnd() * 20),
-      l = 1 + Math.floor(this.rnd() * 20),
-      c = n && !s ? [r, l] : s && !n ? [r, l] : [r],
-      d = n && !s ? Math.max(r, l) : s && !n ? Math.min(r, l) : r,
-      u = d + i;
+  /** Prueba tirada en JS (d20 con ventaja/desventaja) cuando el núcleo no responde. */
+  fallbackCheck(id, spec, dc, adv, dis) {
+    let mod = this.fallbackMod(id, spec),
+      d1 = 1 + Math.floor(this.rnd() * 20),
+      d2 = 1 + Math.floor(this.rnd() * 20),
+      dice = adv && !dis ? [d1, d2] : dis && !adv ? [d1, d2] : [d1],
+      kept = adv && !dis ? Math.max(d1, d2) : dis && !adv ? Math.min(d1, d2) : d1,
+      total = kept + mod;
     return {
-      who: this.name(e),
-      id: e,
-      label: t.skill ? SKILL_NAMES[t.skill] : ABILITY_NAMES[t.ability || t.save],
-      d20: c,
-      mod: i,
-      total: u,
-      dc: a,
-      success: u >= a,
-      crit: d === 20,
+      who: this.name(id),
+      id,
+      label: spec.skill ? SKILL_NAMES[spec.skill] : ABILITY_NAMES[spec.ability || spec.save],
+      d20: dice,
+      mod,
+      total,
+      dc,
+      success: total >= dc,
+      crit: kept === 20,
       provisional: !0,
     };
   }
-  async apply(e) {
-    let t = {};
-    for (let a of Ln(e)) {
-      let n;
+  /** Aplica una lista de efectos; devuelve {goto}, {end} o {deferredEnd} si alguno corta el diálogo. */
+  async apply(effects) {
+    let result = {};
+    for (let spec of toList(effects)) {
+      let effect;
       try {
-        n = parseEffect(a);
-      } catch (s) {
-        console.warn('[historia]', s.message);
+        effect = parseEffect(spec);
+      } catch (err) {
+        console.warn('[historia]', err.message);
         continue;
       }
-      if (n.op === 'cond') {
-        let s = await this.apply(this.test(n.if) ? n.do : n.else);
-        if ((s.deferredEnd && (t.deferredEnd = !0), s.end || s.goto)) return { ...t, ...s };
+      if (effect.op === 'cond') {
+        let sub = await this.apply(this.test(effect.if) ? effect.do : effect.else);
+        if ((sub.deferredEnd && (result.deferredEnd = !0), sub.end || sub.goto)) return { ...result, ...sub };
         continue;
       }
-      if (n.op === 'goto') return { goto: n.node };
-      if (n.op === 'end') return ((t.end = !0), t);
-      if (DEFERRED_EFFECTS.has(n.op)) {
-        (this._deferred.push(n),
-          n.op === 'battle' && (this._groupOutcome = 'battle'),
-          n.op !== 'levelup' && (t.deferredEnd = !0));
+      if (effect.op === 'goto') return { goto: effect.node };
+      if (effect.op === 'end') return ((result.end = !0), result);
+      if (DEFERRED_EFFECTS.has(effect.op)) {
+        (this._deferred.push(effect),
+          effect.op === 'battle' && (this._groupOutcome = 'battle'),
+          effect.op !== 'levelup' && (result.deferredEnd = !0));
         continue;
       }
-      await this.effect(n);
+      await this.effect(effect);
     }
-    return t;
+    return result;
   }
-  async effect(e) {
-    let t = this.game;
-    switch (e.op) {
+  /** Aplica un efecto inmediato (banderas, oro, objetos, compañeros, curación, daño, narración…). */
+  async effect(effect) {
+    let game = this.game;
+    switch (effect.op) {
       case 'set':
-        (this.setFlag(e.flag, e.value), (this._needRefresh = !0));
+        (this.setFlag(effect.flag, effect.value), (this._needRefresh = !0));
         break;
       case 'unset':
         (this.cp?.flags &&
-          (delete this.cp.flags[e.flag], t.bus?.emit('flag:set', { name: e.flag, value: void 0, old: !0 })),
+          (delete this.cp.flags[effect.flag], game.bus?.emit('flag:set', { name: effect.flag, value: void 0, old: !0 })),
           (this._needRefresh = !0));
         break;
       case 'inc':
-        this.setFlag(e.flag, Number(this.flag(e.flag) || 0) + e.by);
+        this.setFlag(effect.flag, Number(this.flag(effect.flag) || 0) + effect.by);
         break;
       case 'var':
-        this.st.vars[e.name] = e.value;
+        this.st.vars[effect.name] = effect.value;
         break;
       case 'gold':
-        await this.gainGold(e.delta);
+        await this.gainGold(effect.delta);
         break;
       case 'give':
-        this.giveItem(e.item, e.n);
+        this.giveItem(effect.item, effect.n);
         break;
       case 'take':
-        this.takeItem(e.item, e.n);
+        this.takeItem(effect.item, effect.n);
         break;
       case 'recruit':
-        await this.recruit(e.who);
+        await this.recruit(effect.who);
         break;
       case 'dismiss':
-        await this.dismiss(e.who, { left: !0 });
+        await this.dismiss(effect.who, { left: !0 });
         break;
       case 'wait':
-        await this.sendToInn(e.who);
+        await this.sendToInn(effect.who);
         break;
       case 'fire':
-        await this.fireMerc(e.who);
+        await this.fireMerc(effect.who);
         break;
       case 'approve':
-        this.approve(e.who, e.delta);
+        this.approve(effect.who, effect.delta);
         break;
       case 'decision':
-        (this.decide(e.id, e.choice), (this._needRefresh = !0));
+        (this.decide(effect.id, effect.choice), (this._needRefresh = !0));
         break;
       case 'journal':
-        this.journal(this.text(e.text));
+        this.journal(this.text(effect.text));
         break;
       case 'toast':
-        this.toast(this.text(e.text), 'info');
+        this.toast(this.text(effect.text), 'info');
         break;
       case 'leave':
         this._groupOutcome = 'leave';
         try {
-          await t.explore?.removeGroup?.(e.group, { flee: !0 });
-        } catch (a) {
-          if (a?.abort) throw a;
-          console.warn(a);
+          await game.explore?.removeGroup?.(effect.group, { flee: !0 });
+        } catch (err) {
+          if (err?.abort) throw err;
+          console.warn(err);
         }
-        t.bus?.emit('story:group_left', { group: e.group });
+        game.bus?.emit('story:group_left', { group: effect.group });
         break;
       case 'place':
-        (this.setFlag(`place_${e.id}`, !0),
-          this.toast(`Nuevo lugar en el mapa: ${this.data.places?.[e.id] || e.id}.`, 'info'));
+        (this.setFlag(`place_${effect.id}`, !0),
+          this.toast(`Nuevo lugar en el mapa: ${this.data.places?.[effect.id] || effect.id}.`, 'info'));
         break;
       case 'object':
         try {
-          t.explore?.setObjectState?.(e.id, e.state);
-        } catch (a) {
-          if (a?.abort) throw a;
-          console.warn(a);
+          game.explore?.setObjectState?.(effect.id, effect.state);
+        } catch (err) {
+          if (err?.abort) throw err;
+          console.warn(err);
         }
         this._needRefresh = !0;
         break;
       case 'npc':
         try {
-          e.state === 'hide' && t.explore?.removeNpc?.(e.id);
-        } catch (a) {
-          if (a?.abort) throw a;
-          console.warn(a);
+          effect.state === 'hide' && game.explore?.removeNpc?.(effect.id);
+        } catch (err) {
+          if (err?.abort) throw err;
+          console.warn(err);
         }
         this._needRefresh = !0;
         break;
@@ -1062,141 +1134,142 @@ const StoryRunner = class {
         this._needRefresh = !0;
         break;
       case 'heal': {
-        let a = this.rules('cp_heal', { cp: this.cp, id: 'all' });
-        if (a?.error) {
-          for (let n of this.party()) {
-            let s = this.cp.state?.[n];
-            s && s.max_hp && !s.dead && (s.hp = s.max_hp);
+        let res = this.rules('cp_heal', { cp: this.cp, id: 'all' });
+        if (res?.error) {
+          for (let id of this.party()) {
+            let state = this.cp.state?.[id];
+            state && state.max_hp && !state.dead && (state.hp = state.max_hp);
           }
           this.store.set(this.cp);
-        } else this.applyCp(a);
+        } else this.applyCp(res);
         (this.toast('Las heridas se cierran: todo el grupo recupera sus puntos de golpe.', 'bien'),
-          t.bus?.emit('story:healed', {}));
+          game.bus?.emit('story:healed', {}));
         break;
       }
       case 'identify': {
-        let a = this.rules('identify', { cp: this.cp });
-        if (a?.error)
+        let res = this.rules('identify', { cp: this.cp });
+        if (res?.error)
           this.toast(
             'La hermana Aldis examina vuestras cosas\u2026 (identificar: pendiente del n\xFAcleo)',
             'info',
           );
         else {
-          this.applyCp(a);
-          let n = Ln(a.identified).map((s) => s.name || s);
-          this.toast(n.length ? `Identificado: ${n.join(', ')}.` : 'No hay nada por identificar.', 'info');
+          this.applyCp(res);
+          let names = toList(res.identified).map((item) => item.name || item);
+          this.toast(names.length ? `Identificado: ${names.join(', ')}.` : 'No hay nada por identificar.', 'info');
         }
         break;
       }
       case 'raise': {
-        let a = this.rules('cp_revive', { cp: this.cp, id: e.who });
-        if (!a?.error && a?.cp) {
-          (this.applyCp(a), this.toast(`${this.name(e.who)} vuelve a respirar.`, 'bien'));
+        let res = this.rules('cp_revive', { cp: this.cp, id: effect.who });
+        if (!res?.error && res?.cp) {
+          (this.applyCp(res), this.toast(`${this.name(effect.who)} vuelve a respirar.`, 'bien'));
           break;
         }
-        let n = this.cp?.state?.[e.who];
-        n &&
-          ((n.dead = !1),
-          (n.hp = Math.max(1, n.hp || 0)),
+        let state = this.cp?.state?.[effect.who];
+        state &&
+          ((state.dead = !1),
+          (state.hp = Math.max(1, state.hp || 0)),
           this.store.set(this.cp),
-          this.toast(`${this.name(e.who)} vuelve a respirar.`, 'bien'));
+          this.toast(`${this.name(effect.who)} vuelve a respirar.`, 'bien'));
         break;
       }
       case 'damage': {
-        let a = e.who === 'actor' ? this.ctx.actor || 'hero' : e.who === 'leader' ? this.party()[0] : e.who,
-          n = rollDice(e.dice, this.rnd),
-          s = !1;
-        if (e.save) {
-          let r = await this.check({ save: e.save, dc: e.dc || 12, who: a });
-          ((s = r.success), s && (n = Math.floor(n / 2)), (this._lastRoll = r));
+        let target = effect.who === 'actor' ? this.ctx.actor || 'hero' : effect.who === 'leader' ? this.party()[0] : effect.who,
+          amount = rollDice(effect.dice, this.rnd),
+          saved = !1;
+        if (effect.save) {
+          let roll = await this.check({ save: effect.save, dc: effect.dc || 12, who: target });
+          ((saved = roll.success), saved && (amount = Math.floor(amount / 2)), (this._lastRoll = roll));
         }
-        let i = this.rules('cp_damage', { cp: this.cp, id: a, amount: n, type: e.type });
-        if (i?.error) {
-          let r = this.cp.state?.[a];
-          r && (r.hp = Math.max(0, (r.hp ?? 10) - n));
-        } else this.applyCp(i);
+        let res = this.rules('cp_damage', { cp: this.cp, id: target, amount, type: effect.type });
+        if (res?.error) {
+          let state = this.cp.state?.[target];
+          state && (state.hp = Math.max(0, (state.hp ?? 10) - amount));
+        } else this.applyCp(res);
         (this.toast(
-          `${this.name(a)} sufre ${n} de da\xF1o${s ? ' (se aparta a tiempo: la mitad)' : ''}.`,
+          `${this.name(target)} sufre ${amount} de da\xF1o${saved ? ' (se aparta a tiempo: la mitad)' : ''}.`,
           'mal',
         ),
-          t.bus?.emit('story:damage', { who: a, amount: n, type: e.type }));
+          game.bus?.emit('story:damage', { who: target, amount, type: effect.type }));
         break;
       }
       case 'narrate': {
-        let a = await this.narrate(e.moment, { ...(e.data || {}), fallback: e.lines });
-        a && (await this.narrateLines([a]));
+        let text = await this.narrate(effect.moment, { ...(effect.data || {}), fallback: effect.lines });
+        text && (await this.narrateLines([text]));
         break;
       }
       case 'say':
         try {
-          t.explore?.say
-            ? t.explore.say(e.who, this.text(e.text))
-            : this.toast(`${this.name(e.who)}: ${this.text(e.text)}`, 'info');
+          game.explore?.say
+            ? game.explore.say(effect.who, this.text(effect.text))
+            : this.toast(`${this.name(effect.who)}: ${this.text(effect.text)}`, 'info');
         } catch {}
         break;
       case 'sfx':
         try {
-          t.audio?.sfx?.(e.name);
+          game.audio?.sfx?.(effect.name);
         } catch {}
-        t.bus?.emit('story:sfx', { name: e.name });
+        game.bus?.emit('story:sfx', { name: effect.name });
         break;
       case 'proceed':
         this._proceed = !0;
         break;
       case 'prefetch':
-        this.narrator?.prefetch?.(e.moment, { key: e.key || 'final' });
+        this.narrator?.prefetch?.(effect.moment, { key: effect.key || 'final' });
         break;
       default:
-        console.warn('[historia] efecto sin implementar:', e.op);
+        console.warn('[historia] efecto sin implementar:', effect.op);
     }
   }
-  async runDeferred(e) {
-    let t = this.game;
-    switch (e.op) {
+  /** Ejecuta un efecto aplazado al cerrar el diálogo (combate, tienda, descanso, nivel, viaje…). */
+  async runDeferred(effect) {
+    let game = this.game;
+    switch (effect.op) {
       case 'battle': {
         this._battleSeq++;
-        let a = this._battleSeq,
-          n = { won: !1, fled: !1 };
+        let seq = this._battleSeq,
+          outcome = { won: !1, fled: !1 };
         try {
-          t.explore?.startBattle
-            ? (n = (await t.explore.startBattle(e.group, { surprise: e.surprise })) || n)
-            : console.warn('[historia] sin exploraci\xF3n: combate', e.group, 'no empieza');
-        } catch (s) {
-          if (s?.abort) throw s;
-          console.warn(s);
+          game.explore?.startBattle
+            ? (outcome = (await game.explore.startBattle(effect.group, { surprise: effect.surprise })) || outcome)
+            : console.warn('[historia] sin exploraci\xF3n: combate', effect.group, 'no empieza');
+        } catch (err) {
+          if (err?.abort) throw err;
+          console.warn(err);
         }
-        !this._afterHandled.has(`${e.group}#${a}`) &&
-          t.explore?.startBattle &&
+        !this._afterHandled.has(`${effect.group}#${seq}`) &&
+          game.explore?.startBattle &&
           (await this.afterBattle({
-            group: e.group,
-            won: !!n.won,
-            fled: !!n.fled,
+            group: effect.group,
+            won: !!outcome.won,
+            fled: !!outcome.fled,
             level: this.levelId(),
-            _seq: a,
+            _seq: seq,
           }));
         break;
       }
       case 'shop':
-        await t.ui?.open?.('tienda', { merchant: e.merchant });
+        await game.ui?.open?.('tienda', { merchant: effect.merchant });
         break;
       case 'rest': {
-        let a = e.where === 'camp' ? 'campamento' : 'posada',
-          n = await t.ui?.open?.('descanso', { kind: 'largo', where: a, paid: !0 });
-        n != null && (await this.rest({ kind: 'largo', where: a }));
+        let where = effect.where === 'camp' ? 'campamento' : 'posada',
+          res = await game.ui?.open?.('descanso', { kind: 'largo', where, paid: !0 });
+        res != null && (await this.rest({ kind: 'largo', where }));
         break;
       }
       case 'levelup':
-        await this.levelUp(e.level);
+        await this.levelUp(effect.level);
         break;
       case 'hire':
         await this.hire();
         break;
       case 'travel':
         try {
-          t.explore?.travel?.(e.level, e.spawn);
-        } catch (a) {
-          if (a?.abort) throw a;
-          console.warn(a);
+          game.explore?.travel?.(effect.level, effect.spawn);
+        } catch (err) {
+          if (err?.abort) throw err;
+          console.warn(err);
         }
         break;
       case 'epilogue':
@@ -1204,81 +1277,87 @@ const StoryRunner = class {
         break;
     }
   }
-  async levelUp(e) {
-    if (!this.cp || this.level() >= e) return;
-    let t = this.game.ui;
+  /** Sube el grupo de nivel (pantalla «nivel» o directamente con el núcleo). */
+  async levelUp(level) {
+    if (!this.cp || this.level() >= level) return;
+    let ui = this.game.ui;
     if (
-      (typeof t?.has == 'function' ? t.has('nivel') : !!t?.open) &&
-      (await t.open('nivel', { level: e }), this.level() >= e)
+      (typeof ui?.has == 'function' ? ui.has('nivel') : !!ui?.open) &&
+      (await ui.open('nivel', { level }), this.level() >= level)
     )
       return;
-    let n = this.rules('cp_level_up', { cp: this.cp, level: e });
-    n?.error ||
-      (this.applyCp(n), this.game.bus?.emit('levelup', { level: e }), this.toast(`\xA1Nivel ${e}!`, 'bien'));
+    let res = this.rules('cp_level_up', { cp: this.cp, level });
+    res?.error ||
+      (this.applyCp(res), this.game.bus?.emit('levelup', { level }), this.toast(`\xA1Nivel ${level}!`, 'bien'));
   }
-  async gainGold(e) {
-    if (!e || !this.cp) return;
-    let t = this.rules('cp_gold', { cp: this.cp, delta: e });
-    (t?.error
-      ? ((this.cp.gold = Math.max(0, (this.cp.gold || 0) + e)), this.store.set(this.cp))
-      : this.applyCp(t),
-      this.game.bus?.emit('gold', { delta: e }),
-      this.toast(e > 0 ? `Recib\xEDs ${e} po.` : `Pag\xE1is ${-e} po.`, e > 0 ? 'botin' : 'info'));
+  /** Suma o resta oro y avisa. */
+  async gainGold(delta) {
+    if (!delta || !this.cp) return;
+    let res = this.rules('cp_gold', { cp: this.cp, delta });
+    (res?.error
+      ? ((this.cp.gold = Math.max(0, (this.cp.gold || 0) + delta)), this.store.set(this.cp))
+      : this.applyCp(res),
+      this.game.bus?.emit('gold', { delta }),
+      this.toast(delta > 0 ? `Recib\xEDs ${delta} po.` : `Pag\xE1is ${-delta} po.`, delta > 0 ? 'botin' : 'info'));
   }
-  giveItem(e, t = 1) {
+  /** Da objetos al grupo y emite «item:gain». */
+  giveItem(item, count = 1) {
     if (!this.cp) return;
-    let a = this.rules('cp_give', { cp: this.cp, item: e, n: t });
-    if (a?.error) {
-      let s = this.cp.members?.hero || this.cp.members?.[this.party()[0]];
-      s && ((s.items ??= {}), (s.items[e] = Number(s.items[e] || 0) + t), this.store.set(this.cp));
-    } else this.applyCp(a);
-    (this.onLoot?.({ items: [{ id: e, n: t }] }),
-      this.game.bus?.emit('item:gain', { id: e, n: t, who: a?.who || 'hero', source: 'story' }));
-    let n = this.data.items?.[e]?.name || e;
-    this.toast(`Obtenido: ${n}${t > 1 ? ` \xD7${t}` : ''}.`, 'botin');
+    let res = this.rules('cp_give', { cp: this.cp, item, n: count });
+    if (res?.error) {
+      let member = this.cp.members?.hero || this.cp.members?.[this.party()[0]];
+      member && ((member.items ??= {}), (member.items[item] = Number(member.items[item] || 0) + count), this.store.set(this.cp));
+    } else this.applyCp(res);
+    (this.onLoot?.({ items: [{ id: item, n: count }] }),
+      this.game.bus?.emit('item:gain', { id: item, n: count, who: res?.who || 'hero', source: 'story' }));
+    let name = this.data.items?.[item]?.name || item;
+    this.toast(`Obtenido: ${name}${count > 1 ? ` \xD7${count}` : ''}.`, 'botin');
   }
-  takeItem(e, t = 1) {
+  /** Quita objetos del grupo: cp_take, si no inv_drop por portador y, si no, a mano. */
+  takeItem(item, count = 1) {
     if (!this.cp) return;
-    let a = this.rules('cp_take', { cp: this.cp, item: e, n: t });
-    if (!a?.error) {
-      this.applyCp(a);
+    let res = this.rules('cp_take', { cp: this.cp, item, n: count });
+    if (!res?.error) {
+      this.applyCp(res);
       return;
     }
-    let n = this.rules('has_item', { cp: this.cp, item: e });
-    if (!n?.error && Array.isArray(n.holders)) {
-      let i = t;
-      for (let r of n.holders) {
-        if (i <= 0) break;
-        let l = Math.min(i, Number(r.n || 1)),
-          c = this.rules('inv_drop', { cp: this.cp, who: r.id, item: e, n: l });
-        !c?.error && c?.ok !== !1 && (this.applyCp(c), (i -= l));
+    let holding = this.rules('has_item', { cp: this.cp, item });
+    if (!holding?.error && Array.isArray(holding.holders)) {
+      let toDrop = count;
+      for (let holder of holding.holders) {
+        if (toDrop <= 0) break;
+        let take = Math.min(toDrop, Number(holder.n || 1)),
+          dropRes = this.rules('inv_drop', { cp: this.cp, who: holder.id, item, n: take });
+        !dropRes?.error && dropRes?.ok !== !1 && (this.applyCp(dropRes), (toDrop -= take));
       }
-      if (i <= 0) return;
+      if (toDrop <= 0) return;
     }
-    let s = t;
-    for (let i of this.party()) {
-      let r = this.cp.members?.[i];
-      if (!r || s <= 0) continue;
-      let l = Number(r.items?.[e] || 0);
-      if (l > 0) {
-        let c = Math.min(l, s);
-        ((r.items[e] = l - c), r.items[e] || delete r.items[e], (s -= c));
+    let remaining = count;
+    for (let id of this.party()) {
+      let member = this.cp.members?.[id];
+      if (!member || remaining <= 0) continue;
+      let have = Number(member.items?.[item] || 0);
+      if (have > 0) {
+        let take = Math.min(have, remaining);
+        ((member.items[item] = have - take), member.items[item] || delete member.items[item], (remaining -= take));
       }
-      if (s > 0 && Array.isArray(r.pack))
-        for (let c = r.pack.length - 1; c >= 0 && s > 0; c--)
-          r.pack[c]?.id === e && (r.pack.splice(c, 1), s--);
+      if (remaining > 0 && Array.isArray(member.pack))
+        for (let k = member.pack.length - 1; k >= 0 && remaining > 0; k--)
+          member.pack[k]?.id === item && (member.pack.splice(k, 1), remaining--);
     }
     this.store.set(this.cp);
   }
-  async narrate(e, t = {}) {
-    return this.narrator ? this.narrator.narrate(e, t) : this.narrationFallback(e, t);
+  /** Narración de un momento (con IA si hay narrador). */
+  async narrate(moment, data = {}) {
+    return this.narrator ? this.narrator.narrate(moment, data) : this.narrationFallback(moment, data);
   }
-  narrationFallback(e, t = {}) {
-    if (t.fallback) return this.text(Ln(t.fallback));
-    let a = this.data.narration?.moments?.[e];
-    if (!a) return '';
-    let n = Ln(a.variants).find((s) => this.test(s.if, t.ctx || {}));
-    return this.text(Ln(n?.text ?? a.text));
+  /** Texto de respaldo de un momento (datos narration.moments o `data.fallback`). */
+  narrationFallback(moment, data = {}) {
+    if (data.fallback) return this.text(toList(data.fallback));
+    let def = this.data.narration?.moments?.[moment];
+    if (!def) return '';
+    let variant = toList(def.variants).find((v) => this.test(v.if, data.ctx || {}));
+    return this.text(toList(variant?.text ?? def.text));
   }
 };
 

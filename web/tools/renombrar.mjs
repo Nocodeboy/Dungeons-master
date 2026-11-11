@@ -211,6 +211,21 @@ function resolverClaves(modelo, mapa, plan, rel) {
     }
   }
   if (pendientes.size) throw new Error(`${rel}: claves sin resolver (no existen o son ambiguas): ${[...pendientes].join(', ')}`);
+  // Sin cadenas (a → b y b → c en el mismo ámbito): al reaplicar el mapa, la clave de «b» encontraría
+  // el enlace que ya se llama «b» y el mapa dejaría de ser idempotente.
+  const viejosPorAmbito = new Map();
+  for (const b of plan.keys()) {
+    if (!viejosPorAmbito.has(b.scope)) viejosPorAmbito.set(b.scope, new Set());
+    viejosPorAmbito.get(b.scope).add(b.identifier.name);
+  }
+  for (const [b, nuevo] of plan) {
+    for (let sc = b.scope; sc; sc = sc.parent) {
+      if (viejosPorAmbito.get(sc)?.has(nuevo) && sc.getOwnBinding(nuevo) !== b) {
+        throw new Error(`${rel}:${b.identifier.loc.start.line} «${b.identifier.name}» → «${nuevo}»: «${nuevo}» es también un nombre viejo del mapa en ese ámbito (cadena de renombres)`);
+      }
+      if (sc === b.scope) break;
+    }
+  }
   return aplicadas;
 }
 
