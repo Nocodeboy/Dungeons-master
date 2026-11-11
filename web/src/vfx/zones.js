@@ -14,7 +14,7 @@ import {
   Vector3,
 } from 'three';
 import { FRAME } from './atlas.js';
-import { Yr, ar } from './shaders.js';
+import { LightPillar, HexWave } from './shaders.js';
 
 function JI() {
   let o = new Group(),
@@ -121,7 +121,7 @@ const l1 = class {
         .reduce((r, l) => r.add(l), new Vector3())
         .divideScalar(Math.max(1, this.pts.length))),
       (this.hex = e.piece(
-        new ar(n, e.cellToWorld, {
+        new HexWave(n, e.cellToWorld, {
           color: i.col,
           life: 0,
           hold: !0,
@@ -139,7 +139,14 @@ const l1 = class {
       let r = 0.8;
       for (let l of this.pts) r = Math.max(r, Math.hypot(l.x - this.center.x, l.z - this.center.z) + 0.7);
       ((this.pillar = e.piece(
-        new Yr(this.center, { color: i.col, radius: r, height: 10, life: 0, alpha: 0.38, glow: 1.1 }),
+        new LightPillar(this.center, {
+          color: i.col,
+          radius: r,
+          height: 10,
+          life: 0,
+          alpha: 0.38,
+          glow: 1.1,
+        }),
       )),
         (this.pillar.keep = !0));
     }

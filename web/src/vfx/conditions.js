@@ -14,7 +14,7 @@ import {
 } from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { FRAME } from './atlas.js';
-import { Xr, nr, xi } from './shaders.js';
+import { Dome, RuneCircle, Decal } from './shaders.js';
 
 function BS(o) {
   let e = new Set();
@@ -215,7 +215,7 @@ const i1 = class {
     (t.ring &&
       a.parts.push(
         n.piece(
-          new xi(s, {
+          new Decal(s, {
             frame: FRAME.ring,
             color: t.ring,
             size: 1.25,
@@ -229,7 +229,7 @@ const i1 = class {
       t.dome &&
         a.parts.push(
           n.piece(
-            new Xr(s, {
+            new Dome(s, {
               color: t.dome.col,
               radius: 0.95,
               life: 0,
@@ -241,7 +241,9 @@ const i1 = class {
         ),
       t.runes &&
         a.parts.push(
-          n.piece(new nr(s, { color: t.runes, radius: 0.75, life: 0, alpha: 0.45, spin: 0.5, glow: 1.6 })),
+          n.piece(
+            new RuneCircle(s, { color: t.runes, radius: 0.75, life: 0, alpha: 0.45, spin: 0.5, glow: 1.6 }),
+          ),
         ));
     for (let i of a.parts) i.keep = !0;
     (t.web && (a.web = this.makeWeb()),
@@ -450,7 +452,7 @@ const i1 = class {
       for (let h of d.parts)
         ((h.mesh.position.x = a.x),
           (h.mesh.position.z = a.z),
-          (h.mesh.position.y = a.y + (h instanceof xi ? 0.04 : h instanceof nr ? 0.05 : 0)),
+          (h.mesh.position.y = a.y + (h instanceof Decal ? 0.04 : h instanceof RuneCircle ? 0.05 : 0)),
           (h.mesh.visible = s));
       if (
         (d.web &&

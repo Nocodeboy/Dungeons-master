@@ -15,7 +15,7 @@ import {
 } from 'three';
 import { ParticleSystem } from './particles.js';
 import { FRAME } from './atlas.js';
-import { tr, ku, Xr, Yr, ar, nr, Au, xi } from './shaders.js';
+import { Beam, RingWave, Dome, LightPillar, HexWave, RuneCircle, SlashArc, Decal } from './shaders.js';
 import { getStyle, resolveStyleKey, DAMAGE_STYLE } from './styles.js';
 import efectosConjuros from '../datos/efectos/conjuros.json';
 import { FS, OS } from './spells.js';
@@ -216,25 +216,25 @@ function createVfx({
         });
       },
       ring(x, g = {}) {
-        return this.piece(new ku(x, g));
+        return this.piece(new RingWave(x, g));
       },
       dome(x, g = {}) {
-        return this.piece(new Xr(x, g));
+        return this.piece(new Dome(x, g));
       },
       pillar(x, g = {}) {
-        return this.piece(new Yr(x, g));
+        return this.piece(new LightPillar(x, g));
       },
       hexwave(x, g = {}) {
-        return !x || !x.length ? null : this.piece(new ar(x, this.cellToWorld, g));
+        return !x || !x.length ? null : this.piece(new HexWave(x, this.cellToWorld, g));
       },
       runes(x, g = {}) {
-        return this.piece(new nr(x, g));
+        return this.piece(new RuneCircle(x, g));
       },
       slash(x, g = {}) {
-        return this.piece(new Au(x, e, g));
+        return this.piece(new SlashArc(x, e, g));
       },
       decal(x, g = {}) {
-        return this.piece(new xi(x, g));
+        return this.piece(new Decal(x, g));
       },
       beam(
         x,
@@ -251,7 +251,7 @@ function createVfx({
           hot: M = null,
         } = {},
       ) {
-        let R = new tr({
+        let R = new Beam({
           width: w,
           color: y,
           life: k,
@@ -265,7 +265,7 @@ function createVfx({
         return (R.setLine(x, g, T === 'bolt' ? 18 : 14), this.piece(R));
       },
       ribbon(x, g = {}) {
-        let y = new tr({
+        let y = new Beam({
           width: g.width ?? 0.12,
           color: g.col ?? 16777215,
           life: g.life ?? 0.5,
@@ -369,7 +369,7 @@ function createVfx({
         let J = null;
         U && ((J = QI(w === 'dart' ? 'arrow' : w)), r.add(J));
         let Z = z
-          ? new tr({
+          ? new Beam({
               width: U ? 0.05 : 0.34 * S,
               color: U ? 16774368 : R.c,
               glow: U ? 0.8 : 1.5,
@@ -1176,17 +1176,17 @@ function createVfx({
       async prewarm(x, g = o) {
         let y = new Vector3(0, -50, 0),
           w = [
-            new tr({ life: 0 }).setLine(y, y.clone().add(new Vector3(1, 0, 0)), 2),
-            new tr({ life: 0, mode: 'trail' }),
-            new ku(y, { life: 1 }),
-            new Xr(y, { life: 0 }),
-            new Yr(y, { life: 0 }),
-            new ar([[0, 0]], () => y.clone(), { life: 1 }),
-            new ar([[0, 0]], () => y.clone(), { life: 1, blend: 'alpha' }),
-            new nr(y, { life: 0 }),
-            new Au(y, e, {}),
-            new xi(y, { life: 0 }),
-            new xi(y, { life: 0, blend: 'alpha' }),
+            new Beam({ life: 0 }).setLine(y, y.clone().add(new Vector3(1, 0, 0)), 2),
+            new Beam({ life: 0, mode: 'trail' }),
+            new RingWave(y, { life: 1 }),
+            new Dome(y, { life: 0 }),
+            new LightPillar(y, { life: 0 }),
+            new HexWave([[0, 0]], () => y.clone(), { life: 1 }),
+            new HexWave([[0, 0]], () => y.clone(), { life: 1, blend: 'alpha' }),
+            new RuneCircle(y, { life: 0 }),
+            new SlashArc(y, e, {}),
+            new Decal(y, { life: 0 }),
+            new Decal(y, { life: 0, blend: 'alpha' }),
           ];
         for (let k of w) r.add(k.mesh);
         (l.spawn({ p: y, life: 0.01, size: 0.01 }), c.spawn({ p: y, life: 0.01, size: 0.01 }));

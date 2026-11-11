@@ -1,5 +1,16 @@
 // vfx/shaders.js
-// Reconstruido de publicado/juego.js (módulo __esm «zm»). Nombres locales aún minificados.
+// Piezas de efecto con sombreador propio (ShaderMaterial, ruido fbm en GLSL). Cada clase crea su
+// `mesh` y tiene `update(dt)`, que devuelve false cuando la pieza ha terminado, y `dispose()`:
+//   Beam        cinta entre puntos (rayo continuo, relámpago que se rehace o estela que se afina)
+//   RingWave    onda en anillo que se expande por el suelo (o en vertical)
+//   Dome        cúpula o esfera translúcida con borde de Fresnel y retícula hexagonal opcional
+//   LightPillar columna de luz que cae y se ensancha
+//   HexWave     casillas hexagonales que se encienden en oleada desde un origen
+//   RuneCircle  círculo mágico giratorio sobre el suelo (textura del atlas.js)
+//   SlashArc    arco de tajo de cuerpo a cuerpo orientado a la cámara
+//   Decal       silueta del atlas tumbada en el suelo
+// Las usan vfx/index.js (métodos ring, dome, pillar, hexwave, runes, slash, decal, beam…),
+// conditions.js y zones.js. Reconstruido de publicado/juego.js (módulo __esm «zm»).
 
 import {
   AdditiveBlending,
@@ -25,42 +36,54 @@ import { getParticleAtlas, getMagicCircleTexture, ATLAS_COLS, ATLAS_ROWS } from 
 import { hexShape, HEX_SIZE, HEX_RADIUS } from '../explore/hex.js';
 import { toColor } from './particles.js';
 
-function or(o, e = 1) {
-  let t = toColor(o).clone();
-  return new Vector3(t.r * e, t.g * e, t.b * e);
+/** Color como Vector3 multiplicado por `glow` (valores > 1 hacen que brille con el bloom). */
+function glowColor(color, glow = 1) {
+  let rgb = toColor(color).clone();
+  return new Vector3(rgb.r * glow, rgb.g * glow, rgb.b * glow);
 }
-function sr(o, e, t, { blend: a = 'add', side: n = FrontSide, depthTest: s = !0 } = {}) {
+/** ShaderMaterial transparente sin escritura de profundidad; mezcla aditiva salvo `blend: 'alpha'`. */
+function makeMaterial(
+  uniforms,
+  vertexShader,
+  fragmentShader,
+  { blend = 'add', side = FrontSide, depthTest = !0 } = {},
+) {
   return new ShaderMaterial({
-    uniforms: o,
-    vertexShader: e,
-    fragmentShader: t,
+    uniforms,
+    vertexShader,
+    fragmentShader,
     transparent: !0,
     depthWrite: !1,
-    depthTest: s,
-    side: n,
-    blending: a === 'add' ? AdditiveBlending : NormalBlending,
+    depthTest,
+    side,
+    blending: blend === 'add' ? AdditiveBlending : NormalBlending,
   });
 }
-function IS() {
+/** Geometría plana de una casilla hexagonal (95 % del tamaño), compartida. */
+function getHexGeometry() {
   return (
-    Rm || ((Rm = new ShapeGeometry(hexShape(HEX_RADIUS * HEX_SIZE * 0.95))), Rm.rotateX(-Math.PI / 2)),
-    Rm
+    hexGeometry ||
+      ((hexGeometry = new ShapeGeometry(hexShape(HEX_RADIUS * HEX_SIZE * 0.95))),
+      hexGeometry.rotateX(-Math.PI / 2)),
+    hexGeometry
   );
 }
-const Ru = `
+// Ruido de valor y fbm en GLSL, compartido por los sombreadores de fragmentos.
+const NOISE_GLSL = `
 float vh(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float vn(vec2 p){ vec2 i = floor(p); vec2 f = fract(p); f = f*f*(3.0-2.0*f);
   return mix(mix(vh(i), vh(i+vec2(1,0)), f.x), mix(vh(i+vec2(0,1)), vh(i+vec2(1,1)), f.x), f.y); }
 float fbm(vec2 p){ return 0.55*vn(p) + 0.3*vn(p*2.1+3.1) + 0.15*vn(p*4.3+7.7); }`;
-const Cm = (o) => 1 - (1 - o) ** 3;
-const LI = `
+/** Suavizado cúbico de salida en [0, 1]. */
+const easeOutCubic = (t) => 1 - (1 - t) ** 3;
+const BEAM_VERTEX_SHADER = `
 attribute float aW;
 varying vec2 vUv; varying float vW;
 void main(){ vUv = uv; vW = aW; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`;
-const DI = `
+const BEAM_FRAGMENT_SHADER = `
 uniform vec3 uColor; uniform float uAlpha; uniform float uTime; uniform float uLen; uniform float uMode; uniform float uSpeed; uniform float uHot;
 varying vec2 vUv; varying float vW;
-${Ru}
+${NOISE_GLSL}
 void main(){
   float across = abs(vUv.y * 2.0 - 1.0);
   float core = pow(1.0 - across, 1.6);
@@ -72,141 +95,164 @@ void main(){
   vec3 col = uColor * (0.7 + 0.8 * n) + uColor * hot * uHot + vec3(hot * uHot * 0.35);
   gl_FragColor = vec4(col, alpha);
 }`;
-const tr = class {
+/**
+ * Cinta de luz entre puntos. `mode`: 'beam' (rayo), 'bolt' (relámpago: rehace el zigzag al azar) o
+ * 'trail' (estela que se afina hacia la cola). `life` 0 = permanente hasta que se retire.
+ */
+const Beam = class {
   constructor({
-    max: e = 40,
-    width: t = 0.18,
-    color: a = 16777215,
-    glow: n = 2,
-    alpha: s = 1,
-    mode: i = 'beam',
-    speed: r = 6,
-    life: l = 0.5,
-    fadeIn: c = 0.06,
-    jitter: d = 0.25,
-    hot: u = null,
+    max = 40,
+    width = 0.18,
+    color = 16777215,
+    glow = 2,
+    alpha = 1,
+    mode = 'beam',
+    speed = 6,
+    life = 0.5,
+    fadeIn = 0.06,
+    jitter = 0.25,
+    hot = null,
   } = {}) {
-    ((this.max = e),
-      (this.width = t),
-      (this.mode = i),
-      (this.life = l),
-      (this.fadeIn = c),
-      (this.alpha = s),
-      (this.jitter = d),
+    ((this.max = max),
+      (this.width = width),
+      (this.mode = mode),
+      (this.life = life),
+      (this.fadeIn = fadeIn),
+      (this.alpha = alpha),
+      (this.jitter = jitter),
       (this.t = 0),
       (this.pts = []),
       (this.base = []),
       (this.widths = null));
-    let h = new BufferGeometry();
-    (h.setAttribute('position', new BufferAttribute(new Float32Array(e * 6), 3).setUsage(DynamicDrawUsage)),
-      h.setAttribute('uv', new BufferAttribute(new Float32Array(e * 4), 2).setUsage(DynamicDrawUsage)),
-      h.setAttribute('aW', new BufferAttribute(new Float32Array(e * 2), 1).setUsage(DynamicDrawUsage)));
-    let p = [];
-    for (let m = 0; m < e - 1; m++) {
-      let _ = m * 2;
-      p.push(_, _ + 1, _ + 2, _ + 1, _ + 3, _ + 2);
+    let geometry = new BufferGeometry();
+    (geometry.setAttribute(
+      'position',
+      new BufferAttribute(new Float32Array(max * 6), 3).setUsage(DynamicDrawUsage),
+    ),
+      geometry.setAttribute(
+        'uv',
+        new BufferAttribute(new Float32Array(max * 4), 2).setUsage(DynamicDrawUsage),
+      ),
+      geometry.setAttribute(
+        'aW',
+        new BufferAttribute(new Float32Array(max * 2), 1).setUsage(DynamicDrawUsage),
+      ));
+    let indices = [];
+    for (let i = 0; i < max - 1; i++) {
+      let v = i * 2;
+      indices.push(v, v + 1, v + 2, v + 1, v + 3, v + 2);
     }
-    (h.setIndex(p),
-      (this.geo = h),
+    (geometry.setIndex(indices),
+      (this.geo = geometry),
       (this.uniforms = {
-        uColor: { value: or(a, n) },
+        uColor: { value: glowColor(color, glow) },
         uAlpha: { value: 0 },
         uTime: { value: Math.random() * 10 },
         uLen: { value: 1 },
-        uMode: { value: i === 'trail' ? 2 : i === 'bolt' ? 1 : 0 },
-        uSpeed: { value: r },
-        uHot: { value: u ?? (i === 'trail' ? 0.4 : 1.2) },
+        uMode: { value: mode === 'trail' ? 2 : mode === 'bolt' ? 1 : 0 },
+        uSpeed: { value: speed },
+        uHot: { value: hot ?? (mode === 'trail' ? 0.4 : 1.2) },
       }),
-      (this.mesh = new Mesh(h, sr(this.uniforms, LI, DI, { side: DoubleSide }))),
+      (this.mesh = new Mesh(
+        geometry,
+        makeMaterial(this.uniforms, BEAM_VERTEX_SHADER, BEAM_FRAGMENT_SHADER, { side: DoubleSide }),
+      )),
       (this.mesh.frustumCulled = !1),
       (this.mesh.renderOrder = 13));
   }
-  setPoints(e) {
+  /** Fija los puntos de la cinta (se copian). */
+  setPoints(points) {
     return (
-      (this.base = e.map((t) => t.clone())),
-      this.mode === 'bolt' ? this.rebolt() : (this.pts = this.base.map((t) => t.clone())),
+      (this.base = points.map((p) => p.clone())),
+      this.mode === 'bolt' ? this.rebolt() : (this.pts = this.base.map((p) => p.clone())),
       this
     );
   }
-  setLine(e, t, a = 16) {
-    let n = [];
-    for (let s = 0; s <= a; s++) n.push(e.clone().lerp(t, s / a));
-    return this.setPoints(n);
+  /** Cinta recta de `from` a `to` partida en `segments` tramos. */
+  setLine(from, to, segments = 16) {
+    let points = [];
+    for (let i = 0; i <= segments; i++) points.push(from.clone().lerp(to, i / segments));
+    return this.setPoints(points);
   }
+  /** Rehace el zigzag del relámpago a partir de los extremos de `base`. */
   rebolt() {
-    let e = this.base[0],
-      t = this.base[this.base.length - 1],
-      a = Math.min(this.max - 1, 18),
-      n = e.distanceTo(t),
-      s = t.clone().sub(e).normalize(),
-      i = new Vector3(-s.z, 0, s.x),
-      r = new Vector3().crossVectors(s, i).normalize();
+    let start = this.base[0],
+      end = this.base[this.base.length - 1],
+      segments = Math.min(this.max - 1, 18),
+      length = start.distanceTo(end),
+      dir = end.clone().sub(start).normalize(),
+      side = new Vector3(-dir.z, 0, dir.x),
+      up = new Vector3().crossVectors(dir, side).normalize();
     this.pts = [];
-    for (let l = 0; l <= a; l++) {
-      let c = l / a,
-        d = e.clone().lerp(t, c);
-      if (l > 0 && l < a) {
-        let u = this.jitter * Math.min(1, n / 3) * Math.sin(c * Math.PI);
-        d.addScaledVector(i, (Math.random() - 0.5) * 2 * u).addScaledVector(r, (Math.random() - 0.5) * 2 * u);
+    for (let i = 0; i <= segments; i++) {
+      let f = i / segments,
+        point = start.clone().lerp(end, f);
+      if (i > 0 && i < segments) {
+        let amp = this.jitter * Math.min(1, length / 3) * Math.sin(f * Math.PI);
+        point
+          .addScaledVector(side, (Math.random() - 0.5) * 2 * amp)
+          .addScaledVector(up, (Math.random() - 0.5) * 2 * amp);
       }
-      this.pts.push(d);
+      this.pts.push(point);
     }
   }
-  build(e) {
-    let t = this.pts,
-      a = Math.min(t.length, this.max);
-    if (a < 2) {
+  /** Reconstruye la tira de triángulos encarada a la cámara. */
+  build(camera) {
+    let pts = this.pts,
+      count = Math.min(pts.length, this.max);
+    if (count < 2) {
       this.geo.setDrawRange(0, 0);
       return;
     }
-    let n = this.geo.attributes.position.array,
-      s = this.geo.attributes.uv.array,
-      i = this.geo.attributes.aW.array,
-      r = new Vector3(),
-      l = new Vector3(),
-      c = new Vector3(),
-      d = 0;
-    for (let h = 1; h < a; h++) d += t[h].distanceTo(t[h - 1]);
-    let u = 0;
-    for (let h = 0; h < a; h++) {
-      h > 0 && (u += t[h].distanceTo(t[h - 1]));
-      let p = t[Math.max(0, h - 1)],
-        m = t[Math.min(a - 1, h + 1)];
-      (r.subVectors(m, p).normalize(),
-        l.subVectors(e.position, t[h]).normalize(),
-        c.crossVectors(r, l).normalize());
-      let _ = this.width * (this.widths ? (this.widths[h] ?? 1) : 1);
-      (this.mode === 'trail' && (_ *= 0.25 + 0.75 * (h / (a - 1))), c.multiplyScalar(_ / 2));
-      let b = h * 6;
-      ((n[b] = t[h].x + c.x),
-        (n[b + 1] = t[h].y + c.y),
-        (n[b + 2] = t[h].z + c.z),
-        (n[b + 3] = t[h].x - c.x),
-        (n[b + 4] = t[h].y - c.y),
-        (n[b + 5] = t[h].z - c.z));
-      let f = d > 0 ? u / d : 0;
-      ((s[h * 4] = f),
-        (s[h * 4 + 1] = 0),
-        (s[h * 4 + 2] = f),
-        (s[h * 4 + 3] = 1),
-        (i[h * 2] = i[h * 2 + 1] = 1));
+    let positions = this.geo.attributes.position.array,
+      uvs = this.geo.attributes.uv.array,
+      weights = this.geo.attributes.aW.array,
+      tangent = new Vector3(),
+      toCamera = new Vector3(),
+      side = new Vector3(),
+      totalLength = 0;
+    for (let i = 1; i < count; i++) totalLength += pts[i].distanceTo(pts[i - 1]);
+    let traveled = 0;
+    for (let i = 0; i < count; i++) {
+      i > 0 && (traveled += pts[i].distanceTo(pts[i - 1]));
+      let prev = pts[Math.max(0, i - 1)],
+        next = pts[Math.min(count - 1, i + 1)];
+      (tangent.subVectors(next, prev).normalize(),
+        toCamera.subVectors(camera.position, pts[i]).normalize(),
+        side.crossVectors(tangent, toCamera).normalize());
+      let halfWidth = this.width * (this.widths ? (this.widths[i] ?? 1) : 1);
+      (this.mode === 'trail' && (halfWidth *= 0.25 + 0.75 * (i / (count - 1))),
+        side.multiplyScalar(halfWidth / 2));
+      let o = i * 6;
+      ((positions[o] = pts[i].x + side.x),
+        (positions[o + 1] = pts[i].y + side.y),
+        (positions[o + 2] = pts[i].z + side.z),
+        (positions[o + 3] = pts[i].x - side.x),
+        (positions[o + 4] = pts[i].y - side.y),
+        (positions[o + 5] = pts[i].z - side.z));
+      let along = totalLength > 0 ? traveled / totalLength : 0;
+      ((uvs[i * 4] = along),
+        (uvs[i * 4 + 1] = 0),
+        (uvs[i * 4 + 2] = along),
+        (uvs[i * 4 + 3] = 1),
+        (weights[i * 2] = weights[i * 2 + 1] = 1));
     }
-    ((this.uniforms.uLen.value = d),
+    ((this.uniforms.uLen.value = totalLength),
       (this.geo.attributes.position.needsUpdate = !0),
       (this.geo.attributes.uv.needsUpdate = !0),
       (this.geo.attributes.aW.needsUpdate = !0),
-      this.geo.setDrawRange(0, (a - 1) * 6));
+      this.geo.setDrawRange(0, (count - 1) * 6));
   }
-  update(e, t) {
-    ((this.t += e),
-      (this.uniforms.uTime.value += e),
-      this.mode === 'bolt' && Math.random() < e * 22 && this.rebolt());
-    let a = this.life > 0 ? this.t / this.life : 0,
-      n = this.fadeIn > 0 ? Math.min(1, this.t / this.fadeIn) : 1,
-      s = this.life > 0 ? 1 - Math.max(0, (a - 0.55) / 0.45) : 1;
+  update(dt, camera) {
+    ((this.t += dt),
+      (this.uniforms.uTime.value += dt),
+      this.mode === 'bolt' && Math.random() < dt * 22 && this.rebolt());
+    let progress = this.life > 0 ? this.t / this.life : 0,
+      fadeIn = this.fadeIn > 0 ? Math.min(1, this.t / this.fadeIn) : 1,
+      fadeOut = this.life > 0 ? 1 - Math.max(0, (progress - 0.55) / 0.45) : 1;
     return (
-      (this.uniforms.uAlpha.value = this.alpha * n * Math.max(0, s)),
-      this.build(t),
+      (this.uniforms.uAlpha.value = this.alpha * fadeIn * Math.max(0, fadeOut)),
+      this.build(camera),
       this.life <= 0 || this.t < this.life
     );
   }
@@ -214,12 +260,12 @@ const tr = class {
     (this.geo.dispose(), this.mesh.material.dispose());
   }
 };
-const Pm =
+const QUAD_VERTEX_SHADER =
   'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
-const II = `
+const RING_FRAGMENT_SHADER = `
 uniform vec3 uColor; uniform float uProg; uniform float uThick; uniform float uAlpha; uniform float uFill;
 varying vec2 vUv;
-${Ru}
+${NOISE_GLSL}
 void main(){
   vec2 q = vUv * 2.0 - 1.0;
   float r = length(q);
@@ -232,46 +278,54 @@ void main(){
   float a = (band * (0.6 + 0.8 * n) + fill * n) * uAlpha * (1.0 - uProg);
   gl_FragColor = vec4(uColor * (0.8 + 0.6 * n), a);
 }`;
-const ku = class {
+/** Onda en anillo que se expande desde `pos` hasta `radius` en `life` segundos. */
+const RingWave = class {
   constructor(
-    e,
+    pos,
     {
-      color: t = 16777215,
-      glow: a = 2,
-      radius: n = 2,
-      life: s = 0.5,
-      thick: i = 0.18,
-      alpha: r = 1,
-      fill: l = 0,
-      y: c = 0.05,
-      vertical: d = null,
+      color = 16777215,
+      glow = 2,
+      radius = 2,
+      life = 0.5,
+      thick = 0.18,
+      alpha = 1,
+      fill = 0,
+      y = 0.05,
+      vertical = null,
     } = {},
   ) {
-    ((this.life = s),
+    ((this.life = life),
       (this.t = 0),
       (this.uniforms = {
-        uColor: { value: or(t, a) },
+        uColor: { value: glowColor(color, glow) },
         uProg: { value: 0 },
-        uThick: { value: i },
-        uAlpha: { value: r },
-        uFill: { value: l },
+        uThick: { value: thick },
+        uAlpha: { value: alpha },
+        uFill: { value: fill },
       }));
-    let u = new PlaneGeometry(2, 2);
-    ((this.mesh = new Mesh(u, sr(this.uniforms, Pm, II, { side: DoubleSide }))),
-      this.mesh.position.copy(e),
-      (this.mesh.position.y += c),
-      d ? this.mesh.lookAt(e.clone().add(d)) : (this.mesh.rotation.x = -Math.PI / 2),
-      this.mesh.scale.setScalar(n),
+    let geometry = new PlaneGeometry(2, 2);
+    ((this.mesh = new Mesh(
+      geometry,
+      makeMaterial(this.uniforms, QUAD_VERTEX_SHADER, RING_FRAGMENT_SHADER, { side: DoubleSide }),
+    )),
+      this.mesh.position.copy(pos),
+      (this.mesh.position.y += y),
+      vertical ? this.mesh.lookAt(pos.clone().add(vertical)) : (this.mesh.rotation.x = -Math.PI / 2),
+      this.mesh.scale.setScalar(radius),
       (this.mesh.renderOrder = 10));
   }
-  update(e) {
-    return ((this.t += e), (this.uniforms.uProg.value = Math.min(1, this.t / this.life)), this.t < this.life);
+  update(dt) {
+    return (
+      (this.t += dt),
+      (this.uniforms.uProg.value = Math.min(1, this.t / this.life)),
+      this.t < this.life
+    );
   }
   dispose() {
     (this.mesh.geometry.dispose(), this.mesh.material.dispose());
   }
 };
-const HI = `
+const DOME_VERTEX_SHADER = `
 varying vec3 vN; varying vec3 vV; varying vec3 vP;
 void main(){
   vec4 wp = modelMatrix * vec4(position, 1.0);
@@ -280,10 +334,10 @@ void main(){
   vV = normalize(cameraPosition - wp.xyz);
   gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
-const NI = `
+const DOME_FRAGMENT_SHADER = `
 uniform vec3 uColor; uniform float uAlpha; uniform float uTime; uniform float uHex;
 varying vec3 vN; varying vec3 vV; varying vec3 vP;
-${Ru}
+${NOISE_GLSL}
 void main(){
   float f = pow(1.0 - abs(dot(normalize(vN), normalize(vV))), 2.2);
   float bands = 0.5 + 0.5 * sin(vP.y * 18.0 - uTime * 4.0);
@@ -294,51 +348,47 @@ void main(){
   float a = (f * f * (0.8 + 0.5 * n) + bands * 0.03 + hexl * 0.3) * uAlpha * smoothstep(-0.02, 0.08, vP.y);
   gl_FragColor = vec4(uColor * (0.9 + 0.4 * n), a);
 }`;
-const Xr = class {
+/** Cúpula (o esfera si `half` es false) que crece y se desvanece; `life` 0 = permanente. */
+const Dome = class {
   constructor(
-    e,
-    {
-      color: t = 16777215,
-      glow: a = 1.6,
-      radius: n = 1,
-      life: s = 0.6,
-      alpha: i = 0.8,
-      grow: r = !0,
-      hex: l = 0,
-      half: c = !0,
-    } = {},
+    pos,
+    { color = 16777215, glow = 1.6, radius = 1, life = 0.6, alpha = 0.8, grow = !0, hex = 0, half = !0 } = {},
   ) {
-    ((this.life = s),
+    ((this.life = life),
       (this.t = 0),
-      (this.radius = n),
-      (this.grow = r),
-      (this.alpha = i),
+      (this.radius = radius),
+      (this.grow = grow),
+      (this.alpha = alpha),
       (this.uniforms = {
-        uColor: { value: or(t, a) },
-        uAlpha: { value: i },
+        uColor: { value: glowColor(color, glow) },
+        uAlpha: { value: alpha },
         uTime: { value: 0 },
-        uHex: { value: l },
+        uHex: { value: hex },
       }));
-    let d = new SphereGeometry(1, 28, 14, 0, Math.PI * 2, 0, c ? Math.PI / 2 : Math.PI);
-    ((this.mesh = new Mesh(d, sr(this.uniforms, HI, NI, { side: DoubleSide }))),
-      this.mesh.position.copy(e),
-      this.mesh.scale.setScalar(r ? n * 0.2 : n),
+    let geometry = new SphereGeometry(1, 28, 14, 0, Math.PI * 2, 0, half ? Math.PI / 2 : Math.PI);
+    ((this.mesh = new Mesh(
+      geometry,
+      makeMaterial(this.uniforms, DOME_VERTEX_SHADER, DOME_FRAGMENT_SHADER, { side: DoubleSide }),
+    )),
+      this.mesh.position.copy(pos),
+      this.mesh.scale.setScalar(grow ? radius * 0.2 : radius),
       (this.mesh.renderOrder = 9));
   }
-  update(e) {
-    if (((this.t += e), (this.uniforms.uTime.value += e), this.life <= 0)) return !0;
-    let t = Math.min(1, this.t / this.life);
+  update(dt) {
+    if (((this.t += dt), (this.uniforms.uTime.value += dt), this.life <= 0)) return !0;
+    let progress = Math.min(1, this.t / this.life);
     return (
-      this.grow && this.mesh.scale.setScalar(this.radius * (0.2 + 0.8 * Cm(Math.min(1, t * 1.6)))),
-      (this.uniforms.uAlpha.value = this.alpha * (1 - t) ** 1.5),
-      t < 1
+      this.grow &&
+        this.mesh.scale.setScalar(this.radius * (0.2 + 0.8 * easeOutCubic(Math.min(1, progress * 1.6)))),
+      (this.uniforms.uAlpha.value = this.alpha * (1 - progress) ** 1.5),
+      progress < 1
     );
   }
   dispose() {
     (this.mesh.geometry.dispose(), this.mesh.material.dispose());
   }
 };
-const FI = `
+const PILLAR_VERTEX_SHADER = `
 varying vec2 vUv; varying float vF;
 void main(){
   vUv = uv;
@@ -347,10 +397,10 @@ void main(){
   vF = abs(dot(n, normalize(cameraPosition - wp.xyz)));
   gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
-const OI = `
+const PILLAR_FRAGMENT_SHADER = `
 uniform vec3 uColor; uniform float uAlpha; uniform float uTime;
 varying vec2 vUv; varying float vF;
-${Ru}
+${NOISE_GLSL}
 void main(){
   float n = fbm(vec2(vUv.x * 10.0, vUv.y * 3.0 + uTime * 2.5));
   float streak = smoothstep(0.45, 1.0, fbm(vec2(vUv.x * 22.0, vUv.y * 0.8 + uTime * 1.2)));
@@ -358,57 +408,56 @@ void main(){
   float a = (0.18 + 0.4 * n + streak * 0.8) * pow(1.0 - vUv.y, 1.2) * smoothstep(0.0, 0.05, vUv.y) * edge * uAlpha;
   gl_FragColor = vec4(uColor * (0.7 + 0.5 * n + streak), a);
 }`;
-const Yr = class {
+/** Columna de luz que cae sobre `pos` (`drop`: duración de la caída); `life` 0 = permanente. */
+const LightPillar = class {
   constructor(
-    e,
-    {
-      color: t = 16773312,
-      glow: a = 1.4,
-      radius: n = 0.6,
-      height: s = 6,
-      life: i = 0.8,
-      alpha: r = 0.8,
-      drop: l = 0.18,
-    } = {},
+    pos,
+    { color = 16773312, glow = 1.4, radius = 0.6, height = 6, life = 0.8, alpha = 0.8, drop = 0.18 } = {},
   ) {
-    ((this.life = i),
+    ((this.life = life),
       (this.t = 0),
-      (this.radius = n),
-      (this.height = s),
-      (this.alpha = r),
-      (this.drop = l),
+      (this.radius = radius),
+      (this.height = height),
+      (this.alpha = alpha),
+      (this.drop = drop),
       (this.uniforms = {
-        uColor: { value: or(t, a) },
+        uColor: { value: glowColor(color, glow) },
         uAlpha: { value: 0 },
         uTime: { value: Math.random() * 5 },
       }));
-    let c = new CylinderGeometry(1, 1, 1, 24, 1, !0);
-    (c.translate(0, 0.5, 0),
-      (this.mesh = new Mesh(c, sr(this.uniforms, FI, OI, { side: DoubleSide }))),
-      this.mesh.position.copy(e),
-      this.mesh.scale.set(n * 0.3, s, n * 0.3),
+    let geometry = new CylinderGeometry(1, 1, 1, 24, 1, !0);
+    (geometry.translate(0, 0.5, 0),
+      (this.mesh = new Mesh(
+        geometry,
+        makeMaterial(this.uniforms, PILLAR_VERTEX_SHADER, PILLAR_FRAGMENT_SHADER, { side: DoubleSide }),
+      )),
+      this.mesh.position.copy(pos),
+      this.mesh.scale.set(radius * 0.3, height, radius * 0.3),
       (this.mesh.renderOrder = 10));
   }
-  update(e) {
-    if (((this.t += e), (this.uniforms.uTime.value += e), this.life <= 0)) {
+  update(dt) {
+    if (((this.t += dt), (this.uniforms.uTime.value += dt), this.life <= 0)) {
       this.uniforms.uAlpha.value = this.alpha * Math.min(1, this.t / 0.3);
-      let s = this.radius * Math.min(1, 0.3 + this.t * 3);
-      return (this.mesh.scale.set(s, this.height, s), !0);
+      let grownRadius = this.radius * Math.min(1, 0.3 + this.t * 3);
+      return (this.mesh.scale.set(grownRadius, this.height, grownRadius), !0);
     }
-    let t = Math.min(1, this.t / this.life),
-      a = Math.min(1, this.t / this.drop),
-      n = this.radius * (0.3 + 0.7 * Cm(a)) * (1 - (0.5 * Math.max(0, t - 0.6)) / 0.4);
+    let progress = Math.min(1, this.t / this.life),
+      dropProgress = Math.min(1, this.t / this.drop),
+      radius =
+        this.radius *
+        (0.3 + 0.7 * easeOutCubic(dropProgress)) *
+        (1 - (0.5 * Math.max(0, progress - 0.6)) / 0.4);
     return (
-      this.mesh.scale.set(n, this.height, n),
-      (this.uniforms.uAlpha.value = this.alpha * a * (1 - Math.max(0, (t - 0.5) / 0.5))),
-      t < 1
+      this.mesh.scale.set(radius, this.height, radius),
+      (this.uniforms.uAlpha.value = this.alpha * dropProgress * (1 - Math.max(0, (progress - 0.5) / 0.5))),
+      progress < 1
     );
   }
   dispose() {
     (this.mesh.geometry.dispose(), this.mesh.material.dispose());
   }
 };
-const BI = `
+const HEXWAVE_VERTEX_SHADER = `
 attribute float iDelay;
 varying vec2 vL; varying float vD; varying vec2 vW;
 void main(){
@@ -418,10 +467,10 @@ void main(){
   vW = wp.xz;
   gl_Position = projectionMatrix * viewMatrix * wp;
 }`;
-const qI = `
+const HEXWAVE_FRAGMENT_SHADER = `
 uniform vec3 uColor; uniform float uTime; uniform float uSpread; uniform float uLife; uniform float uHold; uniform float uAlpha; uniform float uPulse;
 varying vec2 vL; varying float vD; varying vec2 vW;
-${Ru}
+${NOISE_GLSL}
 void main(){
   // distancia \xABhexagonal\xBB al centro (1 en el borde)
   vec2 q = abs(vL);
@@ -437,66 +486,78 @@ void main(){
   float a = rise * fall * (0.08 + 0.18 * n + edge * 0.5 + flash * 0.35 + pulse * 0.1) * uAlpha;
   gl_FragColor = vec4(uColor * (0.7 + 0.4 * n + flash * 0.6), clamp(a, 0.0, 1.0));
 }`;
-let Rm = null;
-const ar = class {
+let hexGeometry = null;
+/**
+ * Casillas que se encienden en oleada: `cells` son casillas de la rejilla y `cellToWorld` las pasa a
+ * posiciones; el retardo de cada una crece con su distancia al origen. `hold` la mantiene hasta
+ * `release()`.
+ */
+const HexWave = class {
   constructor(
-    e,
-    t,
+    cells,
+    cellToWorld,
     {
-      origin: a = null,
-      color: n = 16777215,
-      glow: s = 1,
-      life: i = 0.9,
-      spread: r = 0.35,
-      alpha: l = 1,
-      hold: c = !1,
-      pulse: d = 0,
-      blend: u = 'add',
-      y: h = 0.05,
+      origin = null,
+      color = 16777215,
+      glow = 1,
+      life = 0.9,
+      spread = 0.35,
+      alpha = 1,
+      hold = !1,
+      pulse = 0,
+      blend = 'add',
+      y = 0.05,
     } = {},
   ) {
-    ((this.life = i), (this.hold = c), (this.t = 0));
-    let p = e.length,
-      m = new InstancedMesh(IS(), null, Math.max(1, p)),
-      _ = new Float32Array(Math.max(1, p)),
-      b = e.map((g) => t(g)),
-      f = a || b.reduce((g, y) => g.add(y), new Vector3()).divideScalar(Math.max(1, p)),
-      v = 0.001;
-    for (let g of b) v = Math.max(v, Math.hypot(g.x - f.x, g.z - f.z));
-    let x = new Matrix4();
-    (b.forEach((g, y) => {
-      (x.makeTranslation(g.x, g.y + h, g.z),
-        m.setMatrixAt(y, x),
-        (_[y] = Math.hypot(g.x - f.x, g.z - f.z) / v));
+    ((this.life = life), (this.hold = hold), (this.t = 0));
+    let count = cells.length,
+      mesh = new InstancedMesh(getHexGeometry(), null, Math.max(1, count)),
+      delays = new Float32Array(Math.max(1, count)),
+      positions = cells.map((cell) => cellToWorld(cell)),
+      center =
+        origin || positions.reduce((sum, p) => sum.add(p), new Vector3()).divideScalar(Math.max(1, count)),
+      maxDist = 0.001;
+    for (let p of positions) maxDist = Math.max(maxDist, Math.hypot(p.x - center.x, p.z - center.z));
+    let matrix = new Matrix4();
+    (positions.forEach((p, i) => {
+      (matrix.makeTranslation(p.x, p.y + y, p.z),
+        mesh.setMatrixAt(i, matrix),
+        (delays[i] = Math.hypot(p.x - center.x, p.z - center.z) / maxDist));
     }),
-      (m.count = p),
-      (m.geometry = IS().clone()),
-      m.geometry.setAttribute('iDelay', new InstancedBufferAttribute(_, 1)),
+      (mesh.count = count),
+      (mesh.geometry = getHexGeometry().clone()),
+      mesh.geometry.setAttribute('iDelay', new InstancedBufferAttribute(delays, 1)),
       (this.uniforms = {
-        uColor: { value: or(n, s) },
+        uColor: { value: glowColor(color, glow) },
         uTime: { value: 0 },
-        uSpread: { value: r },
-        uLife: { value: i },
-        uHold: { value: c ? 1 : 0 },
-        uAlpha: { value: l },
-        uPulse: { value: d },
+        uSpread: { value: spread },
+        uLife: { value: life },
+        uHold: { value: hold ? 1 : 0 },
+        uAlpha: { value: alpha },
+        uPulse: { value: pulse },
       }),
-      (m.material = sr(this.uniforms, BI, qI, { blend: u })),
-      (m.frustumCulled = !1),
-      (m.renderOrder = 8),
-      (this.mesh = m),
+      (mesh.material = makeMaterial(this.uniforms, HEXWAVE_VERTEX_SHADER, HEXWAVE_FRAGMENT_SHADER, {
+        blend,
+      })),
+      (mesh.frustumCulled = !1),
+      (mesh.renderOrder = 8),
+      (this.mesh = mesh),
       (this.fadeOut = 0));
   }
-  release(e = 0.6) {
-    ((this.fadeOut = e), (this.fadeT = 0));
+  /** Apaga la oleada mantenida en `duration` segundos. */
+  release(duration = 0.6) {
+    ((this.fadeOut = duration), (this.fadeT = 0));
   }
-  update(e) {
+  update(dt) {
     return (
-      (this.t += e),
+      (this.t += dt),
       (this.uniforms.uTime.value = this.t),
       this.fadeOut > 0
-        ? ((this.fadeT += e),
-          (this.uniforms.uAlpha.value *= Math.max(0, 1 - e / Math.max(0.05, this.fadeOut - this.fadeT + e))),
+        ? ((this.fadeT += dt),
+          (this.uniforms.uAlpha.value *= Math.max(
+            0,
+            1 - dt / Math.max(0.05, this.fadeOut - this.fadeT + dt),
+          )),
           this.fadeT < this.fadeOut)
         : this.hold
           ? !0
@@ -507,7 +568,7 @@ const ar = class {
     (this.mesh.geometry.dispose(), this.mesh.material.dispose());
   }
 };
-const UI = `
+const RUNES_FRAGMENT_SHADER = `
 uniform sampler2D uTex; uniform vec3 uColor; uniform float uAlpha; uniform float uTime;
 varying vec2 vUv;
 void main(){
@@ -515,64 +576,69 @@ void main(){
   float pulse = 0.8 + 0.2 * sin(uTime * 5.0);
   gl_FragColor = vec4(uColor * pulse, t.a * uAlpha);
 }`;
-const nr = class {
+/** Círculo mágico que gira y crece sobre el suelo; `life` 0 = hasta `close()`. */
+const RuneCircle = class {
   constructor(
-    e,
+    pos,
     {
-      color: t = 11832575,
-      glow: a = 2.2,
-      radius: n = 1,
-      life: s = 1,
-      alpha: i = 0.9,
-      spin: r = 0.8,
-      y: l = 0.06,
-      grow: c = 0.25,
+      color = 11832575,
+      glow = 2.2,
+      radius = 1,
+      life = 1,
+      alpha = 0.9,
+      spin = 0.8,
+      y = 0.06,
+      grow = 0.25,
     } = {},
   ) {
-    ((this.life = s),
+    ((this.life = life),
       (this.t = 0),
-      (this.spin = r),
-      (this.radius = n),
-      (this.alpha = i),
-      (this.growT = c),
+      (this.spin = spin),
+      (this.radius = radius),
+      (this.alpha = alpha),
+      (this.growT = grow),
       (this.uniforms = {
         uTex: { value: getMagicCircleTexture() },
-        uColor: { value: or(t, a) },
+        uColor: { value: glowColor(color, glow) },
         uAlpha: { value: 0 },
         uTime: { value: 0 },
       }),
-      (this.mesh = new Mesh(new PlaneGeometry(2, 2), sr(this.uniforms, Pm, UI, { side: DoubleSide }))),
+      (this.mesh = new Mesh(
+        new PlaneGeometry(2, 2),
+        makeMaterial(this.uniforms, QUAD_VERTEX_SHADER, RUNES_FRAGMENT_SHADER, { side: DoubleSide }),
+      )),
       (this.mesh.rotation.x = -Math.PI / 2),
-      this.mesh.position.copy(e),
-      (this.mesh.position.y += l),
-      this.mesh.scale.setScalar(n * 0.4),
+      this.mesh.position.copy(pos),
+      (this.mesh.position.y += y),
+      this.mesh.scale.setScalar(radius * 0.4),
       (this.mesh.renderOrder = 9),
       (this.closing = -1));
   }
-  close(e = 0.35) {
-    ((this.closing = e), (this.closeT = 0));
+  /** Cierra el círculo (se desvanece y se agranda) en `duration` segundos. */
+  close(duration = 0.35) {
+    ((this.closing = duration), (this.closeT = 0));
   }
-  update(e) {
-    ((this.t += e), (this.uniforms.uTime.value = this.t), (this.mesh.rotation.z += this.spin * e));
-    let t = Math.min(1, this.t / Math.max(0.01, this.growT)),
-      a = this.alpha * t,
-      n = this.radius * (0.4 + 0.6 * Cm(t));
+  update(dt) {
+    ((this.t += dt), (this.uniforms.uTime.value = this.t), (this.mesh.rotation.z += this.spin * dt));
+    let growth = Math.min(1, this.t / Math.max(0.01, this.growT)),
+      alpha = this.alpha * growth,
+      radius = this.radius * (0.4 + 0.6 * easeOutCubic(growth));
     if (this.closing > 0) {
-      this.closeT += e;
-      let s = Math.min(1, this.closeT / this.closing);
-      if (((a *= 1 - s), (n *= 1 + 0.25 * s), s >= 1)) return !1;
+      this.closeT += dt;
+      let progress = Math.min(1, this.closeT / this.closing);
+      if (((alpha *= 1 - progress), (radius *= 1 + 0.25 * progress), progress >= 1)) return !1;
     } else if (this.life > 0) {
-      let s = this.t / this.life;
-      if (s >= 1) return !1;
-      a *= 1 - Math.max(0, (s - 0.7) / 0.3);
+      let progress = this.t / this.life;
+      if (progress >= 1) return !1;
+      alpha *= 1 - Math.max(0, (progress - 0.7) / 0.3);
     }
-    return ((this.uniforms.uAlpha.value = a), this.mesh.scale.setScalar(n), !0);
+    return ((this.uniforms.uAlpha.value = alpha), this.mesh.scale.setScalar(radius), !0);
   }
   dispose() {
     (this.mesh.geometry.dispose(), this.mesh.material.dispose());
   }
 };
-const jI = `
+const SLASH_FRAGMENT_SHADER = `
 uniform vec3 uColor; uniform float uProg; uniform float uAlpha;
 varying vec2 vUv;
 void main(){
@@ -591,40 +657,48 @@ void main(){
   float a = band * tail * uAlpha * (1.0 - smoothstep(0.75, 1.0, uProg));
   gl_FragColor = vec4(uColor * (1.0 + hot * 1.5), a);
 }`;
-const Au = class {
+/** Arco de tajo orientado como la cámara, con giro `roll` (al azar si es null). */
+const SlashArc = class {
   constructor(
-    e,
-    t,
-    { color: a = 16777215, glow: n = 2.2, size: s = 1.1, life: i = 0.28, roll: r = null, alpha: l = 1 } = {},
+    pos,
+    camera,
+    { color = 16777215, glow = 2.2, size = 1.1, life = 0.28, roll = null, alpha = 1 } = {},
   ) {
-    ((this.life = i),
+    ((this.life = life),
       (this.t = 0),
-      (this.uniforms = { uColor: { value: or(a, n) }, uProg: { value: 0 }, uAlpha: { value: l } }),
+      (this.uniforms = {
+        uColor: { value: glowColor(color, glow) },
+        uProg: { value: 0 },
+        uAlpha: { value: alpha },
+      }),
       (this.mesh = new Mesh(
         new PlaneGeometry(2, 2),
-        sr(this.uniforms, Pm, jI, { side: DoubleSide, depthTest: !1 }),
+        makeMaterial(this.uniforms, QUAD_VERTEX_SHADER, SLASH_FRAGMENT_SHADER, {
+          side: DoubleSide,
+          depthTest: !1,
+        }),
       )),
-      this.mesh.position.copy(e),
-      this.mesh.quaternion.copy(t.quaternion),
-      this.mesh.rotateZ(r ?? (Math.random() - 0.5) * 2.2 + (Math.random() < 0.5 ? 0 : Math.PI)),
-      this.mesh.scale.setScalar(s * 0.5),
-      (this.size = s),
+      this.mesh.position.copy(pos),
+      this.mesh.quaternion.copy(camera.quaternion),
+      this.mesh.rotateZ(roll ?? (Math.random() - 0.5) * 2.2 + (Math.random() < 0.5 ? 0 : Math.PI)),
+      this.mesh.scale.setScalar(size * 0.5),
+      (this.size = size),
       (this.mesh.renderOrder = 14));
   }
-  update(e) {
-    this.t += e;
-    let t = Math.min(1, this.t / this.life);
+  update(dt) {
+    this.t += dt;
+    let progress = Math.min(1, this.t / this.life);
     return (
-      (this.uniforms.uProg.value = t),
-      this.mesh.scale.setScalar(this.size * (0.5 + 0.5 * Cm(t))),
-      t < 1
+      (this.uniforms.uProg.value = progress),
+      this.mesh.scale.setScalar(this.size * (0.5 + 0.5 * easeOutCubic(progress))),
+      progress < 1
     );
   }
   dispose() {
     (this.mesh.geometry.dispose(), this.mesh.material.dispose());
   }
 };
-const GI = `
+const DECAL_FRAGMENT_SHADER = `
 uniform sampler2D uAtlas; uniform vec3 uColor; uniform float uAlpha; uniform vec2 uCell;
 varying vec2 vUv;
 void main(){
@@ -632,49 +706,50 @@ void main(){
   vec4 t = texture2D(uAtlas, uv);
   gl_FragColor = vec4(uColor * t.rgb, t.a * uAlpha);
 }`;
-const xi = class {
+/** Silueta del atlas (`frame`) tumbada sobre el suelo; `life` 0 = permanente. */
+const Decal = class {
   constructor(
-    e,
+    pos,
     {
-      frame: t = 0,
-      color: a = 16777215,
-      glow: n = 1,
-      size: s = 1,
-      life: i = 1.5,
-      alpha: r = 0.8,
-      blend: l = 'add',
-      spin: c = 0,
-      y: d = 0.04,
-      rot: u = Math.random() * 6.28,
+      frame = 0,
+      color = 16777215,
+      glow = 1,
+      size = 1,
+      life = 1.5,
+      alpha = 0.8,
+      blend = 'add',
+      spin = 0,
+      y = 0.04,
+      rot = Math.random() * 6.28,
     } = {},
   ) {
-    ((this.life = i),
+    ((this.life = life),
       (this.t = 0),
-      (this.alpha = r),
-      (this.spin = c),
+      (this.alpha = alpha),
+      (this.spin = spin),
       (this.uniforms = {
         uAtlas: { value: getParticleAtlas() },
-        uColor: { value: or(a, n) },
-        uAlpha: { value: r },
-        uCell: { value: new Vector2(t % ATLAS_COLS, Math.floor(t / ATLAS_COLS)) },
+        uColor: { value: glowColor(color, glow) },
+        uAlpha: { value: alpha },
+        uCell: { value: new Vector2(frame % ATLAS_COLS, Math.floor(frame / ATLAS_COLS)) },
       }),
       (this.mesh = new Mesh(
         new PlaneGeometry(1, 1),
-        sr(this.uniforms, Pm, GI, { blend: l, side: DoubleSide }),
+        makeMaterial(this.uniforms, QUAD_VERTEX_SHADER, DECAL_FRAGMENT_SHADER, { blend, side: DoubleSide }),
       )),
-      this.mesh.rotation.set(-Math.PI / 2, 0, u),
-      this.mesh.position.copy(e),
-      (this.mesh.position.y += d),
-      this.mesh.scale.setScalar(s),
+      this.mesh.rotation.set(-Math.PI / 2, 0, rot),
+      this.mesh.position.copy(pos),
+      (this.mesh.position.y += y),
+      this.mesh.scale.setScalar(size),
       (this.mesh.renderOrder = 7));
   }
-  update(e) {
-    if (((this.t += e), (this.mesh.rotation.z += this.spin * e), this.life <= 0)) return !0;
-    let t = this.t / this.life;
+  update(dt) {
+    if (((this.t += dt), (this.mesh.rotation.z += this.spin * dt), this.life <= 0)) return !0;
+    let progress = this.t / this.life;
     return (
       (this.uniforms.uAlpha.value =
-        this.alpha * Math.min(1, this.t / 0.1) * (1 - Math.max(0, (t - 0.5) / 0.5))),
-      t < 1
+        this.alpha * Math.min(1, this.t / 0.1) * (1 - Math.max(0, (progress - 0.5) / 0.5))),
+      progress < 1
     );
   }
   dispose() {
@@ -682,4 +757,4 @@ const xi = class {
   }
 };
 
-export { Au, Xr, Yr, ar, ku, nr, tr, xi };
+export { SlashArc, Dome, LightPillar, HexWave, RingWave, RuneCircle, Beam, Decal };
