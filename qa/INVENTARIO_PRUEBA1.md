@@ -100,4 +100,19 @@ Gravedad: **alta** (bloquea o rompe la partida), **media** (molesta o confunde, 
 
 ## 4. Hasta dónde llega la partida automática
 
-<!-- RECORRIDO -->
+Configuración: `?depurar&turbo=4&calidad=baja&escala=0.5&autocombate&autonivel&semilla=42&captura-nitida`, 1280×720, Chromium sin interfaz con SwiftShader en una máquina de 2 CPU compartida con otras áreas; pruebas de diálogo forzadas a éxito (`--tiradas=exito`); combates con la IA del núcleo y semilla fija.
+
+| Etapa | Resultado | Duración | Notas |
+|---|---|---|---|
+| inicio (menú → creador → prólogo → Merrowick) | ✅ | 59 s | Creador recorrido paso a paso con la hoja por defecto y nombre fijo. |
+| e1 | ✅ (1.ª vez) | 694 s | Combate de 629 s con `?turbo` (×5). Sube a nivel 2. |
+| vecinos (Maren, Sedge, Aldis, tienda) | ✅ | 248 s | La compra falló por un localizador del arnés (corregido). |
+| posada (Pip, Holt, tablón, descanso, guardar) | ✅ | 148 s | Brenna intimida a Holt, Pip se une, descanso largo (PV al máximo), guardado en la ranura 1. |
+| elderhal (santuario, Ilyra, centinelas, jefe) | ✅ | 611 s | Santuario 185 s, centinelas 227 s; el campamento se resuelve negociando. |
+| vuelta (Merrowick, cobrar a Maren) | ✅ | 104 s | +50 po; aparece la escalera del toro. |
+| kesh (Odvar, runas, cuerno, arañas) | ✅ | 407 s | Arañas gigantes 101 s. Odvar no entra (grupo lleno, ver F10). |
+| tumulo (nivel 3, losas, Vorhan) | ❌ → reintento | — | Primera vez: bloqueo tras la subida a nivel 3 por F11 (`story._inFlow` colgado). El arnés ahora lo anota y sigue. |
+
+<!-- RECORRIDO_TUMULO -->
+
+Las etapas se recorrieron en varias ejecuciones encadenadas por puntos de control (`--desde`), por dos cortes ajenos al juego: el límite de 30 min de los procesos en segundo plano y un reinicio del contenedor.
