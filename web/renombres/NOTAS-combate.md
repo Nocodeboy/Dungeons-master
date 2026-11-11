@@ -13,4 +13,4 @@
 
 ## Fallos y código sospechoso (sin arreglar)
 
-(se completa por archivo)
+- `story/data.js`: las claves de `DIALOG_FILES` son las originales y los nombres de archivo de `datos/historia/dialogos/` se dedujeron por el lugar donde ocurren, así que no coinciden (`sedge` → `elderhal.json`, `elderhal` → `santuario.json`, `kesh` → `odvar.json`, `runes` → `kesh.json`). No es un fallo; solo puede despistar.

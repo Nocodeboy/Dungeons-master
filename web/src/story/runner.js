@@ -1,9 +1,9 @@
 // story/runner.js
 // Reconstruido de publicado/juego.js (módulo __esm «mE»). Nombres locales aún minificados.
 
-import { eE, tE } from './conditions.js';
-import { lE, fm, vc, oE, yc } from './text.js';
-import { dE, hE, uE } from './actions.js';
+import { conditionAtoms, evalCondition } from './conditions.js';
+import { conditionTag, formatText, SKILL_NAMES, SKILL_ABILITIES, ABILITY_NAMES } from './text.js';
+import { parseEffect, rollDice, DEFERRED_EFFECTS } from './actions.js';
 
 function DD(o) {
   let e = [];
@@ -182,7 +182,7 @@ const StoryRunner = class {
     let a = this.ctx;
     this.ctx = t || {};
     try {
-      return tE(e, this);
+      return evalCondition(e, this);
     } catch (n) {
       return (console.warn('[historia] condici\xF3n:', e, n.message), !1);
     } finally {
@@ -193,15 +193,15 @@ const StoryRunner = class {
     return Array.isArray(e)
       ? e
           .filter((t) => typeof t == 'string' || this.test(t.if))
-          .map((t) => fm(typeof t == 'string' ? t : t.text, this))
+          .map((t) => formatText(typeof t == 'string' ? t : t.text, this))
           .filter(Boolean).join(`
 
 `)
       : e && typeof e == 'object'
         ? this.test(e.if)
-          ? fm(e.text, this)
+          ? formatText(e.text, this)
           : ''
-        : fm(e, this);
+        : formatText(e, this);
   }
   companion(e) {
     let t = this.data.companions?.[e],
@@ -777,18 +777,18 @@ const StoryRunner = class {
             m = l.end ? 'end' : null;
           if (d) {
             let b = d.skill
-              ? vc[d.skill] || d.skill
+              ? SKILL_NAMES[d.skill] || d.skill
               : d.ability
-                ? yc[d.ability]
+                ? ABILITY_NAMES[d.ability]
                 : d.save
-                  ? `Salvaci\xF3n de ${yc[d.save]}`
+                  ? `Salvaci\xF3n de ${ABILITY_NAMES[d.save]}`
                   : '?';
             ((p = `[${d.who === 'hero' || d.who === 'best' ? '' : d.who === 'group' ? 'Grupo \xB7 ' : `${this.companion(d.who).name} \xB7 `}${b} CD ${this.dcOf(d)}]`),
               (m = 'check'));
           } else if (!p && typeof l.special == 'string') ((p = `[${l.special}]`), (m = 'special'));
           else if (!p && l.if && l.special !== !1) {
-            for (let b of eE(l.if)) {
-              let f = lE(b);
+            for (let b of conditionAtoms(l.if)) {
+              let f = conditionTag(b);
               if (f && !l.if.startsWith('!')) {
                 p = f;
                 break;
@@ -863,7 +863,7 @@ const StoryRunner = class {
         r = {
           ...(l.results.slice().sort((d, u) => u.total - d.total)[0] || {}),
           who: 'Grupo',
-          label: `${vc[e.skill] || e.skill} (grupo)`,
+          label: `${SKILL_NAMES[e.skill] || e.skill} (grupo)`,
           dc: a,
           success: !!l.success,
           group: l.results,
@@ -876,7 +876,7 @@ const StoryRunner = class {
         r = {
           ...(c.slice().sort((h, p) => p.total - h.total)[0] || {}),
           who: 'Grupo',
-          label: `${vc[e.skill] || e.skill} (grupo)`,
+          label: `${SKILL_NAMES[e.skill] || e.skill} (grupo)`,
           dc: a,
           success: d,
           group: c,
@@ -906,7 +906,7 @@ const StoryRunner = class {
     }
     return (
       (r.dc = a),
-      (r.label ||= e.skill ? vc[e.skill] : e.ability ? yc[e.ability] : `Salvaci\xF3n de ${yc[e.save]}`),
+      (r.label ||= e.skill ? SKILL_NAMES[e.skill] : e.ability ? ABILITY_NAMES[e.ability] : `Salvaci\xF3n de ${ABILITY_NAMES[e.save]}`),
       this.debug.rollMode === 'success' &&
         !r.success &&
         Object.assign(r, { success: !0, total: Math.max(r.total ?? 0, a), forced: !0 }),
@@ -920,7 +920,7 @@ const StoryRunner = class {
   }
   fallbackMod(e, t) {
     let a = this.cp?.members?.[e] || {},
-      n = t.skill ? oE[t.skill] : t.ability || t.save,
+      n = t.skill ? SKILL_ABILITIES[t.skill] : t.ability || t.save,
       s = Number(a.final_abilities?.[n] ?? (a.abilities?.[n] ?? 10) + Number(a.bg_bonus?.[n] ?? 0)),
       i = Math.floor((s - 10) / 2),
       r = 2 + Math.floor((Math.max(1, this.level()) - 1) / 4);
@@ -939,7 +939,7 @@ const StoryRunner = class {
     return {
       who: this.name(e),
       id: e,
-      label: t.skill ? vc[t.skill] : yc[t.ability || t.save],
+      label: t.skill ? SKILL_NAMES[t.skill] : ABILITY_NAMES[t.ability || t.save],
       d20: c,
       mod: i,
       total: u,
@@ -954,7 +954,7 @@ const StoryRunner = class {
     for (let a of Ln(e)) {
       let n;
       try {
-        n = dE(a);
+        n = parseEffect(a);
       } catch (s) {
         console.warn('[historia]', s.message);
         continue;
@@ -966,7 +966,7 @@ const StoryRunner = class {
       }
       if (n.op === 'goto') return { goto: n.node };
       if (n.op === 'end') return ((t.end = !0), t);
-      if (uE.has(n.op)) {
+      if (DEFERRED_EFFECTS.has(n.op)) {
         (this._deferred.push(n),
           n.op === 'battle' && (this._groupOutcome = 'battle'),
           n.op !== 'levelup' && (t.deferredEnd = !0));
@@ -1104,7 +1104,7 @@ const StoryRunner = class {
       }
       case 'damage': {
         let a = e.who === 'actor' ? this.ctx.actor || 'hero' : e.who === 'leader' ? this.party()[0] : e.who,
-          n = hE(e.dice, this.rnd),
+          n = rollDice(e.dice, this.rnd),
           s = !1;
         if (e.save) {
           let r = await this.check({ save: e.save, dc: e.dc || 12, who: a });

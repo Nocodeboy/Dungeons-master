@@ -1,5 +1,6 @@
-// story/data.js
-// Reconstruido de publicado/juego.js (módulo __esm «cS»). Nombres locales aún minificados.
+// story/data.js — Datos de la historia: reúne los JSON de src/datos/historia/ en un solo objeto.
+// Quita las claves privadas («_fuente», «_nota») y da a cada diálogo su id. Lo usa story/index.js
+// (createStory) como datos por defecto; se puede sustituir cualquier parte con `overrides`.
 
 import historiaFlags from '../datos/historia/flags.json';
 import historiaObjetos from '../datos/historia/objetos.json';
@@ -25,33 +26,35 @@ import dialogosSellos from '../datos/historia/dialogos/sellos.json';
 import dialogosTumulo from '../datos/historia/dialogos/tumulo.json';
 import dialogosCompaneros from '../datos/historia/dialogos/companeros.json';
 
-function uI(o = {}) {
-  let e = {};
-  for (let n of Object.values(o.dialogFiles || dI))
-    for (let [s, i] of Object.entries(n)) s.startsWith('_') || (e[s] = { id: s, ...i });
-  let t = (n) => Object.fromEntries(Object.entries(n || {}).filter(([s]) => !s.startsWith('_'))),
-    a = { ...(o.items || historiaObjetos).known, ...(o.items || historiaObjetos).new };
+/** Objeto de datos de la historia: dialogs, flags, items, companions, quests, triggers, battles, banter… */
+function buildStoryData(overrides = {}) {
+  let dialogs = {};
+  for (let file of Object.values(overrides.dialogFiles || DIALOG_FILES))
+    for (let [id, dialog] of Object.entries(file)) id.startsWith('_') || (dialogs[id] = { id, ...dialog });
+  let dropPrivate = (obj) => Object.fromEntries(Object.entries(obj || {}).filter(([key]) => !key.startsWith('_'))),
+    items = { ...(overrides.items || historiaObjetos).known, ...(overrides.items || historiaObjetos).new };
   return {
-    dialogs: e,
-    flags: t(o.flags || historiaFlags),
-    items: a,
-    companions: t(o.companions || historiaCompaneros),
-    reactions: t(o.reactions || historiaReacciones),
-    quests: t(o.quests || historiaMisiones),
-    places: (o.world || historiaMeta).places,
-    groups: (o.world || historiaMeta).groups,
-    lootFlags: (o.world || historiaMeta).loot,
-    battles: t(o.battles || historiaCombates),
-    triggers: (o.triggers || historiaDisparadores).triggers,
-    returns: (o.triggers || historiaDisparadores).returns,
-    objects: t(o.objects || historiaObjetosNivel),
-    banter: o.banter || historiaCharlas,
-    narration: o.narration || historiaNarrador,
-    epilogue: o.epilogue || historiaEpilogo,
-    prologue: o.prologue || historiaPrologo,
+    dialogs,
+    flags: dropPrivate(overrides.flags || historiaFlags),
+    items,
+    companions: dropPrivate(overrides.companions || historiaCompaneros),
+    reactions: dropPrivate(overrides.reactions || historiaReacciones),
+    quests: dropPrivate(overrides.quests || historiaMisiones),
+    places: (overrides.world || historiaMeta).places,
+    groups: (overrides.world || historiaMeta).groups,
+    lootFlags: (overrides.world || historiaMeta).loot,
+    battles: dropPrivate(overrides.battles || historiaCombates),
+    triggers: (overrides.triggers || historiaDisparadores).triggers,
+    returns: (overrides.triggers || historiaDisparadores).returns,
+    objects: dropPrivate(overrides.objects || historiaObjetosNivel),
+    banter: overrides.banter || historiaCharlas,
+    narration: overrides.narration || historiaNarrador,
+    epilogue: overrides.epilogue || historiaEpilogo,
+    prologue: overrides.prologue || historiaPrologo,
   };
 }
-const dI = {
+/** Archivos de diálogo por clave (la clave es la que usaba el original). */
+const DIALOG_FILES = {
   prologue: dialogosPrologo,
   merrowick: dialogosMerrowick,
   pip: dialogosPip,
@@ -63,6 +66,6 @@ const dI = {
   tumulo: dialogosTumulo,
   companions: dialogosCompaneros,
 };
-const lS = uI();
+const storyData = buildStoryData();
 
-export { lS };
+export { storyData };

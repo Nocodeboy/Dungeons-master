@@ -1,116 +1,122 @@
-// story/actions.js
-// Reconstruido de publicado/juego.js (módulo __esm «pE»). Nombres locales aún minificados.
+// story/actions.js — Efectos de la historia: «verbo:argumento» → objeto {op, …}.
+// Ejemplos: «set:flag=valor», «inc:x+2», «give:potion_healing*2», «approve:brenna+1», «battle:goblins!»
+// («!» = sorpresa), «damage:hero=1d6:fire:dex:12», «travel:kesh:puerta». También acepta objetos
+// ({if, do, else}, {narrate}, {say} o ya con op). Lo usa story/runner.js (StoryRunner.apply).
 
-function dE(o) {
-  if (o && typeof o == 'object') {
-    if (o.if !== void 0 || o.do || o.else)
-      return { op: 'cond', if: o.if, do: o.do || [], else: o.else || [] };
-    if (o.narrate) return { op: 'narrate', moment: o.narrate, lines: o.lines, data: o.data };
-    if (o.say) return { op: 'say', who: o.say, text: o.text };
-    if (o.op) return o;
-    throw new Error(`efecto desconocido: ${JSON.stringify(o)}`);
+/** Convierte un efecto (texto u objeto) en {op, …}; lanza un error si no lo reconoce. */
+function parseEffect(spec) {
+  if (spec && typeof spec == 'object') {
+    if (spec.if !== void 0 || spec.do || spec.else)
+      return { op: 'cond', if: spec.if, do: spec.do || [], else: spec.else || [] };
+    if (spec.narrate) return { op: 'narrate', moment: spec.narrate, lines: spec.lines, data: spec.data };
+    if (spec.say) return { op: 'say', who: spec.say, text: spec.text };
+    if (spec.op) return spec;
+    throw new Error(`efecto desconocido: ${JSON.stringify(spec)}`);
   }
-  let e = String(o).trim(),
-    t = e.indexOf(':'),
-    a = t < 0 ? e : e.slice(0, t),
-    n = t < 0 ? '' : e.slice(t + 1),
-    s = (i) => {
-      let r = i.indexOf('=');
-      return r < 0 ? [i, void 0] : [i.slice(0, r), i.slice(r + 1)];
+  let text = String(spec).trim(),
+    colon = text.indexOf(':'),
+    verb = colon < 0 ? text : text.slice(0, colon),
+    arg = colon < 0 ? '' : text.slice(colon + 1),
+    splitEq = (str) => {
+      let eq = str.indexOf('=');
+      return eq < 0 ? [str, void 0] : [str.slice(0, eq), str.slice(eq + 1)];
     };
-  switch (a) {
+  switch (verb) {
     case 'set': {
-      let [i, r] = s(n);
-      return { op: a, flag: i, value: r === void 0 ? !0 : $v(r) };
+      let [flag, value] = splitEq(arg);
+      return { op: verb, flag, value: value === void 0 ? !0 : parseValue(value) };
     }
     case 'unset':
-      return { op: a, flag: n };
+      return { op: verb, flag: arg };
     case 'inc':
-      return { op: a, flag: n.split('+')[0], by: Number(n.split('+')[1] || 1) };
+      return { op: verb, flag: arg.split('+')[0], by: Number(arg.split('+')[1] || 1) };
     case 'var': {
-      let [i, r] = s(n);
-      return { op: a, name: i, value: r === void 0 ? !0 : $v(r) };
+      let [name, value] = splitEq(arg);
+      return { op: verb, name, value: value === void 0 ? !0 : parseValue(value) };
     }
     case 'gold':
-      return { op: a, delta: Number(n) };
+      return { op: verb, delta: Number(arg) };
     case 'give':
     case 'take': {
-      let [i, r] = n.split('*');
-      return { op: a, item: i, n: Number(r || 1) };
+      let [item, count] = arg.split('*');
+      return { op: verb, item, n: Number(count || 1) };
     }
     case 'recruit':
     case 'dismiss':
     case 'wait':
     case 'raise':
     case 'fire':
-      return { op: a, who: n };
+      return { op: verb, who: arg };
     case 'approve': {
-      let i = /^([a-z_]+)([+-]\d+)$/.exec(n);
-      if (!i) throw new Error(`approve mal escrito: ${e}`);
-      return { op: a, who: i[1], delta: Number(i[2]) };
+      let match = /^([a-z_]+)([+-]\d+)$/.exec(arg);
+      if (!match) throw new Error(`approve mal escrito: ${text}`);
+      return { op: verb, who: match[1], delta: Number(match[2]) };
     }
     case 'decision': {
-      let [i, r] = s(n);
-      return { op: a, id: i, choice: r === void 0 ? !0 : $v(r) };
+      let [id, choice] = splitEq(arg);
+      return { op: verb, id, choice: choice === void 0 ? !0 : parseValue(choice) };
     }
     case 'journal':
     case 'toast':
-      return { op: a, text: n };
+      return { op: verb, text: arg };
     case 'battle':
-      return { op: a, group: n.replace(/!$/, ''), surprise: n.endsWith('!') };
+      return { op: verb, group: arg.replace(/!$/, ''), surprise: arg.endsWith('!') };
     case 'leave':
-      return { op: a, group: n };
+      return { op: verb, group: arg };
     case 'place':
-      return { op: a, id: n };
+      return { op: verb, id: arg };
     case 'object':
     case 'npc': {
-      let [i, r] = s(n);
-      return { op: a, id: i, state: r };
+      let [id, state] = splitEq(arg);
+      return { op: verb, id, state };
     }
     case 'shop':
-      return { op: a, merchant: n };
+      return { op: verb, merchant: arg };
     case 'rest':
-      return { op: a, where: n || 'inn' };
+      return { op: verb, where: arg || 'inn' };
     case 'heal':
-      return { op: a, who: n || 'party' };
+      return { op: verb, who: arg || 'party' };
     case 'damage': {
-      let [i, r = '1d4'] = s(n),
-        [l, c = 'piercing', d, u] = r.split(':');
-      return { op: a, who: i, dice: l, type: c, save: d || null, dc: u ? Number(u) : null };
+      let [who, spec = '1d4'] = splitEq(arg),
+        [dice, type = 'piercing', save, dc] = spec.split(':');
+      return { op: verb, who, dice, type, save: save || null, dc: dc ? Number(dc) : null };
     }
     case 'levelup':
-      return { op: a, level: Number(n) };
+      return { op: verb, level: Number(arg) };
     case 'narrate':
     case 'prefetch':
-      return { op: a, moment: n };
+      return { op: verb, moment: arg };
     case 'sfx':
-      return { op: a, name: n };
+      return { op: verb, name: arg };
     case 'travel': {
-      let [i, r] = n.split(':');
-      return { op: a, level: i, spawn: r };
+      let [level, spawn] = arg.split(':');
+      return { op: verb, level, spawn };
     }
     case 'goto':
-      return { op: a, node: n };
+      return { op: verb, node: arg };
     case 'identify':
     case 'hire':
     case 'refresh':
     case 'proceed':
     case 'end':
     case 'epilogue':
-      return { op: a };
+      return { op: verb };
     default:
-      throw new Error(`efecto desconocido: ${e}`);
+      throw new Error(`efecto desconocido: ${text}`);
   }
 }
-function hE(o, e = Math.random) {
-  let t = /^(\d*)d(\d+)([+-]\d+)?$/.exec(String(o).trim());
-  if (!t) return Number(o) || 0;
-  let a = Number(t[3] || 0);
-  for (let n = 0; n < Number(t[1] || 1); n++) a += 1 + Math.floor(e() * Number(t[2]));
-  return Math.max(0, a);
+/** Tira una expresión «NdM±K» con `rng` (Math.random por defecto); un número se devuelve tal cual. */
+function rollDice(expr, rng = Math.random) {
+  let match = /^(\d*)d(\d+)([+-]\d+)?$/.exec(String(expr).trim());
+  if (!match) return Number(expr) || 0;
+  let total = Number(match[3] || 0);
+  for (let i = 0; i < Number(match[1] || 1); i++) total += 1 + Math.floor(rng() * Number(match[2]));
+  return Math.max(0, total);
 }
-const $v = (o) =>
-  o === 'true' ? !0 : o === 'false' ? !1 : o !== '' && !Number.isNaN(Number(o)) ? Number(o) : o;
-const uE = new Set(['battle', 'shop', 'rest', 'travel', 'epilogue', 'levelup', 'hire']);
+/** «true»/«false» → booleano, números → número, el resto como texto. */
+const parseValue = (str) =>
+  str === 'true' ? !0 : str === 'false' ? !1 : str !== '' && !Number.isNaN(Number(str)) ? Number(str) : str;
+/** Efectos que se aplazan hasta cerrar el diálogo (abren combate, tienda, descanso, viaje…). */
+const DEFERRED_EFFECTS = new Set(['battle', 'shop', 'rest', 'travel', 'epilogue', 'levelup', 'hire']);
 
-export { dE, hE, uE };
+export { parseEffect, rollDice, DEFERRED_EFFECTS };

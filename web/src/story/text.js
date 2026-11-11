@@ -1,48 +1,52 @@
-// story/text.js
-// Reconstruido de publicado/juego.js (módulo __esm «cE»). Nombres locales aún minificados.
+// story/text.js — Textos de la historia: plantillas con el héroe y su pronombre, y nombres de reglas.
+// `formatText` sustituye {hero}, {nombre}, {especie}, {clase}, {trasfondo}, {gold}, {precio}, {var:x}, {flag:x}
+// y las alternativas por pronombre «{o/a/e}» (m/f/n). Lo usa story/runner.js (diálogos, avisos y pruebas).
 
-function lE(o) {
-  let e = { species: sE, class: iE, bg: rE }[o.ns];
-  return e?.[o.name] ? `[${e[o.name][2]}]` : o.ns === 'lineage' && nE[o.name] ? `[${nE[o.name]}]` : null;
+/** Etiqueta «[Humano]», «[Mago]»… de un átomo de condición de especie, clase, trasfondo o linaje (o null). */
+function conditionTag(atom) {
+  let table = { species: SPECIES_WORDS, class: CLASS_WORDS, bg: BACKGROUND_WORDS }[atom.ns];
+  return table?.[atom.name] ? `[${table[atom.name][2]}]` : atom.ns === 'lineage' && LINEAGE_NAMES[atom.name] ? `[${LINEAGE_NAMES[atom.name]}]` : null;
 }
-function fm(o, e) {
-  if (o == null) return '';
-  let t = e?.hero?.() || {},
-    a = LD(t.pronoun);
-  return String(o).replace(/\{([^{}]+)\}/g, (n, s) => {
-    if (s.includes('/')) {
-      let r = s.split('/');
-      return a === 2 ? (r[2] ?? r[0]) : (r[a] ?? r[0]);
+/** Rellena una plantilla de texto con los datos del héroe (ctx.hero()) y del contexto de la historia. */
+function formatText(text, ctx) {
+  if (text == null) return '';
+  let hero = ctx?.hero?.() || {},
+    form = pronounIndex(hero.pronoun);
+  return String(text).replace(/\{([^{}]+)\}/g, (match, key) => {
+    if (key.includes('/')) {
+      let parts = key.split('/');
+      return form === 2 ? (parts[2] ?? parts[0]) : (parts[form] ?? parts[0]);
     }
-    let i = (r, l) => {
-      let c = r[l];
-      return c ? (a === 1 ? c[1] : c[0]) : l || '';
+    let word = (table, id) => {
+      let entry = table[id];
+      return entry ? (form === 1 ? entry[1] : entry[0]) : id || '';
     };
-    switch (s) {
+    switch (key) {
       case 'hero':
-        return t.name || 'forastero';
+        return hero.name || 'forastero';
       case 'nombre':
-        return String(t.name || 'forastero').split(' ')[0];
+        return String(hero.name || 'forastero').split(' ')[0];
       case 'especie':
-        return i(sE, t.species);
+        return word(SPECIES_WORDS, hero.species);
       case 'clase':
-        return i(iE, t.class);
+        return word(CLASS_WORDS, hero.class);
       case 'trasfondo':
-        return i(rE, t.background);
+        return word(BACKGROUND_WORDS, hero.background);
       case 'gold':
-        return String(e?.gold?.() ?? 0);
+        return String(ctx?.gold?.() ?? 0);
       case 'precio':
-        return String(e?.hirePrice?.() ?? 0);
+        return String(ctx?.hirePrice?.() ?? 0);
       default:
-        return s.startsWith('var:')
-          ? String(e?.vars?.[s.slice(4)] ?? '')
-          : s.startsWith('flag:')
-            ? String(e?.flag?.(s.slice(5)) ?? '')
-            : n;
+        return key.startsWith('var:')
+          ? String(ctx?.vars?.[key.slice(4)] ?? '')
+          : key.startsWith('flag:')
+            ? String(ctx?.flag?.(key.slice(5)) ?? '')
+            : match;
     }
   });
 }
-const vc = {
+/** Nombres en español de las habilidades. */
+const SKILL_NAMES = {
   acrobatics: 'Acrobacias',
   animal_handling: 'Trato con animales',
   arcana: 'Arcanos',
@@ -62,7 +66,8 @@ const vc = {
   stealth: 'Sigilo',
   survival: 'Supervivencia',
 };
-const oE = {
+/** Característica de cada habilidad. */
+const SKILL_ABILITIES = {
   athletics: 'str',
   acrobatics: 'dex',
   sleight_of_hand: 'dex',
@@ -82,7 +87,8 @@ const oE = {
   performance: 'cha',
   persuasion: 'cha',
 };
-const yc = {
+/** Nombres en español de las características. */
+const ABILITY_NAMES = {
   str: 'Fuerza',
   dex: 'Destreza',
   con: 'Constituci\xF3n',
@@ -90,7 +96,8 @@ const yc = {
   wis: 'Sabidur\xEDa',
   cha: 'Carisma',
 };
-const sE = {
+/** Especies: [masculino, femenino, etiqueta]. Igual para clases y trasfondos. */
+const SPECIES_WORDS = {
   human: ['humano', 'humana', 'Humano'],
   elf: ['elfo', 'elfa', 'Elfo'],
   half_elf: ['semielfo', 'semielfa', 'Semielfo'],
@@ -103,7 +110,7 @@ const sE = {
   half_orc: ['semiorco', 'semiorca', 'Semiorco'],
   tiefling: ['tiflin', 'tiflin', 'Tiflin'],
 };
-const iE = {
+const CLASS_WORDS = {
   barbarian: ['b\xE1rbaro', 'b\xE1rbara', 'B\xE1rbaro'],
   bard: ['bardo', 'barda', 'Bardo'],
   cleric: ['cl\xE9rigo', 'cl\xE9riga', 'Cl\xE9rigo'],
@@ -117,7 +124,7 @@ const iE = {
   warlock: ['brujo', 'bruja', 'Brujo'],
   wizard: ['mago', 'maga', 'Mago'],
 };
-const rE = {
+const BACKGROUND_WORDS = {
   acolyte: ['ac\xF3lito', 'ac\xF3lita', 'Ac\xF3lito'],
   criminal: ['criminal', 'criminal', 'Criminal'],
   sage: ['sabio', 'sabia', 'Sabio'],
@@ -127,13 +134,15 @@ const rE = {
   noble: ['heredero', 'heredera', 'Heredero'],
   bounty_hunter: ['cazarrecompensas', 'cazarrecompensas', 'Cazarrecompensas'],
 };
-const nE = {
+/** Nombres de los linajes (subespecies). */
+const LINEAGE_NAMES = {
   wood_elf: 'Elfo de los bosques',
   high_elf: 'Alto elfo',
   drow: 'Drow',
   rock_gnome: 'Gnomo de las rocas',
   forest_gnome: 'Gnomo de los bosques',
 };
-const LD = (o) => (o === 'f' ? 1 : o === 'n' ? 2 : 0);
+/** Índice de la forma por pronombre: m → 0, f → 1, n → 2. */
+const pronounIndex = (pronoun) => (pronoun === 'f' ? 1 : pronoun === 'n' ? 2 : 0);
 
-export { fm, lE, oE, vc, yc };
+export { formatText, conditionTag, SKILL_ABILITIES, SKILL_NAMES, ABILITY_NAMES };
