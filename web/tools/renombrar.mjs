@@ -32,8 +32,11 @@
 // su nombre exportado: queda «export { nuevo as viejo }».
 //
 // Antes de cada renombrado se comprueba que el nombre nuevo no capture ni sea capturado por otro
-// enlace (mismo ámbito, ámbitos interiores con ese nombre y referencias externas con ese nombre).
-// Para una garantía completa, compara el bundle legible con tools/comparar-enlaces.mjs.
+// enlace (mismo ámbito, ámbitos interiores con ese nombre y referencias externas con ese nombre); si
+// solo sombrea a un enlace exterior, se avisa. Se rechazan las cadenas dentro de un mismo dueño
+// («f/b → i» y «f/i → n»): al reaplicar, «f/i» encontraría el antiguo «b». `--abreviar` solo toca
+// los archivos que son claves del mapa. Para una garantía completa, compara el bundle legible con
+// tools/comparar-enlaces.mjs.
 import fs from 'node:fs';
 import path from 'node:path';
 import { parse } from '@babel/parser';
